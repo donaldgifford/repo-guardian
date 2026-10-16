@@ -536,3 +536,59 @@ func TestControlsStore_RoutingReads(t *testing.T) {
 		t.Errorf("OrgRepositories after park = %v, %v; want only active repositories", ids, err)
 	}
 }
+
+// TestControlsStore_ChangeDetection is IMPL-0029 task 5.11's store table,
+// as rg_evaluator: the first evaluation and each fingerprint change bump
+// the generation, a repeat does not, and a control an evaluation did not
+// select keeps its evaluated_sha.
+func TestControlsStore_ChangeDetection(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+
+	renovate := codeowners("r1")
+	renovate.Control.Slug = "renovate"
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1"), renovate}})
+	epoch := epochOf(t, dsns.Owner, repo.ID)
+
+	var renovateEpoch int64
+	queryArgs(t, dsns.Owner, `SELECT epoch FROM control_assignments WHERE repository_id = $1 AND control_id = 'renovate'`, &renovateEpoch, repo.ID)
+
+	evaluation := func(id string, e int64, fp, sha string) store.ControlEvaluation {
+		return store.ControlEvaluation{
+			ControlID: id, ControlVersion: 1, Revision: "r1", Epoch: e, Status: "compliant", Fingerprint: fp, EvaluatedSHA: sha,
+			Rules: []store.RuleEvaluation{{RuleID: "exists", Status: "pass", Evidence: json.RawMessage(`{}`), EvidenceKind: "k", EvidenceVersion: 1}},
+		}
+	}
+
+	steps := []struct {
+		key      string
+		controls []store.ControlEvaluation
+		want     []string // controls whose generation is bumped
+	}{
+		{key: "k1", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f1", "sha1"), evaluation("renovate", renovateEpoch, "g1", "sha1")},
+			want: []string{"codeowners", "renovate"}},
+		{key: "k2", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f1", "sha2")}},
+		{key: "k3", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f2", "sha3")}, want: []string{"codeowners"}},
+	}
+
+	for _, st := range steps {
+		if err := s.StageEvaluation(ctx, &store.EvaluationStage{
+			CheckKey: st.key, RepositoryID: repo.ID, Trigger: "push", PolicyVersion: testPolicyVersion, StartedAt: time.Now(), Controls: st.controls,
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := s.RecordEvaluation(ctx, st.key)
+		if got := slices.Sorted(slices.Values(out.Changed)); err != nil || !slices.Equal(got, st.want) {
+			t.Errorf("record %s changed %v, %v; want %v", st.key, got, err, st.want)
+		}
+	}
+
+	var codeownersSHA, renovateSHA string
+	queryArgs(t, dsns.Owner, `SELECT evaluated_sha FROM control_results WHERE repository_id = $1 AND control_id = 'codeowners'`, &codeownersSHA, repo.ID)
+	queryArgs(t, dsns.Owner, `SELECT evaluated_sha FROM control_results WHERE repository_id = $1 AND control_id = 'renovate'`, &renovateSHA, repo.ID)
+
+	if codeownersSHA != "sha3" || renovateSHA != "sha1" {
+		t.Errorf("evaluated_sha codeowners %q, renovate %q; want sha3 and the unselected renovate's sha1 kept", codeownersSHA, renovateSHA)
+	}
+}

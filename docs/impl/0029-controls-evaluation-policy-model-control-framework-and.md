@@ -1155,11 +1155,22 @@ evaluator's store.
   - `TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals`: a 256-path, 60-byte-path signal during every one of the 100 evaluations, and two disjoint ones during the last, to measure the INV-0022 spike 5(c) bound.
 
   Finding fixed: `coalesce` had no cap, so disjoint maximum signals grew the carried state without bound. A union past the new `workflows.MaxChangedPaths` (256, which ingest's filter now uses too) becomes unknown. The ContinueAsNew state stays under 1 KB; with the cap removed it read 32 KB and the test failed. A `TestCoalesce` row covers the cap.
-- [ ] 5.11 Change-detection tables (activity plus store): status change,
+- [x] 5.11 Change-detection tables (activity plus store): status change,
   file blob change, API value change with unchanged statuses, revision
   change and a first evaluation bump the generation; a cosmetic title
   edit and an unrelated push do not; unselected controls keep their
   `evaluated_sha`.
+  Done. Activity table: `TestEvaluate_ChangeDetection` runs a file control and an API control (a label) through `Evaluator.Evaluate`.
+  - These move the fingerprint (the store bumps the generation on exactly that): a status change, a file blob change, a label colour change with statuses unchanged, and a revision change.
+  - An unrelated push moves neither.
+
+  `TestPolicyRevision_CosmeticTitleEdit` loads two policy roots that differ only in titles and gets one revision.
+
+  Store table, as rg_evaluator: `TestControlsStore_ChangeDetection`.
+  - The first evaluation bumps both controls.
+  - A repeated fingerprint bumps nothing.
+  - A changed fingerprint bumps one.
+  - The unselected `renovate` keeps its `evaluated_sha`.
 - [ ] 5.12 `TestIntegration_OneEvaluation` (`-tags integration`):
   `temporaltest`, the controls chain in `pgtest` and the GitHub fake run
   discovery → resolution → evaluation → recorded results for a fixture

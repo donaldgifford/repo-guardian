@@ -271,7 +271,7 @@ selector migration.
 
 #### Tasks
 
-- [ ] 2.1 `components/shell/nav.ts`: the nav array (`group`, `label`,
+- [x] 2.1 `components/shell/nav.ts`: the nav array (`group`, `label`,
   `to`, `icon`, optional `count` selector) with `BUSINESS` (Fleet,
   Rules, Orgs, Findings ← `summary.findings.non_compliant`), `PUBLIC`
   (Status page) and `DOCS` (Documentation, present only when

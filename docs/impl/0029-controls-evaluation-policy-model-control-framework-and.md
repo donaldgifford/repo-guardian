@@ -304,7 +304,7 @@ calls `Type.Build`.
   not recorded (org-level). `control.ErrPermission` is produced by the
   GitHub adapter (`classifyRead`: a 403 that is not a throttle), which
   also returns `ErrNotRegularFile` for a symlink or submodule.
-- [ ] 1.8 `file.go`: `FileSpec`, `LocateFile` (first location found
+- [x] 1.8 `file.go`: `FileSpec`, `LocateFile` (first location found
   wins; every location recorded, absent ones included), and the
   file-control adapter that turns a type's `Parse`, `Check`, `Fix` and
   `Render` into `Evaluate` and `Remediate` per DESIGN-0031's flowchart:
@@ -313,6 +313,18 @@ calls `Type.Build`.
   and every rule `Blocked` with a note; present → `Check` each rule, `Fix`
   the failing remediable ones at the found path, the rest `Manual`. A
   parser size cap is a required field of the adapter.
+  Done: `NewFileControl[M](FileControlConfig[M])` over a generic
+  `FileType[M]` (`Parse`, `Check`, `Fix` returning the ids it fixed,
+  `Render`); it refuses a missing `MaxBytes`, an empty or non-canonical
+  `FileSpec`, a `Canonical` outside `Locations`, and a remediable rule
+  with no template. `LocateFile` reads every location; a read error at or
+  above the found one is returned, one below it ignored. Beyond the
+  flowchart: an oversized file is `unknown{file_too_large}`, a 403
+  `unknown{permission}`, a symlink or submodule `unknown{not_regular_file}`
+  and a transient read failure `error{read_error}`, all never written and
+  every rule `Blocked`. A `*ParseError` puts its line in the evidence. A
+  `Fix` that leaves the bytes unchanged fixes nothing (the rules go to
+  `Manual`).
 - [ ] 1.9 `registry.go`: `Registry` with `Register`, `Type(name)` and
   `Build(def, env)`. `Build` fails on an unknown type, an unknown rule
   kind, a parameter not in `RuleKindSpec` or of the wrong type, a missing

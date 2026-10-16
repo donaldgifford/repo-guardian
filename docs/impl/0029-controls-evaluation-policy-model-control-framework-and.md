@@ -1348,8 +1348,11 @@ evaluator's store.
   EvaluationFreshness, StoreErrors, NoWorkerPollers and TemporalUnreachable,
   plus a regex refusing any rc-era series; that assertion was confirmed to
   fail when pointed at a live series. 243/243 helm-unittest.
-- [ ] 6.8 `make monitoring-generate`; commit `contrib/generated/`;
+- [x] 6.8 `make monitoring-generate`; commit `contrib/generated/`;
   `make lint-monitoring` green.
+  Done: `make monitoring-generate` rewrote the static tier (unconfigured:
+  nil snapshot, discovered org rows, 15 alert rules); `make lint-monitoring`
+  ✓ current; `make lint-alerts` green (15 chart rules, promtool SUCCESS).
 - [ ] 6.9 `internal/report` over control results: per-org sections keyed
   by control with buckets, coverage, baseline versus org-added, and
   exclusions; the shared percent definition with "no data"; goldens

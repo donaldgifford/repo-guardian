@@ -2,48 +2,46 @@
 groups:
   - name: repo-guardian
     rules:
-      - alert: RepoGuardianNoRepoChecks
-        expr: sum(increase(repo_guardian_repos_checked_total[2h])) == 0
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          description: The sweep, the queue, or the worker pool has stopped. Check scheduler_is_leader and queue_depth first.
-          summary: repo-guardian has checked no repositories in 2 hours
-      - alert: RepoGuardianHighErrorRate
+      - alert: RepoGuardianEvaluationErrorRate
         expr: |-
           (
-            sum(rate(repo_guardian_errors_total[15m]))
+            sum(rate(repo_guardian_evaluations_total{outcome="error"}[15m]))
             /
-            clamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)
+            (sum(rate(repo_guardian_evaluations_total[15m])) > 0)
           ) > 0.10
         for: 10m
         labels:
           severity: warning
         annotations:
-          description: clamp_min keeps the ratio defined when no check has completed in the window.
-          summary: More than 10% of repository checks are failing
-      - alert: RepoGuardianAllChecksFailing
+          description: 'At 100% the evaluator cannot read GitHub or the store at all: usually the Evaluation App''s credentials, connectivity, or a policy that fails to load.'
+          summary: More than 10% of evaluations are failing
+      - alert: RepoGuardianControlEvaluationErrors
         expr: |-
-          (
-            sum(rate(repo_guardian_errors_total[30m])) > 0
-            and
-            sum(rate(repo_guardian_repos_checked_total[30m])) == 0
-          )
-        for: 15m
-        labels:
-          severity: critical
-        annotations:
-          description: Errors are being recorded and no check is completing. Usually credentials, connectivity, or a policy that fails to load.
-          summary: Every repository check is failing
-      - alert: RepoGuardianSlowChecks
-        expr: histogram_quantile(0.99, sum(rate(repo_guardian_check_duration_seconds_bucket[15m])) by (le)) > 30
+          increase(repo_guardian_evaluation_errors_total[1h]) > 0
+          or
+          (repo_guardian_evaluation_errors_total unless repo_guardian_evaluation_errors_total offset 1h) > 0
         for: 15m
         labels:
           severity: warning
         annotations:
-          description: Usually GitHub API latency or a repository with an unusually large file set.
-          summary: p99 repository check duration is above 30s
+          description: 'The control could not evaluate: a GitHub read it needs failed or was refused. One control erroring across an org is usually a missing App permission; the E4 logs name the repositories.'
+          summary: A control is returning an error status
+      - alert: RepoGuardianEvaluationFreshness
+        expr: histogram_quantile(0.95, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[6h]))) > 172800
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          description: 'Evaluation is not keeping up with the fleet: check the evaluation queue''s schedule-to-start latency and budget waits before raising EVALUATOR_CONCURRENCY.'
+          summary: Controls are re-evaluated more than two days apart (p95)
+      - alert: RepoGuardianStaleEpochDiscards
+        expr: sum(increase(repo_guardian_results_discarded_total{reason="stale_epoch"}[2h])) > 100
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          description: Assignments change between evaluation and record faster than evaluations finish — usually a policy being re-activated repeatedly. Evaluation work is being thrown away.
+          summary: Evaluations keep being discarded for a moved assignment epoch
       - alert: RepoGuardianNoWebhooks
         expr: increase(repo_guardian_webhook_received_total[24h]) == 0
         for: 1h
@@ -60,90 +58,13 @@ groups:
         annotations:
           description: Signature validation failures (401s) — usually a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not here (DESIGN-0023).
           summary: Webhook requests are being rejected
-      - alert: RepoGuardianPostureExportStalled
-        expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0
-        for: 30m
-        labels:
-          severity: critical
-        annotations:
-          description: Every compliance gauge is now stale but still being served, so dashboards show old numbers as if they were current. Check the leader and the store.
-          summary: The posture exporter has not completed a successful tick in an hour
-  - name: repo-guardian.pr-convergence
-    rules:
-      - alert: RepoGuardianPRBurst
-        expr: sum(increase(repo_guardian_prs_created_total[1h])) > 50
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          description: Usually a policy change that made a rule actionable fleet-wide. Verify it was intended before the PRs land.
-          summary: More than 50 PRs opened in an hour
-      - alert: RepoGuardianStaleOpenPRs
-        expr: max(repo_guardian_open_prs_by_rule{age_bucket="30d+"}) > 0
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          description: 'Nobody is merging them, or they are stuck. Note this threshold assumes auto-close is on: with auto_close_pr = false a satisfied PR stays open by design and will trip this eventually.'
-          summary: A repo-guardian PR has been open for over 30 days
-      - alert: RepoGuardianPRDrift
-        expr: sum(rate(repo_guardian_pr_open_with_empty_actionable_total[1h])) > 0
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          description: Every rule is satisfied on the default branch but the PR is still open, so auto-close is not converging. This is the INV-0005 drift surface.
-          summary: Open PRs have no actionable rule left
   - name: repo-guardian.multi-replica
     rules:
-      - alert: RepoGuardianQueueDepthHigh
-        expr: max(repo_guardian_queue_depth{queue="jobs"}) > 1000
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          description: Workers are not keeping up. Scale replicas or raise worker concurrency.
-          summary: Job queue depth is above 1000
-      - alert: RepoGuardianReaperRequeues
-        expr: rate(repo_guardian_queue_reaped_total[15m]) > 0.1
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          description: Workers are dying mid-job or exceeding JOB_ACK_TIMEOUT. Every reap duplicates work against an API budget that is probably already tight.
-          summary: Jobs are being reaped and requeued
-      - alert: RepoGuardianQueueBackpressure
-        expr: max(repo_guardian_queue_delayed_depth) > 100
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          description: Sustained rate-limit backpressure (IMPL-0022). Jobs are deferring rather than failing, which is correct, but the fleet is not converging.
-          summary: More than 100 jobs are parked in the delayed set
-      - alert: RepoGuardianJobsExhausted
-        expr: |-
-          sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
-          or
-          sum(repo_guardian_queue_attempts_exhausted_total unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          description: The second disjunct catches the first-ever increment; see firstOrIncrease.
-          summary: A job hit MAX_JOB_ATTEMPTS and was dropped
-      - alert: RepoGuardianNoSchedulerLeader
-        expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          description: 'Nothing is enqueuing stale repositories. Aggregate with max, never sum: during failover both replicas can briefly hold a series.'
-          summary: No replica holds the stale-sweep leader lock
-      - alert: RepoGuardianStoreQueryErrors
+      - alert: RepoGuardianStoreErrors
         expr: |-
           sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m]))
           /
-          sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0.1
+          (sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0) > 0.1
         for: 10m
         labels:
           severity: warning
@@ -156,27 +77,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: Fed solely by the sweep's per-installation sample. If that sampling is ever removed this series goes unfed and the alert silently stops working.
+          description: Set by every evaluation from the response headers. The installation budget defers evaluations until the reset, so work waits rather than fails.
           summary: GitHub API budget is nearly exhausted
-      - alert: RepoGuardianRateLimitThrottling
-        expr: sum(increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h])) > 10
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          description: The IMPL-0022 delayed-requeue path is active. Work is not being lost, but throughput is capped by the API budget.
-          summary: Jobs are being deferred for rate limiting
-      - alert: RepoGuardianRepoAccessDenied
-        expr: |-
-          increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > 0
-          or
-          (repo_guardian_repos_parked_total{reason="access_denied"} unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          description: The App lost access, or was never granted it. The repository is excluded from every compliance number until discovery sees it again (INV-0015).
-          summary: A repository was parked because the installation cannot read it
   - name: repo-guardian.temporal
     rules:
       - alert: RepoGuardianTemporalActivityBacklog
@@ -185,7 +87,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: 'Far above Temporal''s generic 200ms on purpose: checks are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.'
+          description: 'Far above Temporal''s generic 200ms on purpose: evaluations are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add evaluator replicas (or KEDA maxReplicas) or EVALUATOR_CONCURRENCY, within the GitHub budget.'
           summary: Activities wait more than a minute (p99) for a worker slot
       - alert: RepoGuardianTemporalStickyCacheEvictions
         expr: sum(rate(temporal_sticky_cache_total_forced_eviction[30m])) > 1
@@ -193,7 +95,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: More long-lived workflows are active than the sticky cache holds (one RepoWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache.
+          description: More long-lived workflows are active than the sticky cache holds (one EvaluationWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache.
           summary: Workers are force-evicting cached workflows
       - alert: RepoGuardianTemporalWorkerSlotsExhausted
         expr: max by (task_queue, worker_type) (temporal_worker_task_slots_available{worker_type=~"WorkflowWorker|ActivityWorker"}) == 0
@@ -201,7 +103,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          description: Every worker's slots are in use, so new tasks queue. Add worker replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget.
+          description: Every worker's slots are in use, so new tasks queue. Add worker replicas, or raise EVALUATOR_CONCURRENCY within the GitHub budget.
           summary: No worker has a free task slot
       - alert: RepoGuardianTemporalWorkflowTaskLatency
         expr: histogram_quantile(0.99, sum by (le, task_queue) (rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))) > 0.2
@@ -211,3 +113,30 @@ groups:
         annotations:
           description: Temporal's recommended threshold. Workflow tasks are short, so waiting means workers are saturated, down, or their build is not the deployment's current version (check the worker's deployment readiness check).
           summary: Workflow tasks wait more than 200ms (p99) to start
+      - alert: RepoGuardianTemporalWorkflowTaskFailures
+        expr: sum by (task_queue) (rate(temporal_workflow_task_execution_failed[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          description: 'A failing workflow task retries forever and its workflow makes no progress. Almost always nondeterminism: a workflow change shipped without workflow.GetVersion. The worker log names the workflow id.'
+          summary: Workflow tasks are failing
+      - alert: RepoGuardianTemporalNoWorkerPollers
+        expr: max by (task_queue, poller_type) (temporal_num_pollers{poller_type=~"workflow_task|activity_task"}) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          description: 'The process is up but takes no tasks: usually lost connectivity to the frontend or a build that is not the deployment''s current version.'
+          summary: A worker has stopped polling its task queue
+      - alert: RepoGuardianTemporalUnreachable
+        expr: |-
+          sum(rate(temporal_long_request_failure[10m]))
+          /
+          (sum(rate(temporal_long_request[10m])) > 0) > 0.5
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          description: 'Workers cannot reach the Temporal frontend: check the address, mTLS material and the frontend''s own health. Nothing evaluates until it recovers.'
+          summary: Most Temporal polls are failing

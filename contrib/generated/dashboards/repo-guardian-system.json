@@ -86,7 +86,7 @@
         }
       ],
       "title": "Webhook latency p99",
-      "description": "Server-side request duration. A rise here with a flat error rate usually means the handler is blocking on the queue rather than failing.",
+      "description": "Server-side request duration. A rise here with a flat error rate usually means ingest is waiting on Temporal to start the webhook workflow rather than failing.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -176,7 +176,7 @@
         }
       ],
       "title": "GitHub API latency p99",
-      "description": "Client-side request duration to GitHub. The usual cause of a rising check duration.",
+      "description": "Client-side request duration to GitHub. The usual cause of a rising evaluation duration.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -213,7 +213,7 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "Queue",
+      "title": "Temporal",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -227,14 +227,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "max by (queue) (repo_guardian_queue_depth)",
+          "expr": "histogram_quantile(0.99,\n  sum by (le, task_queue) (rate(temporal_activity_schedule_to_start_latency_seconds_bucket[15m]))\n)",
           "instant": false,
-          "legendFormat": "{{ queue }}",
+          "legendFormat": "{{ task_queue }}",
           "range": true
         }
       ],
-      "title": "Queue depth",
-      "description": "Jobs waiting in each key. `jobs` is the ready list; a depth that only grows means workers are not keeping up.",
+      "title": "Activity schedule-to-start p99",
+      "description": "How long an evaluation waited for a worker slot, per task queue. The evaluation queue and the remediation queue scale separately, so read them separately.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -245,192 +245,6 @@
         "w": 12,
         "x": 0,
         "y": 20
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "max(repo_guardian_queue_delayed_depth)",
-          "instant": false,
-          "legendFormat": "delayed",
-          "range": true
-        }
-      ],
-      "title": "Delayed (deferred) jobs",
-      "description": "Jobs parked in the delayed ZSET awaiting promotion. Sustained depth is rate-limit backpressure: work is not being lost, but the fleet is not converging either. Promotion lags due-time by up to one REAPER_INTERVAL by design.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 20
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum by (reason) (rate(repo_guardian_queue_delayed_total[15m]))",
-          "instant": false,
-          "legendFormat": "{{ reason }}",
-          "range": true
-        }
-      ],
-      "title": "Deferrals by reason",
-      "description": "Why jobs were parked. A deferral is not a failure — the check never ran, so it is deliberately absent from errors_total and from the repo's write-back.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 29
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum(rate(repo_guardian_queue_reaped_total[15m]))",
-          "instant": false,
-          "legendFormat": "reaped",
-          "range": true
-        },
-        {
-          "expr": "sum(rate(repo_guardian_queue_attempts_exhausted_total[15m]))",
-          "instant": false,
-          "legendFormat": "exhausted",
-          "range": true
-        }
-      ],
-      "title": "Reaps and exhausted jobs",
-      "description": "Reaps mean workers died mid-job or exceeded JOB_ACK_TIMEOUT, and every reap duplicates work against an API budget that is probably already tight. Exhausted means a job hit MAX_JOB_ATTEMPTS and was dropped; the stale sweep is its recovery path.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 29
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(repo_guardian_queue_wait_seconds_bucket[15m])))",
-          "instant": false,
-          "legendFormat": "p99",
-          "range": true
-        }
-      ],
-      "title": "Queue wait p99",
-      "description": "How long a job sat before a worker claimed it.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 38
       },
       "repeatDirection": "h",
       "options": {
@@ -458,14 +272,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (state) (db_client_connections_usage{db_system=\"redis\"})",
+          "expr": "histogram_quantile(0.99,\n  sum by (le, task_queue) (rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))\n)",
           "instant": false,
-          "legendFormat": "{{ state }}",
+          "legendFormat": "{{ task_queue }}",
           "range": true
         }
       ],
-      "title": "Valkey connection pool",
-      "description": "redisotel's semconv pool gauge. Note db_system is \"redis\" — the library reports the protocol, not the server, and repo-guardian runs Valkey.",
+      "title": "Workflow task schedule-to-start p99",
+      "description": "Workflow tasks are short; waiting here means workers are saturated or gone. Temporal recommends alerting above 200ms.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -475,7 +289,495 @@
         "h": 9,
         "w": 12,
         "x": 12,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "min by (task_queue, worker_type) (temporal_worker_task_slots_available)",
+          "instant": false,
+          "legendFormat": "{{ task_queue }} {{ worker_type }}",
+          "range": true
+        }
+      ],
+      "title": "Free worker task slots",
+      "description": "Lowest free slot count per queue and worker type. Zero on every pod is saturation; zero on one busy pod is normal.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(temporal_sticky_cache_total_forced_eviction[15m]))",
+          "instant": false,
+          "legendFormat": "evictions",
+          "range": true
+        }
+      ],
+      "title": "Sticky cache forced evictions",
+      "description": "More long-lived workflows than the sticky cache holds. Every EvaluationWorkflow is one, so this tracks fleet size against the worker cache.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Evaluation",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
         "y": 38
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(repo_guardian_evaluations_total[15m]))",
+          "instant": false,
+          "legendFormat": "{{ outcome }}",
+          "range": true
+        }
+      ],
+      "title": "Evaluations by outcome",
+      "description": "Evaluations finished per second. A deferral is not here: the evaluation never ran, so it has no outcome.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (control) (rate(repo_guardian_evaluation_errors_total[15m]))",
+          "instant": false,
+          "legendFormat": "{{ control }}",
+          "range": true
+        }
+      ],
+      "title": "Evaluation errors by control",
+      "description": "Control evaluations with an error status. One control erroring everywhere is a control or permission problem; every control erroring is the evaluator.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(repo_guardian_evaluation_changes_total[15m]))",
+          "instant": false,
+          "legendFormat": "changes",
+          "range": true
+        },
+        {
+          "expr": "sum by (reason) (rate(repo_guardian_results_discarded_total[15m]))",
+          "instant": false,
+          "legendFormat": "discarded ({{ reason }})",
+          "range": true
+        }
+      ],
+      "title": "Recorded changes and stale-epoch discards",
+      "description": "Changes are results whose generation moved. Discards are staged results the record step dropped because the assignment changed underneath the evaluation; a steady trickle during a policy rollout is expected, a sustained rate is not.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[1h])))",
+          "instant": false,
+          "legendFormat": "p50",
+          "range": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[1h])))",
+          "instant": false,
+          "legendFormat": "p95",
+          "range": true
+        }
+      ],
+      "title": "Evaluation freshness",
+      "description": "Age of a control's previous result when it is re-evaluated. The p50 sits near EVAL_INTERVAL by design; a p95 well past it means the fleet is not keeping up.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Budget and discovery",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(repo_guardian_budget_acquire_total[15m]))",
+          "instant": false,
+          "legendFormat": "{{ result }}",
+          "range": true
+        }
+      ],
+      "title": "Budget acquisitions by result",
+      "description": "The per-installation budget's answers. optimistic means no rate report yet, so the budget granted blind; wait means the evaluation sleeps until the reset.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 58
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "min by (installation_id) (repo_guardian_rate_limit_remaining)",
+          "instant": false,
+          "legendFormat": "{{ installation_id }}",
+          "range": true
+        }
+      ],
+      "title": "GitHub API budget remaining",
+      "description": "Remaining core budget per installation, as the last response reported it.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 58
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (installation_id) (increase(repo_guardian_repo_discovered_total[1h]))",
+          "instant": false,
+          "legendFormat": "{{ installation_id }}",
+          "range": true
+        }
+      ],
+      "title": "Repositories discovered",
+      "description": "New or reactivated repositories per installation. Discovery is the only path that un-parks a repository.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 67
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (increase(repo_guardian_discovery_api_calls_total[1h]))",
+          "instant": false,
+          "legendFormat": "{{ endpoint }}",
+          "range": true
+        }
+      ],
+      "title": "Discovery API calls",
+      "description": "Listing calls per endpoint. Discovery is not budget-gated, so this is its whole cost against the rate limit.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 67
       },
       "repeatDirection": "h",
       "options": {
@@ -507,7 +809,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 76
       },
       "id": 0,
       "panels": []
@@ -516,14 +818,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum by (le, query) (rate(repo_guardian_store_query_seconds_bucket[15m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(repo_guardian_store_query_seconds_bucket[15m])))",
           "instant": false,
-          "legendFormat": "{{ query }}",
+          "legendFormat": "{{ operation }}",
           "range": true
         }
       ],
       "title": "Store query latency p99",
-      "description": "repo-guardian's own query timer, which measures the statement rather than the connection. Pair it with the pool panels: a p99 that rises while acquisitions stay flat is Postgres, not saturation here.",
+      "description": "repo-guardian's own query timer, which measures the statement rather than the connection. Pair it with pool wait: a p99 that rises while pool wait stays flat is Postgres, not saturation here.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -533,7 +835,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 77
       },
       "repeatDirection": "h",
       "options": {
@@ -561,13 +863,13 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(repo_guardian_store_query_seconds_count{outcome=\"error\"}[10m]))\n/\nclamp_min(sum(rate(repo_guardian_store_query_seconds_count[10m])), 1)",
+          "expr": "sum(rate(repo_guardian_store_query_seconds_count{outcome=\"error\"}[10m]))\n/\n(sum(rate(repo_guardian_store_query_seconds_count[10m])) \u003e 0)",
           "instant": false,
           "range": true
         }
       ],
       "title": "Store query failure rate",
-      "description": "Share of store queries returning an error. Backs RepoGuardianStoreQueryErrors.",
+      "description": "Share of store queries returning an error. The `\u003e 0` keeps an idle store at 'no data' rather than a division by zero.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -577,7 +879,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 77
       },
       "repeatDirection": "h",
       "options": {
@@ -595,6 +897,51 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, role) (rate(repo_guardian_store_pool_wait_seconds_bucket[15m])))",
+          "instant": false,
+          "legendFormat": "{{ role }}",
+          "range": true
+        }
+      ],
+      "title": "Pool wait p99 by role",
+      "description": "Time a store call waited for a connection. Postgres is shared capacity: this is where evaluator, remediator and api load meet.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 86
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
           "noValue": "no data",
           "custom": {}
         },
@@ -633,8 +980,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
-        "y": 57
+        "x": 12,
+        "y": 86
       },
       "repeatDirection": "h",
       "options": {
@@ -678,8 +1025,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 12,
-        "y": 57
+        "x": 0,
+        "y": 95
       },
       "repeatDirection": "h",
       "options": {
@@ -704,17 +1051,30 @@
       }
     },
     {
+      "type": "row",
+      "collapsed": false,
+      "title": "API",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 104
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (outcome) (rate(repo_guardian_store_writeback_total[15m]))",
+          "expr": "sum by (reason) (rate(repo_guardian_api_auth_failures_total[15m]))",
           "instant": false,
-          "legendFormat": "{{ outcome }}",
+          "legendFormat": "{{ reason }}",
           "range": true
         }
       ],
-      "title": "State write-back outcomes",
-      "description": "Every processed job writes its result back best-effort. Errors here never fail a job — the queue is the source of truth for 'did we do the work' — but a sustained error rate means posture is drifting from reality.",
+      "title": "API authentication failures",
+      "description": "Refused requests by reason. A burst of one reason (issuer, audience, signature) after an IdP change is a configuration mismatch, not an attack.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -724,7 +1084,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 66
+        "y": 105
       },
       "repeatDirection": "h",
       "options": {
@@ -752,14 +1112,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.99,\n  sum by (le) (rate(repo_guardian_store_writeback_duration_seconds_bucket[15m]))\n)",
+          "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(repo_guardian_api_status_refresh_seconds_bucket[15m])))",
           "instant": false,
-          "legendFormat": "p99",
+          "legendFormat": "{{ outcome }}",
           "range": true
         }
       ],
-      "title": "Write-back latency p99",
-      "description": "Should sit well under 50ms; it is on the job's critical path.",
+      "title": "Status page refresh p99",
+      "description": "The background read behind /status. The page itself never queries, so a slow refresh ages the page rather than slowing requests.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -769,7 +1129,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 66
+        "y": 105
       },
       "repeatDirection": "h",
       "options": {
@@ -796,12 +1156,12 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "Runtime and sweeps",
+      "title": "Runtime",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 75
+        "y": 114
       },
       "id": 0,
       "panels": []
@@ -817,7 +1177,7 @@
         }
       ],
       "title": "Goroutines",
-      "description": "A count that only grows is a leak. Worth watching after any change to the worker pool or the reaper.",
+      "description": "A count that only grows is a leak. Worth watching after any change to worker concurrency.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -827,7 +1187,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 76
+        "y": 115
       },
       "repeatDirection": "h",
       "options": {
@@ -862,7 +1222,7 @@
         }
       ],
       "title": "Resident memory",
-      "description": "Process RSS per replica.",
+      "description": "Process RSS per replica. The evaluator's grows with the sticky workflow cache.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -872,7 +1232,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 76
+        "y": 115
       },
       "repeatDirection": "h",
       "options": {
@@ -890,231 +1250,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "max by (name) (repo_guardian_scheduler_is_leader)",
-          "instant": false,
-          "legendFormat": "{{ name }}",
-          "range": true
-        }
-      ],
-      "title": "Scheduler leadership",
-      "description": "1 where a replica holds a named lock. Aggregated with max by (name), never sum: during failover both replicas can briefly hold a series, and summing reports two leaders where there is one.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 85
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95,\n  sum by (le) (rate(repo_guardian_scheduler_sweep_batch_size_bucket[1h]))\n)",
-          "instant": false,
-          "legendFormat": "p95",
-          "range": true
-        }
-      ],
-      "title": "Stale-sweep batch size",
-      "description": "Repositories enqueued per sweep. A batch pinned at the configured cap means the sweep is truncating and the fleet is not converging within one interval.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 85
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(repo_guardian_discovery_duration_seconds_bucket[1h])))",
-          "instant": false,
-          "legendFormat": "p99",
-          "range": true
-        }
-      ],
-      "title": "Discovery duration p99",
-      "description": "How long one discovery pass takes to enumerate installations and repositories.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 94
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum by (outcome) (rate(repo_guardian_posture_export_total[1h]))",
-          "instant": false,
-          "legendFormat": "{{ outcome }}",
-          "range": true
-        }
-      ],
-      "title": "Posture export health",
-      "description": "Successful and failed posture ticks. Zero successes means every gauge on E1 and E2 is frozen but still being served — the one failure those gauges cannot show about themselves.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 94
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99,\n  sum by (le) (rate(repo_guardian_posture_export_duration_seconds_bucket[1h]))\n)",
-          "instant": false,
-          "legendFormat": "p99",
-          "range": true
-        }
-      ],
-      "title": "Posture export duration p99",
-      "description": "The store read behind the posture gauges. A slow read delays every number on E1.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 103
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
           "noValue": "no data",
           "custom": {}
         },

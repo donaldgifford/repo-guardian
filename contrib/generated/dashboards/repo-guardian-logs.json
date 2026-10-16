@@ -167,12 +167,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (owner, repo) (\n  count_over_time({app=\"repo-guardian\"} |= \"catalog-info parse failed\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }}"
+          "expr": "sum by (repository_id, reason) (\n  count_over_time({app=\"repo-guardian\"} |= \"parking repository until discovery sees it again\" | json [1h])\n)",
+          "legendFormat": "{{ repository_id }} ({{ reason }})"
         }
       ],
-      "title": "Repositories with an unparseable catalog-info",
-      "description": "The named counterpart to catalog_parse_failed_total, which says how many but not which. A repository here has had its custom properties left alone rather than cleared — deliberately (INV-0011 A1), and invisibly until you look here.",
+      "title": "Parked repositories",
+      "description": "Repositories the Evaluation App can no longer read — archived, forked, transferred or un-installed. Parking is why assignments can fall without anything being wrong, and this is the only per-repository record of it.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -210,12 +210,12 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |= \"catalog-info parse failed\" | json",
+          "expr": "{app=\"repo-guardian\"} |= \"assignment awaits re-resolution\" | json",
           "maxLines": 200
         }
       ],
-      "title": "catalog-info parse failures",
-      "description": "The `err` field says what is wrong with the file. Note the sibling condition — a valid non-Component entity — logs at INFO under a different message and is not a fault; this panel deliberately does not match it.",
+      "title": "Assignments awaiting re-resolution",
+      "description": "Stored assignments whose control revision the running policy no longer carries. They are skipped, not failed, until the policy rollout re-resolves the repository; one that stays here past POLICY_ROLLOUT_WINDOW is stuck.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -241,15 +241,15 @@
       }
     },
     {
-      "type": "timeseries",
+      "type": "logs",
       "targets": [
         {
-          "expr": "sum by (owner, repo, reason) (\n  count_over_time({app=\"repo-guardian\"} |= \"parking repository until discovery sees it again\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }} ({{ reason }})"
+          "expr": "{app=\"repo-guardian\"} |= \"controls discovery: installation listing incomplete\" | json",
+          "maxLines": 200
         }
       ],
-      "title": "Parked repositories",
-      "description": "Repositories the installation can no longer read — archived, forked, transferred or un-installed. Parking is why repos_tracked can fall without anything being wrong, and this is the only per-repository record of it.",
+      "title": "Incomplete discovery listings",
+      "description": "An installation whose repository listing failed. Discovery parks nothing after an incomplete listing, so a removed repository stays assigned until a pass completes.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -263,109 +263,6 @@
       },
       "repeatDirection": "h",
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "row",
-      "collapsed": false,
-      "title": "Deferred and failed checks",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 38
-      },
-      "id": 0,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"check deferred until budget reset\" [15m]))",
-          "legendFormat": "deferred"
-        },
-        {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"check failed after retries\" [15m]))",
-          "legendFormat": "failed"
-        }
-      ],
-      "title": "Deferred and failed checks",
-      "description": "A deferral is not a failure: the check never ran, so there is deliberately no error counted and no outcome recorded. A failed check exhausted its activity retries and waits for the next interval.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 39
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "logs",
-      "targets": [
-        {
-          "expr": "{app=\"repo-guardian\"} |~ \"check deferred until budget reset|check failed after retries\" | json",
-          "maxLines": 200
-        }
-      ],
-      "title": "Deferrals and failures",
-      "description": "The `check_key` field names the repository's workflow. Repeated failures of the same key are a repository that will not converge.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 39
-      },
-      "repeatDirection": "h",
-      "options": {
         "showLabels": false,
         "showCommonLabels": false,
         "showTime": true,
@@ -380,12 +277,12 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "Webhook",
+      "title": "Deferred and failed evaluations",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 38
       },
       "id": 0,
       "panels": []
@@ -394,12 +291,16 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (msg) (\n  count_over_time({app=\"repo-guardian\"} |~ \"invalid webhook payload\" | json [15m])\n)",
-          "legendFormat": "{{ msg }}"
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"rate limit throttled; deferring evaluation\" [15m]))",
+          "legendFormat": "deferred"
+        },
+        {
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"evaluation failed after retries\" [15m]))",
+          "legendFormat": "failed"
         }
       ],
-      "title": "Rejected webhook deliveries",
-      "description": "Signature rejections only: a burst here means a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not in the app — see docs/operations/ingress.md for where each edge's evidence lives.",
+      "title": "Deferred and failed evaluations",
+      "description": "A deferral is not a failure: the evaluation never ran, so there is deliberately no error counted and no result recorded. A failed evaluation exhausted its activity retries and waits for the next interval.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -409,7 +310,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 49
+        "y": 39
       },
       "repeatDirection": "h",
       "options": {
@@ -437,12 +338,12 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |~ \"invalid webhook payload|failed to start webhook workflow\" | json",
+          "expr": "{app=\"repo-guardian\"} |~ \"rate limit throttled; deferring evaluation|evaluation failed after retries\" | json",
           "maxLines": 200
         }
       ],
-      "title": "Webhook rejections and start failures",
-      "description": "A start failure answers GitHub with 503, so the delivery is recorded as failed and can be redelivered from the App's settings.",
+      "title": "Deferrals and failures",
+      "description": "Deferrals carry owner and repo; failures carry the `check_key`, whose first segment names the repository's EvaluationWorkflow. Repeated failures of one repository are a repository that will not converge.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -452,7 +353,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 49
+        "y": 39
       },
       "repeatDirection": "h",
       "options": {

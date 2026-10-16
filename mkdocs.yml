@@ -43,6 +43,7 @@ nav:
         - 'DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs': design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md
         - 'DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it': design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md
         - 'DESIGN-0034: CODEOWNERS ownership control': design/0034-codeowners-ownership-control.md
+        - 'DESIGN-0036: Frontend design cleanup and refresh for the v2 UI': design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -74,6 +75,7 @@ nav:
         - 'IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema': impl/0028-controls-foundations-v1-runtime-removal-client-split-two-apps.md
         - 'IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow': impl/0029-controls-evaluation-policy-model-control-framework-and.md
         - 'IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install': impl/0030-controls-remediation-per-control-prs-remediation-workflow-and.md
+        - 'IMPL-0031: Frontend design refresh for the v2 UI': impl/0031-frontend-design-refresh-for-the-v2-ui.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

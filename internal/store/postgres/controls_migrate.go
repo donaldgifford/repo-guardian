@@ -30,6 +30,7 @@ const controlsDir = "migrations_controls"
 // version.
 const ControlsVersionTable = "goose_controls_version"
 
+// ControlsSchemaVersion is the controls chain version this binary was
 // built for, tracked apart from the rc's SchemaVersion: 00001_core
 // (IMPL-0028) and IMPL-0029's 00002 to 00004.
 const ControlsSchemaVersion = 4

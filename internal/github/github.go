@@ -43,7 +43,7 @@ type Installation struct {
 }
 
 // Repository represents a GitHub repository with metadata needed
-// for the checker engine to decide whether to process it.
+// for discovery and evaluation to decide whether to process it.
 type Repository struct {
 	// ID is GitHub's numeric repository id. It survives renames and
 	// transfers, so v2 matches repositories by it (DESIGN-0025 §

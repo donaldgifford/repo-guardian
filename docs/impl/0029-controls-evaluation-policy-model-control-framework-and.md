@@ -1815,8 +1815,9 @@ half-switched binary.
   each App's installations from `app_installations`, `topology`,
   evaluation freshness and coverage.
   Done: `Status` gains `topology` (split|all), `apps[]` (`StatusApp`: eval|remediate with installation, suspended and reachable-repository counts; an unknown App is dropped, never echoed), `compliance.coverage`, and `operations.evaluated_24h`/`overdue` (managed repositories with no success in 2× `EVAL_INTERVAL`). New `StatusApps`/`StatusOverdue` queries; `StatusInputs(ctx, now, freshness)` sums the posture with `ControlPosture.Plus`. The dead `github_budget` component, `RateSnapshot` and `RateReserve` are gone (the controls schema stores no rate snapshots), as is the rc `backlog` component. The api role with a client probes the queue of each configured App; the chart gives it the App id alone under `api.temporal` (secret_scoping test). Privacy guard allowlists the two new enums.
-- [ ] 8.6 `apitest` with kin-openapi response validation for every
+- [x] 8.6 `apitest` with kin-openapi response validation for every
   endpoint; `make generate-api` and `make lint-api` green.
+  Done: `TestEndpoints_ValidateAgainstTheSpec` now drives every operation (16, including `POST /evaluate` → the spec's 501 without a Temporal client, `/status`, `/openapi.yaml`) against Postgres through `apitest`'s kin-openapi validation, and fails when the spec gains an operation with no case. It caught a fixture writing evidence without `evidence_kind`/`evidence_version` (which `control.Validate` requires of real evidence); fixed. `make generate-api` and `make lint-api` green.
 - [ ] 8.7 UI views: Controls, Control (per-org breakdown with versions),
   Orgs and Org (baseline versus org, coverage), Fleet linking to
   controls, Repository with the controls tab, evidence and the

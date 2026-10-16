@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
+	apispec "github.com/donaldgifford/repo-guardian/api"
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
@@ -101,27 +104,77 @@ func decodeAs[T any](t *testing.T, r *apitest.Response) T {
 	return v
 }
 
-// Every endpoint answers 200 for a caller who sees everything, and
-// apitest validates each body against the spec.
+// Every endpoint answers for a caller who sees everything, apitest
+// validates each body against the spec, and an operation the spec adds
+// without a case here fails the test.
 func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 	t.Parallel()
 
 	e := newEndpoints(t)
 
-	for _, path := range []string{
-		"/me", "/orgs", "/repositories", e.repoPath("acme-web/b", ""),
-		e.repoPath("acme-web/b", "/events"), e.repoPath("acme-web/b", "/evaluations"),
-	} {
-		t.Run(path, func(t *testing.T) {
-			if r := e.get(t, path, "platform"); r.Status != http.StatusOK {
-				t.Errorf("GET %s = %d: %s", path, r.Status, r.Body)
+	cases := []struct {
+		op, method, path string
+		want             int
+	}{
+		{"/me", http.MethodGet, "/me", http.StatusOK},
+		{"/summary", http.MethodGet, "/summary", http.StatusOK},
+		{"/controls", http.MethodGet, "/controls", http.StatusOK},
+		{"/controls/{id}", http.MethodGet, "/controls/codeowners", http.StatusOK},
+		{"/policies", http.MethodGet, "/policies", http.StatusOK},
+		{"/orgs", http.MethodGet, "/orgs", http.StatusOK},
+		{"/orgs/{org}", http.MethodGet, "/orgs/acme-web", http.StatusOK},
+		{"/repositories", http.MethodGet, "/repositories", http.StatusOK},
+		{"/repositories/{id}", http.MethodGet, e.repoPath("acme-web/b", ""), http.StatusOK},
+		{"/repositories/{id}/controls", http.MethodGet, e.repoPath("acme-web/b", "/controls"), http.StatusOK},
+		{"/repositories/{id}/events", http.MethodGet, e.repoPath("acme-web/b", "/events"), http.StatusOK},
+		{"/repositories/{id}/evaluations", http.MethodGet, e.repoPath("acme-web/b", "/evaluations"), http.StatusOK},
+		// No Temporal client in this harness: the spec's 501.
+		{"/repositories/{id}/evaluate", http.MethodPost, e.repoPath("acme-web/b", "/evaluate"), http.StatusNotImplemented},
+		{"/compliance/history", http.MethodGet, "/compliance/history?days=7", http.StatusOK},
+		{"/status", http.MethodGet, "/status", http.StatusOK},
+		{"/openapi.yaml", http.MethodGet, "/openapi.yaml", http.StatusOK},
+	}
+
+	doc, err := openapi3.NewLoader().LoadFromData(apispec.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	covered := map[string]bool{}
+
+	for _, tc := range cases {
+		covered[tc.method+" "+tc.op] = true
+
+		t.Run(tc.method+" "+tc.op, func(t *testing.T) {
+			var r *apitest.Response
+			if tc.method == http.MethodPost {
+				r = e.c.Post(tc.path, e.issuer.Valid(t, "platform"))
+			} else {
+				r = e.get(t, tc.path, "platform")
+			}
+
+			if r.Status != tc.want {
+				t.Errorf("%s %s = %d, want %d: %s", tc.method, tc.path, r.Status, tc.want, r.Body)
 			}
 		})
+	}
+
+	for path, item := range doc.Paths.Map() {
+		for method := range item.Operations() {
+			if !covered[method+" "+path] {
+				t.Errorf("%s %s has no case", method, path)
+			}
+		}
 	}
 
 	b := decodeAs[gen.RepositoryDetail](t, e.get(t, e.repoPath("acme-web/b", ""), "platform"))
 	if b.Repository.Name != "b" || b.LastEvaluation == nil {
 		t.Errorf("repository b = %+v", b)
+	}
+
+	rc := decodeAs[gen.RepositoryControlList](t, e.get(t, e.repoPath("acme-web/b", "/controls"), "platform"))
+	if len(rc.Items) != 1 || rc.Items[0].ControlId != "codeowners" {
+		t.Errorf("repository b controls = %+v, want codeowners", rc.Items)
 	}
 }
 

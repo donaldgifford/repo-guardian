@@ -88,7 +88,7 @@ func stage(t *testing.T, s *postgres.ControlsStore, repoID int64, key string, ep
 			ControlID: "codeowners", ControlVersion: 1, Revision: "r1", Epoch: epoch, Status: status, Fingerprint: fingerprint,
 			EvaluatedSHA: "sha-" + key,
 			Rules: []store.RuleEvaluation{{
-				RuleID: "exists", Status: "fail", Remediate: true, Evidence: json.RawMessage(`{"kind":"codeowners.exists"}`),
+				RuleID: "exists", Status: "fail", Remediate: true, Evidence: json.RawMessage(`{"evidence_kind":"codeowners.exists","evidence_version":1,"present":false}`),
 				EvidenceKind: "codeowners.exists", EvidenceVersion: 1,
 			}},
 		}},

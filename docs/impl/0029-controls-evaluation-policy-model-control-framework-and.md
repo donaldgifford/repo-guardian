@@ -233,7 +233,7 @@ calls `Type.Build`.
   the rule statuses. `template.Vars` is new: `Common` (`.Owner`, `.Repo`,
   `.DefaultBranch`) plus `.Org` and `.Catalog`, so the embedded templates
   render unchanged.
-- [ ] 1.3 `resource.go`: `Canonical(kind, key) (Resource, error)`. File
+- [x] 1.3 `resource.go`: `Canonical(kind, key) (Resource, error)`. File
   keys go through `path.Clean` and are rejected when absolute, containing
   `..` or an empty segment, or starting with `./`, then compare byte for
   byte; `label:` keys are lower-cased; other kinds compare exactly;
@@ -241,6 +241,9 @@ calls `Type.Build`.
   `.github/CODEOWNERS`; `../x`, `/x`, `a//b` rejected; `Bug` equals
   `bug`) and `FuzzCanonicalFile` (canonical output is a fixed point, and
   never escapes the root).
+  Done: `Canonical` and `MustCanonical` (for keys fixed in code); `.` is
+  rejected as naming the root. `FuzzCanonicalFile` ran 15.8M inputs in
+  20s with no failure.
 - [ ] 1.4 `validate.go`: `Validate(c, ev)` (one result per declared rule;
   a missing result becomes `error{reason=missing_result}`; a result for
   an undeclared id or a duplicate fails as a bug; closed status enum;

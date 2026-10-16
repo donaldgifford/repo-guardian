@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0030
 title: "Policy model: enterprise and org policies and control assignment"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-02
 ---
@@ -11,6 +11,8 @@ created: 2026-10-02
 # DESIGN-0030: Policy model: enterprise and org policies and control assignment
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -44,6 +46,7 @@ created: 2026-10-02
   - [OQ1: Is there a separate repository policy type?](#oq1-is-there-a-separate-repository-policy-type)
   - [OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?](#oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams)
   - [OQ3: At what granularity is the mode set?](#oq3-at-what-granularity-is-the-mode-set)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

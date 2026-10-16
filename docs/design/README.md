@@ -30,8 +30,10 @@ docz create design "Your Design Title"
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 ## All Design
 
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 | ID | Title | Status | Date | Author | Link |
-|----|-------|--------|------|--------|------|
+| --- | --- | --- | --- | --- | --- |
 | DESIGN-0001 | Custom Properties from Backstage | Approved | 2026-03-01 | Donald Gifford | [0001-custom-properties-from-backstage.md](0001-custom-properties-from-backstage.md) |
 | DESIGN-0002 | GitHub API Rate Limit Handling | Implemented | 2026-03-01 | Donald Gifford | [0002-github-api-rate-limit-handling.md](0002-github-api-rate-limit-handling.md) |
 | DESIGN-0003 | Tailscale Integration Research | Superseded | 2026-03-01 | Donald Gifford | [0003-tailscale-integration-research.md](0003-tailscale-integration-research.md) |
@@ -60,10 +62,11 @@ docz create design "Your Design Title"
 | DESIGN-0027 | v2 read-only API, business UI, and status page | Implemented | 2026-09-24 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
 | DESIGN-0028 | Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics | Draft | 2026-10-01 | Donald Gifford | [0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md](0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md) |
 | DESIGN-0029 | Controls and policies: opinionated compliance with separate evaluation and remediation | Draft | 2026-10-02 | Donald Gifford | [0029-controls-and-policies-opinionated-compliance-with-separate.md](0029-controls-and-policies-opinionated-compliance-with-separate.md) |
-| DESIGN-0030 | Policy model: enterprise and org policies and control assignment | Draft | 2026-10-02 | Donald Gifford | [0030-policy-model-enterprise-and-org-policies-and-control-assignment.md](0030-policy-model-enterprise-and-org-policies-and-control-assignment.md) |
-| DESIGN-0031 | Control framework: controls, control rules and file controls | Draft | 2026-10-02 | Donald Gifford | [0031-control-framework-controls-control-rules-and-file-controls.md](0031-control-framework-controls-control-rules-and-file-controls.md) |
+| DESIGN-0030 | Policy model: enterprise and org policies and control assignment | Implemented | 2026-10-02 | Donald Gifford | [0030-policy-model-enterprise-and-org-policies-and-control-assignment.md](0030-policy-model-enterprise-and-org-policies-and-control-assignment.md) |
+| DESIGN-0031 | Control framework: controls, control rules and file controls | Implemented | 2026-10-02 | Donald Gifford | [0031-control-framework-controls-control-rules-and-file-controls.md](0031-control-framework-controls-control-rules-and-file-controls.md) |
 | DESIGN-0032 | Evaluation and remediation workflows: change-driven remediation with per-control PRs | Draft | 2026-10-02 | Donald Gifford | [0032-evaluation-and-remediation-workflows-change-driven-remediation.md](0032-evaluation-and-remediation-workflows-change-driven-remediation.md) |
 | DESIGN-0033 | fwsync as inspiration: shared HCL concepts and whether to reuse it | Draft | 2026-10-02 | Donald Gifford | [0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md](0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md) |
 | DESIGN-0034 | CODEOWNERS ownership control | Draft | 2026-10-04 | Donald Gifford | [0034-codeowners-ownership-control.md](0034-codeowners-ownership-control.md) |
 | DESIGN-0036 | Frontend design cleanup and refresh for the v2 UI | Approved | 2026-10-15 | Donald Gifford | [0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md](0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md) |
+<!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

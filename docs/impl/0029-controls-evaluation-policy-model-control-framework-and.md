@@ -1,7 +1,7 @@
 ---
 id: IMPL-0029
 title: "Controls evaluation: policy model, control framework and evaluation workflow"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-07
 ---
@@ -11,6 +11,8 @@ created: 2026-10-07
 # IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -56,13 +58,14 @@ created: 2026-10-07
   - [OQ4: Does this plan ship an evaluate-only rc, and where does it run?](#oq4-does-this-plan-ship-an-evaluate-only-rc-and-where-does-it-run)
   - [OQ5: What does the evaluate-only rc do with mode = "remediate"?](#oq5-what-does-the-evaluate-only-rc-do-with-mode--remediate)
   - [OQ6: How is the work split into pull requests?](#oq6-how-is-the-work-split-into-pull-requests)
-  - [OQ7: Does 00003controlsresults land whole in this plan?](#oq7-does-00003controlsresults-land-whole-in-this-plan)
+  - [OQ7: Does 00003_controls_results land whole in this plan?](#oq7-does-00003_controls_results-land-whole-in-this-plan)
   - [OQ8: Which process exports the posture gauges?](#oq8-which-process-exports-the-posture-gauges)
   - [OQ9: How much of the UI does this plan rebuild?](#oq9-how-much-of-the-ui-does-this-plan-rebuild)
   - [OQ10: When is the monitoring tier regenerated?](#oq10-when-is-the-monitoring-tier-regenerated)
   - [OQ11: How does the chart express a policy directory in a ConfigMap?](#oq11-how-does-the-chart-express-a-policy-directory-in-a-configmap)
   - [OQ12: Where does POST /evaluate keep its one-per-minute dedupe?](#oq12-where-does-post-evaluate-keep-its-one-per-minute-dedupe)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective
@@ -1892,10 +1895,10 @@ half-switched binary.
   re-evaluated; press re-evaluate; archive a repository and see its
   results clear; deploy policy A, B, then A again and see resolution
   follow A. — *deferred: human required*
-- [ ] 9.9 docz: `docz update` for the statuses (DESIGN-0030 and
+- [x] 9.9 docz: `docz update` for the statuses (DESIGN-0030 and
   DESIGN-0031 Implemented; DESIGN-0029 and DESIGN-0032 stay until
   IMPL-0030; IMPL-0029 Completed once every deferred task is checked).
-
+  Done: DESIGN-0030 and DESIGN-0031 `Implemented`; DESIGN-0029 and DESIGN-0032 stay `Draft` until IMPL-0030; IMPL-0029 `In Progress` — it becomes `Completed` when the maintainer checks off 8.9, 9.6's post-merge steps, 9.7 and 9.8. `docz update design` / `docz update impl` regenerated both READMEs; the TOC churn the newer docz wrote into 45 unrelated docs (markdownlint wrappers) was reverted.
 #### Verification results
 
 <!-- Filled in by 6.6, 9.7 and 9.8. -->

@@ -16,8 +16,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 
+	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
+	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
@@ -36,6 +39,10 @@ type migrateOptions struct {
 	// wait is how long to wait for the database to accept connections
 	// before migrating (IMPL-0028 8.2); zero tries once.
 	wait time.Duration
+
+	// policy is the controls policy root activated after the controls
+	// chain applies (IMPL-0029 4.5); empty skips activation.
+	policy string
 
 	// forceRunning skips the running-v1 guard. Test-only; hidden from
 	// usage because an operator should scale v1 down instead.
@@ -67,6 +74,16 @@ type migrateResult struct {
 
 	// Backfill is what the v1 backfill would write, under --dry-run.
 	Backfill *pgstore.BackfillReport `json:"backfill,omitempty"`
+
+	// Activation is the controls policy version activated, if any.
+	Activation *activation `json:"activation,omitempty"`
+}
+
+// activation is the controls policy version a migrate run activated
+// (DESIGN-0030 D14).
+type activation struct {
+	Version   string `json:"version"`
+	FirstSeen bool   `json:"first_seen"`
 }
 
 type appliedMigration struct {
@@ -93,7 +110,7 @@ func runMigrate(args []string) error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
-	res, err := migrate(context.Background(), opts)
+	res, err := migrate(context.Background(), &opts)
 	if err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
@@ -142,6 +159,8 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 		"v1 freshness used to seed next check times (defaults to $RECONCILE_FRESHNESS, else 24h)")
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "report what would be applied without changing the database")
 	fs.BoolVar(&opts.json, "json", false, "print the result as JSON")
+	fs.StringVar(&opts.policy, "policy", os.Getenv("GUARDIAN_CONFIG"),
+		"controls policy root to activate after --chain controls applies (defaults to $GUARDIAN_CONFIG; empty skips)")
 	fs.DurationVar(&opts.wait, "wait", defWait,
 		"how long to wait for the database to accept connections (defaults to $MIGRATE_WAIT, else 5m; 0 tries once)")
 
@@ -161,7 +180,7 @@ func parseMigrateFlags(args []string) (migrateOptions, error) {
 }
 
 // migrate applies (or, with dryRun, lists) the pending v2 migrations.
-func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr error) {
+func migrate(ctx context.Context, opts *migrateOptions) (_ *migrateResult, retErr error) {
 	if opts.chain == chainControls {
 		return migrateControls(ctx, opts)
 	}
@@ -214,10 +233,44 @@ func migrate(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr
 	return res, nil
 }
 
+// activateControlsPolicy loads the policy root, computes its version and
+// activates it, as the owner (INV-0022 Phase-0 OQ1 (a)): activation is
+// the migrate Job's and never a worker's, so workers read
+// CurrentActivation and roll out what the deploy activated. Re-running
+// for the version already current is a no-op (IMPL-0028 8.4).
+func activateControlsPolicy(ctx context.Context, opts *migrateOptions) (*activation, error) {
+	if opts.policy == "" {
+		return nil, nil //nolint:nilnil // no policy root: nothing to activate
+	}
+
+	snap, err := policy.Load(opts.policy, builtin.Registry(), slog.Default())
+	if err != nil {
+		return nil, fmt.Errorf("loading policy %s: %w", opts.policy, err)
+	}
+
+	summary, err := json.Marshal(snap.Summarize())
+	if err != nil {
+		return nil, fmt.Errorf("summarizing policy: %w", err)
+	}
+
+	pool, err := pgxpool.New(ctx, opts.dsn)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to activate the policy: %w", err)
+	}
+	defer pool.Close()
+
+	firstSeen, err := pgstore.NewControlsStore(pool).ActivatePolicyVersion(ctx, snap.Version(), summary)
+	if err != nil {
+		return nil, err //nolint:wrapcheck // ActivatePolicyVersion names the version
+	}
+
+	return &activation{Version: snap.Version(), FirstSeen: firstSeen}, nil
+}
+
 // migrateControls applies (or, with dryRun, rehearses in a rolled-back
 // transaction) the controls chain. It has no v1 guard and no backfill:
 // the chain runs on an empty database.
-func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult, retErr error) {
+func migrateControls(ctx context.Context, opts *migrateOptions) (_ *migrateResult, retErr error) {
 	db, err := openReady(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -239,17 +292,8 @@ func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult
 		if res.Pending, err = pgstore.ControlsDryRun(ctx, db); err != nil {
 			return nil, err
 		}
-	} else {
-		results, err := provider.Up(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("applying controls migrations: %w", err)
-		}
-
-		for _, r := range results {
-			res.Applied = append(res.Applied, appliedMigration{
-				Version: r.Source.Version, Path: r.Source.Path, Duration: r.Duration,
-			})
-		}
+	} else if err := applyControls(ctx, provider, opts, res); err != nil {
+		return nil, err
 	}
 
 	if res.Version, err = provider.GetDBVersion(ctx); err != nil {
@@ -259,10 +303,29 @@ func migrateControls(ctx context.Context, opts migrateOptions) (_ *migrateResult
 	return res, nil
 }
 
+// applyControls applies the pending controls migrations, then activates
+// the policy.
+func applyControls(ctx context.Context, provider *goose.Provider, opts *migrateOptions, res *migrateResult) error {
+	results, err := provider.Up(ctx)
+	if err != nil {
+		return fmt.Errorf("applying controls migrations: %w", err)
+	}
+
+	for _, r := range results {
+		res.Applied = append(res.Applied, appliedMigration{
+			Version: r.Source.Version, Path: r.Source.Path, Duration: r.Duration,
+		})
+	}
+
+	res.Activation, err = activateControlsPolicy(ctx, opts)
+
+	return err
+}
+
 // openReady opens the database and waits for it to accept connections:
 // under Argo CD the migrate Job can start before Postgres does. Progress
 // goes to stderr, keeping stdout for the result.
-func openReady(ctx context.Context, opts migrateOptions) (*sql.DB, error) {
+func openReady(ctx context.Context, opts *migrateOptions) (*sql.DB, error) {
 	db, err := pgstore.OpenDB(opts.dsn)
 	if err != nil {
 		return nil, err

@@ -128,6 +128,7 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_repo_discovered_total",
 		"repo_guardian_repos_checked_total",
 		"repo_guardian_repos_parked_total",
+		"repo_guardian_results_discarded_total",
 		"repo_guardian_rule_gate_closed_total",
 		"repo_guardian_settings_checked_total",
 		"repo_guardian_settings_mismatched_total",

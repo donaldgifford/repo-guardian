@@ -845,7 +845,7 @@ evaluator's store.
   both packages. `ControlsStore`'s two policy-activation statements moved
   into `queries_controls/policy.sql`, so the block has real queries from
   the start.
-- [ ] 4.5 `store.Controls` interface and its Postgres implementation:
+- [x] 4.5 `store.Controls` interface and its Postgres implementation:
   - `UpsertRepositories` writes the repository row and its `app = 'eval'`
     access row in one transaction, then applies the resolution (below);
   - `ApplyResolution(repoID, Resolution)` upserts policy state and
@@ -868,6 +868,21 @@ evaluator's store.
     `ActivatePolicyVersion`; workers read `CurrentActivation` and start
     the rollout for it. The rc's per-pod `RecordPolicyVersion` start
     path is deleted with the rc services.
+  Done: `store.Controls` (`internal/store/controls.go`) is implemented by
+  `ControlsStore` on sqlc queries in `queries_controls/{repositories,
+  resolution,evaluation}.sql`. Identity is matched by provider id, then by
+  name. `Resolve` re-reads the row and both Apps' access, and
+  `UpsertRepositories` calls it inline. The epoch compare covers version,
+  revision (which fixes the write set), both modes, source and state.
+  `intent_revision` is computed at record time, because only the record
+  step knows the generation. `results_discarded_total{org,reason}` is
+  registered now and counted after the record's work commits, so a retry
+  cannot count twice. `repo-guardian migrate --chain controls [--policy
+  DIR]` loads the root with `builtin.Registry()` and activates its
+  version; `TestMigrateControls_ActivatesThePolicy` covers first-seen and
+  re-sync. `TestControlsStore_EvaluationLifecycle` and
+  `TestControlsStore_DiscoveryUnparks` run as `rg_evaluator`. The rc's
+  `RecordPolicyVersion` start path goes with the rc services in Phase 7.
 - [ ] 4.6 Park with the result rule: `archived`, `fork`, `removed` and
   `installation_removed` clear results (with `result_events`);
   `access_denied` and `unknown` keep them; Evaluation App suspension is

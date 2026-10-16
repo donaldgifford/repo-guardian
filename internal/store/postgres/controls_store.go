@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,17 +14,52 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
 
-// ControlsStore reads and writes the controls chain's tables. IMPL-0028
-// gives it only policy activation; IMPL-0029 and IMPL-0030 grow it.
+// ControlsStore reads and writes the controls chain's tables: policy
+// activation (IMPL-0028, as the owner) and the evaluator's store.Controls
+// (IMPL-0029, as rg_evaluator).
 type ControlsStore struct {
-	pool *pgxpool.Pool
-	q    *controlsdb.Queries
+	pool   *pgxpool.Pool
+	q      *controlsdb.Queries
+	host   string
+	logger *slog.Logger
+}
+
+// ControlsOption configures a ControlsStore.
+type ControlsOption func(*ControlsStore)
+
+// WithControlsHost sets the provider host repositories are keyed under;
+// the default is github.com.
+func WithControlsHost(host string) ControlsOption {
+	return func(s *ControlsStore) {
+		if host != "" {
+			s.host = host
+		}
+	}
+}
+
+// WithControlsLogger sets the logger a discarded result is reported on.
+func WithControlsLogger(l *slog.Logger) ControlsOption {
+	return func(s *ControlsStore) { s.logger = l }
 }
 
 // NewControlsStore returns a ControlsStore over pool, which must point at
 // a database migrated by the controls chain.
-func NewControlsStore(pool *pgxpool.Pool) *ControlsStore {
-	return &ControlsStore{pool: pool, q: controlsdb.New(pool)}
+func NewControlsStore(pool *pgxpool.Pool, opts ...ControlsOption) *ControlsStore {
+	s := &ControlsStore{pool: pool, q: controlsdb.New(pool), host: defaultHost, logger: slog.Default()}
+	for _, o := range opts {
+		o(s)
+	}
+
+	return s
+}
+
+// inTx runs fn in one transaction over the store's queries.
+func (s *ControlsStore) inTx(ctx context.Context, fn func(q *controlsdb.Queries) error) error {
+	if err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) }); err != nil {
+		return err //nolint:wrapcheck // callers wrap with their operation
+	}
+
+	return nil
 }
 
 // ActivatePolicyVersion records version as the policy activated now and

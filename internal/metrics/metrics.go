@@ -179,6 +179,15 @@ var (
 		Help: "Total custom-properties reconciles skipped because catalog-info.yaml failed to parse.",
 	}, []string{labelOrg})
 
+	// ResultsDiscardedTotal counts staged control results the record
+	// step dropped (DESIGN-0032 § Metrics). reason="stale_epoch" is a
+	// result whose assignment epoch moved, or whose assignment stopped
+	// being active, between evaluation and record (DESIGN-0030 D14).
+	ResultsDiscardedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_results_discarded_total",
+		Help: "Total staged control results discarded at record time, by reason.",
+	}, []string{labelOrg, "reason"})
+
 	// WebhookRejectedTotal counts webhook requests rejected before
 	// processing, labeled by reason. Post-IMPL-0024 the only producer
 	// is HMAC signature validation (reason="signature") — source-IP

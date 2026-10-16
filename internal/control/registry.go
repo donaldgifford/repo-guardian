@@ -243,17 +243,22 @@ func isString(v reflect.Value) bool {
 // workflow on a type without WorkflowApply.
 func checkApply(t Type, def Definition) error { //nolint:gocritic // hugeParam: one call per Build
 	switch def.Apply {
-	case "", ApplyRecommend, ApplyDirect:
+	case "":
 		return nil
-	case ApplyWorkflow:
-		if _, ok := t.(WorkflowApply); !ok {
-			return fmt.Errorf("%s: type %s does not support apply = %q", def.ID, t.Name(), def.Apply)
-		}
-
-		return nil
+	case ApplyRecommend, ApplyDirect, ApplyWorkflow:
 	default:
 		return fmt.Errorf("%s: apply = %q: want %q, %q or %q", def.ID, def.Apply, ApplyRecommend, ApplyDirect, ApplyWorkflow)
 	}
+
+	if _, ok := t.(APIType); !ok {
+		return fmt.Errorf("%s: type %s remediates by pull request and takes no apply value", def.ID, t.Name())
+	}
+
+	if _, ok := t.(WorkflowApply); def.Apply == ApplyWorkflow && !ok {
+		return fmt.Errorf("%s: type %s does not support apply = %q", def.ID, t.Name(), def.Apply)
+	}
+
+	return nil
 }
 
 // checkTemplate proves the control's template passes its remediable

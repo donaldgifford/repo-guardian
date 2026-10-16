@@ -69,13 +69,19 @@ func Properties() []string {
 // Type is the repository-settings control type.
 type Type struct{}
 
-var _ control.Type = Type{}
+var (
+	_ control.Type    = Type{}
+	_ control.APIType = Type{}
+)
 
 // Name returns "repo_settings".
 func (Type) Name() string { return Name }
 
 // Semantics is 1.
 func (Type) Semantics() int { return 1 }
+
+// RemediatesByAPI marks an API type, which takes apply (D15).
+func (Type) RemediatesByAPI() {}
 
 // RuleKinds is equals{property, value}, remediable.
 func (Type) RuleKinds() []control.RuleKindSpec {

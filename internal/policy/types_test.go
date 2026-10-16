@@ -81,8 +81,9 @@ func (textFile) Render(m string) ([]byte, error)                                
 // testSetting is an API control type owning setting:<property>.
 type testSetting struct{}
 
-func (testSetting) Name() string   { return "testsetting" }
-func (testSetting) Semantics() int { return 1 }
+func (testSetting) Name() string     { return "testsetting" }
+func (testSetting) Semantics() int   { return 1 }
+func (testSetting) RemediatesByAPI() {}
 
 func (testSetting) RuleKinds() []control.RuleKindSpec {
 	return []control.RuleKindSpec{{Kind: "equals", Remediable: true, Params: []control.ParamSpec{

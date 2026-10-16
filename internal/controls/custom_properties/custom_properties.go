@@ -125,6 +125,7 @@ type Type struct{}
 var (
 	_ control.Type          = Type{}
 	_ control.WorkflowApply = Type{}
+	_ control.APIType       = Type{}
 )
 
 // Name returns "custom_properties".
@@ -132,6 +133,9 @@ func (Type) Name() string { return Name }
 
 // Semantics is 1.
 func (Type) Semantics() int { return 1 }
+
+// RemediatesByAPI marks an API type, which takes apply (D15).
+func (Type) RemediatesByAPI() {}
 
 // RuleKinds says only matches is remediable; value_pattern and defined
 // report what a write would be refused for.

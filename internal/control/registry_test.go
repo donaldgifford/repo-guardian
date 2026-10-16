@@ -44,8 +44,13 @@ func (lineFileType) Build(def Definition, env BuildEnv) (Control, error) { //nol
 	return NewFileControl(cfg)
 }
 
-// workflowType is lineFileType with WorkflowApply.
-type workflowType struct{ lineFileType }
+// apiType is lineFileType marked as remediating through the API.
+type apiType struct{ lineFileType }
+
+func (apiType) RemediatesByAPI() {}
+
+// workflowType is an apiType with WorkflowApply.
+type workflowType struct{ apiType }
 
 func (workflowType) WorkflowFile(Definition, []APIChange) (FileChange, error) {
 	return FileChange{}, nil
@@ -55,7 +60,7 @@ func newTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 
 	r := NewRegistry()
-	for _, typ := range []Type{lineFileType{name: "line"}, workflowType{lineFileType{name: "wf"}}} {
+	for _, typ := range []Type{lineFileType{name: "line"}, apiType{lineFileType{name: "api"}}, workflowType{apiType{lineFileType{name: "wf"}}}} {
 		if err := r.Register(typ); err != nil {
 			t.Fatal(err)
 		}
@@ -127,7 +132,17 @@ func TestRegistry_Build(t *testing.T) {
 			"",
 			`x@1/report: rule kind "report" is not remediable`,
 		},
-		{"workflow unsupported", with(func(d *Definition) { d.Apply = ApplyWorkflow }), "", `x@1: type line does not support apply = "workflow"`},
+		{"recommend on an API type", with(func(d *Definition) { d.Type, d.Apply = "api", ApplyRecommend }), "owner {{ .Org }}", ""},
+		{"direct on an API type", with(func(d *Definition) { d.Type, d.Apply = "api", ApplyDirect }), "owner {{ .Org }}", ""},
+		{
+			"workflow unsupported",
+			with(func(d *Definition) { d.Type, d.Apply = "api", ApplyWorkflow }),
+			"",
+			`x@1: type api does not support apply = "workflow"`,
+		},
+		{"direct on a file type", with(func(d *Definition) { d.Apply = ApplyDirect }), "", "x@1: type line remediates by pull request"},
+		{"recommend on a file type", with(func(d *Definition) { d.Apply = ApplyRecommend }), "", "x@1: type line remediates by pull request"},
+		{"workflow on a file type", with(func(d *Definition) { d.Apply = ApplyWorkflow }), "", "x@1: type line remediates by pull request"},
 		{"unknown apply", with(func(d *Definition) { d.Apply = "pr" }), "", `x@1: apply = "pr"`},
 		{"template fails a rule", with(func(*Definition) {}), "owner someone-else", `x@1: template "t": rule a is fail`},
 	}

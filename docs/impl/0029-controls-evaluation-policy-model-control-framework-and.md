@@ -719,9 +719,18 @@ revision and a `Semantics()` constant of 1.
   the type (`workflow.yml.tmpl`), runs on a push to the repository's
   default branch whatever its name, and clears with `-F ...=null`.
   Golden `ed80fe4e…`.
-- [ ] 3.9 `apply` on the four API types: `recommend` (default),
+- [x] 3.9 `apply` on the four API types: `recommend` (default),
   `direct`, and `workflow` only on `custom_properties`; the registry
   rejects the rest (covered by 1.9's error table, extended here).
+  Done: a marker interface `control.APIType` (`RemediatesByAPI()`) on
+  `repo_settings`, `branch_ruleset`, `labels` and `custom_properties`.
+  `checkApply` refuses an unknown value first, then any apply on a type
+  that is not an `APIType` ("remediates by pull request and takes no
+  apply value"), then `workflow` without `WorkflowApply`. 1.9's table
+  gained recommend/direct on an API type, workflow on an API type
+  without `WorkflowApply`, and all three values on a file type;
+  `TestCatalogue_Apply` covers the same through the loader (the
+  codeowners decode fixture lost its `remediation {}` block).
 - [ ] 3.10 Parser fuzzing: `Render(Parse(x)) == x` for the catalog-info
   YAML and the Renovate JSON editors, plus a test at each parser's size
   cap.

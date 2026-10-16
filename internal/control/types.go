@@ -361,6 +361,14 @@ func (cs *ChangeSet) IsRecommendation() bool {
 	return len(cs.Files) == 0 && len(cs.API) == 0
 }
 
+// APIType is implemented by a Type that remediates through
+// ChangeSet.API (settings, rulesets, labels, properties) rather than
+// files. Only such a type takes an apply value (D15); a file type
+// remediates by pull request and refuses one.
+type APIType interface {
+	RemediatesByAPI()
+}
+
 // WorkflowApply is implemented by a Type whose API changes may be
 // proposed with apply = "workflow" (D15): the remediation PR carries a
 // workflow file that applies ChangeSet.API on merge. Such a control also

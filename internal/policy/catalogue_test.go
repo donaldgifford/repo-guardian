@@ -26,15 +26,37 @@ const codeownersCatalogue = `control "codeowners" {
     text = "@"
   }
 
-  remediation {
-    apply = "recommend"
-  }
-
   pr {
     title = "chore: {{ .Control.Title }}"
   }
 }
 `
+
+// TestCatalogue_Apply decodes remediation { apply } on an API type and
+// refuses it on a file type, which remediates by pull request (3.9).
+func TestCatalogue_Apply(t *testing.T) {
+	t.Parallel()
+
+	setting := "control \"wiki\" {\n  version = 1\n  type = \"testsetting\"\n" +
+		"  rule \"off\" {\n    kind = \"equals\"\n    property = \"has_wiki\"\n    value = false\n  }\n" +
+		"  remediation {\n    apply = \"direct\"\n  }\n}\n"
+
+	snap, err := Load(writeRoot(t, map[string]string{"enterprise.hcl": minimalEnterprise, "catalogue/wiki.hcl": setting}), testRegistry(), discard())
+	if err != nil {
+		t.Fatalf("Load() err = %v", err)
+	}
+
+	if d := snap.defs[control.ID{Slug: "wiki", Version: 1}]; d == nil || d.def.Apply != control.ApplyDirect {
+		t.Errorf("wiki@1 apply not decoded as direct: %+v", d)
+	}
+
+	file := strings.Replace(codeownersCatalogue, "  pr {", "  remediation {\n    apply = \"direct\"\n  }\n\n  pr {", 1)
+
+	_, err = Load(writeRoot(t, map[string]string{"enterprise.hcl": minimalEnterprise, "catalogue/codeowners.hcl": file}), testRegistry(), discard())
+	if err == nil || !strings.Contains(err.Error(), "remediates by pull request") {
+		t.Errorf("Load() err = %v, want apply refused on a file type", err)
+	}
+}
 
 func TestCatalogue_Decode(t *testing.T) {
 	t.Parallel()
@@ -54,7 +76,7 @@ func TestCatalogue_Decode(t *testing.T) {
 
 	def := d.def
 	if def.Title != "CODEOWNERS" || def.Description != "A CODEOWNERS file exists" || def.Type != "testfile" ||
-		def.Template != "codeowners" || def.Apply != "recommend" || def.PR.Title == nil || def.PR.CompiledTitle == nil {
+		def.Template != "codeowners" || def.Apply != "" || def.PR.Title == nil || def.PR.CompiledTitle == nil {
 		t.Errorf("definition = %+v", def)
 	}
 

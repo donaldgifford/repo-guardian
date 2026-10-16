@@ -63,13 +63,19 @@ const (
 // Type is the branch-ruleset control type.
 type Type struct{}
 
-var _ control.Type = Type{}
+var (
+	_ control.Type    = Type{}
+	_ control.APIType = Type{}
+)
 
 // Name returns "branch_ruleset".
 func (Type) Name() string { return Name }
 
 // Semantics is 1.
 func (Type) Semantics() int { return 1 }
+
+// RemediatesByAPI marks an API type, which takes apply (D15).
+func (Type) RemediatesByAPI() {}
 
 // RuleKinds says both kinds are remediable, neither with parameters: the
 // ruleset is the definition's.

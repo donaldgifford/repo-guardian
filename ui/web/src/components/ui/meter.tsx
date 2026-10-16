@@ -21,7 +21,20 @@ const fills: Record<MeterTone, string> = {
 
 // Meter is a 5px bar on a 20% tint track with the percent printed after
 // it; the tone follows the threshold unless the caller fixes one.
-export function Meter({ percent, tone, showValue = true, className }: { percent: number | null | undefined; tone?: MeterTone; showValue?: boolean; className?: string }) {
+export function Meter({
+  percent,
+  tone,
+  showValue = true,
+  thick = false,
+  className,
+}: {
+  percent: number | null | undefined;
+  tone?: MeterTone;
+  showValue?: boolean;
+  // thick is the status page's 10px bar; the default is the 5px table meter.
+  thick?: boolean;
+  className?: string;
+}) {
   const t = tone ?? meterTone(percent);
   const width = percent === null || percent === undefined ? 0 : Math.max(0, Math.min(100, percent));
   return (
@@ -33,7 +46,7 @@ export function Meter({ percent, tone, showValue = true, className }: { percent:
         aria-valuenow={width}
         aria-valuetext={formatPercent(percent)}
         data-tone={t}
-        className="h-[5px] min-w-20 flex-1 overflow-hidden rounded-[2px]"
+        className={cn("min-w-20 flex-1 overflow-hidden rounded-[2px]", thick ? "h-[10px]" : "h-[5px]")}
         style={{ background: `color-mix(in srgb, ${fills[t]} 20%, transparent)` }}
       >
         <div className="h-full rounded-[2px]" style={{ width: `${width}%`, background: fills[t] }} />

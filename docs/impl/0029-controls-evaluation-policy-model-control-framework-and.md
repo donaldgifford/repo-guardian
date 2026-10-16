@@ -743,9 +743,22 @@ revision and a `Semantics()` constant of 1.
   without `WorkflowApply`, and all three values on a file type;
   `TestCatalogue_Apply` covers the same through the loader (the
   codeowners decode fixture lost its `remediation {}` block).
-- [ ] 3.10 Parser fuzzing: `Render(Parse(x)) == x` for the catalog-info
+- [x] 3.10 Parser fuzzing: `Render(Parse(x)) == x` for the catalog-info
   YAML and the Renovate JSON editors, plus a test at each parser's size
   cap.
+  Done: `FuzzParseDocument_RoundTrip` (bytes round-trip, and a
+  `metadata.name` replace touches nothing outside its span),
+  `FuzzAddExtends` (valid JSON out, preset present, one contiguous
+  insertion) and `FuzzNormaliseJSON5` (valid JSON keeps its value). Two
+  real bugs: `addExtends` edited truncated JSON (now refused by
+  `json.Valid`; the corpus entry is kept as a seed), and yaml.v3's struct
+  decode checks duplicate keys pairwise, so a 50k-key catalog-info took
+  >20s — `ParseDocument` now walks the node tree linearly
+  (`TestParseDocument_WideMappingIsLinear`). Size caps: catalog
+  `MaxBytes` / `MaxBytes+1`, Renovate `TestExtends_SizeCap` (judged at the
+  cap, `unknown{file_too_large}` one byte over). The `file` type's YAML
+  exact compare and v1 `catalog.Parse` keep the quadratic decode; the
+  former carries a FIX note, the latter goes in Phase 7.
 - [ ] 3.11 Control-type reference generator: `repo-guardian controls
   docs` renders every registered type's `RuleKinds()` and parameters to
   `docs/usage/controls-reference.md`; `make controls-docs` writes it and

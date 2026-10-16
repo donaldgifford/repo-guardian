@@ -3,8 +3,10 @@ package catalog
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 const sample = `apiVersion: backstage.io/v1alpha1
@@ -123,5 +125,54 @@ func TestParseDocument_Errors(t *testing.T) {
 
 	if _, err := d.Properties(nil); !errors.Is(err, ErrNotComponent) {
 		t.Errorf("Properties() on an API entity err = %v, want ErrNotComponent", err)
+	}
+}
+
+// TestParseDocument_WideMappingIsLinear is the regression for the
+// quadratic duplicate-key check in yaml.v3's Node.Decode: a file of
+// distinct keys at the size cap parses in well under a second.
+func TestParseDocument_WideMappingIsLinear(t *testing.T) {
+	t.Parallel()
+
+	var b bytes.Buffer
+
+	b.WriteString("apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  annotations:\n")
+
+	for i := 0; b.Len() < MaxBytes-64; i++ {
+		fmt.Fprintf(&b, "    k%d: v\n", i)
+	}
+
+	start := time.Now()
+
+	d, err := ParseDocument(b.Bytes())
+	if err != nil {
+		t.Fatalf("ParseDocument() err = %v", err)
+	}
+
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("ParseDocument() of %d annotations took %v", len(d.Entity.Metadata.Annotations), elapsed)
+	}
+}
+
+func TestParseDocument_Refusals(t *testing.T) {
+	t.Parallel()
+
+	for name, src := range map[string]string{
+		"duplicate root key":      "kind: Component\nkind: System\n",
+		"duplicate annotation":    "metadata:\n  annotations:\n    a: x\n    a: y\n",
+		"metadata not a mapping":  "metadata: [a]\n",
+		"name not a scalar":       "metadata:\n  name: {a: b}\n",
+		"annotation not a scalar": "metadata:\n  annotations:\n    a: [x]\n",
+		"spec owner not a scalar": "spec:\n  owner: [x]\n",
+	} {
+		var pe *ParseError
+		if _, err := ParseDocument([]byte(src)); !errors.As(err, &pe) {
+			t.Errorf("%s: err = %v, want a *ParseError", name, err)
+		}
+	}
+
+	d, err := ParseDocument([]byte("kind: Component\nmetadata:\n  name: ~\nspec: &s\n  owner: 7\nother: *s\n"))
+	if err != nil || d.Entity.Metadata.Name != "" || d.Entity.Spec.Owner != "7" {
+		t.Errorf("ParseDocument() = %+v, %v; want a null name and the scalar owner \"7\"", d, err)
 	}
 }

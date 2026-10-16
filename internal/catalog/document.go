@@ -82,11 +82,153 @@ func ParseDocument(content []byte) (*Document, error) {
 
 	d := &Document{src: content, root: doc.Content[0], lines: lineStarts(content)}
 
-	if err := d.root.Decode(&d.Entity); err != nil {
-		return nil, &ParseError{Line: d.root.Line, Msg: err.Error()}
+	entity, err := decodeEntity(d.root)
+	if err != nil {
+		return nil, err
 	}
 
+	d.Entity = entity
+
 	return d, nil
+}
+
+// decodeEntity reads the Entity fields from the node tree in linear time.
+// yaml.v3's Node.Decode checks a mapping for duplicate keys by comparing
+// every pair, so a 1 MiB file of distinct keys took minutes (found by
+// FuzzParseDocument_RoundTrip). This walks the same four mappings
+// Decode would (the root, metadata, its annotations, spec), refuses a
+// duplicate key in any of them as Decode does, and takes every scalar
+// as its string form, a null as "".
+func decodeEntity(root *yaml.Node) (Entity, error) {
+	var e Entity
+
+	if err := unique(root); err != nil {
+		return Entity{}, err
+	}
+
+	for key, dst := range map[string]*string{"apiVersion": &e.APIVersion, "kind": &e.Kind} {
+		if err := scalarInto(root, key, dst); err != nil {
+			return Entity{}, err
+		}
+	}
+
+	meta, err := mapping(mappingValue(root, "metadata"))
+	if err != nil {
+		return Entity{}, err
+	}
+
+	if meta != nil {
+		if err := scalarInto(meta, "name", &e.Metadata.Name); err != nil {
+			return Entity{}, err
+		}
+
+		if e.Metadata.Annotations, err = stringMap(mappingValue(meta, "annotations")); err != nil {
+			return Entity{}, err
+		}
+	}
+
+	spec, err := mapping(mappingValue(root, "spec"))
+	if err != nil || spec == nil {
+		return e, err
+	}
+
+	for key, dst := range map[string]*string{"owner": &e.Spec.Owner, "lifecycle": &e.Spec.Lifecycle, "type": &e.Spec.Type, "system": &e.Spec.System} {
+		if err := scalarInto(spec, key, dst); err != nil {
+			return Entity{}, err
+		}
+	}
+
+	return e, nil
+}
+
+// resolve follows an alias; a nil or null node is nil.
+func resolve(n *yaml.Node) *yaml.Node {
+	for i := 0; n != nil && n.Kind == yaml.AliasNode && i < 16; i++ {
+		n = n.Alias
+	}
+
+	if n == nil || (n.Kind == yaml.ScalarNode && n.Tag == "!!null") {
+		return nil
+	}
+
+	return n
+}
+
+// mapping returns n as a uniquely keyed mapping, nil when absent or
+// null.
+func mapping(n *yaml.Node) (*yaml.Node, error) {
+	n = resolve(n)
+
+	switch {
+	case n == nil:
+		return nil, nil //nolint:nilnil // an absent mapping is not an error
+	case n.Kind != yaml.MappingNode:
+		return nil, &ParseError{Line: n.Line, Msg: fmt.Sprintf("line %d: want a mapping", n.Line)}
+	}
+
+	return n, unique(n)
+}
+
+func scalarInto(m *yaml.Node, key string, dst *string) error {
+	v, err := scalar(mappingValue(m, key))
+	*dst = v
+
+	return err
+}
+
+func scalar(n *yaml.Node) (string, error) {
+	n = resolve(n)
+
+	switch {
+	case n == nil:
+		return "", nil
+	case n.Kind != yaml.ScalarNode:
+		return "", &ParseError{Line: n.Line, Msg: fmt.Sprintf("line %d: want a string", n.Line)}
+	}
+
+	return n.Value, nil
+}
+
+func stringMap(n *yaml.Node) (map[string]string, error) {
+	m, err := mapping(n)
+	if err != nil || m == nil {
+		return nil, err
+	}
+
+	out := make(map[string]string, len(m.Content)/2)
+
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		k, err := scalar(m.Content[i])
+		if err != nil {
+			return nil, err
+		}
+
+		if out[k], err = scalar(m.Content[i+1]); err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
+}
+
+// unique refuses a mapping that defines a key twice, in linear time.
+func unique(m *yaml.Node) error {
+	seen := make(map[string]int, len(m.Content)/2)
+
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		k := m.Content[i]
+		if k.Kind != yaml.ScalarNode {
+			continue
+		}
+
+		if line, dup := seen[k.Value]; dup {
+			return &ParseError{Line: k.Line, Msg: fmt.Sprintf("line %d: mapping key %q already defined at line %d", k.Line, k.Value, line)}
+		}
+
+		seen[k.Value] = k.Line
+	}
+
+	return nil
 }
 
 // Bytes returns the source, byte-identical to what was parsed.

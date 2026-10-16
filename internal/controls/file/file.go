@@ -328,6 +328,11 @@ func equalContent(how string, got, want []byte) (bool, error) {
 	return reflect.DeepEqual(gotDocs, wantDocs), nil
 }
 
+// FIX: yaml.v3 checks duplicate mapping keys pairwise, so decoding a
+// repository-controlled file with a very wide mapping is quadratic (50k
+// keys took >20s in IMPL-0029 3.10). internal/catalog walks the node tree
+// linearly instead; this compare needs the same treatment.
+
 func yamlDocs(b []byte) ([]any, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 

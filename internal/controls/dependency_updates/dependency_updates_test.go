@@ -1,8 +1,10 @@
 package dependency_updates
 
 import (
+	"context"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
@@ -248,5 +250,55 @@ func TestPartialRemediation(t *testing.T) {
 
 	if !slices.Equal(cs.Fixed, []control.RuleID{"exclusive"}) || !slices.Equal(cs.Manual, []control.RuleID{"extends"}) || len(cs.Notes) != 1 {
 		t.Errorf("Fixed = %v, Manual = %v, Notes = %v; want exclusive fixed, extends manual with a note", cs.Fixed, cs.Manual, cs.Notes)
+	}
+}
+
+// TestExtends_SizeCap pins the parser's input cap: a config of exactly
+// maxBytes is parsed and judged, one byte more is unknown{file_too_large}.
+func TestExtends_SizeCap(t *testing.T) {
+	t.Parallel()
+
+	e := env(t)
+
+	c, err := (Type{}).Build(renovateDef(), e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	padded := func(n int) string {
+		head, tail := "{\"extends\": [\"github>example-org/renovate-config\"], \"x\": \"", "\"}"
+
+		return head + strings.Repeat("a", n-len(head)-len(tail)) + tail
+	}
+
+	tests := []struct {
+		name       string
+		size       int
+		wantStatus control.RuleStatus
+		wantReason string
+	}{
+		{"at the cap", maxBytes, control.Pass, ""},
+		{"one byte over", maxBytes + 1, control.Unknown, control.ReasonFileTooLarge},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			in := control.EvalInput{
+				Repo:   control.RepoContext{Vars: control.SampleVars},
+				Reader: repo(map[string]string{"renovate.json": padded(tt.size)}),
+			}
+
+			ev, err := c.Evaluate(context.Background(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := ev.Results[1]
+			if got.Status != tt.wantStatus || (tt.wantReason != "" && got.Evidence["reason"] != tt.wantReason) {
+				t.Errorf("Evaluate(%d bytes) extends = %s %v, want %s %q", tt.size, got.Status, got.Evidence, tt.wantStatus, tt.wantReason)
+			}
+		})
 	}
 }

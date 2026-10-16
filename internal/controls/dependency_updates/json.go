@@ -62,6 +62,12 @@ func packageRenovate(content []byte) (present bool, extends []string, err error)
 // the top-level extends list of a JSON object, or adds the key, and
 // leaves every other byte as it was.
 func addExtends(src []byte, preset string) ([]byte, error) {
+	// The decoder walk below reads tokens, not a whole value, so a
+	// truncated config would otherwise be edited (FuzzAddExtends).
+	if !json.Valid(src) {
+		return nil, errors.New("the config is not valid JSON")
+	}
+
 	quoted, err := quoteJSON(preset)
 	if err != nil {
 		return nil, err

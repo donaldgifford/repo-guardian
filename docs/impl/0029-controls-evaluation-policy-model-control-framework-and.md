@@ -770,9 +770,18 @@ revision and a `Semantics()` constant of 1.
   lint` now depends on `lint-controls-docs`, which renders into `build/`
   and `diff`s, so CI's lint job runs it; appending a line to the
   committed reference fails the gate. The page is in the mkdocs nav.
-- [ ] 3.12 Non-vacuous check: in each type, remove one `Fix` branch or
+- [x] 3.12 Non-vacuous check: in each type, remove one `Fix` branch or
   one location; confirm the conformance suite or fixture table fails;
   restore. Record one line per type.
+  Done (each restored with `git checkout`):
+  - `branch_ruleset`: drop the ruleset `OpSet` → `TestConformance/absent` fails.
+  - `catalog_info`: drop the `catalog-info.yml` location → `TestConformance/the_.yml_location` fails.
+  - `codeowners`: drop `docs/CODEOWNERS` → `TestConformance/docs/CODEOWNERS` and `TestExistingFileNeverEdited` fail.
+  - `custom_properties`: drop the property `OpSet` → the two clearing source-state fixtures fail.
+  - `dependency_updates`: drop the other-tool delete → the dependabot-present and JSON5-partial fixtures fail.
+  - `file`: drop the file write (body kept in a note so it compiles) → `TestConformance` fails.
+  - `labels`: drop the label change → `TestConformance` fails from `compliant/template` on.
+  - `repo_settings`: drop the setting `OpSet` → `TestConformance` fails from `compliant/template` on.
 
 #### Success Criteria
 

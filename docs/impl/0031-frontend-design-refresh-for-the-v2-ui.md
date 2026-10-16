@@ -496,7 +496,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
 
 #### Tasks
 
-- [ ] 5.1 `views/status.tsx` rebuilt as DESIGN-0036 §Status page:
+- [x] 5.1 `views/status.tsx` rebuilt as DESIGN-0036 §Status page:
   centred 760px column; header row with the shield mark and `updated
   <relative> · refreshes every 30s`; state banner whose border takes
   the tone, pulsing dot (static under reduced motion), headline mapped
@@ -504,7 +504,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   → "Degraded performance", anything else → "Service disruption",
   `unknown` → "Status not yet available" in muted tone), the
   aggregate-only subline and the `StateBadge`.
-- [ ] 5.2 Components card (tone dot, name mono, `detail`, badge; the
+- [x] 5.2 Components card (tone dot, name mono, `detail`, badge; the
   `webhooks` informational footnote kept) and Fleet compliance card
   (percent at 40px or "unmeasured", 10px `Meter` in `ok`, footnote
   `measured: <bool> · compliant ÷ (compliant + non_compliant)`); the
@@ -512,7 +512,7 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   7.4. Footer `GET /api/v1/status · served from an in-process cache`
   in muted mono, plus a documentation link when `docs_url` is set and
   a sign-in link to `/auth/login`.
-- [ ] 5.3 Playwright: the public status page renders without a session;
+- [x] 5.3 Playwright: the public status page renders without a session;
   its text contains none of the seed's org or repository names
   (`acme`, `globex`, every `repositories.name` row); the banner
   headline follows the seeded state.

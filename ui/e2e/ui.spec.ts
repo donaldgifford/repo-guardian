@@ -160,9 +160,26 @@ test("the status page is public", async ({ browser }) => {
   const page = await context.newPage();
   await page.goto("/status");
   await expect(page).toHaveURL(/\/status$/);
-  await expect(page.getByRole("heading", { name: "repo-guardian status" })).toBeVisible();
-  await expect(page.getByText("operational").first()).toBeVisible();
-  await expect(page.getByText("Fleet compliance:")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Repo Guardian status" })).toBeVisible();
+
+  // The banner headline follows the API's state through the fixed map.
+  const status = (await (await page.request.get("/api/v1/status")).json()) as { state: string; components: { name: string }[] };
+  const headlines: Record<string, string> = { operational: "All systems operational", degraded: "Degraded performance", unknown: "Status not yet available" };
+  await expect(page.getByRole("heading", { level: 2, name: headlines[status.state] ?? "Service disruption" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Components" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fleet compliance" })).toBeVisible();
+  await expect(page.getByRole("meter")).toBeVisible();
+  for (const c of status.components) {
+    await expect(page.locator(`[data-component="${c.name}"]`)).toBeVisible();
+  }
+
+  // Aggregate-only: none of the seed's org or repository names appear.
+  // The fixed footer path is removed first; "api" is a seeded repository
+  // name and also a path segment of GET /api/v1/status.
+  const text = (await page.locator("main").innerText()).replace("GET /api/v1/status", "");
+  for (const name of ["acme", "globex", "web", "api", "legacy", "site", "docs"]) {
+    expect(text).not.toMatch(new RegExp(`\\b${name}\\b`, "i"));
+  }
   expect(await context.cookies()).toHaveLength(0);
   await context.close();
 });

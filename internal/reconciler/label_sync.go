@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // labelFile is the YAML schema for a label sync configuration file.

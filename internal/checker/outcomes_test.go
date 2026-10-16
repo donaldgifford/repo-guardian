@@ -9,7 +9,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // Golden outcomes: one engine scenario per reason code and per

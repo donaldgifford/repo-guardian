@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // TestReconcilerPass_RecordsNoOutcome pins the double-iteration contract

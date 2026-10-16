@@ -18,7 +18,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"

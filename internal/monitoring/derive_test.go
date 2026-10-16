@@ -10,7 +10,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // TestRuleKinds_MatchTheEngine pins the redeclaration.

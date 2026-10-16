@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // Existing-PR detection tests for INV-0011 B4 (IMPL-0021 task 6.4).

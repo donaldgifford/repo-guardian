@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	"github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 

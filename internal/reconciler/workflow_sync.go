@@ -3,7 +3,7 @@ package reconciler
 import (
 	"context"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // workflowSyncReconciler detects workflow file changes and logs mismatches.

@@ -11,8 +11,8 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 )
 

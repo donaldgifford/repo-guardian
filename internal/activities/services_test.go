@@ -14,7 +14,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/checker"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	ghmocks "github.com/donaldgifford/repo-guardian/internal/github/mocks"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 	"github.com/donaldgifford/repo-guardian/internal/rules"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/mocks"

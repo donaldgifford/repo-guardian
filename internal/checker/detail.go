@@ -3,7 +3,7 @@ package checker
 import (
 	"github.com/donaldgifford/repo-guardian/internal/findings"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // outcomeDetail is the v2 enrichment of one rule's verdict: why the rule

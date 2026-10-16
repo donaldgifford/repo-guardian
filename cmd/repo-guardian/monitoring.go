@@ -13,7 +13,7 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/emit"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // Output formats, aliased from the emit package so the flag help and

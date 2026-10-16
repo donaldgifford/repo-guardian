@@ -403,9 +403,12 @@ calls `Type.Build`.
 
 #### Tasks
 
-- [ ] 2.1 Free the package path (OQ1): `git mv internal/policy
+- [x] 2.1 Free the package path (OQ1): `git mv internal/policy
   internal/rulepolicy` and rewrite its importers' import paths, nothing
   else. `make ci` green. Phase 7 deletes `internal/rulepolicy`.
+  Done: the package keeps its name `policy`, so importers carry an
+  explicit `policy` alias (goimports adds it); comments and docs that
+  name `internal/policy` are left alone.
 - [ ] 2.2 `internal/policy/load.go`: `Load(root string, reg
   *control.Registry, logger *slog.Logger) (*Snapshot, error)` over the
   DESIGN-0030 layout (`catalogue/*.hcl`, `templates/`, exactly one

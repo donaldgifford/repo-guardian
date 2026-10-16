@@ -2,7 +2,7 @@ package checker
 
 import (
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // The three scope predicates moved to internal/policy in IMPL-0023 task

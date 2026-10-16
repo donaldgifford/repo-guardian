@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/reconciler"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // Compile-time interface compliance check.

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // envInfluencers are the environment variables that can change the

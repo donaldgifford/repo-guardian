@@ -3,7 +3,7 @@ package reconciler
 import (
 	"fmt"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 // Factory creates a Reconciler from the given configuration.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 	tmpl "github.com/donaldgifford/repo-guardian/internal/template"
 )
 

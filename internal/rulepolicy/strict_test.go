@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/donaldgifford/repo-guardian/internal/policy"
+	policy "github.com/donaldgifford/repo-guardian/internal/rulepolicy"
 )
 
 func TestValidatePRTemplates_AcceptsSafeTemplates(t *testing.T) {

@@ -2,6 +2,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 
 import { useOrg, useOrgs } from "../api/queries";
 import { Empty, Loading, Section, Tile } from "../components/common";
+import { OrgScope, PageHeader } from "../components/page";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { formatPercent, humanize } from "../lib/format";
 import { parkedTotal } from "../lib/viewmodel";
@@ -15,7 +16,7 @@ export function OrgsView() {
   }
   return (
     <>
-      <h1 className="text-xl font-semibold">Orgs</h1>
+      <PageHeader title="Orgs" subtitle={<>Every visible org with its tracked, parked and failing counts from <code>/orgs</code>.</>} controls={<OrgScope />} />
       <Table>
         <TableHeader>
           <TableRow>
@@ -56,7 +57,7 @@ export function OrgView() {
   const d = detail.data;
   return (
     <>
-      <h1 className="text-xl font-semibold">{d.org}</h1>
+      <PageHeader title={d.org} subtitle={<>Compliance by rule for one org from <code>/orgs/{d.org}</code>.</>} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <Tile title="Tracked" value={d.tracked} />
         <Tile title="Parked" value={parkedTotal(d.parked)} hint={d.parked.map((p) => `${humanize(p.reason)} ${p.count}`).join(" · ") || undefined} />

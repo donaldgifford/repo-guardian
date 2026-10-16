@@ -2,6 +2,7 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router";
 
 import { useHistory, useRules } from "../api/queries";
 import { Empty, Loading, Section, TrendChart } from "../components/common";
+import { OrgScope, PageHeader } from "../components/page";
 import { patchSearch } from "../lib/search";
 import { seriesByOrg } from "../lib/viewmodel";
 
@@ -33,7 +34,7 @@ export function HistoryView() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">History</h1>
+        <PageHeader title="History" subtitle={<>Compliance snapshots over time from <code>/compliance/history</code>.</>} controls={<OrgScope />} className="mb-0 w-full" />
         <select
           className="ml-auto h-8 rounded-md border border-border bg-background px-2 text-sm"
           value={selected}

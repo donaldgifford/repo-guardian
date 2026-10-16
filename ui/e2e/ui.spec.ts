@@ -4,15 +4,24 @@ import { expect, type Page, test } from "@playwright/test";
 // issuer, which approves at once and sends the browser back.
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+}
+
+// scopeTo picks an org (or "All orgs") in the page header's scope popover.
+async function scopeTo(page: Page, name: string | RegExp) {
+  await page.getByRole("button", { name: "Org scope" }).click();
+  await page.getByRole("dialog", { name: "Org scope" }).getByRole("button", { name }).click();
 }
 
 test("an app path without a session goes through login and comes back", async ({ page }) => {
   await page.goto("/findings?status=non_compliant");
   await expect(page).toHaveURL(/\/findings\?status=non_compliant$/);
   await expect(page.getByRole("heading", { name: "Findings" })).toBeVisible();
-  // The API names the caller by preferred_username (OIDC_NAME_CLAIM).
-  await expect(page.getByRole("banner").getByText("ada", { exact: true })).toBeVisible();
+  // The API names the caller by preferred_username (OIDC_NAME_CLAIM);
+  // the name lives in the avatar menu.
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await expect(page.getByRole("menu").getByText("ada", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("the session and its tokens never reach page script", async ({ page, context }) => {
@@ -64,9 +73,9 @@ test("filters live in the URL", async ({ page }) => {
   await expect(page.getByRole("cell", { name: "codeowners", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "dependabot", exact: true })).toHaveCount(0);
 
-  await page.getByLabel("Org").selectOption("acme");
+  await scopeTo(page, /acme/);
   await expect(page).toHaveURL(/org=acme/);
-  await page.getByRole("link", { name: "Rules" }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Rules" }).click();
   await expect(page).toHaveURL(/\/rules\?org=acme/);
 
   await page.goto("/findings?reason=gate_closed");
@@ -122,7 +131,8 @@ test("CSV export downloads the loaded findings", async ({ page }) => {
 
 test("signing out ends the session", async ({ page, context }) => {
   await signIn(page);
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect.poll(async () => (await context.cookies()).filter((c) => c.name.startsWith("__Host-rg_session"))).toHaveLength(0);
 });
 
@@ -142,6 +152,7 @@ test("every view renders against the seeded API without a problem", async ({ pag
   for (const [path, heading] of views) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
   }
   // History and Policy show seeded data, not just a heading.
@@ -177,4 +188,47 @@ test("a repository outside the caller's orgs is a problem page, not data", async
   await signIn(page, "/repos/4");
   await expect(page.getByRole("alert")).toContainText("404");
   await expect(page.getByText("globex")).toHaveCount(0);
+});
+
+test("the org scope popover writes ?org= and the scope label follows", async ({ page }) => {
+  await signIn(page, "/orgs");
+  const scope = page.getByRole("button", { name: "Org scope" });
+  await expect(scope).toContainText("All orgs (1)");
+  await scopeTo(page, /acme/);
+  await expect(page).toHaveURL(/\/orgs\?org=acme$/);
+  await expect(scope).toContainText("acme");
+  // The scope survives navigation and never offers an org outside the caller's.
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Fleet" }).click();
+  await expect(page).toHaveURL(/\/\?org=acme$/);
+  await scope.click();
+  const dialog = page.getByRole("dialog", { name: "Org scope" });
+  await expect(dialog.getByText("globex")).toHaveCount(0);
+  await dialog.getByRole("button", { name: /All orgs/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("⌘K finds the seeded repository and navigates to it", async ({ page }) => {
+  await signIn(page);
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  await expect(palette).toBeVisible();
+  await palette.getByRole("combobox").fill("web");
+  await palette.getByRole("option", { name: /acme\/web/ }).click();
+  await expect(page).toHaveURL(/\/repos\/1$/);
+  await expect(page.getByRole("heading", { level: 1, name: "acme/web" })).toBeVisible();
+});
+
+test("the sidebar Findings count equals /summary", async ({ page }) => {
+  await signIn(page);
+  const summary = (await (await page.request.get("/api/v1/summary")).json()) as { findings: { non_compliant: number } };
+  const findings = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /Findings/ });
+  await expect(findings).toContainText(summary.findings.non_compliant.toLocaleString());
+});
+
+test("without UI_DOCS_URL the sidebar has no Docs group", async ({ page }) => {
+  await signIn(page);
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav.getByRole("link", { name: /Fleet/ })).toBeVisible();
+  await expect(nav.getByText("Docs", { exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Documentation" })).toHaveCount(0);
 });

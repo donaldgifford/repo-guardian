@@ -2,8 +2,9 @@ import { getRouteApi } from "@tanstack/react-router";
 
 import type { Schemas } from "../api/client";
 import { useRepository, useRepositoryChecks, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { StatusBadge } from "../components/badges";
+import { StateBadge, StatusBadge } from "../components/badges";
 import { Empty, Evidence, ExternalLink, Loading, Remediation, Section } from "../components/common";
+import { PageHeader } from "../components/page";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { humanize, relativeTime } from "../lib/format";
@@ -25,16 +26,17 @@ export function RepositoryView() {
   const href = config.data ? repoLink(config.data.github_host, r.org, r.name) : undefined;
   return (
     <>
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-semibold">
-          {r.org}/{r.name}
-        </h1>
-        {href ? <ExternalLink href={href}>on GitHub</ExternalLink> : null}
-        <span className="ml-auto text-sm text-muted-foreground">
+      <PageHeader
+        title={`${r.org}/${r.name}`}
+        badge={<StateBadge state={r.active ? "active" : "parked"} />}
+        subtitle={
+          <>
           {r.active ? "active" : `parked (${humanize(r.park_reason ?? "unknown")}) ${relativeTime(r.parked_at)}`} · checked {relativeTime(r.last_checked_at)}
           {last_check ? ` · ${last_check.outcome}` : ""}
-        </span>
-      </div>
+          </>
+        }
+        controls={href ? <ExternalLink href={href}>on GitHub</ExternalLink> : null}
+      />
       <Table>
         <TableHeader>
           <TableRow>

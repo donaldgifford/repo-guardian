@@ -4,6 +4,7 @@ import type { FindingFilters } from "../api/queries";
 import { useFindings } from "../api/queries";
 import { StatusBadge } from "../components/badges";
 import { Empty, Evidence, Loading, Remediation } from "../components/common";
+import { OrgScope, PageHeader } from "../components/page";
 import { Button } from "../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { findingsCsv } from "../lib/csv";
@@ -88,7 +89,7 @@ export function FindingsView() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Findings</h1>
+      <PageHeader title="Findings" subtitle={<>One row per rule per repository from <code>/findings</code>.</>} controls={<OrgScope />} />
       <div className="flex flex-wrap items-end gap-3 text-sm">
         {textFilters.map((k) =>
           k === "rule" ? (

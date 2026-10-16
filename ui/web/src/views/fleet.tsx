@@ -3,6 +3,7 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import type { Schemas } from "../api/client";
 import { useHistory, useOrg, useOrgs, useRules, useSummary } from "../api/queries";
 import { Loading, Section, Tile, TrendChart } from "../components/common";
+import { OrgScope, PageHeader } from "../components/page";
 import { Card, CardContent } from "../components/ui/card";
 import { formatPercent, humanize } from "../lib/format";
 import { complianceSeries, parkedTotal, trendFrom, worstRules } from "../lib/viewmodel";
@@ -29,7 +30,7 @@ function WholeFleet() {
   const s = summary.data;
   return (
     <>
-      <h1 className="text-xl font-semibold">Fleet</h1>
+      <PageHeader title="Fleet" subtitle={<>Fleet compliance from <code>/summary</code> and <code>/compliance/history</code>.</>} controls={<OrgScope />} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Tile title="Tracked" value={s.tracked.toLocaleString()} />
         <Tile title="Compliant" value={formatPercent(s.compliant_percent)} />
@@ -76,7 +77,7 @@ function OrgFleet({ org }: { org: string }) {
   const summary = orgs.data?.items.find((o) => o.org.toLowerCase() === org.toLowerCase());
   return (
     <>
-      <h1 className="text-xl font-semibold">{d.org}</h1>
+      <PageHeader title={d.org} subtitle={<>Compliance for one org from <code>/orgs/{d.org}</code>.</>} controls={<OrgScope />} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Tile title="Tracked" value={d.tracked.toLocaleString()} />
         <Tile title="Compliant" value={formatPercent(summary?.compliant_percent)} />

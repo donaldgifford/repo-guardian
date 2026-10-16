@@ -1,5 +1,6 @@
 import { usePolicy } from "../api/queries";
 import { Loading, Section, Tile } from "../components/common";
+import { PageHeader } from "../components/page";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { humanize, relativeTime } from "../lib/format";
 
@@ -13,7 +14,7 @@ export function PolicyView() {
   const p = policy.data;
   return (
     <>
-      <h1 className="text-xl font-semibold">Policy</h1>
+      <PageHeader title="Policy" subtitle={<>The active policy version and its rollout from <code>/policy</code>.</>} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Tile title="Version" value={<span className="font-mono text-base break-all">{p.version}</span>} hint={`first seen ${relativeTime(p.first_seen_at)}`} />
         <Tile

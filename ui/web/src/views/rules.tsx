@@ -1,8 +1,9 @@
 import { getRouteApi, Link } from "@tanstack/react-router";
 
 import { useRule, useRules } from "../api/queries";
-import { StatusBadge } from "../components/badges";
+import { KindBadge, StatusBadge } from "../components/badges";
 import { Empty, Evidence, Loading, Section, Tile } from "../components/common";
+import { OrgScope, PageHeader } from "../components/page";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { formatPercent, humanize, relativeTime, trend } from "../lib/format";
 
@@ -18,7 +19,7 @@ export function RulesView() {
   }
   return (
     <>
-      <h1 className="text-xl font-semibold">Rules</h1>
+      <PageHeader title="Rules" subtitle={<>Every policy rule with its fleet counts from <code>/rules</code>.</>} controls={<OrgScope />} />
       <Table>
         <TableHeader>
           <TableRow>
@@ -68,11 +69,7 @@ export function RuleView() {
   const r = rule.data;
   return (
     <>
-      <div>
-        <h1 className="text-xl font-semibold">{r.name}</h1>
-        <p className="text-sm text-muted-foreground">{humanize(r.kind)} rule</p>
-        {r.description ? <p className="mt-2 text-sm">{r.description}</p> : null}
-      </div>
+      <PageHeader title={r.name} badge={<KindBadge kind={r.kind} />} subtitle={r.description || `${humanize(r.kind)} rule`} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Tile title="Compliant" value={formatPercent(r.compliant_percent)} />
         <Tile title="Failing" value={r.counts.non_compliant} />

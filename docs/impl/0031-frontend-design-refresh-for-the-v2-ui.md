@@ -304,7 +304,7 @@ selector migration.
   through `patchSearch`), `RangeTabs` (`1d | 7d | 30d | 90d` → `?range=`,
   default `90d`; `lib/range.ts` maps a range to a `from` timestamp).
   `appRoute` gains `range` in `retainSearchParams`.
-- [ ] 2.6 `router.tsx`: `AppLayout` becomes `Shell` (top bar, sidebar,
+- [x] 2.6 `router.tsx`: `AppLayout` becomes `Shell` (top bar, sidebar,
   scrolling main); remove the header links, the native `OrgFilter`
   select and the inline sign-out; keep `parseOrgSearch`,
   `retainSearchParams`, `AccessView` and `ProblemView` behaviour
@@ -316,7 +316,7 @@ selector migration.
   `charts/repo-guardian/templates/ui.yaml`, `values.schema.json`
   `format: uri`, a case in `charts/repo-guardian/tests/ui_test.yaml`,
   `make helm-docs`.
-- [ ] 2.8 Playwright: update `ui/e2e/ui.spec.ts` for the moved
+- [x] 2.8 Playwright: update `ui/e2e/ui.spec.ts` for the moved
   selectors (Sign out inside the avatar menu; org scope through the
   popover instead of the select; breadcrumb row present on every
   view); add specs: org scope popover writes `?org=` and the scoping

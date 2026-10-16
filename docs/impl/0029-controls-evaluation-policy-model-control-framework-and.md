@@ -1867,11 +1867,12 @@ half-switched binary.
   `guardian.hcl`" section mapping each v1 rule kind to its control type
   (DESIGN-0029 D1); link the generated `controls-reference.md`;
   `mkdocs.yml` nav.
-- [ ] 9.4 CLAUDE.md (`v2` branch): the framework invariants (`Validate`
+- [x] 9.4 CLAUDE.md (`v2` branch): the framework invariants (`Validate`
   before `StatusOf`, `Owns` versus `Reads`, revision goldens and
   `Semantics`), the epoch fence, the park-reason result rule, the
   posture `max by` rule for `controls_status`, and the switch-over facts
   a later edit must not break.
+  Done: CLAUDE.md's "Key design patterns" now describes the controls line (policy directory and resolution, `Validate` before `StatusOf`, `Owns` versus `Reads`, revision goldens and `Semantics`, the epoch fence and `results_discarded_total{reason="stale_epoch"}`, the park-reason result rule, posture `max by` on `controls_status`, two Apps by role) in place of the deleted v1 engine's bullets; "Engine and Loader Subtleties" is pruned to what still exists. The Phase 7 and Phase 8 sections hold the switch-over and API/UI facts.
 - [ ] 9.5 `Chart.yaml` `2.0.0-rc.N` and appVersion `2.0.0-rc.N` (the
   next free rc), helm-unittest pins, both CHANGELOGs through git-cliff,
   `README.md.gotmpl` then `make helm-docs`.

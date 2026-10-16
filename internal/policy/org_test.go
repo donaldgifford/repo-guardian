@@ -32,7 +32,7 @@ const testOrgPolicy = `org "test-org" {
 
   repos "legacy" {
     match = ["legacy-api", "legacy-web"]
-    exclude "catalog@1" {
+    exclude "deps@1" {
       reason = "decommissioning"
     }
     mode = "evaluate"
@@ -59,14 +59,7 @@ const testEnterprise = `enterprise {
 func TestDecode_EnterpriseAndOrg(t *testing.T) {
 	t.Parallel()
 
-	snap, err := Load(
-		writeRoot(t, map[string]string{"enterprise.hcl": testEnterprise, "orgs/test-org.hcl": testOrgPolicy}),
-		testRegistry(),
-		discard(),
-	)
-	if err != nil {
-		t.Fatalf("Load() err = %v", err)
-	}
+	snap := mustLoad(t, map[string]string{"enterprise.hcl": testEnterprise, "orgs/test-org.hcl": testOrgPolicy})
 
 	ent := snap.enterprise
 	if len(ent.orgs) != 2 || ent.mode.mode != ModeEvaluate || len(ent.controls) != 2 || *ent.remed.maxOpenPRs != 3 ||

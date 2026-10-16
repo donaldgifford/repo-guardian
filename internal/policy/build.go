@@ -28,9 +28,14 @@ func (l *loader) build(layout rootLayout, bodies map[string]hcl.Body) (*Snapshot
 		return nil, err
 	}
 
+	v := &validator{defs: defs, ent: ent, orgs: orgs}
+	if err := v.validate(); err != nil {
+		return nil, err
+	}
+
 	return &Snapshot{
 		files: l.files, defs: defs, embeddedUsed: l.templates.usedEmbedded(),
-		enterprise: ent, orgs: orgs,
+		enterprise: ent, orgs: orgs, warnings: v.warnings,
 	}, nil
 }
 

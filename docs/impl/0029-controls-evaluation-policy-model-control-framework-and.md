@@ -462,9 +462,16 @@ calls `Type.Build`.
   reasons) are decoded raw and checked in 2.5. The enterprise policy
   names each forbidden block (`exclude`, `replace`, `exclude_repos`,
   `repos`, `control`) in its error.
-- [ ] 2.5 `validate.go`: every error and warning in DESIGN-0030's
+- [x] 2.5 `validate.go`: every error and warning in DESIGN-0030's
   validation list, one table-test row each, asserting the message and the
   source location. Warnings go to the logger once at load.
+  Done: errors are joined so one load reports all of them. A `replace` in
+  a `repos` block is checked against the org layer's result plus every
+  earlier block's additions, since which earlier blocks a repository
+  meets is unknown at load. The ownership-collision rows are 2.6's
+  (warnings, per this plan). "A `repos` block matches no known
+  repository" needs discovery, so it is `(*Snapshot).UnmatchedReposBlocks`
+  for the discovery path to log rather than a load-time warning.
 - [ ] 2.6 `ownership.go`: the conservative load-time pairwise `Owns()`
   enumeration over every pair of definitions any org could assign
   together; overlaps are warnings naming both definitions and the

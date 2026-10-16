@@ -607,10 +607,12 @@ posture:
 # at GUARDIAN_CONFIG on ingest (push routing reads its watched paths),
 # the controls workers and the migrate Job (which activates its version).
 policy:
-  # -- Map of path (relative to the policy root) to file content, e.g.
-  # `enterprise.hcl`, `catalogue/files.hcl`, `orgs/acme.hcl`,
-  # `templates/CODEOWNERS.tmpl`. Rendered into one ConfigMap; the volume
-  # puts each file back at its path.
+  # -- The policy root as a nested map by directory (OQ11): a string is
+  # a file, a map is a directory, e.g. `enterprise.hcl: ...`,
+  # `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`,
+  # `templates: {...}`. Rendered into one ConfigMap (keys joined with
+  # dots, `catalogue.codeowners.hcl`); the volume puts each file back at
+  # its path.
   files: {}
   # -- An existing ConfigMap holding the policy root, mounted whole in
   # place of `files` (flat keys only, unless the operator mounts it with

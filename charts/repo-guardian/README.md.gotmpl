@@ -62,8 +62,9 @@ policy:
   files:
     enterprise.hcl: |
       enterprise {}
-    orgs/acme.hcl: |
-      org "acme" {}
+    orgs:
+      acme.hcl: |
+        org "acme" {}
 ```
 
 2. Install the chart:
@@ -526,11 +527,13 @@ for repositories the webhooks missed.
 
 ### Editing the policy
 
-`policy.files` is the controls policy directory (DESIGN-0030): each key
-is a path relative to the policy root (`enterprise.hcl`,
-`catalogue/*.hcl`, `orgs/*.hcl`, `templates/...`). The chart renders
-one ConfigMap and mounts it at `GUARDIAN_CONFIG` on ingest, the
-controls workers and the migrate Job, with each file back at its path.
+`policy.files` is the controls policy directory (DESIGN-0030) as a
+nested map: a string is a file, a map is a directory (`enterprise.hcl`,
+`catalogue: {...}`, `orgs: {...}`, `templates: {...}`). The chart
+renders one ConfigMap, its keys the paths joined with dots
+(`catalogue.codeowners.hcl`), and mounts it at `GUARDIAN_CONFIG` on
+ingest, the controls workers and the migrate Job, with each file back at
+its path.
 The policy version hashes the files and the templates they use. Editing
 `policy.files` changes the pod checksum, so the roles roll, the
 migrate Job activates the new version, and the evaluator re-evaluates

@@ -9,14 +9,18 @@ set:
   temporal:
     address: temporal:7233
 tests:
-  - it: renders one key per policy.files path, slashes folded to underscores
+  # OQ11 (a): policy.files is a nested map by directory; the ConfigMap
+  # key joins the path with dots.
+  - it: renders one key per file in the tree, path joined with dots
     template: templates/policy-configmap.yaml
     set:
       policy:
         files:
           enterprise.hcl: "enterprise {}"
-          catalogue/files.hcl: "control {}"
-          orgs/acme.hcl: "org {}"
+          catalogue:
+            files.hcl: "control {}"
+          orgs:
+            acme.hcl: "org {}"
     asserts:
       - isKind:
           of: ConfigMap
@@ -30,8 +34,8 @@ tests:
           path: data
           value:
             enterprise.hcl: "enterprise {}\n"
-            catalogue_files.hcl: "control {}\n"
-            orgs_acme.hcl: "org {}\n"
+            catalogue.files.hcl: "control {}\n"
+            orgs.acme.hcl: "org {}\n"
 
   - it: renders no ConfigMap for an existing one
     template: templates/policy-configmap.yaml
@@ -70,7 +74,11 @@ tests:
       policy:
         files:
           enterprise.hcl: "enterprise {}"
-          orgs/acme.hcl: "org {}"
+          orgs:
+            acme.hcl: "org {}"
+          templates:
+            codeowners:
+              CODEOWNERS.tmpl: "* @team"
     asserts:
       - contains:
           path: spec.template.spec.volumes
@@ -81,8 +89,10 @@ tests:
               items:
                 - key: enterprise.hcl
                   path: enterprise.hcl
-                - key: orgs_acme.hcl
+                - key: orgs.acme.hcl
                   path: orgs/acme.hcl
+                - key: templates.codeowners.CODEOWNERS.tmpl
+                  path: templates/codeowners/CODEOWNERS.tmpl
 
   - it: mounts an existing ConfigMap whole
     template: templates/deployment.yaml
@@ -126,33 +136,35 @@ tests:
       - failedTemplate:
           errorPattern: "mutually exclusive"
 
-  - it: refuses a path that leaves the policy root
-    template: templates/deployment.yaml
+  - it: refuses a name that leaves the policy root
+    template: templates/policy-configmap.yaml
     set:
       policy:
         files:
-          ../etc/passwd: "x"
+          "..":
+            passwd: "x"
     asserts:
       - failedTemplate:
-          errorPattern: "must be relative to the policy root"
+          errorPattern: "a name is one path segment"
 
-  - it: refuses an absolute path
-    template: templates/deployment.yaml
+  - it: refuses a name holding a slash
+    template: templates/policy-configmap.yaml
     set:
       policy:
         files:
-          /enterprise.hcl: "x"
+          orgs/acme.hcl: "x"
     asserts:
       - failedTemplate:
-          errorPattern: "must be relative to the policy root"
+          errorPattern: "a name is one path segment"
 
   - it: refuses two paths that fold to one key
     template: templates/deployment.yaml
     set:
       policy:
         files:
-          orgs/acme.hcl: "a"
-          orgs_acme.hcl: "b"
+          orgs:
+            acme.hcl: "a"
+          orgs.acme.hcl: "b"
     asserts:
       - failedTemplate:
           errorPattern: "map to the same ConfigMap key"

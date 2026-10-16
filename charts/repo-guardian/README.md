@@ -62,8 +62,9 @@ policy:
   files:
     enterprise.hcl: |
       enterprise {}
-    orgs/acme.hcl: |
-      org "acme" {}
+    orgs:
+      acme.hcl: |
+        org "acme" {}
 ```
 
 2. Install the chart:
@@ -526,11 +527,13 @@ for repositories the webhooks missed.
 
 ### Editing the policy
 
-`policy.files` is the controls policy directory (DESIGN-0030): each key
-is a path relative to the policy root (`enterprise.hcl`,
-`catalogue/*.hcl`, `orgs/*.hcl`, `templates/...`). The chart renders
-one ConfigMap and mounts it at `GUARDIAN_CONFIG` on ingest, the
-controls workers and the migrate Job, with each file back at its path.
+`policy.files` is the controls policy directory (DESIGN-0030) as a
+nested map: a string is a file, a map is a directory (`enterprise.hcl`,
+`catalogue: {...}`, `orgs: {...}`, `templates: {...}`). The chart
+renders one ConfigMap, its keys the paths joined with dots
+(`catalogue.codeowners.hcl`), and mounts it at `GUARDIAN_CONFIG` on
+ingest, the controls workers and the migrate Job, with each file back at
+its path.
 The policy version hashes the files and the templates they use. Editing
 `policy.files` changes the pod checksum, so the roles roll, the
 migrate Job activates the new version, and the evaluator re-evaluates
@@ -637,7 +640,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | podSecurityContext | object | `{}` | Pod security context |
 | policy | object | `{"existingConfigMap":"","files":{}}` | The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted at GUARDIAN_CONFIG on ingest (push routing reads its watched paths), the controls workers and the migrate Job (which activates its version). |
 | policy.existingConfigMap | string | `""` | An existing ConfigMap holding the policy root, mounted whole in place of `files` (flat keys only, unless the operator mounts it with its own items through extraVolumes). |
-| policy.files | object | `{}` | Map of path (relative to the policy root) to file content, e.g. `enterprise.hcl`, `catalogue/files.hcl`, `orgs/acme.hcl`, `templates/CODEOWNERS.tmpl`. Rendered into one ConfigMap; the volume puts each file back at its path. |
+| policy.files | object | `{}` | The policy root as a nested map by directory (OQ11): a string is a file, a map is a directory, e.g. `enterprise.hcl: ...`, `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`, `templates: {...}`. Rendered into one ConfigMap (keys joined with dots, `catalogue.codeowners.hcl`); the volume puts each file back at its path. |
 | policyRolloutWindow | string | `"24h"` | Span a policy change is spread across: every repository is re-checked at a random point inside it, not all at once. |
 | posture | object | `{"snapshotInterval":"24h"}` | Compliance history (IMPL-0023 / DESIGN-0022). SnapshotWorkflow writes one compliance_history row per org on this cadence. |
 | posture.snapshotInterval | string | `"24h"` | Cadence between compliance-history snapshots, the rows `repo-guardian report --since` reads. This is not the posture gauges: Prometheus already keeps those for its retention window, typically weeks, and this table exists for "how compliant were we last quarter", which no operational metrics store can answer. Daily is already finer than any question the report asks, and the rows are permanent — there is no retention machinery — so shortening it accrues storage forever for resolution nobody requested. |

@@ -392,19 +392,45 @@ the policy and on the migrate Job.
 {{- define "repo-guardian.policyRoot" -}}/etc/repo-guardian/policy{{- end }}
 
 {{/*
-The ConfigMap key for a policy.files path (IMPL-0029 7.9). A key may
-not hold "/", so each other character goes to "_"; the volume's items
-put the file back at its path, so catalogue/ and orgs/ survive the
+policy.files is the policy root as a nested map (IMPL-0029 7.9, OQ11
+(a)): a string is a file, a map is a directory. policyFiles walks it and
+returns JSON {"<path>": "<content>"}, e.g. "catalogue/codeowners.hcl".
+Callers fromJson it.
+*/}}
+{{- define "repo-guardian.policyFiles" -}}
+{{- $out := dict -}}
+{{- include "repo-guardian.policyWalk" (dict "node" (.Values.policy.files | default dict) "prefix" "" "out" $out) -}}
+{{- toJson $out -}}
+{{- end }}
+
+{{- define "repo-guardian.policyWalk" -}}
+{{- range $k, $v := .node -}}
+{{- if or (eq $k "") (eq $k ".") (eq $k "..") (contains "/" $k) -}}
+{{- fail (printf "policy.files entry %q under %q: a name is one path segment, never empty, \".\", \"..\" or containing /" $k (default "/" $.prefix)) -}}
+{{- end -}}
+{{- $p := ternary $k (printf "%s/%s" $.prefix $k) (eq $.prefix "") -}}
+{{- if kindIs "map" $v -}}
+{{- include "repo-guardian.policyWalk" (dict "node" $v "prefix" $p "out" $.out) -}}
+{{- else -}}
+{{- $_ := set $.out $p (toString $v) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The ConfigMap key for a policy path: "/" becomes "." (OQ11:
+catalogue/codeowners.hcl → catalogue.codeowners.hcl). The volume's items
+put each file back at its path, so catalogue/ and orgs/ survive the
 mount (kubelet's ..data layout, which policy.Load follows).
 */}}
 {{- define "repo-guardian.policyKey" -}}
-{{- regexReplaceAll "[^-._a-zA-Z0-9]" . "_" -}}
+{{- regexReplaceAll "[^-._a-zA-Z0-9]" (replace "/" "." .) "_" -}}
 {{- end }}
 
 {{/*
 The policy volume, shared by the Deployment and the migrate Job. An
 operator ConfigMap is mounted whole; policy.files is mounted through
-items, one per path.
+items, one per file.
 */}}
 {{- define "repo-guardian.policyVolume" -}}
 - name: policy
@@ -412,7 +438,7 @@ items, one per path.
     name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
     {{- if not .Values.policy.existingConfigMap }}
     items:
-      {{- range $path, $_ := .Values.policy.files }}
+      {{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson }}
       - key: {{ include "repo-guardian.policyKey" $path }}
         path: {{ $path }}
       {{- end }}
@@ -420,18 +446,16 @@ items, one per path.
 {{- end }}
 
 {{/*
-Render-time guard for policy.files: relative paths that stay inside the
-root, distinct ConfigMap keys, and not beside an existingConfigMap.
+Render-time guard for policy.files: distinct ConfigMap keys, and not
+beside an existingConfigMap. policyWalk refuses names that would leave
+the root.
 */}}
 {{- define "repo-guardian.validatePolicyFiles" -}}
 {{- if and .Values.policy.files .Values.policy.existingConfigMap -}}
 {{- fail "policy.files and policy.existingConfigMap are mutually exclusive: set one" -}}
 {{- end -}}
 {{- $keys := dict -}}
-{{- range $path, $_ := .Values.policy.files -}}
-{{- if or (hasPrefix "/" $path) (has ".." (splitList "/" $path)) (eq $path "") -}}
-{{- fail (printf "policy.files path %q must be relative to the policy root and must not contain .." $path) -}}
-{{- end -}}
+{{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson -}}
 {{- $k := include "repo-guardian.policyKey" $path -}}
 {{- if hasKey $keys $k -}}
 {{- fail (printf "policy.files paths %q and %q map to the same ConfigMap key %q: rename one" (get $keys $k) $path $k) -}}

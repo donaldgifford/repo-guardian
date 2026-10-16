@@ -135,7 +135,7 @@ it):
 
 | Removed | Replacement |
 | --- | --- |
-| `policy.config` | `policy.files`: the policy directory, one key per path (`enterprise.hcl`, `catalogue/*.hcl`, `orgs/*.hcl`, `templates/...`) |
+| `policy.config` | `policy.files`: the policy directory as a nested map, a string per file and a map per directory (`enterprise.hcl`, `catalogue: {...}`, `orgs: {...}`, `templates: {...}`) |
 | `templates.*` | the policy directory's `templates/`, in `policy.files` |
 | `secrets.*`, `config.appId` | `github.eval.*` and `github.remediate.*` |
 | `checkInterval` | `evalInterval` |

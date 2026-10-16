@@ -1723,13 +1723,15 @@ half-switched binary.
   the migration URL; helm-unittest for rendering, mounts and each removed
   key; namespace check passes.
   Done:
-  - **Policy ConfigMap.** `policy.files` (path → content) renders one
-    ConfigMap (`policy-configmap.yaml`). The `/` in a path folds to `_`
-    for the key, and the `repo-guardian.policyVolume` items put each file
-    back at its path, so `catalogue/` and `orgs/` survive the kubelet
-    `..data` mount. `validatePolicyFiles` refuses absolute paths, `..`,
-    two paths that fold to one key, and `files` beside
-    `existingConfigMap`.
+  - **Policy ConfigMap.** Per OQ11 (a), `policy.files` is a nested map
+    by directory: a string is a file and a map is a directory.
+    `repo-guardian.policyWalk` flattens it into one ConfigMap
+    (`policy-configmap.yaml`), keyed by the path joined with dots
+    (`catalogue.codeowners.hcl`). The `repo-guardian.policyVolume` items
+    put each file back at its path, so `catalogue/` and `orgs/` survive
+    the kubelet `..data` mount. The walk refuses an empty name, `.`,
+    `..` and any name holding `/`. `validatePolicyFiles` refuses two
+    paths that fold to one key, and `files` beside `existingConfigMap`.
   - **Mounts.** `GUARDIAN_CONFIG=/etc/repo-guardian/policy` is set on
     ingest, the evaluator, the migrate Job, and also the remediator,
     because `config.validateControlsWorker` requires `GUARDIAN_CONFIG` for

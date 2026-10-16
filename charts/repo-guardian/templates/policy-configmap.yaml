@@ -1,5 +1,6 @@
 {{- /* The controls policy directory (IMPL-0029 7.9, OQ11): one key per
-policy.files path, put back at its path by the volume's items. */ -}}
+file in the policy.files tree, put back at its path by the volume's
+items. */ -}}
 {{- if and .Values.policy.files (not .Values.policy.existingConfigMap) }}
 apiVersion: v1
 kind: ConfigMap
@@ -9,7 +10,7 @@ metadata:
   labels:
     {{- include "repo-guardian.labels" . | nindent 4 }}
 data:
-  {{- range $path, $content := .Values.policy.files }}
+  {{- range $path, $content := include "repo-guardian.policyFiles" . | fromJson }}
   {{ include "repo-guardian.policyKey" $path }}: |
     {{- $content | nindent 4 }}
   {{- end }}

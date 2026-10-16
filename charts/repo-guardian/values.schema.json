@@ -590,9 +590,12 @@
       "properties": {
         "files": {
           "type": "object",
-          "description": "Path relative to the policy root → file content.",
+          "description": "The policy root as a nested map: a string is a file, an object is a directory (OQ11).",
           "additionalProperties": {
-            "type": "string"
+            "type": [
+              "string",
+              "object"
+            ]
           }
         },
         "existingConfigMap": {

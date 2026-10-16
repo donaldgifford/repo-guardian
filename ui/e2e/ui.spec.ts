@@ -225,6 +225,69 @@ test("the sidebar Findings count equals /summary", async ({ page }) => {
   await expect(findings).toContainText(summary.findings.non_compliant.toLocaleString());
 });
 
+test("range tabs change the history query's from, and the series pills the chart", async ({ page }) => {
+  await signIn(page);
+  const froms: string[] = [];
+  page.on("request", (req) => {
+    const u = new URL(req.url());
+    if (u.pathname === "/api/v1/compliance/history") froms.push(u.searchParams.get("from") ?? "");
+  });
+  await expect(page.getByRole("img", { name: "compliant % over 90d" })).toBeVisible();
+  await page.getByRole("tab", { name: "7d" }).click();
+  await expect(page).toHaveURL(/range=7d/);
+  await expect(page.getByText("Compliance (7d)")).toBeVisible();
+  await expect.poll(() => froms.length).toBeGreaterThan(0);
+  const last = froms[froms.length - 1] ?? "";
+  const days = (Date.now() - Date.parse(last)) / 86_400_000;
+  expect(days).toBeGreaterThanOrEqual(7);
+  expect(days).toBeLessThan(8);
+
+  await page.getByRole("radio", { name: /failing findings/ }).click();
+  await expect(page).toHaveURL(/series=failing/);
+  await expect(page.getByRole("img", { name: "failing findings over 7d" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /failing findings/ })).toHaveAttribute("aria-checked", "true");
+});
+
+test("the fleet issues at most one request per endpoint plus history pages", async ({ page }) => {
+  await signIn(page, "/rules");
+  const counts = new Map<string, number>();
+  page.on("request", (req) => {
+    const u = new URL(req.url());
+    if (u.pathname.startsWith("/api/v1/")) counts.set(u.pathname, (counts.get(u.pathname) ?? 0) + 1);
+  });
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Fleet" }).click();
+  await expect(page.getByRole("img", { name: "compliant % over 90d" })).toBeVisible();
+  await page.waitForTimeout(1500);
+  for (const [path, n] of counts) {
+    if (path === "/api/v1/compliance/history") continue;
+    expect(n, path).toBeLessThanOrEqual(1);
+  }
+  expect(counts.get("/api/v1/compliance/history") ?? 0).toBeLessThanOrEqual(2);
+});
+
+test("a worst-rule link lands on the rule page, whose Findings button carries kind and rule", async ({ page }) => {
+  await signIn(page);
+  const worst = page.locator("section").filter({ has: page.getByRole("heading", { name: "Worst rules" }) });
+  await expect(worst.getByRole("meter").first()).toBeVisible();
+  await worst.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/rules\/file\/[a-z]+$/);
+  const findings = page.getByRole("link", { name: "Findings for this rule" });
+  await expect(findings).toHaveAttribute("href", /\/findings\?kind=file&rule=[a-z]+$/);
+  await findings.click();
+  await expect(page).toHaveURL(/\/findings\?kind=file&rule=[a-z]+$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Findings" })).toBeVisible();
+});
+
+test("the rules page filters by kind tab", async ({ page }) => {
+  await signIn(page, "/rules");
+  await expect(page.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "file" }).click();
+  await expect(page).toHaveURL(/\/rules\?kind=file$/);
+  await expect(page.getByRole("img", { name: "findings by rule and status" })).toBeVisible();
+  await page.getByRole("tab", { name: "All" }).click();
+  await expect(page).toHaveURL(/\/rules$/);
+});
+
 test("without UI_DOCS_URL the sidebar has no Docs group", async ({ page }) => {
   await signIn(page);
   const nav = page.getByRole("navigation", { name: "Primary" });

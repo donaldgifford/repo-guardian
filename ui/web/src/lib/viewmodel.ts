@@ -134,6 +134,12 @@ export function failingRuleCount(rules: readonly Pick<RuleCompliance, "counts">[
   return rules.filter((r) => r.counts.non_compliant > 0).length;
 }
 
+// ruleKinds is the sorted set of kinds present in a rule list: the
+// Rules page's kind tabs come from data, not from a hard-coded list.
+export function ruleKinds(rules: readonly Pick<RuleCompliance, "kind">[]): string[] {
+  return [...new Set(rules.map((r) => r.kind))].sort((a, b) => a.localeCompare(b));
+}
+
 // FleetSeriesKey names the four series a fleet point carries; the
 // compliance card draws exactly one at a time (DESIGN-0036 §Fleet).
 export type FleetSeriesKey = "compliant" | "failing" | "not_applicable" | "unknown";

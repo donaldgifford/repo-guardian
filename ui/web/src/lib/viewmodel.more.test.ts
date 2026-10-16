@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { cadenceWord, complianceSeries, deltaFrom, deltaOver, failingRuleCount, type FleetPoint, fleetSeries, fleetSeriesFor, heatOpacity, initials, isFleetSeriesKey, latestValue, orgCountLabel, type SeriesPoint } from "./viewmodel";
+import { cadenceWord, complianceSeries, deltaFrom, deltaOver, failingRuleCount, type FleetPoint, fleetSeries, fleetSeriesFor, heatOpacity, initials, isFleetSeriesKey, latestValue, orgCountLabel, ruleKinds, type SeriesPoint } from "./viewmodel";
 
 // The IMPL-0031 1.10 additions; the older helpers are in viewmodel.test.ts.
 
@@ -131,6 +131,11 @@ describe("fleet series selection", () => {
     // Gaps are skipped on both ends.
     expect(deltaOver([day(1, 10), day(2, null), day(9, null), day(10, 15), day(11, null)], 7)).toBe(5);
   });
+});
+
+test("ruleKinds is the sorted distinct set of kinds present", () => {
+  expect(ruleKinds([{ kind: "setting" }, { kind: "file" }, { kind: "setting" }, { kind: "branch_protection" }])).toEqual(["branch_protection", "file", "setting"]);
+  expect(ruleKinds([])).toEqual([]);
 });
 
 test("failingRuleCount counts rules with any failure", () => {

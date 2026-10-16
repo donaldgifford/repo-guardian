@@ -367,17 +367,17 @@ flips; a hidden panel renders nothing, never a placeholder.
   Compliance meter; rows link to the org). With `?org=` set, read
   `/orgs/{org}` and replace the Orgs table with Not applicable by
   reason (`BarList`).
-- [ ] 3.4 `views/rules.tsx` list: kind `Tabs` (`All` plus the kinds
+- [x] 3.4 `views/rules.tsx` list: kind `Tabs` (`All` plus the kinds
   present, `?kind=`), `Kpi` row of the four worst rules, `StackedBars`
   per rule with legend, full table (Rule, Kind, Compliant, Failing,
   N/A, Unknown, Compliance, Trend in points, Previous snapshot date).
-- [ ] 3.5 Rule detail (`/rules/$kind/$name`): `PageHeader` with the
+- [x] 3.5 Rule detail (`/rules/$kind/$name`): `PageHeader` with the
   kind badge, the policy `description` subtitle and "Findings for this
   rule" → `/findings?kind=&rule=`; `Kpi`s (Compliance + trend,
   Compliant, Failing + `oldest: N days`, Not applicable); two-thirds
   per-org table with `Meter`s; one-third Top reasons `BarList` and
   Oldest failures list linking to `/repos/$id`.
-- [ ] 3.6 Tests: viewmodel cases from 3.1–3.5 (7d delta window, stale
+- [x] 3.6 Tests: viewmodel cases from 3.1–3.5 (7d delta window, stale
   threshold humanising, rule kind tab set from data); Playwright:
   range tabs change the history query's `from`, the series pills
   switch the chart's `aria-label`, the worst-rule link lands on the

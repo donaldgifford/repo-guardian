@@ -216,7 +216,7 @@ calls `Type.Build`.
   `controls/*` type, of `findings` in `template`, of a control type in
   `report`, and of `control` in `workflows` each failed lint; removed.
   (A blank-import probe does not trip depguard: use a named import.)
-- [ ] 1.2 Value types in `internal/control/types.go`, exactly as
+- [x] 1.2 Value types in `internal/control/types.go`, exactly as
   DESIGN-0031 § Supporting types: `Definition`, `BuildEnv`,
   `TemplateSource`, `ID` (with `String()` giving `slug@N` and `ParseID`),
   `Resource`, `RuleKind`, `RuleID`, `RuleKindSpec`, `ParamSpec`, `Rule`,
@@ -226,6 +226,13 @@ calls `Type.Build`.
   `WorkflowApply`, and `Status` (`compliant`, `non_compliant`, `unknown`,
   `not_applicable`). One exported `ValidSlug` regexp
   (`^[a-z][a-z0-9]*([_-][a-z0-9]+)*$`) serves control slugs and rule ids.
+  Done: also the `Type` and `Control` interfaces (Validate and the
+  registry need them), `Resource.String`, the `Kind*` constants and
+  `ChangeSet.IsRecommendation`; `FileChange` already existed in
+  `client.go`. Status constants are `Status*` so they do not collide with
+  the rule statuses. `template.Vars` is new: `Common` (`.Owner`, `.Repo`,
+  `.DefaultBranch`) plus `.Org` and `.Catalog`, so the embedded templates
+  render unchanged.
 - [ ] 1.3 `resource.go`: `Canonical(kind, key) (Resource, error)`. File
   keys go through `path.Clean` and are rejected when absolute, containing
   `..` or an empty segment, or starting with `./`, then compare byte for

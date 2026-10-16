@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -233,5 +234,79 @@ func TestUnmatchedReposBlocks(t *testing.T) {
 	got := snap.UnmatchedReposBlocks("ACME", []string{"web-app", "api"})
 	if len(got) != 1 || got[0].String() != `orgs/acme.hcl:5: repos "ghost" matches no known repository` {
 		t.Errorf("UnmatchedReposBlocks() = %v, want only ghost", got)
+	}
+}
+
+func TestValidate_OwnershipWarnings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			"baseline overlap for an org with no file",
+			map[string]string{"enterprise.hcl": ent(`"codeowners@1", "legacy_codeowners@1"`)},
+			[]string{
+				"enterprise.hcl:2: codeowners@1 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"org addition overlaps the baseline",
+			map[string]string{
+				"enterprise.hcl": ent(`"codeowners@1"`),
+				"orgs/acme.hcl":  org("  controls = [\"legacy_codeowners@1\"]\n"),
+			},
+			[]string{
+				"orgs/acme.hcl:1: codeowners@1 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"two blocks together overlap",
+			map[string]string{
+				"enterprise.hcl": ent(`"deps@1"`),
+				"orgs/acme.hcl": org(`  repos "a" {
+    match    = ["x-*"]
+    controls = ["codeowners@2"]
+  }
+  repos "b" {
+    match    = ["y-*"]
+    controls = ["legacy_codeowners@1"]
+  }
+`),
+			},
+			[]string{
+				"orgs/acme.hcl:6: codeowners@2 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"a replace removes its source",
+			map[string]string{
+				"enterprise.hcl": ent(`"legacy_codeowners@1"`),
+				"orgs/acme.hcl":  org("  replace \"legacy_codeowners@1\" {\n    with   = \"codeowners@1\"\n    reason = \"r\"\n  }\n"),
+			},
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			snap := mustLoad(t, tt.files)
+
+			var got []string
+			for _, w := range snap.Warnings() {
+				got = append(got, w.String())
+			}
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Warnings() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

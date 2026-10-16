@@ -50,6 +50,10 @@ func (v *validator) validate() error {
 		v.checkReAdds(org)
 	}
 
+	if len(v.errs) == 0 {
+		v.checkOwnership()
+	}
+
 	return errors.Join(v.errs...)
 }
 

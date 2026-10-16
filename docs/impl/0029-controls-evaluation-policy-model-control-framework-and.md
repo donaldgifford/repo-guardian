@@ -472,10 +472,16 @@ calls `Type.Build`.
   (warnings, per this plan). "A `repos` block matches no known
   repository" needs discovery, so it is `(*Snapshot).UnmatchedReposBlocks`
   for the discovery path to log rather than a load-time warning.
-- [ ] 2.6 `ownership.go`: the conservative load-time pairwise `Owns()`
+- [x] 2.6 `ownership.go`: the conservative load-time pairwise `Owns()`
   enumeration over every pair of definitions any org could assign
   together; overlaps are warnings naming both definitions and the
   resource, never errors (the runtime check in 2.7 is the authority).
+  Done: per org, the layers are actually applied (org alone, org plus
+  each `repos` block, org plus each pair of blocks in file order), so a
+  `replace` removes its source and never warns against its replacement;
+  an onboarded org with no file is checked against the baseline. Each
+  (org, pair, resource) warns once, naming the org, and only when the
+  policy has no errors.
 - [ ] 2.7 `resolve.go`: `(*Snapshot).Resolve(repo Repository, access
   AppAccess) Resolution` implementing DESIGN-0030 steps 1–7, pure and
   with no API calls: policy state `managed`/`excluded`/`unmanaged`/

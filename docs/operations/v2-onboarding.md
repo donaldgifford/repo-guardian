@@ -2,10 +2,17 @@
 
 A runbook for a **new** v2 install: what has to exist first, the steps
 to turn it on, how organisations and repositories are onboarded, and how
-to change rules and follow a change through the fleet. Upgrading an
+to change policy and follow a change through the fleet. Upgrading an
 existing v1 install is a different path, in
 [v1 → v2 migration](v2-migration.md). For what repo-guardian enforces
 and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
+
+> **This release candidate evaluates only.** It reads every repository,
+> records each control's result and reports compliance. It writes
+> nothing to GitHub: no pull requests, no setting or ruleset changes.
+> Remediation arrives with IMPL-0030. You can register and install the
+> Remediation App now, and the remediator role will start, but it does
+> no work yet.
 
 <!--toc:start-->
 - [What you end up with](#what-you-end-up-with)
@@ -13,14 +20,15 @@ and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
   - [1. Kubernetes and Helm](#1-kubernetes-and-helm)
   - [2. A Temporal cluster](#2-a-temporal-cluster)
   - [3. Postgres](#3-postgres)
-  - [4. The GitHub App](#4-the-github-app)
+  - [4. The two GitHub Apps](#4-the-two-github-apps)
   - [5. A public route for webhooks](#5-a-public-route-for-webhooks)
   - [6. An OIDC identity provider (API and UI only)](#6-an-oidc-identity-provider-api-and-ui-only)
   - [7. Prometheus and Grafana (optional)](#7-prometheus-and-grafana-optional)
   - [8. A first policy](#8-a-first-policy)
 - [Turning it on](#turning-it-on)
+- [Installing with Argo CD](#installing-with-argo-cd)
 - [Onboarding organisations and repositories](#onboarding-organisations-and-repositories)
-- [Changing rules](#changing-rules)
+- [Changing policy](#changing-policy)
 - [Tracking a change through the fleet](#tracking-a-change-through-the-fleet)
 - [Day-two operations](#day-two-operations)
 - [Checklist](#checklist)
@@ -29,24 +37,38 @@ and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
 ## What you end up with
 
 ```text
-GitHub ──webhook──▶ ingest ──▶ Temporal ──▶ worker ──▶ GitHub API
-                                              │
-                                              ▼
-                  UI ──▶ api (read-only) ──▶ Postgres
+                ┌─/webhooks/github/eval──────┐
+GitHub ─────────┤                            ├──▶ ingest ──▶ Temporal ──┬──▶ evaluator  ──▶ GitHub API (read)
+                └─/webhooks/github/remediate─┘                         └──▶ remediator ──▶ GitHub API (write, IMPL-0030)
+                                                                                │
+                                                                                ▼
+                                          UI ──▶ api (read-only) ──────────▶ Postgres
 ```
 
 | Role | Holds | Does |
 | --- | --- | --- |
-| `ingest` | webhook secret, Temporal client | validates webhooks and starts workflows; holds no App key and no database access |
-| `worker` | App private key, Postgres, Temporal client | runs checks, opens PRs, writes findings |
-| `api` (optional) | read-only Postgres role | serves findings over REST behind OIDC |
+| `ingest` | both webhook secrets and App ids, Temporal client | validates webhooks and starts workflows; holds no App key and no database access |
+| `evaluator` | Evaluation App private key, Postgres, Temporal client | discovers repositories, resolves the policy, evaluates controls, records results |
+| `remediator` | Remediation App private key, Postgres, Temporal client | starts and reports ready; opens pull requests and applies API changes from IMPL-0030 |
+| `api` (optional) | read-only Postgres role, optionally a Temporal client | serves compliance over REST behind OIDC |
 | `ui` (optional) | OIDC client secret, session keys | the web UI and public status page |
+
+The rc's single `worker` role is gone. The evaluator and the remediator
+each run one Temporal worker on their own queue and their own worker
+deployment:
+
+| Role | Task queue | Temporal worker deployment | App |
+| --- | --- | --- | --- |
+| `evaluator` | `repo-guardian-eval` | `repo-guardian-eval` | Evaluation App |
+| `remediator` | `repo-guardian-remediate` | `repo-guardian-remediate` | Remediation App |
 
 Everything is one Helm chart, `oci://ghcr.io/donaldgifford/charts/repo-guardian`,
 with `topology: split` (one Deployment per role, the default) or `all`
-(one Deployment running every role, for small installs; the API is always
-served there on `api.port`, 8081, and `api.enabled` only adds its Service
-and auth).
+(one Deployment running every role, for small installs). In `split`,
+the evaluator renders only when `github.eval.appId` is set and the
+remediator only when `github.remediate.appId` is set. In `all`, the pod
+runs each half only when its App is set. The API always runs in `all`,
+on `api.port` (8081); `api.enabled` only adds its Service and auth.
 
 ## Prerequisites
 
@@ -59,14 +81,15 @@ values file.
 - Helm, able to pull OCI charts from `ghcr.io`.
 - A way to create Secrets: External Secrets, 1Password operator, or
   `kubectl`. Every credential below is referenced from a Secret, never
-  written into values.
+  written into values. Private keys reach the pods as files.
 
 ### 2. A Temporal cluster
 
-v2 runs every check as a Temporal workflow, so Temporal is required, not
-optional. It is shared infrastructure and is not part of this chart.
+v2 runs every evaluation as a Temporal workflow, so Temporal is
+required, not optional. It is shared infrastructure and is not part of
+this chart.
 
-- **Server 1.31 or newer.** The worker refuses to start against an older
+- **Server 1.31 or newer.** The workers refuse to start against an older
   frontend. `contrib/temporal/` is a tested reference install (upstream
   chart 1.7.0, server 1.32), with CNPG persistence and a choice of
   visibility store.
@@ -143,8 +166,9 @@ remediator:
   `exported_namespace` because a ServiceMonitor scrape renames
   Temporal's `namespace` label (the pod's namespace takes it). If your
   Prometheus keeps the original label (`honorLabels: true`, or a plain
-  scrape config), set `keda.prometheus.namespaceLabel: namespace`. Override it per role with
-  `<role>.keda.query` when your server's metrics carry a prefix.
+  scrape config), set `keda.prometheus.namespaceLabel: namespace`.
+  Override it per role with `<role>.keda.query` when your server's
+  metrics carry a prefix.
 - **`temporal`** asks the frontend directly. With
   `temporal.tls.existingSecret` the chart renders a TriggerAuthentication
   from its `tls.crt`, `tls.key` and `ca.crt`. It is refused with OIDC.
@@ -153,50 +177,55 @@ remediator:
   null, instead of going silent.
 
 KEDA replaces the role's `replicas`. Size `maxReplicas` to the GitHub
-rate limit, not the backlog: checks are rate-limit bound, so extra pods
-only wait.
+rate limit, not the backlog: evaluations are rate-limit bound, so extra
+pods only wait.
 
 One worker value follows from Temporal:
 
-- **`worker.buildId`** is the worker's Temporal build ID. Leave it empty
-  and it follows `image.tag`, then the chart's appVersion. Set it only
-  for an image whose tag is not a version, and change it whenever the
-  image changes: each worker promotes its build at startup and the
-  newest semver build wins.
+- **`worker.buildId`** is the controls workers' Temporal build ID
+  (`TEMPORAL_BUILD_ID`). Leave it empty and it follows `image.tag`,
+  then the chart's appVersion. Set it only for an image whose tag is not
+  a version, and change it whenever the image changes: each worker
+  promotes its build at startup and the newest semver build wins.
 
 ### 3. Postgres
 
-Findings, repositories, history and policy versions live in Postgres.
-Choose a mode:
+Repositories, policy resolutions, control results, evaluation history
+and policy versions live in Postgres. Choose a mode:
 
 | `store.postgres.mode` | You provide | Good for |
 | --- | --- | --- |
 | `baked` (default) | nothing; the chart runs a single-pod Postgres | trying it out, homelab |
 | `cnpg` | the CloudNativePG operator | production on Kubernetes |
-| `external` | a database, a DSN Secret (`STORE_DSN`), and, with the API enabled, a read-only login in a second Secret (`STORE_RO_DSN`) | RDS or another managed Postgres |
+| `external` | an **empty** database, a DSN Secret (`STORE_DSN`), and a read-only login in a second Secret (`api.roDsn.existingSecret`, `STORE_RO_DSN`) | RDS or another managed Postgres |
 
 For GitOps with `baked`, set `store.postgres.baked.existingSecret`. The
 generated password otherwise changes on every `helm template` render.
 
 Schema migrations run automatically as a Helm hook Job
-(`migrate.enabled`, on by default). The Job waits up to
-`migrate.waitSeconds` (300) for Postgres to accept connections before it
-migrates, so it can start before the database is up.
+(`migrate.enabled`, on by default). The Job runs `repo-guardian migrate`,
+which applies the controls schema chain and then **activates the
+mounted policy's version**. Keep it on: the evaluator starts a policy
+rollout only for the version the migrate Job activated. The chain is
+for an empty database and refuses one that already holds the rc schema.
+The Job waits up to `migrate.waitSeconds` (300) for Postgres to accept
+connections before it migrates, so it can start before the database is
+up.
 
 #### Controls database roles
 
-The controls line (IMPL-0028 onward) splits the database writer in two:
-the evaluator connects as `rg_evaluator`, the remediator as
-`rg_remediator`, and `topology: all` as `rg_all`, a member of both.
-Column-level grants are the writer boundary, so a remediator that tries
-to save a whole result row fails at the database. Migrations grant to
-these roles and never create them; the owner that runs the migrations
-holds no `CREATEROLE`.
+The controls line splits the database writer in two: the evaluator is
+meant to connect as `rg_evaluator`, the remediator as `rg_remediator`,
+and `topology: all` as `rg_all`, a member of both. Column-level grants
+are the writer boundary, so a remediator that tries to save a whole
+result row fails at the database. Migrations grant to these roles and
+never create them; the owner that runs the migrations holds no
+`CREATEROLE`.
 
-`store.controls.enabled` turns this on. It is **not yet active**: leave
-it off until the controls switch-over (IMPL-0029), and turn it on only
-for an empty database, since the migrate Job then applies the controls
-chain instead of the rc's.
+`store.controls.enabled` (default off) provisions the roles, mounts each
+role's DSN, and points the migrate Job at the owner. Turn it on only for
+an empty database. In this rc the workers still connect with
+`STORE_DSN`; the per-role DSNs below are mounted but not yet read.
 
 - **`baked`**: the chart creates the roles, plus a non-superuser owner,
   `rg_owner`, that the migrate Job connects as (the image's
@@ -227,54 +256,115 @@ GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
 
 Each DSN is mounted only into the pods of the role that uses it:
 `STORE_DSN_EVALUATOR` into the evaluator, `STORE_DSN_REMEDIATOR` into
-the remediator. The migrate Job runs `repo-guardian migrate --chain
-controls`, which refuses a database that already holds the rc schema.
+the remediator.
 
-### 4. The GitHub App
+### 4. The two GitHub Apps
 
-Follow [the enterprise setup guide](ent-setup.md) for the full procedure.
-In short:
+v2 runs as two GitHub Apps. The private key is the security boundary: a
+process holding a write-capable key can mint a write token whatever it
+intends, so the evaluator holds a key that cannot write.
 
-1. **Register an App** with its webhook **active**, pointing at the URL
-   you will expose in step 5. Generate a strong **webhook secret**.
-2. **Subscribe to events:** Push, Repository, Installation repositories.
-3. **Grant permissions.** The core set is always required. Grant the
-   others only for features your policy uses:
+| | Evaluation App | Remediation App |
+| --- | --- | --- |
+| Install on | every organisation in `enterprise.orgs` | organisations with any `remediate` assignment (from IMPL-0030) |
+| Key held by | evaluator (and `all`) | remediator (and `all`) |
+| Webhook URL | `POST /webhooks/github/eval` | `POST /webhooks/github/remediate` |
+| Rate budget | `installation/eval/<installation id>` | `installation/remediate/<installation id>` |
 
-   | Permission | Access | Needed for |
-   | --- | --- | --- |
-   | Contents | Read & write | every file rule |
-   | Pull requests | Read & write | every file rule |
-   | Metadata | Read | always (mandatory) |
-   | Administration | Read & write | `rule "setting"` and `rule "branch_protection"` remediation |
-   | Issues | Read & write | `label_sync` |
-   | Workflows | Read & write | any rule that writes `.github/workflows/*` |
-   | Custom properties (repository) | Read & write | `custom_properties` in `api` mode |
-   | Custom properties (organisation) | Read | the custom-property schema check (optional) |
+#### Evaluation App permissions
 
-4. **Generate a private key** and store it in your secrets backend.
-5. **Install the App** into each organisation, on all repositories or a
-   selection. You can install into more organisations at any time; see
+Read-only. This is the fixed set the evaluator logs at startup
+(`Evaluation App permissions required`):
+
+| Permission | Access | Needed for |
+| --- | --- | --- |
+| Metadata | Read | always (mandatory); rulesets and custom property values |
+| Contents | Read | every file-based control |
+| Pull requests | Read | pull requests and labels |
+| Administration | Read | `security_and_analysis` and the vulnerability-alerts read (`repo_settings`) |
+| Custom properties (organization) | Read | the organisation's property schema (`custom_properties`) |
+
+Merge-policy settings are read through GraphQL, which returns them
+under this set; no write permission is needed to read them.
+
+#### Evaluation App events
+
+Subscribe to **Push**, **Repository** and **Installation repositories**.
+Installation events are delivered to every App webhook without a
+subscription.
+
+| Event | Actions handled | What happens |
+| --- | --- | --- |
+| `installation` | `created`, `unsuspend` | records the installation and starts a discovery run for it |
+| `installation` | `suspend` | marks the installation suspended |
+| `installation` | `deleted` | parks every repository of the installation (`installation_removed`) |
+| `installation_repositories` | `added` | discovers the repositories (from the payload when it names 100 or fewer on an all-repositories installation, otherwise by a discovery run) |
+| `installation_repositories` | `removed` | parks each repository (`removed`) |
+| `repository` | `created`, `renamed`, `transferred`, `archived`, `unarchived` | upserts the repository (renames and transfers match by GitHub id), parks an archived or forked one, resolves it and evaluates it if managed |
+| `repository` | `deleted` | parks it (`removed`) |
+| `push` | default branch only | re-evaluates a known, managed repository with the paths the push changed, if it touched a path a control owns or reads; an unknown repository is discovered; a parked one stays parked |
+
+Ingest answers anything else with 204: other actions, tag pushes, pushes
+to other branches, and pushes touching no watched path. `pull_request`
+events are used from IMPL-0030 (pull-request observation); subscribing
+to them now does no harm.
+
+#### Remediation App permissions
+
+The remediator logs its set at startup (`Remediation App permissions
+required`). The base set is always required:
+
+| Permission | Access | Needed for |
+| --- | --- | --- |
+| Metadata | Read | always (mandatory) |
+| Contents | Read & write | every file-based control |
+| Pull requests | Read & write | every remediation pull request |
+
+When remediation lands, grant write on each resource a control type
+your policy remediates:
+
+| Permission | Access | Control types |
+| --- | --- | --- |
+| Administration | Read & write | `repo_settings`, `branch_ruleset` |
+| Custom properties | Read & write | `custom_properties` |
+| Issues | Read & write | `labels` |
+| Workflows | Read & write | any control that writes under `.github/workflows/` (GitHub requires it in addition to Contents) |
+
+#### Remediation App events
+
+Subscribe to **Installation repositories** only. The Remediation App's
+events describe where it may write, not which repositories exist, so
+they never start discovery.
+
+| Event | Actions handled | What happens |
+| --- | --- | --- |
+| `installation` | `created`, `deleted`, `suspend`, `unsuspend` | re-resolves the installation's repositories, since the effective mode depends on it |
+| `installation_repositories` | `added`, `removed` | re-resolves the named repositories |
+
+The Remediation App's own access records are written by the remediator
+from IMPL-0030. Until then every assignment's effective mode is
+`evaluate`, with reason `remediation_app_no_access`, whatever the
+policy asks for.
+
+#### Registering and installing
+
+For each App:
+
+1. **Register it** with its webhook **active**, pointing at its URL from
+   step 5. Generate a strong **webhook secret**.
+2. **Grant the permissions and subscribe to the events** above.
+3. **Generate a private key** and store it in your secrets backend.
+4. **Install it.** The Evaluation App goes into every organisation the
+   policy names, on all repositories or a selection. You can install it
+   into more organisations at any time; see
    [Onboarding organisations](#onboarding-organisations-and-repositories).
 
-Record a Secret with three keys, `app-id`, `webhook-secret` and
-`private-key`, and set `secrets.create: false` and
-`secrets.existingSecret` to its name. The pods read the App ID from that
-Secret: `config.appId` is used only when the chart creates the Secret
-itself (`secrets.create: true` with `secrets.webhookSecret` and
-`secrets.privateKey`, for a quick trial).
+[The enterprise setup guide](ent-setup.md) covers installing an App
+across many organisations. Use the permission and event tables on this
+page in place of its single-App table.
 
-#### The controls Apps (optional, not yet active)
-
-> **Not yet active.** These values prepare the controls line
-> (IMPL-0028); the evaluator and remediator start and report ready, but
-> do no evaluation or remediation until IMPL-0029 and IMPL-0030. The
-> single App above keeps doing all the work until the switch-over, and
-> this page is rewritten then.
-
-The controls line splits the App in two: a read-only **Evaluation App**
-and a **Remediation App** that writes. Each has its own block, and its
-private key reaches only the role that acts as it:
+Record each App in its own block. The key and the webhook secret go in
+a Secret with keys `private-key` and `webhook-secret`:
 
 ```yaml
 github:
@@ -282,29 +372,29 @@ github:
     appId: "123456"                  # empty disables the block
     existingSecret: rg-eval-app      # keys: private-key, webhook-secret
   remediate:
-    appId: "234567"
+    appId: "234567"                  # optional in this rc
     existingSecret: rg-remediate-app
 ```
 
 Without `existingSecret` the chart creates `<release>-eval` /
-`<release>-remediate` from `privateKey` and `webhookSecret`. Setting an
-`appId` also renders that App's role in `topology: split` (`evaluator`
-or `remediator`), sized by `evaluator.*` / `remediator.*`. The keys are
-mounted as files; the binary reads `EVAL_GITHUB_PRIVATE_KEY_PATH` and
-`REMEDIATE_GITHUB_PRIVATE_KEY_PATH`, never a key value. Each role logs
-the permission set its App needs at startup.
+`<release>-remediate` from `privateKey` and `webhookSecret`, for a quick
+trial. The keys are mounted as files only into the role that acts as
+that App; the binary reads `EVAL_GITHUB_PRIVATE_KEY_PATH` and
+`REMEDIATE_GITHUB_PRIVATE_KEY_PATH`, never a key value. Ingest gets
+both webhook secrets and both App ids, and no key. The single-App
+`secrets.*` and `config.appId` values are removed and fail render (see
+[controls chart values](v2-migration.md#controls-chart-values)).
 
 ### 5. A public route for webhooks
 
-GitHub must reach the ingest Service at `POST /webhooks/github`. The
-chart deliberately ships no webhook Ingress: pick an option from
-[webhook ingress](ingress.md) (AWS load balancer, Tailscale Funnel,
-Cloudflare Tunnel, ngrok). The webhook's HMAC signature is the only
-check the app itself makes. If you want to restrict source IPs to
-GitHub's hook ranges, do it at your edge.
+GitHub must reach the ingest Service. The chart deliberately ships no
+webhook Ingress: pick an option from [webhook ingress](ingress.md) (AWS
+load balancer, Tailscale Funnel, Cloudflare Tunnel, ngrok). The
+webhook's HMAC signature is the only check the app itself makes. If you
+want to restrict source IPs to GitHub's hook ranges, do it at your edge.
 
-Each controls App has its own webhook URL on the same Service, mounted
-when that App's webhook secret is set:
+Each App has its own URL on the same Service, mounted when that App's
+webhook secret is set:
 
 | App | Webhook URL |
 | --- | --- |
@@ -313,14 +403,8 @@ when that App's webhook secret is set:
 
 Each route checks only its own App's secret and refuses an installation
 event naming the other App's id (401, counted as
-`webhook_rejected_total{reason="app_mismatch"}`). Like the blocks above,
-the routes are not yet fully active: the Evaluation App's deliveries
-are validated and then dropped (logged, nothing else happens), and the
-Remediation App's installation events are dropped until IMPL-0029
-records its access. The single App keeps doing the work and cannot act
-for the Evaluation App's installation, so routing its deliveries would
-misroute new repositories. Leaving the Evaluation App's webhook
-inactive until the switch-over saves the deliveries.
+`webhook_rejected_total{reason="app_mismatch"}`). The App a delivery
+belongs to is taken from the route, never from a header.
 
 The Service keeps the release's full name (`repo-guardian` for a
 release of that name) and listens on port 80 (`service.httpPort`),
@@ -336,8 +420,8 @@ Skip this if you do not enable `api` or `ui`.
 - **UI client:** a confidential client (`repo-guardian-ui` by default)
   with redirect URI `https://<ui host>/auth/callback`. Put its secret
   and one or more random session keys (32+ bytes each, comma-separated,
-  newest first so keys can be rotated) in a Secret with keys `oidc-client-secret` and `session-keys`
-  (`ui.existingSecret`).
+  newest first so keys can be rotated) in a Secret with keys
+  `oidc-client-secret` and `session-keys` (`ui.existingSecret`).
 - **Who sees what:** `api.authz.groups` maps IdP groups to the
   organisations they may read (`["*"]` for all). A caller with no
   mapped organisation gets 403 on everything except `/me` and `/status`.
@@ -345,63 +429,164 @@ Skip this if you do not enable `api` or `ui`.
   tokens, map the client's `azp` to groups in `api.authz.clients`.
 - **Status page:** `/status` is served without a token by default; set
   `api.status.public: false` to require one.
+- **Re-evaluate button:** `POST /repositories/{id}/evaluate` needs a
+  Temporal client on the api role. Set `api.temporal: true` to give it
+  the `temporal.*` connection; without it the POST answers 501 and the
+  UI hides the button. `all` always has one.
 - **UI origin:** the UI's browser-facing URL defaults to
   `https://<ui.ingress.host>`. If you bring your own ingress, set
   `ui.publicUrl`.
 
 ### 7. Prometheus and Grafana (optional)
 
-Every repo-guardian pod (ingest, worker, api, or the single `all` pod)
-exposes `/metrics` on port 9090; the ui pod does not. Dashboards and alerts are
-generated from your policy rather than shipped by hand:
+Every repo-guardian pod (ingest, evaluator, remediator, api, or the
+single `all` pod) exposes `/metrics` on port 9090; the ui pod does not.
+Dashboards and alerts are generated from your policy rather than shipped
+by hand:
 
 ```bash
-repo-guardian monitoring generate --config guardian.hcl --format k8s \
+repo-guardian monitoring generate --config ./policy --format k8s \
   --namespace monitoring --instance-selector dashboards=grafana \
   --name repo-guardian --prometheus-selector 'namespace="repo-guardian"'
 ```
 
-See [generating dashboards and alerts](monitoring-generation.md). The
-chart can also render a `PrometheusRule` of its own.
+`--config` takes the policy directory. See
+[generating dashboards and alerts](monitoring-generation.md). The chart
+can also render a `PrometheusRule` of its own.
 
 ### 8. A first policy
 
-Keep the first policy small and non-destructive. The built-in defaults
-(`codeowners`, `dependabot`) are a reasonable start; the
-[policy reference](../usage/policy-reference.md) and
-[`examples/`](https://github.com/donaldgifford/repo-guardian/tree/main/examples)
+`guardian.hcl` is gone. The policy is a **directory**:
+
+```text
+policy/
+├── enterprise.hcl        # the organisations repo-guardian manages, the baseline, the default mode
+├── catalogue/*.hcl       # one control definition per file
+├── orgs/*.hcl            # optional per-organisation layers
+└── templates/            # optional template overrides
+```
+
+Keep the first policy small and evaluate-only. `examples/policy/minimal`
+is a reasonable start; the [policy reference](../usage/policy-reference.md),
+the [controls reference](../usage/controls-reference.md) and
+[`examples/policy/`](https://github.com/donaldgifford/repo-guardian/tree/main/examples/policy)
 have more.
 
 ```hcl
-guardian {
-  dry_run = true # report only; nothing is written to GitHub
-}
-
-rule "file" "codeowners" {
-  paths    = ["CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"]
-  target   = ".github/CODEOWNERS"
-  template = "codeowners"
-}
-
-rule "setting" "vulnerability_alerts" {
-  property  = "vulnerability_alerts_enabled"
-  expected  = true
-  remediate = false # report only, even after dry run is off
+# enterprise.hcl
+enterprise {
+  orgs     = ["myorg"]
+  mode     = "evaluate"
+  controls = ["codeowners@1", "dependabot@1"]
 }
 ```
 
-Validate it before deploying. `monitoring generate` runs the same
-loader and validation the server does, and fails on any error:
+```hcl
+# catalogue/codeowners.hcl
+control "codeowners" {
+  version     = 1
+  type        = "codeowners"
+  title       = "CODEOWNERS"
+  description = "A CODEOWNERS file exists in one of GitHub's locations"
+  template    = "codeowners"
+
+  rule "exists" {
+    title     = "A CODEOWNERS file exists"
+    remediate = true
+  }
+}
+```
+
+**Scope** is `enterprise.orgs`. The rc's top-level `scope {}` and
+per-rule scopes are gone: an organisation in the list gets the
+enterprise baseline whether or not it has a file under `orgs/`, and a
+repository in any other organisation is discovered but `unmanaged`, so
+nothing is evaluated on it. Narrow it with an org file:
+
+```hcl
+# orgs/myorg.hcl
+org "myorg" {
+  exclude_repos {
+    match  = [".github", "archive-*"]
+    reason = "org config and archives are managed elsewhere"
+  }
+
+  repos "legacy" {
+    match = ["legacy-*"]
+
+    exclude "codeowners@1" {
+      reason = "legacy repositories predate the ownership policy"
+    }
+  }
+}
+```
+
+`exclude_repos` takes repositories out of the policy (`excluded`, with
+the reason recorded); `exclude "<control>@<version>"` drops one control
+from the organisation or from a `repos` block. Every exclusion carries a
+reason, and the report and `/orgs/{org}` list them.
+
+**`dryRun` is gone; mode replaces it.** Each assignment resolves to
+`evaluate` (report only) or `remediate` (open pull requests or apply
+API changes, per the control's `remediate` rules). The mode is set on
+`enterprise`, an org, a `repos` block, or a single control, and the
+most specific wins; with none set it is `evaluate`. A `remediate`
+assignment on a repository the Remediation App cannot reach is
+evaluated only. In this rc every assignment is effectively `evaluate`.
+
+Validate the policy before deploying. `monitoring generate` runs the
+same loader and validation the server does, and fails on any error:
 
 ```bash
-repo-guardian monitoring generate --config guardian.hcl --out /tmp/check
+repo-guardian monitoring generate --config ./policy --out /tmp/check
 ```
+
+To see what it does to one repository, run it against GitHub as the
+Evaluation App, with no database:
+
+```bash
+EVAL_GITHUB_APP_ID=123456 EVAL_GITHUB_PRIVATE_KEY_PATH=./eval.pem \
+  repo-guardian evaluate --repo myorg/service-a --policy ./policy
+```
+
+It exits 0 when compliant (or when nothing was measured), 1 when
+non-compliant, 2 on a usage error and 3 on an operational one; add
+`--format json` for the full result.
 
 Keep the policy in git. Every later change goes through review.
 
-Ship it either inline as `policy.config`, or as a ConfigMap you manage,
-named in `policy.existingConfigMap`. That ConfigMap must hold the file
-under the key `guardian.hcl`, the path the pods read.
+Ship it either as `policy.files`, the directory as a nested map (a
+string is a file, a map is a directory), or as a ConfigMap you manage,
+named in `policy.existingConfigMap`. `examples/values-with-policy.yaml`
+carries `examples/policy/full` this way:
+
+```yaml
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise {
+        orgs     = ["myorg"]
+        mode     = "evaluate"
+        controls = ["codeowners@1", "dependabot@1"]
+      }
+    catalogue:
+      codeowners.hcl: |
+        control "codeowners" { ... }
+      dependabot.hcl: |
+        control "dependabot" { ... }
+    orgs:
+      myorg.hcl: |
+        org "myorg" { ... }
+```
+
+The chart renders one ConfigMap (keys joined with dots,
+`catalogue.codeowners.hcl`) and mounts each file back at its path under
+`/etc/repo-guardian/policy`, which `GUARDIAN_CONFIG` names. Ingest (for
+the paths pushes are filtered on), the evaluator, the remediator and
+the migrate Job all read it. An `existingConfigMap` is mounted whole,
+so it can hold only top-level files unless you mount it with your own
+`items` through `extraVolumes`. The chart refuses to render without one
+of the two.
 
 ## Turning it on
 
@@ -413,12 +598,10 @@ under the key `guardian.hcl`, the path the pods read.
    ```yaml
    topology: split
 
-   config:
-     dryRun: true # remove once the findings look right
-
-   secrets:
-     create: false
-     existingSecret: repo-guardian-github # app-id, webhook-secret, private-key
+   github:
+     eval:
+       appId: "123456"
+       existingSecret: rg-eval-app      # private-key, webhook-secret
 
    temporal:
      address: temporal-frontend.temporal.svc:7233
@@ -430,12 +613,15 @@ under the key `guardian.hcl`, the path the pods read.
      postgres:
        mode: cnpg
 
+   evalInterval: "24h"                  # EVAL_INTERVAL
+
    policy:
-     existingConfigMap: repo-guardian-policy # key guardian.hcl; or policy.config: |- ...
+     files: {}                          # the policy directory; or existingConfigMap
 
    # Optional: the API and the UI.
    api:
      enabled: true
+     temporal: true                     # the re-evaluate button
      auth:
        issuer: https://idp.example.com/realms/eng
      authz:
@@ -458,49 +644,59 @@ under the key `guardian.hcl`, the path the pods read.
    ```
 
    With Argo CD, see [Installing with Argo CD](#installing-with-argo-cd)
-   first. The migrate Job creates the schema. The worker then creates the
-   `discovery` and `snapshot` schedules, records the policy version, and
-   promotes its own build to Temporal's current worker version.
+   first. The migrate Job creates the schema and activates the policy
+   version. The evaluator then creates the `controls-discovery` and
+   `controls-snapshot` schedules, starts
+   `controls-rollout/<version>/<activated_at>` for the activated policy,
+   and promotes its own build to Temporal's current version of the
+   `repo-guardian-eval` deployment.
 
 4. **Verify the service:**
-   - `kubectl -n repo-guardian get pods`: ingest, worker (and api, ui)
-     are Ready, and the migrate Job succeeded.
-   - The worker's build is current. Temporal gives a versioned worker no
-     work until it is, and a worker still not current two minutes after
-     start fails its `deployment` readiness check:
+   - `kubectl -n repo-guardian get pods`: ingest and evaluator (and
+     remediator, api, ui) are Ready, and the migrate Job succeeded.
+   - The evaluator's build is current. Temporal gives a versioned worker
+     no work until it is, and a worker still not current two minutes
+     after start fails its `deployment` readiness check:
 
      ```bash
-     temporal worker deployment describe --deployment-name repo-guardian
+     temporal worker deployment describe --deployment-name repo-guardian-eval
      ```
 
-   - In the Temporal UI, a `discovery` run has completed and there is one
-     `repo/<id>` workflow per repository the App can see.
+   - The evaluator's startup log has `Evaluation App permissions
+     required`; compare it with the installation's permissions.
+   - In the Temporal UI, a `controls-discovery` run has completed and
+     there is one `evaluation/<repository id>` workflow per managed
+     repository, plus one `installation/eval/<installation id>` budget
+     workflow per installation.
 
-5. **Verify webhooks.** Push to any repository, then check the App's
-   **Advanced → Recent Deliveries**:
+5. **Verify webhooks.** Push to any repository, then check the
+   Evaluation App's **Advanced → Recent Deliveries**:
    - **202:** accepted and started;
-   - **204:** accepted, nothing to do (for example a tag push);
-   - **401:** the webhook secret does not match;
+   - **204:** accepted, nothing to do (for example a tag push, or a push
+     touching no path a control watches);
+   - **401:** the webhook secret does not match, or the payload names
+     the other App;
    - **503:** Temporal is unreachable. GitHub keeps the delivery, and you
      can redeliver it.
 
-6. **Review the dry-run findings.** Initial checks are spread across
-   `checkInterval` (24h by default) so a large fleet does not hit the
-   GitHub rate limit at once. Look at them in the UI, at
-   `GET /api/v1/summary` and `/api/v1/rules`, or in a report:
+6. **Review the results.** First evaluations from discovery are spread
+   across `evalInterval` (24h by default) so a large fleet does not hit
+   the GitHub rate limit at once; a repository created or pushed to is
+   evaluated at once. Look at them in the UI, at `GET /api/v1/summary`
+   and `/api/v1/controls`, or in a report:
 
    ```bash
    repo-guardian report --dsn "$STORE_DSN" --out ./reports
    ```
 
-   Add `ignore` entries for legitimate exceptions and fix any rule that
-   is wrong, before anything is written to GitHub.
+   Add `exclude_repos` or `exclude` entries, with reasons, for
+   legitimate exceptions, and fix any control that is wrong.
 
-7. **Leave dry run.** Remove `config.dryRun` (and `dry_run` from the
-   policy) and upgrade. File rules start opening PRs; setting and
-   branch-protection rules write only where `remediate = true`.
+7. **Generate the dashboards and alerts** (prerequisite 7).
 
-8. **Generate the dashboards and alerts** (prerequisite 7).
+Turning on remediation (setting `mode = "remediate"` and installing the
+Remediation App) does nothing in this rc; it takes effect with
+IMPL-0030.
 
 ## Installing with Argo CD
 
@@ -547,102 +743,141 @@ Helm itself ignores the Argo annotations; `helm install` and
 
 ## Onboarding organisations and repositories
 
-**A new organisation** is onboarded by installing the App into it:
+**A new organisation** is onboarded by listing it and installing the
+Evaluation App into it:
 
-1. If the policy has a top-level `scope { orgs = [...] }`, add the
-   organisation there and to the `scope` of each rule that should apply,
-   and roll out that policy change first. With strict scope, an
-   organisation that no rule names is discovered but nothing is enforced
-   on it.
-2. Install the App into the organisation (all repositories, or a
-   selection).
+1. Add the organisation to `enterprise.orgs` (and, if it needs its own
+   layer, add `orgs/<org>.hcl`), and roll out that policy change first.
+   An installed organisation that is not in the list is discovered but
+   `unmanaged`: nothing is evaluated on it.
+2. Install the Evaluation App into the organisation (all repositories,
+   or a selection).
 3. The `installation` webhook starts a discovery run for that
-   installation at once; the hourly `discovery` schedule catches anything
-   missed. Each repository gets a `repo/<id>` workflow, and first checks
-   are spread across `checkInterval`.
+   installation at once (`controls-discovery/installation/<id>/<delivery>`);
+   the hourly `controls-discovery` schedule (`discovery.interval`)
+   catches anything missed. Each managed repository gets an
+   `evaluation/<repository id>` workflow, and first evaluations are
+   spread across `evalInterval`.
 4. Confirm it with `GET /api/v1/orgs/<org>`, the per-org rows on the
    dashboards, or `repo-guardian report --orgs <org>`.
 
 **A new repository** in an installed organisation is picked up by the
-`repository.created` webhook and checked without waiting for discovery.
+`repository.created` webhook and evaluated without waiting for
+discovery.
 
-**Archived and forked repositories** are parked, not checked, while they
-stay archived or forked. **Removing** the App from a repository, or
-deleting the repository, parks it. Parked repositories keep their
-history and are excluded from compliance numbers.
+**Archived and forked repositories** are parked, not evaluated, and
+their results are cleared. **Removing** the App from a repository, or
+deleting the repository, parks it the same way. A parked repository
+keeps its history, is excluded from compliance numbers, and is
+un-parked only by discovery; a push never un-parks it.
 
-**Offboarding an organisation** means uninstalling the App from it.
-The installation is marked removed, and each repository is parked at
-the latest when its next check finds it can no longer read it.
+**Offboarding an organisation** means removing it from
+`enterprise.orgs` and uninstalling the Evaluation App. The
+`installation.deleted` webhook parks every repository of the
+installation.
 
-## Changing rules
+## Changing policy
 
-Treat `guardian.hcl` like code.
+Treat the policy directory like code.
 
 1. **Propose the change as a PR** to the repository that holds the
    policy.
 2. **Validate it in CI** with
-   `repo-guardian monitoring generate --config guardian.hcl --out /tmp/check`,
-   which fails on any policy error. If you use custom PR templates, set
-   `templating.strict: true` in the chart so a template referencing a
-   missing field fails startup instead of rendering blank.
-3. **Introduce enforcement in stages.** A new setting or branch-protection
-   rule starts with `remediate = false`. A new file rule has no per-rule
-   switch, so either `scope` it to a test organisation first or run a
-   short global dry run. Read the findings, add `ignore` entries, then
-   widen the scope or turn remediation on.
-4. **Grant new App permissions before the rule ships.** Some rules need
-   a permission the App lacks (for example Administration for the first
-   setting rule, or Workflows for a rule that writes a workflow file).
-   Add it to the App, and have each organisation accept it, first.
-5. **Merge and deploy.** The policy reaches the ingest and worker pods
-   as a mounted file and is read at startup. With `policy.config` in
-   values, a change rolls those pods automatically. With
-   `policy.existingConfigMap`, the ConfigMap is yours, so restart them
-   after updating it:
-   `kubectl -n repo-guardian rollout restart deploy/repo-guardian-ingest deploy/repo-guardian-worker`.
+   `repo-guardian monitoring generate --config ./policy --out /tmp/check`,
+   which fails on any policy error, including a control definition
+   whose template does not render. `repo-guardian evaluate` against a
+   few repositories shows the effect before merge.
+3. **Introduce enforcement in stages.** Add a new control with
+   `mode = "evaluate"`, read its results, add exclusions, then move it
+   to `remediate` for one `repos` block or organisation before widening
+   it. (Remediation itself waits for IMPL-0030.)
+4. **Grant new App permissions before the control ships.** A control
+   type may need a permission an App lacks: Administration read on the
+   Evaluation App for `repo_settings`, or, for remediation, Workflows
+   write on the Remediation App for a control that writes a workflow
+   file. Add it to the App, and have each organisation accept it, first.
+5. **Merge and deploy.** The policy reaches ingest, the controls workers
+   and the migrate Job as mounted files; the migrate Job activates the
+   new version and the pods read it at startup. With `policy.files` in
+   values, `helm upgrade` runs the migrate Job and rolls those pods
+   automatically. With `policy.existingConfigMap`, the ConfigMap is
+   yours: update it, run `helm upgrade` (or sync) so the migrate Job
+   activates the new version, then restart the pods:
+   `kubectl -n repo-guardian rollout restart deploy/repo-guardian-ingest deploy/repo-guardian-evaluator`.
+   An evaluator whose loaded policy is not the activated one logs
+   `loaded policy is not the activated one` and starts no rollout.
 
 What a change costs:
 
-- **A change that can alter an outcome** (a rule, a scope, an ignore, a
-  template) produces a new policy version. Every repository is re-checked
-  once, spread across `policyRolloutWindow` (24h by default), with
-  webhook-triggered checks still served first.
+- **A change that can alter an outcome** (a control definition, an
+  assignment, a mode, an exclusion, a template) produces a new policy
+  version. Activating it starts `controls-rollout/<version>/<activated_at>`,
+  which re-resolves every active repository and signals each managed
+  one to re-evaluate at a random point inside `policyRolloutWindow`
+  (24h by default), with webhook-triggered evaluations still served
+  first. Reverting to an earlier version is a new activation and rolls
+  out again.
 - **An operational change** (log level, concurrency, intervals) changes
-  nothing about the policy version and triggers no re-check.
+  nothing about the policy version and triggers no re-evaluation.
 
 ## Tracking a change through the fleet
 
 | Question | Where to look |
 | --- | --- |
-| Which policy version is live, and has its rollout finished? | `GET /api/v1/policy`: version, rollout state and a summary of every rule (never template bodies) |
-| How is one rule doing across the fleet? | `GET /api/v1/rules/<kind>/<name>`, or the rule's row in the UI and on the KPI dashboard |
-| Which repositories fail it, and why? | `GET /api/v1/findings?…`: each finding has a status, a reason (`file_missing`, `assertion_failed`, `setting_mismatch`…) and a remediation (`pr_open`, `applied`, `dry_run`…) |
-| What happened to one repository, and when? | `GET /api/v1/repositories/<id>/events`: every status change, rename, transfer and park |
+| Which policy version is live, and has its rollout finished? | `GET /api/v1/policies`: version, rollout state, each visible org's layer and the catalogue entries it references (never template bodies) |
+| How is one control doing across the fleet? | `GET /api/v1/controls/<id>`, or the control's row in the UI and on the KPI dashboard |
+| Which repositories fail it, and why? | `GET /api/v1/repositories?org=…`, then `GET /api/v1/repositories/<id>/controls`: each assignment with its bucket, mode, rule results and evidence |
+| What happened to one repository, and when? | `GET /api/v1/repositories/<id>/evaluations` (the evaluation log) and `/events` (result changes, renames, transfers, parks) |
 | Is compliance trending up? | `GET /api/v1/compliance/history`, from daily snapshots (`posture.snapshotInterval`) |
+| Re-evaluate one repository now | `POST /api/v1/repositories/<id>/evaluate`, or the UI's button (needs `api.temporal`) |
 | A report for someone without API access | `repo-guardian report`: one Markdown file per organisation, with no GitHub calls |
-| Did the background jobs run? | the Temporal UI (`discovery`, `snapshot`, `policy-rollout/<version>` workflows); `/status` for overall health |
+| Did the background jobs run? | the Temporal UI (`controls-discovery`, `controls-snapshot` and `controls-rollout/<version>/<activated_at>` workflows); `/status` for overall health |
 
-After a policy change, expect findings to move over the rollout window
-rather than all at once. A rollout is complete when `/policy` reports it
-finished; stragglers are re-signalled once at the end of the window.
+The rc's findings endpoints are gone:
+
+| Before | Now |
+| --- | --- |
+| `/rules`, `/rules/{kind}/{name}` | `/controls`, `/controls/{id}` |
+| `/findings` | `/repositories/{id}/controls` |
+| `/policy` | `/policies` |
+| `/repositories/{id}/checks` | `/repositories/{id}/evaluations` |
+| `/installations` | removed; `/status` counts installations per App |
+
+Every compliance figure is a posture: counts per bucket, a percent over
+compliant and non-compliant, and a coverage over what is assigned. When
+nothing is measured the percent is "no data", never 100. See
+[the API](../usage/api.md).
+
+After a policy change, expect results to move over the rollout window
+rather than all at once. A rollout is complete when `/policies` reports
+it finished.
 
 ## Day-two operations
 
 - **Upgrades.** Bump the chart version. New workers promote their build
-  to Temporal's current version when it is newer by semver, so in-flight
-  workflows move to the new code without manual steps. **Rolling back**
-  to an older 2.x needs one command, which the older pods print in their
-  logs:
-  `temporal worker deployment set-current-version --deployment-name repo-guardian --build-id <tag>`.
-- **Throughput.** Checks are bound by GitHub's rate limit, not CPU. Each
-  installation has its own budget, and webhook-triggered checks are
-  served before scheduled ones. Raising `worker.concurrency` or replicas
-  past what the budget allows only adds waiting.
-- **Retention.** Check records are pruned after `checksRetention` (90
-  days). Findings, their events and compliance history are kept.
-- **Pausing writes.** Set `config.dryRun: true` and upgrade. Checks
-  continue and findings stay current; nothing is written to GitHub.
+  to their deployment's current version when it is newer by semver, so
+  in-flight workflows move to the new code without manual steps. Each
+  role promotes its own deployment, so a remediator scaled to zero
+  never holds the evaluator back. **Rolling back** to an older 2.x needs
+  one command per deployment, which the older pods print in their logs:
+  `temporal worker deployment set-current-version --deployment-name repo-guardian-eval --build-id <tag>`
+  (and `repo-guardian-remediate` for the remediator).
+- **Throughput.** Evaluations are bound by GitHub's rate limit, not CPU.
+  Each installation has its own budget per App, and webhook-triggered
+  evaluations are served before scheduled ones. Raising
+  `evaluator.concurrency` or replicas past what the budget allows only
+  adds waiting.
+- **Cadence.** Each repository is re-evaluated every `evalInterval`
+  (`EVAL_INTERVAL`, 24h, jittered ±10%), and at once on a push that
+  touches a path one of its controls owns or reads. `CHECK_INTERVAL` is
+  removed; the binary warns and ignores it.
+- **Retention.** This rc prunes nothing: evaluation records, results,
+  their events and compliance history are all kept. `checksRetention`
+  is accepted and has no effect yet.
+- **Pausing.** There is no dry-run switch. Set `mode = "evaluate"` on
+  the enterprise (or the org) and roll the policy out; evaluation
+  continues and results stay current. In this rc nothing is written to
+  GitHub in any mode.
 
 ## Checklist
 
@@ -651,25 +886,32 @@ Prerequisites:
 - [ ] Kubernetes namespace, Helm, and a way to create Secrets
 - [ ] Temporal ≥ 1.31 reachable on 7233, namespace created, mTLS or OIDC
       credentials with write on the namespace
-- [ ] Postgres mode chosen; DSN Secrets for `external`
-- [ ] GitHub App registered: webhook active, events subscribed,
-      permissions granted, private key stored
-- [ ] Public HTTPS route to `POST /webhooks/github`
+- [ ] Postgres mode chosen on an empty database; DSN Secrets for
+      `external`
+- [ ] Evaluation App registered: webhook active on `/webhooks/github/eval`,
+      Push, Repository and Installation repositories subscribed,
+      read-only permissions granted, private key stored
+- [ ] (Optional in this rc) Remediation App registered on
+      `/webhooks/github/remediate`, base permissions granted
+- [ ] Public HTTPS route to the ingest Service
 - [ ] (API/UI) OIDC issuer, API audience, UI client, authz groups
-- [ ] A first policy in git that validates and starts in dry run
+- [ ] A policy directory in git that validates, with every assignment
+      in `evaluate`
 
 Turn on:
 
 - [ ] Secrets created, values written, chart installed
-- [ ] Pods Ready, migrate Job succeeded, worker build current
-- [ ] Discovery completed; one `repo/<id>` workflow per repository
+- [ ] Pods Ready, migrate Job succeeded, evaluator build current on
+      `repo-guardian-eval`
+- [ ] `controls-discovery` completed; one `evaluation/<id>` workflow per
+      managed repository
 - [ ] Webhook deliveries return 202 or 204
-- [ ] Dry-run findings reviewed; exceptions added to `ignore`
-- [ ] Dry run off; first PRs reviewed
+- [ ] Results reviewed; exclusions added with reasons
 - [ ] Dashboards and alerts generated and applied
 
 Each new organisation:
 
-- [ ] Added to `scope` (strict mode only)
-- [ ] App installed, and any new permissions accepted
-- [ ] Organisation visible in `/api/v1/orgs/<org>` with findings
+- [ ] Added to `enterprise.orgs` (and `orgs/<org>.hcl` if needed),
+      rolled out
+- [ ] Evaluation App installed, and any new permissions accepted
+- [ ] Organisation visible in `/api/v1/orgs/<org>` with results

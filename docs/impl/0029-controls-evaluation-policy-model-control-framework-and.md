@@ -1859,13 +1859,14 @@ half-switched binary.
   `branch_ruleset`, reconcilers → controls, the status model, workflow
   names, `CHECK_INTERVAL` → `EVAL_INTERVAL`, roles.
   Done: v2-overview.md rewritten for the controls line: policy directory instead of guardian.hcl (no converter), the eight built-in types, mode and apply, one PR per control on `repo-guardian/<slug>` with `max_open_prs`/`reopen_after` (IMPL-0030), a v1 → controls mapping table (check modes, gates, setting, branch_protection, reconcilers, scope/ignore, dry_run), `search_terms`/foreign-PR detection and the reconcile-log comment dropped, a renamed-names table (EVAL_INTERVAL, roles, workflow and schedule names, endpoints), the ten-bucket status model with percent and coverage, and the improvements restated for two Apps and revisions.
-- [ ] 9.2 Rewrite `docs/operations/v2-onboarding.md`: the Evaluation and
+- [x] 9.2 Rewrite `docs/operations/v2-onboarding.md`: the Evaluation and
   Remediation Apps (permissions and events tables), `worker` →
   `evaluator`/`remediator`, `guardian.hcl` → the policy directory and the
   chart's policy map, `dryRun` → evaluate/remediate mode, scope →
   `enterprise.orgs` and `exclude`, workflow and schedule names
   (`evaluation/<id>`, `controls-*`), the API endpoint replacements,
   `EVAL_INTERVAL`. Keep IMPL-0028's sections where they already landed.
+  Done: `docs/operations/v2-onboarding.md` rewritten: per-App permission and event tables taken from `control.EvaluationPermissions`/`RemediationPermissions`, ingest's handled events and both routers; `worker` → `evaluator`/`remediator`, the policy directory and the chart's nested `policy.files`, evaluate/remediate mode, `enterprise.orgs` + `exclude`/`exclude_repos`, `evaluation/<id>` and `controls-*` names, the API endpoint replacements and `EVAL_INTERVAL`. IMPL-0028's KEDA and controls-database-roles sections keep their headings (chart error messages link to the anchors). The page states two gaps found while writing it: the per-role `STORE_DSN_EVALUATOR`/`_REMEDIATOR` are mounted but not yet read (the binary uses `STORE_DSN`), and `checksRetention` prunes nothing on the controls line.
 - [x] 9.3 Policy reference: `docs/usage/policy-reference.md` rewritten
   for the directory layout, resolution and validation, with a "From
   `guardian.hcl`" section mapping each v1 rule kind to its control type

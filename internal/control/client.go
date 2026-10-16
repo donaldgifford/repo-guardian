@@ -122,6 +122,12 @@ type Writer interface {
 	DeleteLabel(ctx context.Context, name string) error
 }
 
+// ErrPermission is a Reader error for one endpoint the App lacks the
+// permission to read. The rule that needed it is
+// unknown{reason=permission}; the rest of the evaluation proceeds and
+// the repository is never parked for it (DESIGN-0032 AR-0032-08).
+var ErrPermission = errors.New("permission denied for this resource")
+
 // Writer outcomes a remediation must tell apart. They are sentinels
 // because callers need only which one occurred; implementations wrap
 // them with the provider's detail. They do not survive an activity

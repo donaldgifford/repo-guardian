@@ -287,7 +287,7 @@ calls `Type.Build`.
   Also refused: a rule named in two lists or undeclared, and a `Fixed`
   rule that is not failing. "Explained by a note" is at least one note per
   `Manual` and `Blocked` rule.
-- [ ] 1.7 `reader.go`: `NewEvalReader(base Reader, now func() time.Time)`
+- [x] 1.7 `reader.go`: `NewEvalReader(base Reader, now func() time.Time)`
   wraps the per-repository adapter (already pinned to one commit by
   IMPL-0028's constructor), caches every read for the evaluation, and
   records a `ResourceRead` per resource (file digest = blob SHA, API
@@ -296,6 +296,14 @@ calls `Type.Build`.
   reading one file make one underlying call; an error read is recorded
   with `State = error`; a 403 on one endpoint surfaces as
   `ErrPermission` for the caller to map to `unknown{reason=permission}`.
+  Done: failed reads are cached too, so every control sees one answer.
+  Files key on `file:<canonical>`, listings on `tree:<path>` (`tree:.` for
+  the root, absent when empty), settings on one `setting:<json name>` per
+  field (nil = absent), and rulesets, properties and labels per item; a
+  failed list is one `<kind>:*` error read. The org schema is cached but
+  not recorded (org-level). `control.ErrPermission` is produced by the
+  GitHub adapter (`classifyRead`: a 403 that is not a throttle), which
+  also returns `ErrNotRegularFile` for a symlink or submodule.
 - [ ] 1.8 `file.go`: `FileSpec`, `LocateFile` (first location found
   wins; every location recorded, absent ones included), and the
   file-control adapter that turns a type's `Parse`, `Check`, `Fix` and

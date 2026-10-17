@@ -1,12 +1,19 @@
 openapi: 3.1.0
 info:
   title: repo-guardian API
-  version: 1.1.0
-  summary: Read-only compliance API for repo-guardian v2.
+  version: 2.0.0
+  summary: Compliance API for repo-guardian's controls.
   description: |
-    The read-only API behind the repo-guardian UI and status page
-    (DESIGN-0027). Every endpoint is a GET. Responses are JSON, times
-    are RFC 3339 UTC, and errors are RFC 9457 problem details.
+    The API behind the repo-guardian UI and status page (DESIGN-0027,
+    DESIGN-0032 § API). Every endpoint but one is a GET; the exception,
+    `POST /repositories/{id}/evaluate`, asks for a re-evaluation and
+    writes nothing. Responses are JSON, times are RFC 3339 UTC, and
+    errors are RFC 9457 problem details.
+
+    Compliance is per control. Every compliance object carries the
+    posture buckets, `coverage` (measured over assigned) and `percent`
+    (compliant over compliant plus non-compliant), both floored to one
+    decimal and null when their denominator is empty, never 100.
 
     Results are scoped to the orgs the caller may see. An org the
     caller cannot see answers 404, the same as an unknown one; a caller
@@ -26,8 +33,8 @@ tags:
     description: Who the caller is.
   - name: fleet
     description: Aggregates over the visible orgs.
-  - name: findings
-    description: Rule verdicts per repository.
+  - name: controls
+    description: Controls, their compliance and the policy that assigns them.
   - name: repositories
     description: Repositories and their history.
   - name: meta
@@ -53,58 +60,86 @@ paths:
   /summary:
     get:
       operationId: getSummary
-      summary: Fleet summary over the caller's visible orgs.
+      summary: Fleet totals over the visible orgs.
       tags: [fleet]
-      parameters:
-        - $ref: "#/components/parameters/StaleAfter"
       responses:
         "200":
-          description: The summary.
+          description: The totals.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Summary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /controls:
+    get:
+      operationId: listControls
+      summary: Every assigned control with its compliance over the visible orgs.
+      description: Totals sum over the control across versions, which is what the version-free result key intends.
+      tags: [controls]
+      parameters:
+        - name: org
+          in: query
+          description: Only this org, case-insensitive.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The controls.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /controls/{id}:
+    get:
+      operationId: getControl
+      summary: One control's compliance with its per-org breakdown.
+      tags: [controls]
+      parameters:
+        - $ref: "#/components/parameters/ControlID"
+      responses:
+        "200":
+          description: The control.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlDetail"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
-  /rules:
+  /policies:
     get:
-      operationId: listRules
-      summary: Compliance by rule over the visible orgs, with the trend against the previous snapshot.
-      tags: [fleet]
+      operationId: getPolicies
+      summary: The active policy, scoped to the visible orgs.
+      description: |
+        Org policies and exclusions for the visible orgs only. The
+        enterprise-wide fields (`enterprise`) appear only for a caller
+        who sees every org.
+      tags: [controls]
       responses:
         "200":
-          description: Every rule with findings in the visible orgs.
+          description: The policy; 404 before any version is activated.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RuleList"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        default:
-          $ref: "#/components/responses/Error"
-  /rules/{kind}/{name}:
-    get:
-      operationId: getRule
-      summary: One rule across the visible orgs.
-      tags: [fleet]
-      parameters:
-        - $ref: "#/components/parameters/RuleKind"
-        - $ref: "#/components/parameters/RuleName"
-      responses:
-        "200":
-          description: The rule.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RuleDetail"
+                $ref: "#/components/schemas/Policies"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -134,15 +169,17 @@ paths:
   /orgs/{org}:
     get:
       operationId: getOrg
-      summary: One org's rules and why rules did not apply.
+      summary: One org's baseline-versus-org compliance, worst controls and exclusions.
       tags: [fleet]
       parameters:
         - name: org
           in: path
-          description: An org login, case-insensitive.
           required: true
+          description: An org login, case-insensitive.
           schema:
             type: string
+            minLength: 1
+            maxLength: 100
       responses:
         "200":
           description: The org.
@@ -156,81 +193,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-        default:
-          $ref: "#/components/responses/Error"
-  /findings:
-    get:
-      operationId: listFindings
-      summary: Findings in the visible orgs, filtered.
-      tags: [findings]
-      parameters:
-        - name: status
-          in: query
-          description: Only findings with this status.
-          schema:
-            $ref: "#/components/schemas/FindingStatus"
-        - name: reason
-          in: query
-          description: Only findings with this reason.
-          schema:
-            $ref: "#/components/schemas/Reason"
-        - name: remediation
-          in: query
-          description: Only findings with this remediation.
-          schema:
-            $ref: "#/components/schemas/Remediation"
-        - name: org
-          in: query
-          description: An org login, case-insensitive.
-          schema:
-            type: string
-        - name: kind
-          in: query
-          description: A rule kind.
-          schema:
-            $ref: "#/components/schemas/RuleKind"
-        - name: rule
-          in: query
-          description: A rule name.
-          schema:
-            type: string
-        - name: pr_stale
-          in: query
-          description: Only findings whose open repo-guardian PR is (true) or is not (false) older than stale_after.
-          schema:
-            type: boolean
-        - name: since_before
-          in: query
-          description: Only findings whose status has held since before this time.
-          schema:
-            type: string
-            format: date-time
-        - name: sort
-          in: query
-          description: >-
-            `default` orders by repository, kind and rule. `pr_age` orders by
-            the PR's `created_at`, oldest first, findings without a PR last,
-            then by the default key. A cursor is bound to its sort.
-          schema:
-            type: string
-            enum: [default, pr_age]
-            default: default
-        - $ref: "#/components/parameters/StaleAfter"
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
-      responses:
-        "200":
-          description: A page of findings.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FindingPage"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/Error"
   /repositories:
@@ -254,6 +216,11 @@ paths:
           description: Only repositories parked for this reason.
           schema:
             $ref: "#/components/schemas/ParkReason"
+        - name: policy_state
+          in: query
+          description: Only repositories the policy resolved to this state.
+          schema:
+            $ref: "#/components/schemas/PolicyState"
         - name: q
           in: query
           description: A repository-name prefix, case-insensitive.
@@ -280,11 +247,10 @@ paths:
   /repositories/{id}:
     get:
       operationId: getRepository
-      summary: One repository with its installation, last check and every finding.
+      summary: One repository with its last evaluation.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
-        - $ref: "#/components/parameters/StaleAfter"
       responses:
         "200":
           description: The repository.
@@ -302,10 +268,35 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
+  /repositories/{id}/controls:
+    get:
+      operationId: listRepositoryControls
+      summary: The repository's assignments with their results, rule results and evidence.
+      tags: [repositories]
+      parameters:
+        - $ref: "#/components/parameters/RepositoryID"
+      responses:
+        "200":
+          description: Every assignment, in remediation priority order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryControlList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
   /repositories/{id}/events:
     get:
       operationId: listRepositoryEvents
-      summary: The repository's timeline, finding and repository events merged, newest first.
+      summary: The repository's timeline, result and repository events merged, newest first.
+      description: Remediation events join the timeline with IMPL-0030.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -328,10 +319,10 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/Error"
-  /repositories/{id}/checks:
+  /repositories/{id}/evaluations:
     get:
-      operationId: listRepositoryChecks
-      summary: The repository's recent checks, newest first.
+      operationId: listRepositoryEvaluations
+      summary: The repository's evaluation log, newest first.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -339,11 +330,11 @@ paths:
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
-          description: A page of checks.
+          description: A page of evaluations.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CheckPage"
+                $ref: "#/components/schemas/EvaluationPage"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -352,106 +343,80 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Error"
+  /repositories/{id}/evaluate:
+    post:
+      operationId: evaluateRepository
+      summary: Ask for the repository to be evaluated now.
+      description: |
+        Sends `recheck` at the highest priority to the repository's
+        evaluation workflow. Visibility is checked first, as for the GET
+        on the same repository. At most one signal per repository per
+        minute per api replica: a later request within the minute
+        answers 202 without signalling.
+      tags: [repositories]
+      parameters:
+        - $ref: "#/components/parameters/RepositoryID"
+      responses:
+        "202":
+          description: Accepted; the evaluation runs asynchronously.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            The repository cannot be evaluated now. The problem `type` is
+            `workflow_missing` (no evaluation workflow is running for it)
+            or `parked`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "501":
+          description: This api replica has no Temporal client; the UI hides the action.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         default:
           $ref: "#/components/responses/Error"
   /compliance/history:
     get:
-      operationId: listComplianceHistory
-      summary: Compliance snapshots over time, oldest first.
-      tags: [fleet]
+      operationId: getComplianceHistory
+      summary: Compliance snapshots by org and control, oldest first.
+      tags: [controls]
       parameters:
+        - name: control
+          in: query
+          description: Only this control slug.
+          schema:
+            $ref: "#/components/schemas/ControlSlug"
         - name: org
           in: query
-          description: An org login, case-insensitive.
+          description: Only this org, case-insensitive.
           schema:
             type: string
-        - name: kind
+        - name: days
           in: query
-          description: A rule kind.
+          description: How far back, in days.
           schema:
-            $ref: "#/components/schemas/RuleKind"
-        - name: rule
-          in: query
-          description: A rule name.
-          schema:
-            type: string
-        - name: from
-          in: query
-          description: Only snapshots at or after this time.
-          schema:
-            type: string
-            format: date-time
-        - name: to
-          in: query
-          description: Only snapshots before this time.
-          schema:
-            type: string
-            format: date-time
-        - name: aggregate
-          in: query
-          description: >-
-            How to sum the selected snapshots. `none` (the default) returns
-            one point per (snapshot, org, rule). `fleet` sums every org and
-            rule per snapshot; `org` sums every rule per (snapshot, org).
-            The other filters apply before summing, so `aggregate=fleet`
-            with `kind` and `rule` is one rule's fleet series. Aggregated
-            percentages are floored in SQL exactly as `/rules` floors them.
-          schema:
-            type: string
-            enum: [none, fleet, org]
-            default: none
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
       responses:
         "200":
-          description: A page of snapshot points.
+          description: The snapshots.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HistoryPage"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        default:
-          $ref: "#/components/responses/Error"
-  /policy:
-    get:
-      operationId: getPolicy
-      summary: The current policy version, its rollout state and rule summaries.
-      tags: [meta]
-      responses:
-        "200":
-          description: The policy.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Policy"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        default:
-          $ref: "#/components/responses/Error"
-  /installations:
-    get:
-      operationId: listInstallations
-      summary: Installations in the visible orgs with their rate-limit snapshot.
-      tags: [fleet]
-      parameters:
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
-      responses:
-        "200":
-          description: A page of installations.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InstallationPage"
+                $ref: "#/components/schemas/ComplianceHistory"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -466,7 +431,7 @@ paths:
       summary: Public service status.
       description: |
         Served from a cache refreshed every 30s. It never names an org,
-        repository, rule or installation, and carries no error text.
+        repository, control or installation, and carries no error text.
       tags: [meta]
       security: []
       responses:
@@ -514,14 +479,13 @@ components:
         minimum: 1
         maximum: 200
         default: 50
-    StaleAfter:
-      name: stale_after
-      in: query
-      description: Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER.
+    ControlID:
+      name: id
+      in: path
+      description: A control slug.
+      required: true
       schema:
-        type: string
-        pattern: "^[0-9]+(h|m|s)$"
-        examples: ["720h"]
+        $ref: "#/components/schemas/ControlSlug"
     RepositoryID:
       name: id
       in: path
@@ -531,20 +495,6 @@ components:
         type: integer
         format: int64
         minimum: 1
-    RuleKind:
-      name: kind
-      in: path
-      description: A rule kind.
-      required: true
-      schema:
-        $ref: "#/components/schemas/RuleKind"
-    RuleName:
-      name: name
-      in: path
-      description: A rule name.
-      required: true
-      schema:
-        type: string
   responses:
     BadRequest:
       description: The request is malformed.
@@ -608,29 +558,19 @@ components:
         An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
         fetch the next page; a cursor from different filters is refused.
       type: string
-    FindingStatus:
-      description: "Open enum: compliant, non_compliant, not_applicable, unknown."
-      type: string
-      examples: [compliant, non_compliant, not_applicable, unknown]
-    Reason:
-      description: |
-        Open enum. Why a finding has its status: file_missing,
-        assertion_failed, content_differs, forbidden_present,
-        setting_mismatch, ruleset_missing, ruleset_mismatch,
-        out_of_scope_policy, out_of_scope_rule, ignored_global,
-        ignored_rule, gate_closed, branch_missing, empty_repository,
-        gate_error, foreign_pr_open, migrated_from_v1. Empty when
-        compliant.
-      type: string
-      examples: [file_missing, gate_closed]
-    Remediation:
-      description: "Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled."
-      type: string
-      examples: [pr_open]
     ParkReason:
       description: "Open enum: access_denied, archived, fork, removed, installation_removed, unknown."
       type: string
       examples: [archived]
+    PolicyState:
+      description: "Open enum: managed, excluded, unmanaged, parked."
+      type: string
+      examples: [managed]
+    ControlSlug:
+      description: A control's slug, the version-free part of its id.
+      type: string
+      pattern: "^[a-z][a-z0-9]*([_-][a-z0-9]+)*$"
+      maxLength: 100
     ComponentState:
       description: "Open enum: operational, degraded, down, unknown."
       type: string
@@ -657,107 +597,13 @@ components:
           description: The orgs the caller may see; empty when all_orgs is set.
           items:
             type: string
-    StatusCounts:
-      description: Finding counts by status.
-      type: object
-      required: [compliant, non_compliant, not_applicable, unknown]
-      properties:
-        compliant:
-          type: integer
-          minimum: 0
-        non_compliant:
-          type: integer
-          minimum: 0
-        not_applicable:
-          type: integer
-          minimum: 0
-        unknown:
-          type: integer
-          minimum: 0
-    ParkedCount:
-      description: Inactive repositories with one park reason.
-      type: object
-      required: [reason, count]
-      properties:
-        reason:
-          $ref: "#/components/schemas/ParkReason"
-        count:
-          type: integer
-          minimum: 0
-    PRAgeBucket:
-      description: Open repo-guardian PRs in one age bucket.
-      type: object
-      required: [bucket, count]
-      properties:
-        bucket:
-          description: "Open enum: <1d, 1-7d, 7-30d, 30d+."
-          type: string
-          examples: ["1-7d"]
-        count:
-          type: integer
-          minimum: 0
-    FindingAgeBucket:
-      description: Non-compliant findings that have failed for one age range.
-      type: object
-      required: [bucket, count]
-      properties:
-        bucket:
-          description: "Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+."
-          type: string
-          examples: ["7-30d"]
-        count:
-          type: integer
-          minimum: 0
-    Summary:
-      description: The fleet summary over the visible orgs.
-      type: object
-      required: [tracked, parked, compliant_percent, findings, open_prs, stale_prs, stale_after, finding_age]
-      properties:
-        tracked:
-          type: integer
-          minimum: 0
-          description: Active repositories in the visible orgs.
-        parked:
-          type: array
-          description: Inactive repositories by park reason.
-          items:
-            $ref: "#/components/schemas/ParkedCount"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
-          description: |
-            compliant / (compliant + non_compliant) over active
-            repositories, floored to one decimal. Null when nothing is
-            measured, never 100.
-        findings:
-          $ref: "#/components/schemas/StatusCounts"
-        open_prs:
-          type: array
-          description: Open repo-guardian PRs by age.
-          items:
-            $ref: "#/components/schemas/PRAgeBucket"
-        stale_prs:
-          type: integer
-          minimum: 0
-          description: Open repo-guardian PRs older than stale_after.
-        stale_after:
-          type: string
-          description: The threshold applied, as a Go duration.
-        finding_age:
-          type: array
-          description: >-
-            Non-compliant findings on active repositories by how long they
-            have failed (status_since), every bucket in order, zeros
-            included.
-          items:
-            $ref: "#/components/schemas/FindingAgeBucket"
     Component:
       description: One status-page component.
       type: object
       required: [name, state, detail]
       properties:
         name:
-          description: "Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation."
+          description: "Open enum: checks, webhooks, discovery, snapshots, backlog_evaluation, backlog_remediation."
           type: string
         state:
           $ref: "#/components/schemas/ComponentState"
@@ -767,9 +613,13 @@ components:
     Compliance:
       description: Fleet-wide compliance for the status page.
       type: object
-      required: [percent, measured, history]
+      required: [percent, coverage, measured, history]
       properties:
         percent:
+          type: [number, "null"]
+          format: double
+        coverage:
+          description: Measured over assigned across the fleet, floored to one decimal; null when nothing is assigned.
           type: [number, "null"]
           format: double
         measured:
@@ -793,10 +643,13 @@ components:
     StatusOperations:
       description: The status page's operations strip. Counts and times only.
       type: object
-      required: [checked_24h, tracked, rollout_state]
+      required: [evaluated_24h, overdue, tracked, rollout_state]
       properties:
-        checked_24h:
-          description: Repositories with a finished check in the last 24 hours.
+        evaluated_24h:
+          description: Repositories with a finished evaluation in the last 24 hours.
+          type: integer
+        overdue:
+          description: Managed repositories with no successful evaluation within twice the evaluation interval.
           type: integer
         tracked:
           description: Active repositories.
@@ -811,11 +664,33 @@ components:
         last_snapshot_at:
           type: string
           format: date-time
+    StatusApp:
+      description: One GitHub App's installations, by count only.
+      type: object
+      required: [app, installations, suspended, repositories]
+      properties:
+        app:
+          type: string
+          enum: [eval, remediate]
+        installations:
+          type: integer
+          minimum: 0
+        suspended:
+          type: integer
+          minimum: 0
+        repositories:
+          description: Repositories the App can reach.
+          type: integer
+          minimum: 0
     Status:
       description: The public service status.
       type: object
-      required: [state, updated_at, components, compliance, operations]
+      required: [state, updated_at, topology, components, apps, compliance, operations]
       properties:
+        topology:
+          description: The credential boundary this deployment runs under.
+          type: string
+          enum: [split, all]
         state:
           $ref: "#/components/schemas/ComponentState"
         updated_at:
@@ -825,101 +700,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Component"
+        apps:
+          description: Each App with an installation; an App with none is absent.
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusApp"
         compliance:
           $ref: "#/components/schemas/Compliance"
         operations:
           $ref: "#/components/schemas/StatusOperations"
-    RuleKind:
-      description: "Open enum: file, setting, branch_protection."
-      type: string
-      examples: [file]
-    RuleCompliance:
-      description: One rule's compliance, with the previous snapshot's percentage for the trend.
-      type: object
-      required: [kind, name, counts, compliant_percent]
-      properties:
-        kind:
-          $ref: "#/components/schemas/RuleKind"
-        name:
-          type: string
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
-        previous_percent:
-          type: [number, "null"]
-          format: double
-          description: The same rule's percentage in the latest snapshot; absent when there is none.
-        previous_at:
-          type: string
-          format: date-time
-    RuleList:
-      description: Compliance for every rule.
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RuleCompliance"
-    OrgCompliance:
-      description: One org's compliance with one rule.
-      type: object
-      required: [org, counts, compliant_percent]
-      properties:
-        org:
-          type: string
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
-    ReasonCount:
-      description: Findings with one reason.
-      type: object
-      required: [reason, count]
-      properties:
-        reason:
-          $ref: "#/components/schemas/Reason"
-        count:
-          type: integer
-          minimum: 0
-    RuleDetail:
-      description: One rule across the visible orgs.
-      type: object
-      required: [kind, name, counts, compliant_percent, orgs, top_reasons, oldest_failures]
-      properties:
-        kind:
-          $ref: "#/components/schemas/RuleKind"
-        name:
-          type: string
-        description:
-          type: string
-          description: The policy's description of the rule; absent when it has none.
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
-        orgs:
-          type: array
-          items:
-            $ref: "#/components/schemas/OrgCompliance"
-        top_reasons:
-          type: array
-          description: Reasons for non-compliant and not-applicable findings, most common first.
-          items:
-            $ref: "#/components/schemas/ReasonCount"
-        oldest_failures:
-          type: array
-          description: The ten longest-failing findings.
-          items:
-            $ref: "#/components/schemas/Finding"
     OrgSummary:
-      description: One org's repositories and compliance.
+      description: One org's repositories and compliance over every control.
       type: object
-      required: [org, tracked, parked, counts, compliant_percent, open_prs]
+      required: [org, tracked, parked, compliance, open_prs]
       properties:
         org:
           type: string
@@ -929,13 +722,10 @@ components:
         parked:
           type: integer
           minimum: 0
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
+        compliance:
+          $ref: "#/components/schemas/Posture"
         open_prs:
-          description: Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+          description: Open repo-guardian pull requests on the org's active repositories.
           type: integer
           minimum: 0
     OrgList:
@@ -947,282 +737,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrgSummary"
-    OrgDetail:
-      description: One org's rules, and why rules did not apply.
-      type: object
-      required: [org, tracked, parked, rules, not_applicable]
-      properties:
-        org:
-          type: string
-        tracked:
-          type: integer
-          minimum: 0
-        parked:
-          type: array
-          items:
-            $ref: "#/components/schemas/ParkedCount"
-        rules:
-          type: array
-          items:
-            $ref: "#/components/schemas/RuleCompliance"
-        not_applicable:
-          type: array
-          description: Not-applicable findings by reason (scope, ignore, gates).
-          items:
-            $ref: "#/components/schemas/ReasonCount"
-    FindingPR:
-      description: The PR a finding's remediation points at. created_at is set for repo-guardian's PR; head and matched_term for a human PR the rule yields to.
-      type: object
-      required: [number, url]
-      properties:
-        number:
-          type: integer
-        url:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        head:
-          type: string
-        matched_term:
-          type: string
-    Finding:
-      description: One rule's verdict on one repository.
-      type: object
-      required: [repository_id, org, repository, rule_kind, rule_name, status, remediation, status_since, last_evaluated_at, pr_stale]
-      properties:
-        repository_id:
-          type: integer
-          format: int64
-        org:
-          type: string
-        repository:
-          type: string
-        rule_kind:
-          $ref: "#/components/schemas/RuleKind"
-        rule_name:
-          type: string
-        status:
-          $ref: "#/components/schemas/FindingStatus"
-        reason:
-          $ref: "#/components/schemas/Reason"
-        remediation:
-          $ref: "#/components/schemas/Remediation"
-        status_since:
-          type: string
-          format: date-time
-        last_evaluated_at:
-          type: string
-          format: date-time
-        pr_stale:
-          type: boolean
-          description: The finding's repo-guardian PR is open and older than stale_after.
-        pr:
-          $ref: "#/components/schemas/FindingPR"
-        evidence:
-          $ref: "#/components/schemas/Evidence"
-    Evidence:
-      description: |
-        Why the finding has its status, keyed by reason. Values that came
-        from a repository are data: render them as text, never as markup.
-      oneOf:
-        - $ref: "#/components/schemas/FileMissingEvidence"
-        - $ref: "#/components/schemas/AssertionFailedEvidence"
-        - $ref: "#/components/schemas/ContentDiffersEvidence"
-        - $ref: "#/components/schemas/ForbiddenPresentEvidence"
-        - $ref: "#/components/schemas/SettingMismatchEvidence"
-        - $ref: "#/components/schemas/RulesetMissingEvidence"
-        - $ref: "#/components/schemas/RulesetMismatchEvidence"
-        - $ref: "#/components/schemas/ScopeEvidence"
-        - $ref: "#/components/schemas/IgnoredEvidence"
-        - $ref: "#/components/schemas/GateClosedEvidence"
-        - $ref: "#/components/schemas/BranchMissingEvidence"
-        - $ref: "#/components/schemas/GateErrorEvidence"
-        - $ref: "#/components/schemas/MigratedFromV1Evidence"
-      discriminator:
-        propertyName: reason
-        mapping:
-          file_missing: "#/components/schemas/FileMissingEvidence"
-          assertion_failed: "#/components/schemas/AssertionFailedEvidence"
-          content_differs: "#/components/schemas/ContentDiffersEvidence"
-          forbidden_present: "#/components/schemas/ForbiddenPresentEvidence"
-          setting_mismatch: "#/components/schemas/SettingMismatchEvidence"
-          ruleset_missing: "#/components/schemas/RulesetMissingEvidence"
-          ruleset_mismatch: "#/components/schemas/RulesetMismatchEvidence"
-          out_of_scope_policy: "#/components/schemas/ScopeEvidence"
-          out_of_scope_rule: "#/components/schemas/ScopeEvidence"
-          empty_repository: "#/components/schemas/ScopeEvidence"
-          foreign_pr_open: "#/components/schemas/ScopeEvidence"
-          ignored_global: "#/components/schemas/IgnoredEvidence"
-          ignored_rule: "#/components/schemas/IgnoredEvidence"
-          gate_closed: "#/components/schemas/GateClosedEvidence"
-          branch_missing: "#/components/schemas/BranchMissingEvidence"
-          gate_error: "#/components/schemas/GateErrorEvidence"
-          migrated_from_v1: "#/components/schemas/MigratedFromV1Evidence"
-    FileMissingEvidence:
-      description: No checked path existed.
-      type: object
-      required: [reason, paths_checked]
-      properties:
-        reason:
-          type: string
-          const: file_missing
-        paths_checked:
-          type: array
-          items:
-            type: string
-    AssertionFailedEvidence:
-      description: A content assertion failed.
-      type: object
-      required: [reason, path, message]
-      properties:
-        reason:
-          type: string
-          const: assertion_failed
-        path:
-          type: string
-        message:
-          type: string
-    ContentDiffersEvidence:
-      description: The file differs from the expected content.
-      type: object
-      required: [reason, path, comparison]
-      properties:
-        reason:
-          type: string
-          const: content_differs
-        path:
-          type: string
-        comparison:
-          description: "Open enum: bytes, yaml."
-          type: string
-    ForbiddenPresentEvidence:
-      description: A forbidden file exists.
-      type: object
-      required: [reason, path]
-      properties:
-        reason:
-          type: string
-          const: forbidden_present
-        path:
-          type: string
-    SettingMismatchEvidence:
-      description: A repository setting differs from the policy.
-      type: object
-      required: [reason, property, expected, actual]
-      properties:
-        reason:
-          type: string
-          const: setting_mismatch
-        property:
-          type: string
-        expected:
-          type: string
-        actual:
-          type: string
-    RulesetMissingEvidence:
-      description: No ruleset covers the branch.
-      type: object
-      required: [reason, branch]
-      properties:
-        reason:
-          type: string
-          const: ruleset_missing
-        branch:
-          type: string
-    RulesetMismatchEvidence:
-      description: A ruleset differs from the policy.
-      type: object
-      required: [reason, branch, ruleset_id, mismatches]
-      properties:
-        reason:
-          type: string
-          const: ruleset_mismatch
-        branch:
-          type: string
-        ruleset_id:
-          type: integer
-          format: int64
-        mismatches:
-          type: array
-          items:
-            type: string
-    ScopeEvidence:
-      description: A reason that carries no detail. A foreign PR is under the finding's pr.
-      type: object
-      required: [reason]
-      properties:
-        reason:
-          type: string
-          enum: [out_of_scope_policy, out_of_scope_rule, empty_repository, foreign_pr_open]
-    IgnoredEvidence:
-      description: An ignore pattern matched.
-      type: object
-      required: [reason, pattern]
-      properties:
-        reason:
-          type: string
-          enum: [ignored_global, ignored_rule]
-        pattern:
-          type: string
-    GateClosedEvidence:
-      description: The when-gate's referee rule is not satisfied.
-      type: object
-      required: [reason, referee]
-      properties:
-        reason:
-          type: string
-          const: gate_closed
-        referee:
-          type: string
-    BranchMissingEvidence:
-      description: The branch-protection target branch does not exist.
-      type: object
-      required: [reason, branch]
-      properties:
-        reason:
-          type: string
-          const: branch_missing
-        branch:
-          type: string
-    GateErrorEvidence:
-      description: The referee could not be evaluated, so the gate stayed closed.
-      type: object
-      required: [reason, referee, error]
-      properties:
-        reason:
-          type: string
-          const: gate_error
-        referee:
-          type: string
-        error:
-          type: string
-    MigratedFromV1Evidence:
-      description: Carried over from v1, which recorded no reason.
-      type: object
-      required: [reason, v1_actionable_since]
-      properties:
-        reason:
-          type: string
-          const: migrated_from_v1
-        v1_actionable_since:
-          type: string
-          format: date-time
-    FindingPage:
-      description: A page of findings.
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Finding"
-        next_cursor:
-          $ref: "#/components/schemas/Cursor"
     Repository:
       description: One repository.
       type: object
-      required: [id, org, name, installation_id, active, discovered_at, last_check_outcome, policy_version]
+      required: [id, org, name, active, discovered_at, evaluable, remediable]
       properties:
         id:
           type: integer
@@ -1232,9 +750,6 @@ components:
         name:
           type: string
         provider_repo_id:
-          type: integer
-          format: int64
-        installation_id:
           type: integer
           format: int64
         active:
@@ -1250,14 +765,20 @@ components:
         next_due_at:
           type: string
           format: date-time
-        last_checked_at:
+        last_evaluated_at:
           type: string
           format: date-time
-        last_check_outcome:
-          description: "Open enum: pending, success, error, skipped."
+        policy_state:
+          $ref: "#/components/schemas/PolicyState"
+        policy_reason:
+          description: Why the policy resolved the repository to its state, such as the exclude_repos reason.
           type: string
-        policy_version:
-          type: string
+        evaluable:
+          description: The Evaluation App has access to the repository.
+          type: boolean
+        remediable:
+          description: The Remediation App has access to the repository and is not suspended.
+          type: boolean
     RepositoryPage:
       description: A page of repositories.
       type: object
@@ -1269,48 +790,8 @@ components:
             $ref: "#/components/schemas/Repository"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
-    Installation:
-      description: One GitHub App installation and its last rate-limit snapshot.
-      type: object
-      required: [id, account]
-      properties:
-        id:
-          type: integer
-          format: int64
-        account:
-          type: string
-        suspended_at:
-          type: string
-          format: date-time
-        removed_at:
-          type: string
-          format: date-time
-        rate_limit:
-          type: integer
-        rate_remaining:
-          type: integer
-        rate_reset_at:
-          type: string
-          format: date-time
-        rate_observed_at:
-          type: string
-          format: date-time
-        rate_snapshot_age_seconds:
-          type: integer
-          description: Seconds since rate_observed_at.
-    InstallationPage:
-      description: A page of installations.
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Installation"
-        next_cursor:
-          $ref: "#/components/schemas/Cursor"
-    Check:
-      description: One check of a repository.
+    Evaluation:
+      description: One evaluation of a repository.
       type: object
       required: [id, trigger, outcome, policy_version, started_at]
       properties:
@@ -1318,7 +799,7 @@ components:
           type: integer
           format: int64
         trigger:
-          description: "Open enum: schedule, webhook, push, discovery, policy_rollout, bootstrap."
+          description: "Open enum: schedule, webhook, push, discovery, policy_rollout, pr_event, manual."
           type: string
         outcome:
           description: "Open enum: pending, success, error, skipped."
@@ -1336,41 +817,38 @@ components:
           format: double
         error:
           type: string
-    CheckPage:
-      description: A page of checks.
+    EvaluationPage:
+      description: A page of evaluations.
       type: object
       required: [items]
       properties:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/Check"
+            $ref: "#/components/schemas/Evaluation"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
     RepositoryDetail:
-      description: A repository with its installation, last check and findings.
+      description: A repository with its last evaluation.
       type: object
-      required: [repository, installation, findings]
+      required: [repository]
       properties:
         repository:
           $ref: "#/components/schemas/Repository"
-        installation:
-          $ref: "#/components/schemas/Installation"
-        last_check:
-          $ref: "#/components/schemas/Check"
-        findings:
-          type: array
-          items:
-            $ref: "#/components/schemas/Finding"
+        last_evaluation:
+          $ref: "#/components/schemas/Evaluation"
     Event:
       description: |
-        One timeline entry. A finding event carries the rule and its
-        from/to fields; a repository event carries kind and detail.
+        One timeline entry. A result event carries the control, the rule
+        for a rule-result transition, and the status transition (to_status
+        is absent when the result was withdrawn, which is how an
+        assignment's withdrawal shows); a repository event carries kind
+        and detail.
       type: object
       required: [source, id, occurred_at]
       properties:
         source:
-          description: "Open enum: finding, repository."
+          description: "Open enum: result, repository."
           type: string
         id:
           type: integer
@@ -1378,24 +856,19 @@ components:
         occurred_at:
           type: string
           format: date-time
-        rule_kind:
-          $ref: "#/components/schemas/RuleKind"
-        rule_name:
+        control_id:
+          type: string
+        rule_id:
+          description: Set on a rule-result transition; absent on a control-status one.
           type: string
         from_status:
-          $ref: "#/components/schemas/FindingStatus"
+          description: "Open enum: compliant, non_compliant, unknown, not_applicable."
+          type: string
         to_status:
-          $ref: "#/components/schemas/FindingStatus"
-        from_reason:
-          $ref: "#/components/schemas/Reason"
-        to_reason:
-          $ref: "#/components/schemas/Reason"
-        from_remediation:
-          $ref: "#/components/schemas/Remediation"
-        to_remediation:
-          $ref: "#/components/schemas/Remediation"
+          description: "Open enum: compliant, non_compliant, unknown, not_applicable."
+          type: string
         kind:
-          description: "Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed."
+          description: "Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended."
           type: string
         detail:
           type: object
@@ -1411,32 +884,374 @@ components:
             $ref: "#/components/schemas/Event"
         next_cursor:
           $ref: "#/components/schemas/Cursor"
-    HistoryPoint:
-      description: >-
-        One snapshot point. Unaggregated, it is one (org, rule) and carries
-        `org`, `kind` and `rule`. With `aggregate=org` it carries `org`
-        only; with `aggregate=fleet` it carries none of the three.
+    Posture:
+      description: |
+        Compliance over a set of assignments, by posture bucket. Every
+        assignment lands in exactly one bucket. `assigned` counts every
+        bucket but excluded and conflict; `percent` is compliant over
+        compliant plus non-compliant and `coverage` measured (compliant,
+        non-compliant, not applicable) over assigned, both floored to one
+        decimal and null on an empty denominator.
       type: object
-      required: [snapshot_at, counts, compliant_percent]
+      required: [compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended,
+        unmeasurable_conflict, not_applicable, unknown, excluded, assigned, percent, coverage]
+      properties:
+        compliant:
+          type: integer
+          minimum: 0
+        non_compliant:
+          type: integer
+          minimum: 0
+        pending:
+          description: Assigned with no result yet.
+          type: integer
+          minimum: 0
+        stale:
+          description: A result from an older assignment epoch or revision.
+          type: integer
+          minimum: 0
+        unmeasurable_access_denied:
+          type: integer
+          minimum: 0
+        unmeasurable_suspended:
+          type: integer
+          minimum: 0
+        unmeasurable_conflict:
+          type: integer
+          minimum: 0
+        not_applicable:
+          type: integer
+          minimum: 0
+        unknown:
+          type: integer
+          minimum: 0
+        excluded:
+          description: Excluded assignments, reported beside and never in a denominator.
+          type: integer
+          minimum: 0
+        assigned:
+          type: integer
+          minimum: 0
+        percent:
+          type: [number, "null"]
+          format: double
+        coverage:
+          type: [number, "null"]
+          format: double
+    Summary:
+      description: Fleet totals over the visible orgs.
+      type: object
+      required: [tracked, parked, compliance, open_prs, evaluated_24h]
+      properties:
+        tracked:
+          description: Active repositories.
+          type: integer
+          minimum: 0
+        parked:
+          type: integer
+          minimum: 0
+        compliance:
+          $ref: "#/components/schemas/Posture"
+        open_prs:
+          type: integer
+          minimum: 0
+        evaluated_24h:
+          description: Repositories evaluated in the last 24 hours.
+          type: integer
+          minimum: 0
+        last_evaluated_at:
+          type: string
+          format: date-time
+        policy_version:
+          description: The active policy version; absent before one is activated.
+          type: string
+    ControlSummary:
+      description: One control's fleet compliance.
+      type: object
+      required: [id, type, compliance]
+      properties:
+        id:
+          $ref: "#/components/schemas/ControlSlug"
+        title:
+          type: string
+        type:
+          description: "Open enum: the control type, such as file, codeowners or branch_ruleset."
+          type: string
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ControlList:
+      description: Every control assigned in the visible orgs.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlSummary"
+    ControlVersion:
+      description: One version and revision of a control assigned in an org, with how many repositories carry it.
+      type: object
+      required: [version, revision, repositories]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        revision:
+          type: string
+        repositories:
+          type: integer
+          minimum: 0
+    ControlOrg:
+      description: |
+        A control's compliance in one org and baseline lineage. An org on
+        `codeowners@2` through `replace` sits beside one on `@1`.
+      type: object
+      required: [org, decision, versions, compliance]
       properties:
         org:
-          description: Absent when aggregated to the fleet.
           type: string
-        kind:
-          $ref: "#/components/schemas/RuleKind"
-        rule:
-          description: Absent when aggregated.
+        decision:
+          $ref: "#/components/schemas/Decision"
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlVersion"
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ControlDetail:
+      description: One control with its fleet compliance and per-org breakdown.
+      type: object
+      required: [id, type, compliance, orgs]
+      properties:
+        id:
+          $ref: "#/components/schemas/ControlSlug"
+        title:
           type: string
+        type:
+          type: string
+        compliance:
+          $ref: "#/components/schemas/Posture"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ControlOrg"
+    Decision:
+      description: "Open enum: baseline, replaced, org_added."
+      type: string
+      examples: [baseline]
+    OrgControl:
+      description: One control's compliance in an org.
+      type: object
+      required: [control_id, decision, compliance]
+      properties:
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        decision:
+          $ref: "#/components/schemas/Decision"
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    Exclusion:
+      description: An excluded or conflicted assignment (control_id set) or an excluded repository.
+      type: object
+      required: [repository, state, reason]
+      properties:
+        repository:
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        state:
+          description: "Open enum: excluded, conflict."
+          type: string
+        reason:
+          type: string
+        excluded_by:
+          type: string
+    OrgDetail:
+      description: One org's baseline-versus-org compliance.
+      type: object
+      required: [org, tracked, parked, baseline, org_added, controls, worst_controls, exclusions]
+      properties:
+        org:
+          type: string
+        tracked:
+          type: integer
+          minimum: 0
+        parked:
+          type: integer
+          minimum: 0
+        baseline:
+          $ref: "#/components/schemas/Posture"
+          description: The baseline lineage, whichever layer fulfils it.
+        org_added:
+          $ref: "#/components/schemas/Posture"
+          description: The controls the org adds.
+        controls:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgControl"
+        worst_controls:
+          description: Up to five measured controls with the lowest percent, lowest first.
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgControl"
+        exclusions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exclusion"
+    RuleResult:
+      description: One rule's result.
+      type: object
+      required: [rule_id, status, remediate, evidence]
+      properties:
+        rule_id:
+          type: string
+        status:
+          description: "Open enum: pass, fail, error, unknown, not_applicable."
+          type: string
+        remediate:
+          type: boolean
+        evidence:
+          $ref: "#/components/schemas/Evidence"
+    Evidence:
+      description: |
+        A rule's evidence: flat, every value a scalar or an array of
+        scalars. Discriminated by `evidence_kind` and `evidence_version`;
+        render only kinds and versions you know, and treat the rest as
+        opaque.
+      oneOf:
+        - $ref: "#/components/schemas/FrameworkEvidence"
+        - $ref: "#/components/schemas/ControlEvidence"
+    FrameworkEvidence:
+      description: Evidence the framework wrote for a result it had to supply.
+      type: object
+      required: [evidence_kind, evidence_version, reason]
+      properties:
+        evidence_kind:
+          type: string
+          const: framework
+        evidence_version:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+    ControlEvidence:
+      description: Evidence a control type wrote; its other fields depend on the kind and version.
+      type: object
+      required: [evidence_kind, evidence_version]
+      properties:
+        evidence_kind:
+          description: "`<control type>.<rule kind>`, such as file.exists."
+          type: string
+          pattern: "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+        evidence_version:
+          type: integer
+          minimum: 1
+      additionalProperties: true
+    RepositoryControl:
+      description: |
+        One assignment with provenance, requested and effective mode, and
+        its result. The latest remediation joins with IMPL-0030.
+      type: object
+      required: [control_id, version, revision, state, decision, source, requested_mode, effective_mode, mode_source,
+        epoch, bucket, rules]
+      properties:
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        version:
+          type: integer
+          minimum: 1
+        revision:
+          type: string
+        state:
+          description: "Open enum: active, excluded, conflict."
+          type: string
+        decision:
+          description: "Open enum: baseline, replaced, org_added, excluded."
+          type: string
+        baseline_control:
+          description: The baseline control this assignment fulfils; absent for an org addition.
+          type: string
+        source:
+          description: The policy file that assigned it.
+          type: string
+        source_block:
+          description: The repos block label within the source, when one assigned it.
+          type: string
+        replaced:
+          description: The control this one replaced.
+          type: string
+        excluded_by:
+          type: string
+        reason:
+          type: string
+        error:
+          description: Why the assignment is in conflict.
+          type: string
+        requested_mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        effective_mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        mode_source:
+          type: string
+        mode_reason:
+          description: "Open enum: remediation_app_no_access, remediation_app_suspended."
+          type: string
+        epoch:
+          type: integer
+          format: int64
+        bucket:
+          description: "Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded."
+          type: string
+        status:
+          description: "Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. Absent before the first result."
+          type: string
+        evaluated_sha:
+          type: string
+        evaluated_at:
+          type: string
+          format: date-time
+        last_changed_at:
+          type: string
+          format: date-time
+        hold:
+          description: "Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission."
+          type: string
+        hold_since:
+          type: string
+          format: date-time
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleResult"
+    RepositoryControlList:
+      description: A repository's assignments.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositoryControl"
+    HistoryPoint:
+      description: One compliance snapshot row.
+      type: object
+      required: [org, control_id, decision, snapshot_at, compliance]
+      properties:
+        org:
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        decision:
+          $ref: "#/components/schemas/Decision"
         snapshot_at:
           type: string
           format: date-time
-        counts:
-          $ref: "#/components/schemas/StatusCounts"
-        compliant_percent:
-          type: [number, "null"]
-          format: double
-    HistoryPage:
-      description: A page of snapshot points.
+        compliance:
+          $ref: "#/components/schemas/Posture"
+    ComplianceHistory:
+      description: Compliance snapshots, oldest first.
       type: object
       required: [items]
       properties:
@@ -1444,46 +1259,129 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HistoryPoint"
-        next_cursor:
-          $ref: "#/components/schemas/Cursor"
-    PolicyRule:
-      description: One enforced rule, as the policy summarizes it.
+    PolicyControl:
+      description: One catalogue definition.
       type: object
-      required: [kind, name]
+      required: [id, type, revision]
       properties:
-        kind:
-          $ref: "#/components/schemas/RuleKind"
-        name:
+        id:
+          description: The control id, `<slug>@<version>`.
           type: string
-        description:
+        title:
           type: string
-        scope:
-          type: array
-          items:
-            type: string
-        ignore:
-          type: array
-          items:
-            type: string
-        check_mode:
+        type:
           type: string
-    Policy:
-      description: The newest policy version and its rollout.
+        revision:
+          type: string
+    PolicyEnterprise:
+      description: The baseline, shown only to a caller who sees every org.
       type: object
-      required: [version, first_seen_at, rollout_state, rules]
+      required: [orgs, mode, controls]
+      properties:
+        orgs:
+          type: array
+          items:
+            type: string
+        mode:
+          description: "Open enum: evaluate, remediate."
+          type: string
+        controls:
+          type: array
+          items:
+            type: string
+    PolicyChange:
+      description: An org's added, replaced or excluded control.
+      type: object
+      required: [control]
+      properties:
+        control:
+          type: string
+        with:
+          description: The replacement, for a replace.
+          type: string
+        reason:
+          type: string
+        block:
+          description: The repos block label, when the change is scoped to one.
+          type: string
+    PolicyRepos:
+      description: A repos block.
+      type: object
+      required: [label, match]
+      properties:
+        label:
+          type: string
+        match:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+    PolicyExcludedRepos:
+      description: An exclude_repos block.
+      type: object
+      required: [match, reason]
+      properties:
+        match:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+    PolicyOrg:
+      description: One visible org's policy.
+      type: object
+      required: [org, added, replaced, excluded, excluded_repos, repos]
+      properties:
+        org:
+          type: string
+        mode:
+          description: The org's mode; absent when it inherits the baseline's.
+          type: string
+        added:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        replaced:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        excluded:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyChange"
+        excluded_repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyExcludedRepos"
+        repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRepos"
+    Policies:
+      description: The active policy version, scoped to the visible orgs.
+      type: object
+      required: [version, first_seen_at, activated_at, orgs, controls]
       properties:
         version:
           type: string
         first_seen_at:
           type: string
           format: date-time
+        activated_at:
+          type: string
+          format: date-time
         rollout_completed_at:
           type: string
           format: date-time
-        rollout_state:
-          description: "Open enum: in_progress, complete."
-          type: string
-        rules:
+        enterprise:
+          $ref: "#/components/schemas/PolicyEnterprise"
+        orgs:
           type: array
           items:
-            $ref: "#/components/schemas/PolicyRule"
+            $ref: "#/components/schemas/PolicyOrg"
+        controls:
+          description: The catalogue definitions the visible policy refers to; every definition for a caller who sees every org.
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyControl"

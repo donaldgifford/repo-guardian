@@ -1,0 +1,44 @@
+{
+  "state": "managed",
+  "assignments": [
+    {
+      "control": "codeowners@1",
+      "revision": "625cd32cfc882c8768ef3cf27492448e0bb65598088dd078ea3223560715e488",
+      "state": "conflict",
+      "decision": "baseline",
+      "baseline_control": "codeowners",
+      "source": "enterprise",
+      "ordinal": 1,
+      "error": "resource_conflict: file:CODEOWNERS claimed by codeowners@1 and legacy_codeowners@1",
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    },
+    {
+      "control": "deps@1",
+      "revision": "92554ea9988453d8692331c71caf6d4b09b8230da504e7a13b5ce197c2b31b93",
+      "state": "active",
+      "decision": "baseline",
+      "baseline_control": "deps",
+      "source": "enterprise",
+      "ordinal": 2,
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    },
+    {
+      "control": "legacy_codeowners@1",
+      "revision": "bdc40f96a88f839ac06cd1201482f24fac33811e542c4592e0157553c86d6bb5",
+      "state": "conflict",
+      "decision": "org_added",
+      "source": "org:acme",
+      "ordinal": 3,
+      "error": "resource_conflict: file:CODEOWNERS claimed by codeowners@1 and legacy_codeowners@1",
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    }
+  ],
+  "max_open_prs": 3,
+  "reopen_after": 1209600000000000
+}

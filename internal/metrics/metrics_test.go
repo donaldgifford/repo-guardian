@@ -107,11 +107,17 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_catalog_parse_failed_total",
 		"repo_guardian_check_duration_seconds",
 		"repo_guardian_checks_total",
+		"repo_guardian_controls_coverage",
+		"repo_guardian_controls_status",
 		"repo_guardian_custom_property_cleared_total",
 		"repo_guardian_custom_property_missing_schema_total",
 		"repo_guardian_deployment_info",
 		"repo_guardian_discovery_api_calls_total",
 		"repo_guardian_errors_total",
+		"repo_guardian_evaluation_changes_total",
+		"repo_guardian_evaluation_errors_total",
+		"repo_guardian_evaluation_freshness_seconds",
+		"repo_guardian_evaluations_total",
 		"repo_guardian_files_forbidden_present_total",
 		"repo_guardian_files_missing_total",
 		"repo_guardian_ignored_total",
@@ -128,10 +134,12 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_repo_discovered_total",
 		"repo_guardian_repos_checked_total",
 		"repo_guardian_repos_parked_total",
+		"repo_guardian_results_discarded_total",
 		"repo_guardian_rule_gate_closed_total",
 		"repo_guardian_settings_checked_total",
 		"repo_guardian_settings_mismatched_total",
 		"repo_guardian_settings_remediated_total",
+		"repo_guardian_store_pool_wait_seconds",
 		"repo_guardian_store_query_seconds",
 		"repo_guardian_webhook_received_total",
 		"repo_guardian_webhook_rejected_total",
@@ -162,9 +170,9 @@ const AppEval = "eval"
 
 func TestSetDeploymentInfo(t *testing.T) {
 	DeploymentInfo.Reset()
-	SetDeploymentInfo(TopologySplit)
+	SetDeploymentInfo(TopologySplit, "v2.0.0-rc.9")
 
-	if got := testutil.ToFloat64(DeploymentInfo.WithLabelValues(TopologySplit)); got != 1 {
-		t.Errorf(`deployment_info{topology="split"} = %v, want 1`, got)
+	if got := testutil.ToFloat64(DeploymentInfo.WithLabelValues(TopologySplit, "v2.0.0-rc.9")); got != 1 {
+		t.Errorf(`deployment_info{topology="split",version="v2.0.0-rc.9"} = %v, want 1`, got)
 	}
 }

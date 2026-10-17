@@ -18,21 +18,37 @@ func (r *recordingRegistry) RegisterWorkflowWithOptions(_ any, o workflow.Regist
 
 func (*recordingRegistry) RegisterDynamicWorkflow(any, workflow.DynamicRegisterOptions) {}
 
-// TestRegister_EachRoleRegistersOnlyItsSet is IMPL-0028 task 4.2: the
-// controls workers never register the rc's workflows, and the union
-// registers each name once.
+// TestRegister_EachRoleRegistersOnlyItsSet pins each controls worker's
+// workflows (IMPL-0028 task 4.2, IMPL-0029 task 7.1): the evaluator runs
+// the evaluation loop, its services and the webhook routing, the
+// remediator only its budget, and the union registers each name once.
 func TestRegister_EachRoleRegistersOnlyItsSet(t *testing.T) {
 	t.Parallel()
 
-	for name, register := range map[string]func(*recordingRegistry){
-		"evaluator":  func(r *recordingRegistry) { RegisterEvaluator(r) },
-		"remediator": func(r *recordingRegistry) { RegisterRemediator(r) },
+	for _, tt := range []struct {
+		name     string
+		register func(*recordingRegistry)
+		want     []string
+	}{
+		{
+			name:     "evaluator",
+			register: func(r *recordingRegistry) { RegisterEvaluator(r) },
+			want: []string{
+				ControlsDiscoveryWorkflowName, ControlsRolloutWorkflowName, ControlsSnapshotWorkflowName,
+				EvaluationWorkflowName, InstallationWorkflowName, WebhookWorkflowName,
+			},
+		},
+		{
+			name:     "remediator",
+			register: func(r *recordingRegistry) { RegisterRemediator(r) },
+			want:     []string{InstallationWorkflowName},
+		},
 	} {
 		var r recordingRegistry
-		register(&r)
+		tt.register(&r)
 
-		if slices.Contains(r.names, RepoWorkflowName) || slices.Contains(r.names, WebhookWorkflowName) {
-			t.Errorf("%s registers %v, want no rc workflow", name, r.names)
+		if got := slices.Sorted(slices.Values(r.names)); !slices.Equal(got, tt.want) {
+			t.Errorf("%s registers %v, want %v", tt.name, got, tt.want)
 		}
 	}
 

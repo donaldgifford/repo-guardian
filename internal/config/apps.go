@@ -171,3 +171,9 @@ func parseWorkerSizing(prefix string) (WorkerSizing, error) {
 
 	return WorkerSizing{Concurrency: concurrency, DBPoolSize: int32(poolSize)}, nil
 }
+
+// LoadAppCredentials reads a's credential set from the environment
+// alone, for a one-shot command that needs no role configuration.
+func LoadAppCredentials(a App) (AppCredentials, error) {
+	return parseAppCredentials(a)
+}

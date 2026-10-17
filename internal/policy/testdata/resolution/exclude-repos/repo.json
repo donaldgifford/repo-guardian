@@ -1,0 +1,11 @@
+{
+  "repository": {
+    "org": "acme",
+    "name": "sandbox-1",
+    "active": true
+  },
+  "access": {
+    "evaluable": true,
+    "remediable": true
+  }
+}

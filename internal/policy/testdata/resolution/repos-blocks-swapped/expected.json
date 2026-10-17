@@ -1,0 +1,20 @@
+{
+  "state": "managed",
+  "assignments": [
+    {
+      "control": "catalog@1",
+      "revision": "75fe041248faefca97dfe534941b3ceb9c5bf77b7165a7e68f80976ee0d356ca",
+      "state": "active",
+      "decision": "baseline",
+      "baseline_control": "catalog",
+      "source": "org:acme/repos[backstage]",
+      "source_block": "backstage",
+      "ordinal": 1,
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    }
+  ],
+  "max_open_prs": 3,
+  "reopen_after": 1209600000000000
+}

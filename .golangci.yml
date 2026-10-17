@@ -82,23 +82,96 @@ linters:
 
   settings:
     # Workflow code must stay deterministic: everything that reads GitHub,
-    # Postgres or the engine lives behind an activity (DESIGN-0026).
+    # Postgres or a control lives behind an activity (DESIGN-0026).
     depguard:
       rules:
         workflows:
           files:
             - "**/internal/workflows/*.go"
           deny:
-            - pkg: github.com/donaldgifford/repo-guardian/internal/checker
-              desc: the engine runs only inside activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/store
               desc: the store is reached only through activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/github
               desc: GitHub is reached only through activities
             - pkg: github.com/donaldgifford/repo-guardian/internal/activities
               desc: workflows call activities by name, not by import
-            - pkg: github.com/donaldgifford/repo-guardian/internal/reconciler
-              desc: reconcilers run only inside activities
+            - pkg: github.com/donaldgifford/repo-guardian/internal/control
+              desc: controls run only inside activities (DESIGN-0031 D17)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/controls
+              desc: controls run only inside activities (DESIGN-0031 D17)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/policy
+              desc: policy is resolved only inside activities (DESIGN-0031 D17)
+        # DESIGN-0031 D17's package graph, one rule per edge, so the graph
+        # is a lint failure rather than a diagram. The more specific allow
+        # wins over the module-wide deny.
+        template-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/template/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/template
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/template is the leaf (renderer, Vars, PRConfig) and imports nothing of ours
+        control-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/control/*.go"
+            - "**/internal/control/*/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/control imports internal/template and nothing else of ours
+        controls-types:
+          list-mode: lax
+          files:
+            - "**/internal/controls/*.go"
+            - "**/internal/controls/*/*.go"
+            - "!**/internal/controls/builtin/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/catalog
+            - github.com/donaldgifford/repo-guardian/internal/metrics
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: a control type imports internal/control, internal/template, the catalog-info parser and the metrics leaf only
+        catalog-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/catalog/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/catalog
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/catalog is a parser leaf the control types share; it imports nothing of ours
+        policy-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/policy/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/policy
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/rules
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: resolution is pure (DESIGN-0030), so internal/policy imports control, template and the embedded templates only, never github or the store
+        controls-consumers:
+          files:
+            - "$all"
+            - "!**/internal/controls/**"
+            - "!**/internal/activities/*.go"
+            - "!**/cmd/repo-guardian/*.go"
+            - "!**/examples/*_test.go"
+            # monitoring derives mechanisms from built-in type names; its
+            # tests load real policies to pin those names.
+            - "!**/internal/monitoring/*_test.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/controls
+              desc: control types are registered by the binary and run by activities only
         api:
           files:
             - "**/internal/api/*.go"

@@ -6,15 +6,11 @@ templates:
 release:
   name: rg
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "test-secret"
-    privateKey: "test-key"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
   api:
     enabled: true
     auth:

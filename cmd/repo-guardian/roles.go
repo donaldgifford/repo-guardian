@@ -11,24 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/client"
 
-	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	"github.com/donaldgifford/repo-guardian/internal/control"
+	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
 	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
-	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
 // Role subcommands (DESIGN-0026 § Roles). One binary, one image; the
 // role is the first argument, and no argument means all.
 const (
 	cmdIngest = "ingest"
-	cmdWorker = "worker"
 	cmdAPI    = "api"
 	cmdAll    = "all"
 
@@ -37,8 +35,6 @@ const (
 )
 
 func runIngest(args []string) error { return runRoles(cmdIngest, args, config.RoleIngest) }
-
-func runWorker(args []string) error { return runRoles(cmdWorker, args, config.RoleWorker) }
 
 // runEvaluator is the controls evaluation worker (IMPL-0028 Phase 4).
 func runEvaluator(args []string) error { return runRoles(cmdEvaluator, args, config.RoleEvaluator) }
@@ -56,8 +52,6 @@ func runAPI(args []string) error { return runRoles(cmdAPI, args, config.RoleAPI)
 // signal, then shuts down.
 func runRoles(name string, args []string, roles config.Role) error {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	strictTemplates := fs.Bool("strict-templates", strictTemplatesFromEnv(),
-		"Validate every compiled PR template against a zero-value PRVars context at startup; exit non-zero on failure")
 
 	fs.Usage = func() {
 		usage(fs.Output())
@@ -92,7 +86,7 @@ func runRoles(name string, args []string, roles config.Role) error {
 		return err
 	}
 
-	up, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, *strictTemplates, logger)
+	up, err := bringUpRoles(ctx, roles, cfg, tc, &tcfg, logger)
 	if err != nil {
 		if tc != nil {
 			tc.Close()
@@ -116,9 +110,10 @@ func dialTemporal(
 	ctx context.Context, roles config.Role, obs *observability.Provider, logger *slog.Logger,
 ) (temporal.Config, client.Client, error) {
 	tcfg, err := temporal.ConfigFromEnv()
-	if roles == config.RoleAPI {
-		// The api role never dials, so an unset or incomplete Temporal
-		// env is not an error for it: the chart gives it none.
+	if roles == config.RoleAPI && tcfg.Address == "" {
+		// The api role's Temporal client is optional (DESIGN-0032 § API):
+		// without TEMPORAL_ADDRESS it does not dial, and POST
+		// /repositories/{id}/evaluate answers 501.
 		return tcfg, nil, nil
 	}
 
@@ -173,27 +168,28 @@ func listen(logger *slog.Logger, cfg *config.Config, roles config.Role, up *role
 	return servers
 }
 
-// rolesUp is what bringUpRoles started. stopWorker is nil unless the
-// worker role runs.
+// rolesUp is what bringUpRoles started. stopWorker is nil unless a
+// controls worker runs.
 type rolesUp struct {
 	mux        *http.ServeMux
 	api        http.Handler
 	stopWorker func()
 }
 
-// bringUpRoles starts the worker, builds the API and mounts ingest and
-// the health endpoints for the given roles.
+// bringUpRoles starts the controls workers, builds the API and mounts
+// ingest and the health endpoints for the given roles.
 func bringUpRoles(
 	ctx context.Context,
 	roles config.Role,
 	cfg *config.Config,
 	tc client.Client,
 	tcfg *temporal.Config,
-	strictTemplates bool,
 	logger *slog.Logger,
 ) (*rolesUp, error) {
 	var checks []readinessCheck
-	if tc != nil {
+	// The api role's client serves only the re-check POST, so a Temporal
+	// outage must not take the read API out of rotation.
+	if tc != nil && roles != config.RoleAPI {
 		checks = append(checks, readinessCheck{name: "temporal", fn: func(ctx context.Context) error { return temporal.Ping(ctx, tc) }})
 	}
 
@@ -201,17 +197,7 @@ func bringUpRoles(
 	mux := up.mux
 
 	logAppPermissions(logger, roles)
-	metrics.SetDeploymentInfo(topologyOf(roles))
-
-	if roles.Has(config.RoleWorker) {
-		stop, workerChecks, err := startV2Worker(ctx, cfg, tc, tcfg, strictTemplates, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		up.stopWorker = stop
-		checks = append(checks, workerChecks...)
-	}
+	metrics.SetDeploymentInfo(topologyOf(roles), temporal.BuildID())
 
 	for _, half := range controlsHalves(cfg, roles, tcfg) {
 		stop, halfChecks, err := startControlsWorker(ctx, cfg, tc, tcfg, half, logger)
@@ -237,7 +223,7 @@ func bringUpRoles(
 	}
 
 	if roles.Has(config.RoleIngest) {
-		routes, err := newIngestRoutes(cfg, tc, tcfg.TaskQueue, logger)
+		routes, err := newIngestRoutes(cfg, tc, tcfg.EvalTaskQueue, logger)
 		if err != nil {
 			return fail(err)
 		}
@@ -266,116 +252,18 @@ func bringUpRoles(
 	return up, nil
 }
 
-// startV2Worker loads the policy and engine, opens the store and starts
-// a Temporal worker running every workflow and activity, then promotes
-// its build in the background. It returns the function that stops the
-// worker and then closes the pool, and the worker role's readiness
-// checks.
-func startV2Worker(
-	ctx context.Context,
-	cfg *config.Config,
-	tc client.Client,
-	tcfg *temporal.Config,
-	strictTemplates bool,
-	logger *slog.Logger,
-) (func(), []readinessCheck, error) {
-	policyCfg, engine, templates := loadPolicyAndEngine(cfg, strictTemplates, logger)
-
-	policyVersion, err := policy.VersionV2(policyCfg, templates.AsMap())
-	if err != nil {
-		return nil, nil, fmt.Errorf("policy version: %w", err)
-	}
-
-	gh, err := newGitHubClient(cfg, logger)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create github client: %w", err)
-	}
-
-	pool, err := pgxpool.New(ctx, cfg.StoreDSN)
-	if err != nil {
-		return nil, nil, fmt.Errorf("open store: %w", err)
-	}
-
-	if err := pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion); err != nil {
-		pool.Close()
-
-		return nil, nil, err
-	}
-
-	wc, err := temporal.WorkerConfigFromEnv(tcfg)
-	if err != nil {
-		pool.Close()
-
-		return nil, nil, err
-	}
-
-	if wc.DevBuild() {
-		logger.Warn("temporal: build ID resolved to \"dev\"; every image looks like the same version to Temporal",
-			"build_id", wc.BuildID, "fix", "set TEMPORAL_BUILD_ID (the chart sets it from the image tag)")
-	}
-
-	st := pgstore.NewV2Store(pool, logger, pgstore.WithHost(cfg.GitHubHost))
-
-	w := temporal.NewWorker(tc, &wc)
-	workflows.Register(w)
-	activities.New(engine, st, gh, policyVersion, logger).Register(w)
-	activities.NewBudget(tc, "", wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
-	activities.NewRouter(st, tc, wc.TaskQueue, cfg.CheckInterval, cfg.RateLimitThreshold, logger).Register(w)
-	activities.NewServices(&activities.ServicesConfig{
-		Store: st, GitHub: gh, Temporal: tc, TaskQueue: wc.TaskQueue,
-		CheckInterval: cfg.CheckInterval, PolicyVersion: policyVersion,
-		SkipArchived: policyCfg.Guardian.SkipArchived, SkipForks: policyCfg.Guardian.SkipForks,
-		Logger: logger,
-	}).Register(w)
-
-	if err := w.Start(); err != nil {
-		pool.Close()
-
-		return nil, nil, fmt.Errorf("start temporal worker: %w", err)
-	}
-
-	svc := &serviceStarter{cfg: cfg, client: tc, store: st, taskQueue: wc.TaskQueue, logger: logger}
-	if err := svc.start(ctx, policyVersion, policy.Summarize(policyCfg)); err != nil {
-		w.Stop()
-		pool.Close()
-
-		return nil, nil, err
-	}
-
-	logger.Info("temporal worker started",
-		"task_queue", wc.TaskQueue, "build_id", wc.BuildID,
-		"activity_concurrency", wc.ActivityConcurrency, "policy_version", policyVersion)
-
-	// Versioned workers get no tasks until their build is the
-	// deployment's current version; nothing else sets it.
-	go func() {
-		if err := temporal.PromoteBuild(ctx, tc, temporal.DeploymentRC, wc.BuildID, logger); err != nil && ctx.Err() == nil {
-			logger.Error("temporal: promoting build failed", "build_id", wc.BuildID, "error", err)
-		}
-	}()
-
-	// The pool lives as long as the worker; stopping the worker first
-	// means no activity is left holding a connection.
-	stop := func() {
-		w.Stop()
-		pool.Close()
-	}
-
-	return stop, workerChecks(pool, tc, temporal.DeploymentRC, wc.BuildID, time.Now()), nil
-}
-
 // deploymentReadyGrace is how long a new worker may take to become the
 // deployment's current version before readiness reports the stall.
 const deploymentReadyGrace = 2 * time.Minute
 
-// workerChecks returns the worker role's readiness checks: the store
-// schema, and, after deploymentReadyGrace, that this build is the
-// deployment's current version. Without the second, a pod reports
+// workerChecks returns a controls worker's readiness checks: the
+// controls schema, and, after deploymentReadyGrace, that this build is
+// the deployment's current version. Without the second, a pod reports
 // Ready while Temporal dispatches it nothing.
 func workerChecks(pool *pgxpool.Pool, tc client.Client, deployment, buildID string, started time.Time) []readinessCheck {
 	return []readinessCheck{
 		{name: "schema", fn: func(ctx context.Context) error {
-			return pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion)
+			return pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion)
 		}},
 		{name: "deployment", fn: func(ctx context.Context) error {
 			if time.Since(started) < deploymentReadyGrace {
@@ -413,14 +301,14 @@ func topologyOf(roles config.Role) string {
 // running role acts with (IMPL-0028 task 3.4), so an operator can check
 // the installation against it. The Remediation App's set is derived
 // from the registered control types; until IMPL-0029 registers any it is
-// the base set. The rc's worker acts as both.
+// the base set.
 func logAppPermissions(logger *slog.Logger, roles config.Role) {
-	if roles&(config.RoleEvaluator|config.RoleWorker) != 0 {
+	if roles.Has(config.RoleEvaluator) {
 		logger.Info("Evaluation App permissions required", "app", config.AppEval,
 			"permissions", permissionStrings(control.EvaluationPermissions()))
 	}
 
-	if roles&(config.RoleRemediator|config.RoleWorker) != 0 {
+	if roles.Has(config.RoleRemediator) {
 		logger.Info("Remediation App permissions required", "app", config.AppRemediate,
 			"permissions", permissionStrings(control.RemediationPermissions(nil, false)))
 	}
@@ -435,22 +323,24 @@ func permissionStrings(ps []control.Permission) []string {
 	return out
 }
 
-// newIngestRoutes builds the webhook handlers by route: the rc's
-// single-App route, plus one route per controls App whose webhook
-// secret is set (IMPL-0028 task 3.2, D29). Each validates with its own
-// secret only. The policy is read only for its watched paths, so a
-// policy error fails startup rather than silently dropping every push.
+// newIngestRoutes builds the webhook handlers by route: one route per
+// controls App whose webhook secret is set (IMPL-0028 task 3.2, D29),
+// each validating with its own secret only and starting WebhookWorkflow
+// on the evaluation queue, where the router runs. The controls policy is
+// read only for its watched paths, so a policy error fails startup
+// rather than silently dropping every push.
 func newIngestRoutes(cfg *config.Config, tc client.Client, taskQueue string, logger *slog.Logger) (map[string]http.Handler, error) {
-	policyCfg, err := policy.Load(cfg.GuardianConfigPath)
+	snap, err := policy.Load(cfg.GuardianConfigPath, builtin.Registry(), logger)
 	if err != nil {
 		return nil, fmt.Errorf("load policy for watched paths: %w", err)
 	}
 
-	watched := policy.ExtractWatchedPaths(policyCfg)
-
-	routes := map[string]http.Handler{
-		webhookRoute: ingest.New(cfg.GitHubWebhookSecret, tc, taskQueue, watched, logger),
+	watched := make(map[string]bool)
+	for _, p := range snap.WatchedPaths() {
+		watched[p] = true
 	}
+
+	routes := make(map[string]http.Handler)
 
 	for _, app := range []config.App{config.AppEval, config.AppRemediate} {
 		creds := cfg.Credentials(app)

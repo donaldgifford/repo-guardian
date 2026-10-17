@@ -31,7 +31,7 @@ var (
 	now   = time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 )
 
-// orgReader answers Summary by aggregating per-org fixtures over the
+// orgReader answers Repositories by filtering per-org fixtures over the
 // scope, the way the SQL predicate does, and records each scope. The
 // other reads are exercised against Postgres (apireader integration
 // tests); calling one here panics on the nil embedded Reader.
@@ -39,49 +39,55 @@ type orgReader struct {
 	api.Reader
 
 	mu     sync.Mutex
-	orgs   map[string]*store.Summary
+	repos  []store.Repository
 	scopes []store.APIScope
+	policy *store.ActivePolicy
+}
+
+// Repository answers one repository within scope, ErrNotFound otherwise,
+// as the SQL predicate does.
+func (r *orgReader) Repository(_ context.Context, scope store.APIScope, id int64) (*store.RepositoryDetail, error) {
+	for i := range r.repos {
+		if r.repos[i].ID == id && (scope.All() || slices.Contains(scope.Orgs(), r.repos[i].Org)) {
+			return &store.RepositoryDetail{Repository: r.repos[i]}, nil
+		}
+	}
+
+	return nil, store.ErrNotFound
+}
+
+func (r *orgReader) ActivePolicy(context.Context) (*store.ActivePolicy, error) {
+	if r.policy == nil {
+		return nil, store.ErrNotFound
+	}
+
+	return r.policy, nil
 }
 
 func (*orgReader) Ping(context.Context) error { return nil }
 
-func (r *orgReader) Summary(_ context.Context, scope store.APIScope, _ time.Time) (*store.Summary, error) {
+func (r *orgReader) Repositories(_ context.Context, scope store.APIScope, _ *store.RepositoryFilter) (store.Page[store.Repository], error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.scopes = append(r.scopes, scope)
-	out := &store.Summary{Parked: []store.ParkedCount{}, OpenPRs: []time.Time{}}
 
-	for org, s := range r.orgs {
-		if !scope.All() && !slices.Contains(scope.Orgs(), org) {
-			continue
+	var out store.Page[store.Repository]
+
+	for i := range r.repos {
+		if scope.All() || slices.Contains(scope.Orgs(), r.repos[i].Org) {
+			out.Items = append(out.Items, r.repos[i])
 		}
-
-		out.Tracked += s.Tracked
-		out.Findings.Compliant += s.Findings.Compliant
-		out.Findings.NonCompliant += s.Findings.NonCompliant
-		out.Parked = append(out.Parked, s.Parked...)
-		out.OpenPRs = append(out.OpenPRs, s.OpenPRs...)
-	}
-
-	if d := out.Findings.Compliant + out.Findings.NonCompliant; d > 0 {
-		p := float64(out.Findings.Compliant*1000/d) / 10
-		out.CompliantPercent = &p
 	}
 
 	return out, nil
 }
 
 func twoOrgs() *orgReader {
-	return &orgReader{orgs: map[string]*store.Summary{
-		"acme-web": {
-			Tracked: 3, Findings: store.StatusCounts{Compliant: 2, NonCompliant: 1},
-			OpenPRs: []time.Time{now.Add(-2 * time.Hour), now.Add(-40 * 24 * time.Hour)},
-		},
-		"acme-pay": {
-			Tracked: 5, Findings: store.StatusCounts{Compliant: 5},
-			Parked: []store.ParkedCount{{Reason: store.ParkArchived, Count: 2}},
-		},
+	return &orgReader{repos: []store.Repository{
+		{ID: 1, Org: "acme-web", Name: "site", Active: true, DiscoveredAt: now},
+		{ID: 2, Org: "acme-web", Name: "cdn", Active: true, DiscoveredAt: now},
+		{ID: 3, Org: "acme-pay", Name: "ledger", Active: true, DiscoveredAt: now},
 	}}
 }
 
@@ -101,7 +107,7 @@ type harness struct {
 	client *apitest.Client
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...func(*api.Options)) *harness {
 	t.Helper()
 
 	iss := oidctest.Start(t, audience)
@@ -122,11 +128,16 @@ func newHarness(t *testing.T) *harness {
 	authn.Start(t.Context())
 
 	reader := twoOrgs()
-
-	return &harness{issuer: iss, reader: reader, client: apitest.New(t, &api.Options{
-		Reader: reader, Authn: authn, Authz: authz, StaleAfter: 30 * 24 * time.Hour, Logger: quiet,
+	o := &api.Options{
+		Reader: reader, Authn: authn, Authz: authz, Logger: quiet,
 		Now: func() time.Time { return now },
-	})}
+	}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	return &harness{issuer: iss, reader: reader, client: apitest.New(t, o)}
 }
 
 func decode[T any](t *testing.T, r *apitest.Response) T {
@@ -175,43 +186,39 @@ func TestMe_ReportsVisibleOrgs(t *testing.T) {
 	}
 }
 
-func TestSummary_IsScopedToVisibleOrgs(t *testing.T) {
+func TestRepositories_AreScopedToVisibleOrgs(t *testing.T) {
 	t.Parallel()
 
 	h := newHarness(t)
 
-	web := decode[gen.Summary](t, h.client.Get("/summary", h.issuer.Valid(t, "team-web")))
-	if web.Tracked != 3 || web.Findings.Compliant != 2 || len(web.Parked) != 0 {
-		t.Errorf("team-web summary = %+v, want acme-web only", web)
+	orgsOf := func(group string) []string {
+		page := decode[gen.RepositoryPage](t, h.client.Get("/repositories", h.issuer.Valid(t, group)))
+
+		orgs := make([]string, 0, len(page.Items))
+		for _, r := range page.Items {
+			orgs = append(orgs, r.Org)
+		}
+
+		return orgs
 	}
 
-	if web.CompliantPercent == nil || *web.CompliantPercent != 66.6 {
-		t.Errorf("compliant_percent = %v, want the floored 66.6", web.CompliantPercent)
+	if got := orgsOf("team-web"); !slices.Equal(got, []string{"acme-web", "acme-web"}) {
+		t.Errorf("team-web repositories = %v, want acme-web only", got)
 	}
 
-	if web.StalePrs != 1 || web.OpenPrs[0].Count != 1 || web.OpenPrs[3].Count != 1 || web.StaleAfter != "720h0m0s" {
-		t.Errorf("PRs = %+v stale %d after %s", web.OpenPrs, web.StalePrs, web.StaleAfter)
-	}
-
-	all := decode[gen.Summary](t, h.client.Get("/summary", h.issuer.Valid(t, "platform")))
-	if all.Tracked != 8 || len(all.Parked) != 1 {
-		t.Errorf("platform summary = %+v, want both orgs", all)
-	}
-
-	override := decode[gen.Summary](t, h.client.Get("/summary?stale_after=1h", h.issuer.Valid(t, "team-web")))
-	if override.StalePrs != 2 {
-		t.Errorf("stale_prs with stale_after=1h = %d, want 2", override.StalePrs)
+	if got := orgsOf("platform"); len(got) != 3 {
+		t.Errorf("platform repositories = %v, want both orgs", got)
 	}
 }
 
-func TestSummary_NoVisibleOrgsIsForbiddenButMeAnswers(t *testing.T) {
+func TestRepositories_NoVisibleOrgsIsForbiddenButMeAnswers(t *testing.T) {
 	t.Parallel()
 
 	h := newHarness(t)
 	token := h.issuer.Valid(t, "unknown-group")
 
-	if resp := h.client.Get("/summary", token); resp.Status != http.StatusForbidden {
-		t.Errorf("summary = %d, want 403", resp.Status)
+	if resp := h.client.Get("/repositories", token); resp.Status != http.StatusForbidden {
+		t.Errorf("repositories = %d, want 403", resp.Status)
 	}
 
 	if len(h.reader.scopes) != 0 {
@@ -220,30 +227,6 @@ func TestSummary_NoVisibleOrgsIsForbiddenButMeAnswers(t *testing.T) {
 
 	if resp := h.client.Get("/me", token); resp.Status != http.StatusOK {
 		t.Errorf("me = %d, want 200", resp.Status)
-	}
-}
-
-func TestSummary_StaleAfterIsBounded(t *testing.T) {
-	t.Parallel()
-
-	h := newHarness(t)
-	token := h.issuer.Valid(t, "platform")
-
-	tests := []struct {
-		value string
-		want  int
-	}{
-		{value: "0h", want: http.StatusBadRequest},
-		{value: "59m", want: http.StatusBadRequest},
-		{value: "1h", want: http.StatusOK},
-		{value: "8760h", want: http.StatusOK},
-		{value: "8761h", want: http.StatusBadRequest},
-	}
-
-	for _, tt := range tests {
-		if resp := h.client.Get("/summary?stale_after="+tt.value, token); resp.Status != tt.want {
-			t.Errorf("stale_after=%s: status = %d, want %d", tt.value, resp.Status, tt.want)
-		}
 	}
 }
 
@@ -312,7 +295,7 @@ func TestPublicRoutesNeedNoToken(t *testing.T) {
 func TestAuthDisabled_GrantsEveryOrg(t *testing.T) {
 	t.Parallel()
 
-	c := apitest.New(t, &api.Options{Reader: twoOrgs(), Logger: quiet, StaleAfter: time.Hour})
+	c := apitest.New(t, &api.Options{Reader: twoOrgs(), Logger: quiet})
 
 	me := decode[gen.Me](t, c.Get("/me", ""))
 	if !me.AllOrgs || me.Subject != "anonymous" {

@@ -18,6 +18,7 @@ const (
 	labelInstallationID = "installation_id"
 	labelProperty       = "property"
 	labelApp            = "app"
+	labelControl        = "control"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -179,6 +180,76 @@ var (
 		Help: "Total custom-properties reconciles skipped because catalog-info.yaml failed to parse.",
 	}, []string{labelOrg})
 
+	// ResultsDiscardedTotal counts staged control results the record
+	// step dropped (DESIGN-0032 § Metrics). reason="stale_epoch" is a
+	// result whose assignment epoch moved, or whose assignment stopped
+	// being active, between evaluation and record (DESIGN-0030 D14).
+	ResultsDiscardedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_results_discarded_total",
+		Help: "Total staged control results discarded at record time, by reason.",
+	}, []string{labelOrg, "reason"})
+
+	// EvaluationsTotal counts controls evaluations by outcome
+	// (DESIGN-0032 § Metrics): evaluated, error, or skipped (not
+	// managed, nothing selected, empty, or parked). A rate-limit deferral
+	// is not an evaluation and is not counted.
+	EvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluations_total",
+		Help: "Total controls evaluations, by outcome (evaluated, error, skipped).",
+	}, []string{labelOrg, labelOutcome})
+
+	// EvaluationErrorsTotal counts control evaluations that returned an
+	// error status. A fleet-wide permission failure shows as every
+	// control of an org erroring, which EvaluationsTotal cannot tell
+	// apart from sporadic per-repository errors.
+	EvaluationErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluation_errors_total",
+		Help: "Total control evaluations with an error status, by control.",
+	}, []string{labelOrg, labelControl})
+
+	// EvaluationChangesTotal counts recorded control results whose
+	// generation moved: a fingerprint change, or the first result of an
+	// assignment epoch.
+	EvaluationChangesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluation_changes_total",
+		Help: "Total recorded control results whose evaluation generation moved, by control.",
+	}, []string{labelOrg, labelControl})
+
+	// EvaluationFreshnessSeconds is the age of a control's previous
+	// evaluated_at when it is re-evaluated. Its p95 is the freshness SLO
+	// an operator sets per deployment (DESIGN-0029 AR-0029-05).
+	EvaluationFreshnessSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_evaluation_freshness_seconds",
+		Help:    "Age of the previous evaluated_at when a control is re-evaluated.",
+		Buckets: []float64{60, 300, 900, 3600, 4 * 3600, 12 * 3600, 24 * 3600, 36 * 3600, 48 * 3600, 7 * 24 * 3600},
+	}, []string{labelOrg})
+
+	// StorePoolWaitSeconds is how long a store call waited for a pool
+	// connection. Postgres is shared capacity, so pool wait is where
+	// evaluation and remediation load meet.
+	StorePoolWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_store_pool_wait_seconds",
+		Help:    "Time spent waiting for a Postgres pool connection, by role.",
+		Buckets: []float64{0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	}, []string{"role"})
+
+	// ControlsStatus is the leader-exported controls posture: the number
+	// of repositories in each bucket of each control (DESIGN-0030
+	// AR-0030-05). Query with max by (...): a demoted replica keeps its
+	// last values until restart, so sum double-counts through failover.
+	ControlsStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_controls_status",
+		Help: "Repositories per control and status bucket (leader-exported; query with max by).",
+	}, []string{labelOrg, labelControl, "bucket"})
+
+	// ControlsCoverage is the number of repositories each control is
+	// actively assigned to, the denominator ControlsStatus is read
+	// against (leader-exported; query with max by).
+	ControlsCoverage = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_controls_coverage",
+		Help: "Repositories each control is actively assigned to (leader-exported; query with max by).",
+	}, []string{labelOrg, labelControl})
+
 	// WebhookRejectedTotal counts webhook requests rejected before
 	// processing, labeled by reason. Post-IMPL-0024 the only producer
 	// is HMAC signature validation (reason="signature") — source-IP
@@ -308,11 +379,11 @@ var (
 	// DeploymentInfo is a constant-1 info gauge naming the credential
 	// boundary this process runs under: topology="split" when it runs
 	// one half, "all" when one process holds both Apps' keys (combined
-	// trust, DESIGN-0029 D7 as amended).
+	// trust, DESIGN-0029 D7 as amended), and the binary's version.
 	DeploymentInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_deployment_info",
-		Help: "Constant 1, labeled with the deployment topology (split or all).",
-	}, []string{"topology"})
+		Help: "Constant 1, labeled with the deployment topology (split or all) and the binary version.",
+	}, []string{"topology", "version"})
 
 	// PROpenWithEmptyActionableTotal counts reconcile passes where
 	// an open repo-guardian PR exists but the actionable rule set is
@@ -452,7 +523,8 @@ const (
 	TopologyAll   = "all"
 )
 
-// SetDeploymentInfo publishes this process's topology.
-func SetDeploymentInfo(topology string) {
-	DeploymentInfo.WithLabelValues(topology).Set(1)
+// SetDeploymentInfo publishes this process's topology and version, once
+// at startup.
+func SetDeploymentInfo(topology, version string) {
+	DeploymentInfo.WithLabelValues(topology, version).Set(1)
 }

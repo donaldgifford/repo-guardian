@@ -60,7 +60,7 @@ func memo[T any](r *RepoReader, key string, fetch func() (T, error)) (T, error) 
 
 	got, err := fetch()
 	if err != nil {
-		return got, err
+		return got, classifyRead(err)
 	}
 
 	r.mu.Lock()
@@ -68,6 +68,24 @@ func memo[T any](r *RepoReader, key string, fetch func() (T, error)) (T, error) 
 	r.mu.Unlock()
 
 	return got, nil
+}
+
+// classifyRead marks a 403 that is not a throttle as
+// control.ErrPermission: the App lacks the permission for that one
+// endpoint, which the caller maps to unknown{reason=permission} for the
+// rule that needed it (DESIGN-0031, DESIGN-0032 AR-0032-08). A
+// secondary rate limit is also a 403, so throttles are excluded first.
+func classifyRead(err error) error {
+	if thr, throttled := AsThrottled(err); throttled && thr != nil {
+		return err
+	}
+
+	var resp *gh.ErrorResponse
+	if errors.As(err, &resp) && resp.Response != nil && resp.Response.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("%w: %w", control.ErrPermission, err)
+	}
+
+	return err
 }
 
 // fileRead is one cached GetContents result.
@@ -93,6 +111,10 @@ func (r *RepoReader) GetContents(ctx context.Context, path string) ([]byte, stri
 
 		if fc == nil {
 			return fileRead{}, fmt.Errorf("reading %s in %s/%s: path is a directory", path, r.owner, r.repo)
+		}
+
+		if t := fc.GetType(); t == "symlink" || t == "submodule" {
+			return fileRead{}, fmt.Errorf("reading %s in %s/%s: %s: %w", path, r.owner, r.repo, t, control.ErrNotRegularFile)
 		}
 
 		content, err := fc.GetContent()
@@ -358,6 +380,14 @@ func (r *RepoReader) OrgPropertySchema(ctx context.Context) ([]string, error) {
 	})
 
 	return slices.Clone(names), err
+}
+
+// GetVulnerabilityAlerts reports whether Dependabot alerts are enabled;
+// a 403 is control.ErrPermission through memo's classification.
+func (r *RepoReader) GetVulnerabilityAlerts(ctx context.Context) (bool, error) {
+	return memo(r, "vulnerability_alerts", func() (bool, error) {
+		return r.client.GetVulnerabilityAlertsEnabled(ctx, r.owner, r.repo)
+	})
 }
 
 // ListLabels returns every repository label.

@@ -13,14 +13,10 @@ set:
   topology: all
   temporal:
     address: temporal:7233
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
 
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
 
 tests:
   - it: chart with no store values set produces baked Postgres resources

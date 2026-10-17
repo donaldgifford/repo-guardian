@@ -43,7 +43,7 @@ COVERAGE_OUT := coverage.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
+.PHONY: controls-docs lint-controls-docs monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
@@ -86,7 +86,7 @@ test-integration: ## Run integration tests (requires Docker for testcontainers)
 
 ## Code Quality
 
-lint: ## Run golangci-lint
+lint: lint-controls-docs ## Run golangci-lint and the controls reference drift gate
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run ./...
 
@@ -113,11 +113,8 @@ lint-alerts-chart: ## Validate the alert rules the Helm chart renders
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BUILD_DIR)
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder \
 		--set temporal.address=temporal:7233 \
-		--set policy.config='guardian {}' \
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}' \
 		--set prometheusRule.enabled=true \
 		| yq 'select(.kind == "PrometheusRule") | {"groups": .spec.groups}' \
 		> $(RENDERED_ALERTS)
@@ -176,6 +173,27 @@ lint-monitoring: ## Fail if the committed static monitoring tier is stale
 	fi
 	@echo "✓ committed monitoring tier is current"
 
+## The control-type reference (IMPL-0029 3.11), rendered from every
+## registered type's RuleKinds() and diffed the same way as the
+## monitoring tier.
+CONTROLS_REFERENCE = docs/usage/controls-reference.md
+
+controls-docs: ## Regenerate docs/usage/controls-reference.md
+	@ $(MAKE) --no-print-directory log-$@
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(CONTROLS_REFERENCE)
+
+lint-controls-docs: ## Fail if docs/usage/controls-reference.md is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BUILD_DIR)
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(BUILD_DIR)/controls-reference.md
+	@# diff, not git diff: a reference never committed must fail too.
+	@if ! diff -u $(CONTROLS_REFERENCE) $(BUILD_DIR)/controls-reference.md; then \
+		echo "error: $(CONTROLS_REFERENCE) is stale" >&2; \
+		echo "       run 'make controls-docs' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ controls reference is current"
+
 ## Temporal reference configuration (IMPL-0025 Phase 9). The upstream
 ## chart is pinned here and in contrib/temporal/README.md; bump both.
 TEMPORAL_CHART_REPO    := https://go.temporal.io/helm-charts
@@ -204,12 +222,12 @@ lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, ever
 
 ## The sqlc-generated query layer (IMPL-0025). Committed, then diffed
 ## by `make lint-sql` the same way lint-monitoring guards its tier.
-SQLC_OUT := internal/store/postgres/sqlcdb
+SQLC_CONTROLS_OUT := internal/store/postgres/controlsdb
 
 generate-sql: ## Regenerate the sqlc query layer
 	@ $(MAKE) --no-print-directory log-$@
 	@sqlc generate
-	@echo "✓ sqlc output regenerated under $(SQLC_OUT)"
+	@echo "✓ sqlc output regenerated under $(SQLC_CONTROLS_OUT)"
 
 # Generates into $(BUILD_DIR) from a copy of sqlc.yaml with the paths
 # rewritten, then diff -r's against the committed package: the same
@@ -220,9 +238,9 @@ lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
 	@sqlc vet
 	@rm -rf $(BUILD_DIR)/sqlc && mkdir -p $(BUILD_DIR)/sqlc
 	@# sqlc resolves every path relative to its config file, so the copy under $(BUILD_DIR)/sqlc reaches the repo with ../../.
-	@yq '.sql[0].schema = "../../" + .sql[0].schema | .sql[0].queries = "../../" + .sql[0].queries | .sql[0].gen.go.out = "out"' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
+	@yq '.sql[] |= (.schema = "../../" + .schema | .queries = "../../" + .queries | .gen.go.out = "out/" + .gen.go.package)' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
 	@cd $(BUILD_DIR)/sqlc && sqlc generate
-	@if ! diff -r -u $(BUILD_DIR)/sqlc/out $(SQLC_OUT); then \
+	@if ! diff -r -u $(BUILD_DIR)/sqlc/out/controlsdb $(SQLC_CONTROLS_OUT); then \
 		echo "error: the committed sqlc output is stale" >&2; \
 		echo "       run 'make generate-sql' and commit the result" >&2; \
 		exit 1; \
@@ -423,11 +441,8 @@ helm-lint: ## Lint Helm chart
 helm-template: ## Render Helm templates with default values
 	@ $(MAKE) --no-print-directory log-$@
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder \
 		--set temporal.address=temporal:7233 \
-		--set policy.config='guardian {}'
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}'
 
 helm-template-ci: ## Render Helm templates with CI values
 	@ $(MAKE) --no-print-directory log-$@

@@ -32,15 +32,14 @@ const reportPoolConns = 2
 // It also does NOT run migrations. The report is read-only, the DSN it
 // is handed may have no DDL rights, and a report generated from a newer
 // binary would otherwise migrate the schema forward underneath a
-// running older server. It checks the schema version instead and
-// refuses an unmigrated database (run `repo-guardian migrate`).
+// running older server. It checks the controls schema version instead
+// and refuses an unmigrated database (run `repo-guardian migrate
+// --chain controls`).
 func runReport(args []string) error {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 
 	out := fs.String("out", "./reports", "directory to write one markdown report per org into")
 	dsn := fs.String("dsn", os.Getenv("STORE_DSN"), "Postgres DSN (defaults to $STORE_DSN)")
-	withPRLinks := fs.Bool("with-pr-links", false,
-		"DEPRECATED no-op: PR links now come from recorded evidence and are always shown; removed in the next release")
 	scope := fs.String("orgs", "", "comma-separated orgs to report on (default: every org)")
 
 	if err := fs.Parse(args); err != nil {
@@ -65,23 +64,19 @@ func runReport(args []string) error {
 	// record as a filename.
 	logger := initLoggerTo(os.Stderr, os.Getenv("LOG_LEVEL"))
 
-	if *withPRLinks {
-		logger.Warn("report: --with-pr-links is deprecated and does nothing; PR links come from recorded evidence")
-	}
-
 	pool, err := newReportPool(ctx, *dsn)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	if err := pgstore.RequireSchema(ctx, pool, pgstore.SchemaVersion); err != nil {
+	if err := pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion); err != nil {
 		return fmt.Errorf("report: %w", err)
 	}
 
-	data, err := pgstore.NewV2Store(pool, logger).ComplianceReport(ctx, parseScope(*scope))
+	data, err := readReport(ctx, pgstore.NewControlsStore(pool), parseOrgs(*scope))
 	if err != nil {
-		return fmt.Errorf("report: read state: %w", err)
+		return err
 	}
 
 	renderer, err := report.New(report.Options{Logger: logger})
@@ -126,15 +121,31 @@ func newReportPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// parseScope turns --orgs into a store.Scope; empty means every org.
-func parseScope(orgs string) store.Scope {
-	var scope store.Scope
+// readReport reads the compliance rows for every lineage and the
+// exclusions report for orgs (empty: every org).
+func readReport(ctx context.Context, st *pgstore.ControlsStore, orgs []string) (*report.Data, error) {
+	posture, err := st.ControlCompliance(ctx, orgs, store.LineageAll)
+	if err != nil {
+		return nil, fmt.Errorf("report: read compliance: %w", err)
+	}
+
+	exclusions, err := st.ControlExclusions(ctx, orgs)
+	if err != nil {
+		return nil, fmt.Errorf("report: read exclusions: %w", err)
+	}
+
+	return &report.Data{Posture: posture, Exclusions: exclusions}, nil
+}
+
+// parseOrgs turns --orgs into an org list; empty means every org.
+func parseOrgs(orgs string) []string {
+	var out []string
 
 	for o := range strings.SplitSeq(orgs, ",") {
 		if o = strings.TrimSpace(o); o != "" {
-			scope.Orgs = append(scope.Orgs, o)
+			out = append(out, o)
 		}
 	}
 
-	return scope
+	return out
 }

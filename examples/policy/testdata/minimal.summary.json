@@ -1,0 +1,28 @@
+{
+  "version": "controls:e418772812357771fa1bf14de87d194c2a88fe04cede6744bd481f8beda98a42",
+  "enterprise": {
+    "orgs": [
+      "myorg"
+    ],
+    "mode": "remediate",
+    "controls": [
+      "codeowners@1",
+      "dependabot@1"
+    ]
+  },
+  "orgs": [],
+  "controls": [
+    {
+      "control": "codeowners@1",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "c4d287e7406f96b5ef440605bb83fbe92ebe28034582f0cf3bec2e9222c2fd3e"
+    },
+    {
+      "control": "dependabot@1",
+      "title": "Dependabot",
+      "type": "dependency_updates",
+      "revision": "658107a0aa31263cc5fda54bc81e6730dbeb1849f25bdcc188742bc2a20dad83"
+    }
+  ]
+}

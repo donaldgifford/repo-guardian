@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/donaldgifford/repo-guardian/internal/monitoring"
+	"github.com/donaldgifford/repo-guardian/internal/monitoring/alert"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/emit"
 )
@@ -279,32 +280,32 @@ func TestGenerate_K8sWithoutDashboardsNeedsNoSelector(t *testing.T) {
 //
 // alert.Generate returns the mechanism-filtered set; alert.Catalogue
 // returns everything, and task 5.3's promtool test deliberately renders
-// the latter. Wiring Catalogue into the emitted manifest would ship
-// PropertySchemaMissing to a deployment with no custom_properties
-// reconciler — an alert watching a series nothing produces, which is
-// the exact INV-0012 finding-A shape this generator exists to prevent.
+// the latter. Wiring Catalogue into the emitted manifest would ship an
+// alert watching a series nothing produces, which is the exact INV-0012
+// finding-A shape this generator exists to prevent. The controls
+// catalogue gates nothing until IMPL-0030, so this pins the emitted set
+// to Generate's, alert for alert.
 func TestGenerate_AlertsAreMechanismScoped(t *testing.T) {
 	t.Parallel()
 
-	const gated = "RepoGuardianPropertySchemaMissing"
+	m := modelWith(monitoring.MechanismCustomProperties)
+	kept, _ := alert.Generate(m)
 
-	without, err := emit.Generate(modelWith(), nil, &emit.Options{Format: emit.FormatJSON})
+	out, err := emit.Generate(m, nil, &emit.Options{Format: emit.FormatJSON})
 	if err != nil {
 		t.Fatalf("Generate() = %v, want nil", err)
 	}
 
-	if body := string(find(t, without, "alerts/rules.yaml")); strings.Contains(body, gated) {
-		t.Errorf("%s shipped with no custom_properties reconciler configured", gated)
+	body := string(find(t, out, "alerts/rules.yaml"))
+
+	if got := strings.Count(body, "- alert: "); got != len(kept) {
+		t.Errorf("rules.yaml carries %d alerts, alert.Generate kept %d", got, len(kept))
 	}
 
-	with, err := emit.Generate(
-		modelWith(monitoring.MechanismCustomProperties), nil, &emit.Options{Format: emit.FormatJSON})
-	if err != nil {
-		t.Fatalf("Generate() = %v, want nil", err)
-	}
-
-	if body := string(find(t, with, "alerts/rules.yaml")); !strings.Contains(body, gated) {
-		t.Errorf("%s was dropped despite a custom_properties reconciler", gated)
+	for i := range kept {
+		if !strings.Contains(body, "- alert: "+kept[i].Name+"\n") {
+			t.Errorf("%s was kept by alert.Generate but not emitted", kept[i].Name)
+		}
 	}
 }
 

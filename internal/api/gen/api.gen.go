@@ -24,207 +24,51 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for AssertionFailedEvidenceReason.
+// Defines values for FrameworkEvidenceEvidenceKind.
 const (
-	AssertionFailed AssertionFailedEvidenceReason = "assertion_failed"
+	Framework FrameworkEvidenceEvidenceKind = "framework"
 )
 
-// Valid indicates whether the value is a known member of the AssertionFailedEvidenceReason enum.
-func (e AssertionFailedEvidenceReason) Valid() bool {
+// Valid indicates whether the value is a known member of the FrameworkEvidenceEvidenceKind enum.
+func (e FrameworkEvidenceEvidenceKind) Valid() bool {
 	switch e {
-	case AssertionFailed:
+	case Framework:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for BranchMissingEvidenceReason.
+// Defines values for StatusTopology.
 const (
-	BranchMissing BranchMissingEvidenceReason = "branch_missing"
+	All   StatusTopology = "all"
+	Split StatusTopology = "split"
 )
 
-// Valid indicates whether the value is a known member of the BranchMissingEvidenceReason enum.
-func (e BranchMissingEvidenceReason) Valid() bool {
+// Valid indicates whether the value is a known member of the StatusTopology enum.
+func (e StatusTopology) Valid() bool {
 	switch e {
-	case BranchMissing:
+	case All:
+		return true
+	case Split:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for ContentDiffersEvidenceReason.
+// Defines values for StatusAppApp.
 const (
-	ContentDiffers ContentDiffersEvidenceReason = "content_differs"
+	Eval      StatusAppApp = "eval"
+	Remediate StatusAppApp = "remediate"
 )
 
-// Valid indicates whether the value is a known member of the ContentDiffersEvidenceReason enum.
-func (e ContentDiffersEvidenceReason) Valid() bool {
+// Valid indicates whether the value is a known member of the StatusAppApp enum.
+func (e StatusAppApp) Valid() bool {
 	switch e {
-	case ContentDiffers:
+	case Eval:
 		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FileMissingEvidenceReason.
-const (
-	FileMissing FileMissingEvidenceReason = "file_missing"
-)
-
-// Valid indicates whether the value is a known member of the FileMissingEvidenceReason enum.
-func (e FileMissingEvidenceReason) Valid() bool {
-	switch e {
-	case FileMissing:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ForbiddenPresentEvidenceReason.
-const (
-	ForbiddenPresent ForbiddenPresentEvidenceReason = "forbidden_present"
-)
-
-// Valid indicates whether the value is a known member of the ForbiddenPresentEvidenceReason enum.
-func (e ForbiddenPresentEvidenceReason) Valid() bool {
-	switch e {
-	case ForbiddenPresent:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GateClosedEvidenceReason.
-const (
-	GateClosed GateClosedEvidenceReason = "gate_closed"
-)
-
-// Valid indicates whether the value is a known member of the GateClosedEvidenceReason enum.
-func (e GateClosedEvidenceReason) Valid() bool {
-	switch e {
-	case GateClosed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GateErrorEvidenceReason.
-const (
-	GateError GateErrorEvidenceReason = "gate_error"
-)
-
-// Valid indicates whether the value is a known member of the GateErrorEvidenceReason enum.
-func (e GateErrorEvidenceReason) Valid() bool {
-	switch e {
-	case GateError:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for IgnoredEvidenceReason.
-const (
-	IgnoredGlobal IgnoredEvidenceReason = "ignored_global"
-	IgnoredRule   IgnoredEvidenceReason = "ignored_rule"
-)
-
-// Valid indicates whether the value is a known member of the IgnoredEvidenceReason enum.
-func (e IgnoredEvidenceReason) Valid() bool {
-	switch e {
-	case IgnoredGlobal:
-		return true
-	case IgnoredRule:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MigratedFromV1EvidenceReason.
-const (
-	MigratedFromV1 MigratedFromV1EvidenceReason = "migrated_from_v1"
-)
-
-// Valid indicates whether the value is a known member of the MigratedFromV1EvidenceReason enum.
-func (e MigratedFromV1EvidenceReason) Valid() bool {
-	switch e {
-	case MigratedFromV1:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RulesetMismatchEvidenceReason.
-const (
-	RulesetMismatch RulesetMismatchEvidenceReason = "ruleset_mismatch"
-)
-
-// Valid indicates whether the value is a known member of the RulesetMismatchEvidenceReason enum.
-func (e RulesetMismatchEvidenceReason) Valid() bool {
-	switch e {
-	case RulesetMismatch:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RulesetMissingEvidenceReason.
-const (
-	RulesetMissing RulesetMissingEvidenceReason = "ruleset_missing"
-)
-
-// Valid indicates whether the value is a known member of the RulesetMissingEvidenceReason enum.
-func (e RulesetMissingEvidenceReason) Valid() bool {
-	switch e {
-	case RulesetMissing:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ScopeEvidenceReason.
-const (
-	EmptyRepository  ScopeEvidenceReason = "empty_repository"
-	ForeignPrOpen    ScopeEvidenceReason = "foreign_pr_open"
-	OutOfScopePolicy ScopeEvidenceReason = "out_of_scope_policy"
-	OutOfScopeRule   ScopeEvidenceReason = "out_of_scope_rule"
-)
-
-// Valid indicates whether the value is a known member of the ScopeEvidenceReason enum.
-func (e ScopeEvidenceReason) Valid() bool {
-	switch e {
-	case EmptyRepository:
-		return true
-	case ForeignPrOpen:
-		return true
-	case OutOfScopePolicy:
-		return true
-	case OutOfScopeRule:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SettingMismatchEvidenceReason.
-const (
-	SettingMismatch SettingMismatchEvidenceReason = "setting_mismatch"
-)
-
-// Valid indicates whether the value is a known member of the SettingMismatchEvidenceReason enum.
-func (e SettingMismatchEvidenceReason) Valid() bool {
-	switch e {
-	case SettingMismatch:
+	case Remediate:
 		return true
 	default:
 		return false
@@ -233,114 +77,39 @@ func (e SettingMismatchEvidenceReason) Valid() bool {
 
 // Defines values for StatusOperationsRolloutState.
 const (
-	StatusOperationsRolloutStateComplete   StatusOperationsRolloutState = "complete"
-	StatusOperationsRolloutStateInProgress StatusOperationsRolloutState = "in_progress"
-	StatusOperationsRolloutStateNone       StatusOperationsRolloutState = "none"
+	Complete   StatusOperationsRolloutState = "complete"
+	InProgress StatusOperationsRolloutState = "in_progress"
+	None       StatusOperationsRolloutState = "none"
 )
 
 // Valid indicates whether the value is a known member of the StatusOperationsRolloutState enum.
 func (e StatusOperationsRolloutState) Valid() bool {
 	switch e {
-	case StatusOperationsRolloutStateComplete:
+	case Complete:
 		return true
-	case StatusOperationsRolloutStateInProgress:
+	case InProgress:
 		return true
-	case StatusOperationsRolloutStateNone:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ListComplianceHistoryParamsAggregate.
-const (
-	ListComplianceHistoryParamsAggregateFleet ListComplianceHistoryParamsAggregate = "fleet"
-	ListComplianceHistoryParamsAggregateNone  ListComplianceHistoryParamsAggregate = "none"
-	ListComplianceHistoryParamsAggregateOrg   ListComplianceHistoryParamsAggregate = "org"
-)
-
-// Valid indicates whether the value is a known member of the ListComplianceHistoryParamsAggregate enum.
-func (e ListComplianceHistoryParamsAggregate) Valid() bool {
-	switch e {
-	case ListComplianceHistoryParamsAggregateFleet:
-		return true
-	case ListComplianceHistoryParamsAggregateNone:
-		return true
-	case ListComplianceHistoryParamsAggregateOrg:
+	case None:
 		return true
 	default:
 		return false
 	}
-}
-
-// Defines values for ListFindingsParamsSort.
-const (
-	Default ListFindingsParamsSort = "default"
-	PrAge   ListFindingsParamsSort = "pr_age"
-)
-
-// Valid indicates whether the value is a known member of the ListFindingsParamsSort enum.
-func (e ListFindingsParamsSort) Valid() bool {
-	switch e {
-	case Default:
-		return true
-	case PrAge:
-		return true
-	default:
-		return false
-	}
-}
-
-// AssertionFailedEvidence A content assertion failed.
-type AssertionFailedEvidence struct {
-	Message string                        `json:"message"`
-	Path    string                        `json:"path"`
-	Reason  AssertionFailedEvidenceReason `json:"reason"`
-}
-
-// AssertionFailedEvidenceReason defines model for AssertionFailedEvidence.Reason.
-type AssertionFailedEvidenceReason string
-
-// BranchMissingEvidence The branch-protection target branch does not exist.
-type BranchMissingEvidence struct {
-	Branch string                      `json:"branch"`
-	Reason BranchMissingEvidenceReason `json:"reason"`
-}
-
-// BranchMissingEvidenceReason defines model for BranchMissingEvidence.Reason.
-type BranchMissingEvidenceReason string
-
-// Check One check of a repository.
-type Check struct {
-	DurationSeconds *float64   `json:"duration_seconds,omitempty"`
-	Error           *string    `json:"error,omitempty"`
-	FinishedAt      *time.Time `json:"finished_at,omitempty"`
-	Id              int64      `json:"id"`
-
-	// Outcome Open enum: pending, success, error, skipped.
-	Outcome       string    `json:"outcome"`
-	PolicyVersion string    `json:"policy_version"`
-	StartedAt     time.Time `json:"started_at"`
-
-	// Trigger Open enum: schedule, webhook, push, discovery, policy_rollout, bootstrap.
-	Trigger string `json:"trigger"`
-}
-
-// CheckPage A page of checks.
-type CheckPage struct {
-	Items []Check `json:"items"`
-
-	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
-	// fetch the next page; a cursor from different filters is refused.
-	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
 
 // Compliance Fleet-wide compliance for the status page.
 type Compliance struct {
+	// Coverage Measured over assigned across the fleet, floored to one decimal; null when nothing is assigned.
+	Coverage *float64 `json:"coverage"`
+
 	// History Fleet compliance at each UTC day's last snapshot over the last 30 days, oldest first.
 	History  []CompliancePoint `json:"history"`
 	Measured bool              `json:"measured"`
 	Percent  *float64          `json:"percent"`
+}
+
+// ComplianceHistory Compliance snapshots, oldest first.
+type ComplianceHistory struct {
+	Items []HistoryPoint `json:"items"`
 }
 
 // CompliancePoint Fleet compliance at one snapshot; percent is null when nothing was measured.
@@ -354,7 +123,7 @@ type Component struct {
 	// Detail A fixed template with a relative time, such as "last success 3m ago". Never error text.
 	Detail string `json:"detail"`
 
-	// Name Open enum: checks, webhooks, discovery, snapshots, github_budget, backlog, backlog_evaluation, backlog_remediation.
+	// Name Open enum: checks, webhooks, discovery, snapshots, backlog_evaluation, backlog_remediation.
 	Name string `json:"name"`
 
 	// State Open enum: operational, degraded, down, unknown.
@@ -368,84 +137,144 @@ type Component struct {
 // Examples: operational
 type ComponentState = string
 
-// ContentDiffersEvidence The file differs from the expected content.
-type ContentDiffersEvidence struct {
-	// Comparison Open enum: bytes, yaml.
-	Comparison string                       `json:"comparison"`
-	Path       string                       `json:"path"`
-	Reason     ContentDiffersEvidenceReason `json:"reason"`
+// ControlDetail One control with its fleet compliance and per-org breakdown.
+type ControlDetail struct {
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
+
+	// Id A control's slug, the version-free part of its id.
+	Id    ControlSlug  `json:"id"`
+	Orgs  []ControlOrg `json:"orgs"`
+	Title *string      `json:"title,omitempty"`
+	Type  string       `json:"type"`
 }
 
-// ContentDiffersEvidenceReason defines model for ContentDiffersEvidence.Reason.
-type ContentDiffersEvidenceReason string
+// ControlEvidence Evidence a control type wrote; its other fields depend on the kind and version.
+type ControlEvidence struct {
+	// EvidenceKind `<control type>.<rule kind>`, such as file.exists.
+	EvidenceKind         string                 `json:"evidence_kind"`
+	EvidenceVersion      int                    `json:"evidence_version"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
+// ControlList Every control assigned in the visible orgs.
+type ControlList struct {
+	Items []ControlSummary `json:"items"`
+}
+
+// ControlOrg A control's compliance in one org and baseline lineage. An org on
+// `codeowners@2` through `replace` sits beside one on `@1`.
+type ControlOrg struct {
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
+
+	// Decision Open enum: baseline, replaced, org_added.
+	//
+	// Examples: baseline
+	Decision Decision         `json:"decision"`
+	Org      string           `json:"org"`
+	Versions []ControlVersion `json:"versions"`
+}
+
+// ControlSlug A control's slug, the version-free part of its id.
+type ControlSlug = string
+
+// ControlSummary One control's fleet compliance.
+type ControlSummary struct {
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
+
+	// Id A control's slug, the version-free part of its id.
+	Id    ControlSlug `json:"id"`
+	Title *string     `json:"title,omitempty"`
+
+	// Type Open enum: the control type, such as file, codeowners or branch_ruleset.
+	Type string `json:"type"`
+}
+
+// ControlVersion One version and revision of a control assigned in an org, with how many repositories carry it.
+type ControlVersion struct {
+	Repositories int    `json:"repositories"`
+	Revision     string `json:"revision"`
+	Version      int    `json:"version"`
+}
 
 // Cursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
 // fetch the next page; a cursor from different filters is refused.
 type Cursor = string
 
-// Event One timeline entry. A finding event carries the rule and its
-// from/to fields; a repository event carries kind and detail.
+// Decision Open enum: baseline, replaced, org_added.
+//
+// Examples: baseline
+type Decision = string
+
+// Evaluation One evaluation of a repository.
+type Evaluation struct {
+	DurationSeconds *float64   `json:"duration_seconds,omitempty"`
+	Error           *string    `json:"error,omitempty"`
+	FinishedAt      *time.Time `json:"finished_at,omitempty"`
+	Id              int64      `json:"id"`
+
+	// Outcome Open enum: pending, success, error, skipped.
+	Outcome       string    `json:"outcome"`
+	PolicyVersion string    `json:"policy_version"`
+	StartedAt     time.Time `json:"started_at"`
+
+	// Trigger Open enum: schedule, webhook, push, discovery, policy_rollout, pr_event, manual.
+	Trigger string `json:"trigger"`
+}
+
+// EvaluationPage A page of evaluations.
+type EvaluationPage struct {
+	Items []Evaluation `json:"items"`
+
+	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
+	// fetch the next page; a cursor from different filters is refused.
+	NextCursor *Cursor `json:"next_cursor,omitempty"`
+}
+
+// Event One timeline entry. A result event carries the control, the rule
+// for a rule-result transition, and the status transition (to_status
+// is absent when the result was withdrawn, which is how an
+// assignment's withdrawal shows); a repository event carries kind
+// and detail.
 type Event struct {
+	ControlId *string `json:"control_id,omitempty"`
+
 	// Detail A repository event's detail, such as the names around a rename.
 	Detail *map[string]interface{} `json:"detail,omitempty"`
 
-	// FromReason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	FromReason *Reason `json:"from_reason,omitempty"`
+	// FromStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	FromStatus *string `json:"from_status,omitempty"`
+	Id         int64   `json:"id"`
 
-	// FromRemediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-	//
-	// Examples: pr_open
-	FromRemediation *Remediation `json:"from_remediation,omitempty"`
-
-	// FromStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-	//
-	// Examples: compliant, non_compliant, not_applicable, unknown
-	FromStatus *FindingStatus `json:"from_status,omitempty"`
-	Id         int64          `json:"id"`
-
-	// Kind Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed.
+	// Kind Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended.
 	Kind       *string   `json:"kind,omitempty"`
 	OccurredAt time.Time `json:"occurred_at"`
 
-	// RuleKind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	RuleKind *RuleKind `json:"rule_kind,omitempty"`
-	RuleName *string   `json:"rule_name,omitempty"`
+	// RuleId Set on a rule-result transition; absent on a control-status one.
+	RuleId *string `json:"rule_id,omitempty"`
 
-	// Source Open enum: finding, repository.
+	// Source Open enum: result, repository.
 	Source string `json:"source"`
 
-	// ToReason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	ToReason *Reason `json:"to_reason,omitempty"`
-
-	// ToRemediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-	//
-	// Examples: pr_open
-	ToRemediation *Remediation `json:"to_remediation,omitempty"`
-
-	// ToStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-	//
-	// Examples: compliant, non_compliant, not_applicable, unknown
-	ToStatus *FindingStatus `json:"to_status,omitempty"`
+	// ToStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	ToStatus *string `json:"to_status,omitempty"`
 }
 
 // EventPage A page of timeline events.
@@ -457,187 +286,55 @@ type EventPage struct {
 	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
 
-// Evidence Why the finding has its status, keyed by reason. Values that came
-// from a repository are data: render them as text, never as markup.
+// Evidence A rule's evidence: flat, every value a scalar or an array of
+// scalars. Discriminated by `evidence_kind` and `evidence_version`;
+// render only kinds and versions you know, and treat the rest as
+// opaque.
 type Evidence struct {
 	union json.RawMessage
 }
 
-// FileMissingEvidence No checked path existed.
-type FileMissingEvidence struct {
-	PathsChecked []string                  `json:"paths_checked"`
-	Reason       FileMissingEvidenceReason `json:"reason"`
+// Exclusion An excluded or conflicted assignment (control_id set) or an excluded repository.
+type Exclusion struct {
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId  *ControlSlug `json:"control_id,omitempty"`
+	ExcludedBy *string      `json:"excluded_by,omitempty"`
+	Reason     string       `json:"reason"`
+	Repository string       `json:"repository"`
+
+	// State Open enum: excluded, conflict.
+	State string `json:"state"`
 }
 
-// FileMissingEvidenceReason defines model for FileMissingEvidence.Reason.
-type FileMissingEvidenceReason string
-
-// Finding One rule's verdict on one repository.
-type Finding struct {
-	// Evidence Why the finding has its status, keyed by reason. Values that came
-	// from a repository are data: render them as text, never as markup.
-	Evidence        *Evidence `json:"evidence,omitempty"`
-	LastEvaluatedAt time.Time `json:"last_evaluated_at"`
-	Org             string    `json:"org"`
-
-	// Pr The PR a finding's remediation points at. created_at is set for repo-guardian's PR; head and matched_term for a human PR the rule yields to.
-	Pr *FindingPR `json:"pr,omitempty"`
-
-	// PrStale The finding's repo-guardian PR is open and older than stale_after.
-	PrStale bool `json:"pr_stale"`
-
-	// Reason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	Reason *Reason `json:"reason,omitempty"`
-
-	// Remediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-	//
-	// Examples: pr_open
-	Remediation  Remediation `json:"remediation"`
-	Repository   string      `json:"repository"`
-	RepositoryId int64       `json:"repository_id"`
-
-	// RuleKind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	RuleKind RuleKind `json:"rule_kind"`
-	RuleName string   `json:"rule_name"`
-
-	// Status Open enum: compliant, non_compliant, not_applicable, unknown.
-	//
-	// Examples: compliant, non_compliant, not_applicable, unknown
-	Status      FindingStatus `json:"status"`
-	StatusSince time.Time     `json:"status_since"`
+// FrameworkEvidence Evidence the framework wrote for a result it had to supply.
+type FrameworkEvidence struct {
+	EvidenceKind    FrameworkEvidenceEvidenceKind `json:"evidence_kind"`
+	EvidenceVersion int                           `json:"evidence_version"`
+	Reason          string                        `json:"reason"`
 }
 
-// FindingAgeBucket Non-compliant findings that have failed for one age range.
-type FindingAgeBucket struct {
-	// Bucket Open enum: <1d, 1-7d, 7-30d, 30-90d, 90-180d, 180d+.
-	//
-	// Examples: 7-30d
-	Bucket string `json:"bucket"`
-	Count  int    `json:"count"`
-}
+// FrameworkEvidenceEvidenceKind defines model for FrameworkEvidence.EvidenceKind.
+type FrameworkEvidenceEvidenceKind string
 
-// FindingPR The PR a finding's remediation points at. created_at is set for repo-guardian's PR; head and matched_term for a human PR the rule yields to.
-type FindingPR struct {
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
-	Head        *string    `json:"head,omitempty"`
-	MatchedTerm *string    `json:"matched_term,omitempty"`
-	Number      int        `json:"number"`
-	Url         string     `json:"url"`
-}
-
-// FindingPage A page of findings.
-type FindingPage struct {
-	Items []Finding `json:"items"`
-
-	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
-	// fetch the next page; a cursor from different filters is refused.
-	NextCursor *Cursor `json:"next_cursor,omitempty"`
-}
-
-// FindingStatus Open enum: compliant, non_compliant, not_applicable, unknown.
-//
-// Examples: compliant, non_compliant, not_applicable, unknown
-type FindingStatus = string
-
-// ForbiddenPresentEvidence A forbidden file exists.
-type ForbiddenPresentEvidence struct {
-	Path   string                         `json:"path"`
-	Reason ForbiddenPresentEvidenceReason `json:"reason"`
-}
-
-// ForbiddenPresentEvidenceReason defines model for ForbiddenPresentEvidence.Reason.
-type ForbiddenPresentEvidenceReason string
-
-// GateClosedEvidence The when-gate's referee rule is not satisfied.
-type GateClosedEvidence struct {
-	Reason  GateClosedEvidenceReason `json:"reason"`
-	Referee string                   `json:"referee"`
-}
-
-// GateClosedEvidenceReason defines model for GateClosedEvidence.Reason.
-type GateClosedEvidenceReason string
-
-// GateErrorEvidence The referee could not be evaluated, so the gate stayed closed.
-type GateErrorEvidence struct {
-	Error   string                  `json:"error"`
-	Reason  GateErrorEvidenceReason `json:"reason"`
-	Referee string                  `json:"referee"`
-}
-
-// GateErrorEvidenceReason defines model for GateErrorEvidence.Reason.
-type GateErrorEvidenceReason string
-
-// HistoryPage A page of snapshot points.
-type HistoryPage struct {
-	Items []HistoryPoint `json:"items"`
-
-	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
-	// fetch the next page; a cursor from different filters is refused.
-	NextCursor *Cursor `json:"next_cursor,omitempty"`
-}
-
-// HistoryPoint One snapshot point. Unaggregated, it is one (org, rule) and carries `org`, `kind` and `rule`. With `aggregate=org` it carries `org` only; with `aggregate=fleet` it carries none of the three.
+// HistoryPoint One compliance snapshot row.
 type HistoryPoint struct {
-	CompliantPercent *float64 `json:"compliant_percent"`
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
 
-	// Counts Finding counts by status.
-	Counts StatusCounts `json:"counts"`
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId ControlSlug `json:"control_id"`
 
-	// Kind Open enum: file, setting, branch_protection.
+	// Decision Open enum: baseline, replaced, org_added.
 	//
-	// Examples: file
-	Kind *RuleKind `json:"kind,omitempty"`
-
-	// Org Absent when aggregated to the fleet.
-	Org *string `json:"org,omitempty"`
-
-	// Rule Absent when aggregated.
-	Rule       *string   `json:"rule,omitempty"`
+	// Examples: baseline
+	Decision   Decision  `json:"decision"`
+	Org        string    `json:"org"`
 	SnapshotAt time.Time `json:"snapshot_at"`
-}
-
-// IgnoredEvidence An ignore pattern matched.
-type IgnoredEvidence struct {
-	Pattern string                `json:"pattern"`
-	Reason  IgnoredEvidenceReason `json:"reason"`
-}
-
-// IgnoredEvidenceReason defines model for IgnoredEvidence.Reason.
-type IgnoredEvidenceReason string
-
-// Installation One GitHub App installation and its last rate-limit snapshot.
-type Installation struct {
-	Account        string     `json:"account"`
-	Id             int64      `json:"id"`
-	RateLimit      *int       `json:"rate_limit,omitempty"`
-	RateObservedAt *time.Time `json:"rate_observed_at,omitempty"`
-	RateRemaining  *int       `json:"rate_remaining,omitempty"`
-	RateResetAt    *time.Time `json:"rate_reset_at,omitempty"`
-
-	// RateSnapshotAgeSeconds Seconds since rate_observed_at.
-	RateSnapshotAgeSeconds *int       `json:"rate_snapshot_age_seconds,omitempty"`
-	RemovedAt              *time.Time `json:"removed_at,omitempty"`
-	SuspendedAt            *time.Time `json:"suspended_at,omitempty"`
-}
-
-// InstallationPage A page of installations.
-type InstallationPage struct {
-	Items []Installation `json:"items"`
-
-	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
-	// fetch the next page; a cursor from different filters is refused.
-	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
 
 // Me The caller and the orgs it may see.
@@ -658,32 +355,40 @@ type Me struct {
 	Subject string `json:"subject"`
 }
 
-// MigratedFromV1Evidence Carried over from v1, which recorded no reason.
-type MigratedFromV1Evidence struct {
-	Reason            MigratedFromV1EvidenceReason `json:"reason"`
-	V1ActionableSince time.Time                    `json:"v1_actionable_since"`
+// OrgControl One control's compliance in an org.
+type OrgControl struct {
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
+
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId ControlSlug `json:"control_id"`
+
+	// Decision Open enum: baseline, replaced, org_added.
+	//
+	// Examples: baseline
+	Decision Decision `json:"decision"`
 }
 
-// MigratedFromV1EvidenceReason defines model for MigratedFromV1Evidence.Reason.
-type MigratedFromV1EvidenceReason string
-
-// OrgCompliance One org's compliance with one rule.
-type OrgCompliance struct {
-	CompliantPercent *float64 `json:"compliant_percent"`
-
-	// Counts Finding counts by status.
-	Counts StatusCounts `json:"counts"`
-	Org    string       `json:"org"`
-}
-
-// OrgDetail One org's rules, and why rules did not apply.
+// OrgDetail One org's baseline-versus-org compliance.
 type OrgDetail struct {
-	// NotApplicable Not-applicable findings by reason (scope, ignore, gates).
-	NotApplicable []ReasonCount    `json:"not_applicable"`
-	Org           string           `json:"org"`
-	Parked        []ParkedCount    `json:"parked"`
-	Rules         []RuleCompliance `json:"rules"`
-	Tracked       int              `json:"tracked"`
+	// Baseline The baseline lineage, whichever layer fulfils it.
+	Baseline   Posture      `json:"baseline"`
+	Controls   []OrgControl `json:"controls"`
+	Exclusions []Exclusion  `json:"exclusions"`
+	Org        string       `json:"org"`
+
+	// OrgAdded The controls the org adds.
+	OrgAdded Posture `json:"org_added"`
+	Parked   int     `json:"parked"`
+	Tracked  int     `json:"tracked"`
+
+	// WorstControls Up to five measured controls with the lowest percent, lowest first.
+	WorstControls []OrgControl `json:"worst_controls"`
 }
 
 // OrgList Every visible org.
@@ -691,27 +396,21 @@ type OrgList struct {
 	Items []OrgSummary `json:"items"`
 }
 
-// OrgSummary One org's repositories and compliance.
+// OrgSummary One org's repositories and compliance over every control.
 type OrgSummary struct {
-	CompliantPercent *float64 `json:"compliant_percent"`
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
 
-	// Counts Finding counts by status.
-	Counts StatusCounts `json:"counts"`
-
-	// OpenPrs Findings with an open repo-guardian PR on the org's active repositories; equals the total of /findings?org=&remediation=pr_open.
+	// OpenPrs Open repo-guardian pull requests on the org's active repositories.
 	OpenPrs int    `json:"open_prs"`
 	Org     string `json:"org"`
 	Parked  int    `json:"parked"`
 	Tracked int    `json:"tracked"`
-}
-
-// PRAgeBucket Open repo-guardian PRs in one age bucket.
-type PRAgeBucket struct {
-	// Bucket Open enum: <1d, 1-7d, 7-30d, 30d+.
-	//
-	// Examples: 1-7d
-	Bucket string `json:"bucket"`
-	Count  int    `json:"count"`
 }
 
 // ParkReason Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
@@ -719,39 +418,107 @@ type PRAgeBucket struct {
 // Examples: archived
 type ParkReason = string
 
-// ParkedCount Inactive repositories with one park reason.
-type ParkedCount struct {
-	Count int `json:"count"`
+// Policies The active policy version, scoped to the visible orgs.
+type Policies struct {
+	ActivatedAt time.Time `json:"activated_at"`
 
-	// Reason Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
-	//
-	// Examples: archived
-	Reason ParkReason `json:"reason"`
+	// Controls The catalogue definitions the visible policy refers to; every definition for a caller who sees every org.
+	Controls []PolicyControl `json:"controls"`
+
+	// Enterprise The baseline, shown only to a caller who sees every org.
+	Enterprise         *PolicyEnterprise `json:"enterprise,omitempty"`
+	FirstSeenAt        time.Time         `json:"first_seen_at"`
+	Orgs               []PolicyOrg       `json:"orgs"`
+	RolloutCompletedAt *time.Time        `json:"rollout_completed_at,omitempty"`
+	Version            string            `json:"version"`
 }
 
-// Policy The newest policy version and its rollout.
-type Policy struct {
-	FirstSeenAt        time.Time  `json:"first_seen_at"`
-	RolloutCompletedAt *time.Time `json:"rollout_completed_at,omitempty"`
+// PolicyChange An org's added, replaced or excluded control.
+type PolicyChange struct {
+	// Block The repos block label, when the change is scoped to one.
+	Block   *string `json:"block,omitempty"`
+	Control string  `json:"control"`
+	Reason  *string `json:"reason,omitempty"`
 
-	// RolloutState Open enum: in_progress, complete.
-	RolloutState string       `json:"rollout_state"`
-	Rules        []PolicyRule `json:"rules"`
-	Version      string       `json:"version"`
+	// With The replacement, for a replace.
+	With *string `json:"with,omitempty"`
 }
 
-// PolicyRule One enforced rule, as the policy summarizes it.
-type PolicyRule struct {
-	CheckMode   *string   `json:"check_mode,omitempty"`
-	Description *string   `json:"description,omitempty"`
-	Ignore      *[]string `json:"ignore,omitempty"`
+// PolicyControl One catalogue definition.
+type PolicyControl struct {
+	// Id The control id, `<slug>@<version>`.
+	Id       string  `json:"id"`
+	Revision string  `json:"revision"`
+	Title    *string `json:"title,omitempty"`
+	Type     string  `json:"type"`
+}
 
-	// Kind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	Kind  RuleKind  `json:"kind"`
-	Name  string    `json:"name"`
-	Scope *[]string `json:"scope,omitempty"`
+// PolicyEnterprise The baseline, shown only to a caller who sees every org.
+type PolicyEnterprise struct {
+	Controls []string `json:"controls"`
+
+	// Mode Open enum: evaluate, remediate.
+	Mode string   `json:"mode"`
+	Orgs []string `json:"orgs"`
+}
+
+// PolicyExcludedRepos An exclude_repos block.
+type PolicyExcludedRepos struct {
+	Match  []string `json:"match"`
+	Reason string   `json:"reason"`
+}
+
+// PolicyOrg One visible org's policy.
+type PolicyOrg struct {
+	Added         []PolicyChange        `json:"added"`
+	Excluded      []PolicyChange        `json:"excluded"`
+	ExcludedRepos []PolicyExcludedRepos `json:"excluded_repos"`
+
+	// Mode The org's mode; absent when it inherits the baseline's.
+	Mode     *string        `json:"mode,omitempty"`
+	Org      string         `json:"org"`
+	Replaced []PolicyChange `json:"replaced"`
+	Repos    []PolicyRepos  `json:"repos"`
+}
+
+// PolicyRepos A repos block.
+type PolicyRepos struct {
+	Label string   `json:"label"`
+	Match []string `json:"match"`
+	Mode  *string  `json:"mode,omitempty"`
+}
+
+// PolicyState Open enum: managed, excluded, unmanaged, parked.
+//
+// Examples: managed
+type PolicyState = string
+
+// Posture Compliance over a set of assignments, by posture bucket. Every
+// assignment lands in exactly one bucket. `assigned` counts every
+// bucket but excluded and conflict; `percent` is compliant over
+// compliant plus non-compliant and `coverage` measured (compliant,
+// non-compliant, not applicable) over assigned, both floored to one
+// decimal and null on an empty denominator.
+type Posture struct {
+	Assigned  int      `json:"assigned"`
+	Compliant int      `json:"compliant"`
+	Coverage  *float64 `json:"coverage"`
+
+	// Excluded Excluded assignments, reported beside and never in a denominator.
+	Excluded      int `json:"excluded"`
+	NonCompliant  int `json:"non_compliant"`
+	NotApplicable int `json:"not_applicable"`
+
+	// Pending Assigned with no result yet.
+	Pending int      `json:"pending"`
+	Percent *float64 `json:"percent"`
+
+	// Stale A result from an older assignment epoch or revision.
+	Stale                    int `json:"stale"`
+	Unknown                  int `json:"unknown"`
+	UnmeasurableAccessDenied int `json:"unmeasurable_access_denied"`
+	UnmeasurableConflict     int `json:"unmeasurable_conflict"`
+	UnmeasurableSuspended    int `json:"unmeasurable_suspended"`
 }
 
 // Problem RFC 9457 problem details.
@@ -768,71 +535,104 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// Reason Open enum. Why a finding has its status: file_missing,
-// assertion_failed, content_differs, forbidden_present,
-// setting_mismatch, ruleset_missing, ruleset_mismatch,
-// out_of_scope_policy, out_of_scope_rule, ignored_global,
-// ignored_rule, gate_closed, branch_missing, empty_repository,
-// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-// compliant.
-//
-// Examples: file_missing, gate_closed
-type Reason = string
-
-// ReasonCount Findings with one reason.
-type ReasonCount struct {
-	Count int `json:"count"`
-
-	// Reason Open enum. Why a finding has its status: file_missing,
-	// assertion_failed, content_differs, forbidden_present,
-	// setting_mismatch, ruleset_missing, ruleset_mismatch,
-	// out_of_scope_policy, out_of_scope_rule, ignored_global,
-	// ignored_rule, gate_closed, branch_missing, empty_repository,
-	// gate_error, foreign_pr_open, migrated_from_v1. Empty when
-	// compliant.
-	//
-	//
-	// Examples: file_missing, gate_closed
-	Reason Reason `json:"reason"`
-}
-
-// Remediation Open enum: none, pr_open, foreign_pr, applied, dry_run, disabled.
-//
-// Examples: pr_open
-type Remediation = string
-
 // Repository One repository.
 type Repository struct {
-	Active         bool      `json:"active"`
-	DiscoveredAt   time.Time `json:"discovered_at"`
-	Id             int64     `json:"id"`
-	InstallationId int64     `json:"installation_id"`
+	Active       bool      `json:"active"`
+	DiscoveredAt time.Time `json:"discovered_at"`
 
-	// LastCheckOutcome Open enum: pending, success, error, skipped.
-	LastCheckOutcome string     `json:"last_check_outcome"`
-	LastCheckedAt    *time.Time `json:"last_checked_at,omitempty"`
-	Name             string     `json:"name"`
-	NextDueAt        *time.Time `json:"next_due_at,omitempty"`
-	Org              string     `json:"org"`
+	// Evaluable The Evaluation App has access to the repository.
+	Evaluable       bool       `json:"evaluable"`
+	Id              int64      `json:"id"`
+	LastEvaluatedAt *time.Time `json:"last_evaluated_at,omitempty"`
+	Name            string     `json:"name"`
+	NextDueAt       *time.Time `json:"next_due_at,omitempty"`
+	Org             string     `json:"org"`
 
 	// ParkReason Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
 	//
 	// Examples: archived
-	ParkReason     *ParkReason `json:"park_reason,omitempty"`
-	ParkedAt       *time.Time  `json:"parked_at,omitempty"`
-	PolicyVersion  string      `json:"policy_version"`
-	ProviderRepoId *int64      `json:"provider_repo_id,omitempty"`
+	ParkReason *ParkReason `json:"park_reason,omitempty"`
+	ParkedAt   *time.Time  `json:"parked_at,omitempty"`
+
+	// PolicyReason Why the policy resolved the repository to its state, such as the exclude_repos reason.
+	PolicyReason *string `json:"policy_reason,omitempty"`
+
+	// PolicyState Open enum: managed, excluded, unmanaged, parked.
+	//
+	// Examples: managed
+	PolicyState    *PolicyState `json:"policy_state,omitempty"`
+	ProviderRepoId *int64       `json:"provider_repo_id,omitempty"`
+
+	// Remediable The Remediation App has access to the repository and is not suspended.
+	Remediable bool `json:"remediable"`
 }
 
-// RepositoryDetail A repository with its installation, last check and findings.
+// RepositoryControl One assignment with provenance, requested and effective mode, and
+// its result. The latest remediation joins with IMPL-0030.
+type RepositoryControl struct {
+	// BaselineControl The baseline control this assignment fulfils; absent for an org addition.
+	BaselineControl *string `json:"baseline_control,omitempty"`
+
+	// Bucket Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded.
+	Bucket string `json:"bucket"`
+
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId ControlSlug `json:"control_id"`
+
+	// Decision Open enum: baseline, replaced, org_added, excluded.
+	Decision string `json:"decision"`
+
+	// EffectiveMode Open enum: evaluate, remediate.
+	EffectiveMode string `json:"effective_mode"`
+	Epoch         int64  `json:"epoch"`
+
+	// Error Why the assignment is in conflict.
+	Error        *string    `json:"error,omitempty"`
+	EvaluatedAt  *time.Time `json:"evaluated_at,omitempty"`
+	EvaluatedSha *string    `json:"evaluated_sha,omitempty"`
+	ExcludedBy   *string    `json:"excluded_by,omitempty"`
+
+	// Hold Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission.
+	Hold          *string    `json:"hold,omitempty"`
+	HoldSince     *time.Time `json:"hold_since,omitempty"`
+	LastChangedAt *time.Time `json:"last_changed_at,omitempty"`
+
+	// ModeReason Open enum: remediation_app_no_access, remediation_app_suspended.
+	ModeReason *string `json:"mode_reason,omitempty"`
+	ModeSource string  `json:"mode_source"`
+	Reason     *string `json:"reason,omitempty"`
+
+	// Replaced The control this one replaced.
+	Replaced *string `json:"replaced,omitempty"`
+
+	// RequestedMode Open enum: evaluate, remediate.
+	RequestedMode string       `json:"requested_mode"`
+	Revision      string       `json:"revision"`
+	Rules         []RuleResult `json:"rules"`
+
+	// Source The policy file that assigned it.
+	Source string `json:"source"`
+
+	// SourceBlock The repos block label within the source, when one assigned it.
+	SourceBlock *string `json:"source_block,omitempty"`
+
+	// State Open enum: active, excluded, conflict.
+	State string `json:"state"`
+
+	// Status Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. Absent before the first result.
+	Status  *string `json:"status,omitempty"`
+	Version int     `json:"version"`
+}
+
+// RepositoryControlList A repository's assignments.
+type RepositoryControlList struct {
+	Items []RepositoryControl `json:"items"`
+}
+
+// RepositoryDetail A repository with its last evaluation.
 type RepositoryDetail struct {
-	Findings []Finding `json:"findings"`
-
-	// Installation One GitHub App installation and its last rate-limit snapshot.
-	Installation Installation `json:"installation"`
-
-	// LastCheck One check of a repository.
-	LastCheck *Check `json:"last_check,omitempty"`
+	// LastEvaluation One evaluation of a repository.
+	LastEvaluation *Evaluation `json:"last_evaluation,omitempty"`
 
 	// Repository One repository.
 	Repository Repository `json:"repository"`
@@ -847,99 +647,25 @@ type RepositoryPage struct {
 	NextCursor *Cursor `json:"next_cursor,omitempty"`
 }
 
-// RuleCompliance One rule's compliance, with the previous snapshot's percentage for the trend.
-type RuleCompliance struct {
-	CompliantPercent *float64 `json:"compliant_percent"`
+// RuleResult One rule's result.
+type RuleResult struct {
+	// Evidence A rule's evidence: flat, every value a scalar or an array of
+	// scalars. Discriminated by `evidence_kind` and `evidence_version`;
+	// render only kinds and versions you know, and treat the rest as
+	// opaque.
+	Evidence  Evidence `json:"evidence"`
+	Remediate bool     `json:"remediate"`
+	RuleId    string   `json:"rule_id"`
 
-	// Counts Finding counts by status.
-	Counts StatusCounts `json:"counts"`
-
-	// Kind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	Kind       RuleKind   `json:"kind"`
-	Name       string     `json:"name"`
-	PreviousAt *time.Time `json:"previous_at,omitempty"`
-
-	// PreviousPercent The same rule's percentage in the latest snapshot; absent when there is none.
-	PreviousPercent *float64 `json:"previous_percent,omitempty"`
+	// Status Open enum: pass, fail, error, unknown, not_applicable.
+	Status string `json:"status"`
 }
-
-// RuleDetail One rule across the visible orgs.
-type RuleDetail struct {
-	CompliantPercent *float64 `json:"compliant_percent"`
-
-	// Counts Finding counts by status.
-	Counts StatusCounts `json:"counts"`
-
-	// Description The policy's description of the rule; absent when it has none.
-	Description *string `json:"description,omitempty"`
-
-	// Kind Open enum: file, setting, branch_protection.
-	//
-	// Examples: file
-	Kind RuleKind `json:"kind"`
-	Name string   `json:"name"`
-
-	// OldestFailures The ten longest-failing findings.
-	OldestFailures []Finding       `json:"oldest_failures"`
-	Orgs           []OrgCompliance `json:"orgs"`
-
-	// TopReasons Reasons for non-compliant and not-applicable findings, most common first.
-	TopReasons []ReasonCount `json:"top_reasons"`
-}
-
-// RuleKind Open enum: file, setting, branch_protection.
-//
-// Examples: file
-type RuleKind = string
-
-// RuleList Compliance for every rule.
-type RuleList struct {
-	Items []RuleCompliance `json:"items"`
-}
-
-// RulesetMismatchEvidence A ruleset differs from the policy.
-type RulesetMismatchEvidence struct {
-	Branch     string                        `json:"branch"`
-	Mismatches []string                      `json:"mismatches"`
-	Reason     RulesetMismatchEvidenceReason `json:"reason"`
-	RulesetId  int64                         `json:"ruleset_id"`
-}
-
-// RulesetMismatchEvidenceReason defines model for RulesetMismatchEvidence.Reason.
-type RulesetMismatchEvidenceReason string
-
-// RulesetMissingEvidence No ruleset covers the branch.
-type RulesetMissingEvidence struct {
-	Branch string                       `json:"branch"`
-	Reason RulesetMissingEvidenceReason `json:"reason"`
-}
-
-// RulesetMissingEvidenceReason defines model for RulesetMissingEvidence.Reason.
-type RulesetMissingEvidenceReason string
-
-// ScopeEvidence A reason that carries no detail. A foreign PR is under the finding's pr.
-type ScopeEvidence struct {
-	Reason ScopeEvidenceReason `json:"reason"`
-}
-
-// ScopeEvidenceReason defines model for ScopeEvidence.Reason.
-type ScopeEvidenceReason string
-
-// SettingMismatchEvidence A repository setting differs from the policy.
-type SettingMismatchEvidence struct {
-	Actual   string                        `json:"actual"`
-	Expected string                        `json:"expected"`
-	Property string                        `json:"property"`
-	Reason   SettingMismatchEvidenceReason `json:"reason"`
-}
-
-// SettingMismatchEvidenceReason defines model for SettingMismatchEvidence.Reason.
-type SettingMismatchEvidenceReason string
 
 // Status The public service status.
 type Status struct {
+	// Apps Each App with an installation; an App with none is absent.
+	Apps []StatusApp `json:"apps"`
+
 	// Compliance Fleet-wide compliance for the status page.
 	Compliance Compliance  `json:"compliance"`
 	Components []Component `json:"components"`
@@ -950,23 +676,37 @@ type Status struct {
 	// State Open enum: operational, degraded, down, unknown.
 	//
 	// Examples: operational
-	State     ComponentState `json:"state"`
+	State ComponentState `json:"state"`
+
+	// Topology The credential boundary this deployment runs under.
+	Topology  StatusTopology `json:"topology"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-// StatusCounts Finding counts by status.
-type StatusCounts struct {
-	Compliant     int `json:"compliant"`
-	NonCompliant  int `json:"non_compliant"`
-	NotApplicable int `json:"not_applicable"`
-	Unknown       int `json:"unknown"`
+// StatusTopology The credential boundary this deployment runs under.
+type StatusTopology string
+
+// StatusApp One GitHub App's installations, by count only.
+type StatusApp struct {
+	App           StatusAppApp `json:"app"`
+	Installations int          `json:"installations"`
+
+	// Repositories Repositories the App can reach.
+	Repositories int `json:"repositories"`
+	Suspended    int `json:"suspended"`
 }
+
+// StatusAppApp defines model for StatusApp.App.
+type StatusAppApp string
 
 // StatusOperations The status page's operations strip. Counts and times only.
 type StatusOperations struct {
-	// Checked24h Repositories with a finished check in the last 24 hours.
-	Checked24h         int        `json:"checked_24h"`
-	LastSnapshotAt     *time.Time `json:"last_snapshot_at,omitempty"`
+	// Evaluated24h Repositories with a finished evaluation in the last 24 hours.
+	Evaluated24h   int        `json:"evaluated_24h"`
+	LastSnapshotAt *time.Time `json:"last_snapshot_at,omitempty"`
+
+	// Overdue Managed repositories with no successful evaluation within twice the evaluation interval.
+	Overdue            int        `json:"overdue"`
 	RolloutCompletedAt *time.Time `json:"rollout_completed_at,omitempty"`
 
 	// RolloutState The newest policy version's rollout; none before any version is recorded.
@@ -979,46 +719,37 @@ type StatusOperations struct {
 // StatusOperationsRolloutState The newest policy version's rollout; none before any version is recorded.
 type StatusOperationsRolloutState string
 
-// Summary The fleet summary over the visible orgs.
+// Summary Fleet totals over the visible orgs.
 type Summary struct {
-	// CompliantPercent compliant / (compliant + non_compliant) over active
-	// repositories, floored to one decimal. Null when nothing is
-	// measured, never 100.
-	CompliantPercent *float64 `json:"compliant_percent"`
+	// Compliance Compliance over a set of assignments, by posture bucket. Every
+	// assignment lands in exactly one bucket. `assigned` counts every
+	// bucket but excluded and conflict; `percent` is compliant over
+	// compliant plus non-compliant and `coverage` measured (compliant,
+	// non-compliant, not applicable) over assigned, both floored to one
+	// decimal and null on an empty denominator.
+	Compliance Posture `json:"compliance"`
 
-	// FindingAge Non-compliant findings on active repositories by how long they have failed (status_since), every bucket in order, zeros included.
-	FindingAge []FindingAgeBucket `json:"finding_age"`
+	// Evaluated24h Repositories evaluated in the last 24 hours.
+	Evaluated24h    int        `json:"evaluated_24h"`
+	LastEvaluatedAt *time.Time `json:"last_evaluated_at,omitempty"`
+	OpenPrs         int        `json:"open_prs"`
+	Parked          int        `json:"parked"`
 
-	// Findings Finding counts by status.
-	Findings StatusCounts `json:"findings"`
+	// PolicyVersion The active policy version; absent before one is activated.
+	PolicyVersion *string `json:"policy_version,omitempty"`
 
-	// OpenPrs Open repo-guardian PRs by age.
-	OpenPrs []PRAgeBucket `json:"open_prs"`
-
-	// Parked Inactive repositories by park reason.
-	Parked []ParkedCount `json:"parked"`
-
-	// StaleAfter The threshold applied, as a Go duration.
-	StaleAfter string `json:"stale_after"`
-
-	// StalePrs Open repo-guardian PRs older than stale_after.
-	StalePrs int `json:"stale_prs"`
-
-	// Tracked Active repositories in the visible orgs.
+	// Tracked Active repositories.
 	Tracked int `json:"tracked"`
 }
+
+// ControlID A control's slug, the version-free part of its id.
+type ControlID = ControlSlug
 
 // Limit defines model for Limit.
 type Limit = int
 
 // RepositoryID defines model for RepositoryID.
 type RepositoryID = int64
-
-// RuleName defines model for RuleName.
-type RuleName = string
-
-// StaleAfter Examples: 720h
-type StaleAfter = string
 
 // BadRequest RFC 9457 problem details.
 type BadRequest = Problem
@@ -1035,85 +766,22 @@ type NotFound = Problem
 // Unauthorized RFC 9457 problem details.
 type Unauthorized = Problem
 
-// ListComplianceHistoryParams defines parameters for ListComplianceHistory.
-type ListComplianceHistoryParams struct {
-	// Org An org login, case-insensitive.
+// GetComplianceHistoryParams defines parameters for GetComplianceHistory.
+type GetComplianceHistoryParams struct {
+	// Control Only this control slug.
+	Control *ControlSlug `form:"control,omitempty" json:"control,omitempty"`
+
+	// Org Only this org, case-insensitive.
 	Org *string `form:"org,omitempty" json:"org,omitempty"`
 
-	// Kind A rule kind.
-	Kind *RuleKind `form:"kind,omitempty" json:"kind,omitempty"`
-
-	// Rule A rule name.
-	Rule *string `form:"rule,omitempty" json:"rule,omitempty"`
-
-	// From Only snapshots at or after this time.
-	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
-
-	// To Only snapshots before this time.
-	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
-
-	// Aggregate How to sum the selected snapshots. `none` (the default) returns one point per (snapshot, org, rule). `fleet` sums every org and rule per snapshot; `org` sums every rule per (snapshot, org). The other filters apply before summing, so `aggregate=fleet` with `kind` and `rule` is one rule's fleet series. Aggregated percentages are floored in SQL exactly as `/rules` floors them.
-	Aggregate *ListComplianceHistoryParamsAggregate `form:"aggregate,omitempty" json:"aggregate,omitempty"`
-
-	// Cursor The next_cursor of the previous page.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+	// Days How far back, in days.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
-// ListComplianceHistoryParamsAggregate defines parameters for ListComplianceHistory.
-type ListComplianceHistoryParamsAggregate string
-
-// ListFindingsParams defines parameters for ListFindings.
-type ListFindingsParams struct {
-	// Status Only findings with this status.
-	Status *FindingStatus `form:"status,omitempty" json:"status,omitempty"`
-
-	// Reason Only findings with this reason.
-	Reason *Reason `form:"reason,omitempty" json:"reason,omitempty"`
-
-	// Remediation Only findings with this remediation.
-	Remediation *Remediation `form:"remediation,omitempty" json:"remediation,omitempty"`
-
-	// Org An org login, case-insensitive.
+// ListControlsParams defines parameters for ListControls.
+type ListControlsParams struct {
+	// Org Only this org, case-insensitive.
 	Org *string `form:"org,omitempty" json:"org,omitempty"`
-
-	// Kind A rule kind.
-	Kind *RuleKind `form:"kind,omitempty" json:"kind,omitempty"`
-
-	// Rule A rule name.
-	Rule *string `form:"rule,omitempty" json:"rule,omitempty"`
-
-	// PrStale Only findings whose open repo-guardian PR is (true) or is not (false) older than stale_after.
-	PrStale *bool `form:"pr_stale,omitempty" json:"pr_stale,omitempty"`
-
-	// SinceBefore Only findings whose status has held since before this time.
-	SinceBefore *time.Time `form:"since_before,omitempty" json:"since_before,omitempty"`
-
-	// Sort `default` orders by repository, kind and rule. `pr_age` orders by the PR's `created_at`, oldest first, findings without a PR last, then by the default key. A cursor is bound to its sort.
-	Sort *ListFindingsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
-
-	// StaleAfter Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER.
-	StaleAfter *StaleAfter `form:"stale_after,omitempty" json:"stale_after,omitempty"`
-
-	// Cursor The next_cursor of the previous page.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// ListFindingsParamsSort defines parameters for ListFindings.
-type ListFindingsParamsSort string
-
-// ListInstallationsParams defines parameters for ListInstallations.
-type ListInstallationsParams struct {
-	// Cursor The next_cursor of the previous page.
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Page size.
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListRepositoriesParams defines parameters for ListRepositories.
@@ -1127,6 +795,9 @@ type ListRepositoriesParams struct {
 	// ParkReason Only repositories parked for this reason.
 	ParkReason *ParkReason `form:"park_reason,omitempty" json:"park_reason,omitempty"`
 
+	// PolicyState Only repositories the policy resolved to this state.
+	PolicyState *PolicyState `form:"policy_state,omitempty" json:"policy_state,omitempty"`
+
 	// Q A repository-name prefix, case-insensitive.
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
@@ -1137,14 +808,8 @@ type ListRepositoriesParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// GetRepositoryParams defines parameters for GetRepository.
-type GetRepositoryParams struct {
-	// StaleAfter Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER.
-	StaleAfter *StaleAfter `form:"stale_after,omitempty" json:"stale_after,omitempty"`
-}
-
-// ListRepositoryChecksParams defines parameters for ListRepositoryChecks.
-type ListRepositoryChecksParams struct {
+// ListRepositoryEvaluationsParams defines parameters for ListRepositoryEvaluations.
+type ListRepositoryEvaluationsParams struct {
 	// Cursor The next_cursor of the previous page.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
@@ -1161,28 +826,101 @@ type ListRepositoryEventsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// GetSummaryParams defines parameters for GetSummary.
-type GetSummaryParams struct {
-	// StaleAfter Age after which an open repo-guardian PR counts as stale, 1h to 8760h. Defaults to the server's PR_STALE_AFTER.
-	StaleAfter *StaleAfter `form:"stale_after,omitempty" json:"stale_after,omitempty"`
+// Getter for additional properties for ControlEvidence. Returns the specified
+// element and whether it was found
+func (a ControlEvidence) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
 }
 
-// AsFileMissingEvidence returns the union data inside the Evidence as a FileMissingEvidence
-func (t Evidence) AsFileMissingEvidence() (FileMissingEvidence, error) {
-	var body FileMissingEvidence
+// Setter for additional properties for ControlEvidence
+func (a *ControlEvidence) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ControlEvidence to handle AdditionalProperties
+func (a *ControlEvidence) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["evidence_kind"]; found {
+		err = json.Unmarshal(raw, &a.EvidenceKind)
+		if err != nil {
+			return fmt.Errorf("error reading 'evidence_kind': %w", err)
+		}
+		delete(object, "evidence_kind")
+	}
+
+	if raw, found := object["evidence_version"]; found {
+		err = json.Unmarshal(raw, &a.EvidenceVersion)
+		if err != nil {
+			return fmt.Errorf("error reading 'evidence_version': %w", err)
+		}
+		delete(object, "evidence_version")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ControlEvidence to handle AdditionalProperties
+func (a ControlEvidence) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["evidence_kind"], err = json.Marshal(a.EvidenceKind)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'evidence_kind': %w", err)
+	}
+
+	object["evidence_version"], err = json.Marshal(a.EvidenceVersion)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'evidence_version': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// AsFrameworkEvidence returns the union data inside the Evidence as a FrameworkEvidence
+func (t Evidence) AsFrameworkEvidence() (FrameworkEvidence, error) {
+	var body FrameworkEvidence
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFileMissingEvidence overwrites any union data inside the Evidence as the provided FileMissingEvidence
-func (t *Evidence) FromFileMissingEvidence(v FileMissingEvidence) error {
+// FromFrameworkEvidence overwrites any union data inside the Evidence as the provided FrameworkEvidence
+func (t *Evidence) FromFrameworkEvidence(v FrameworkEvidence) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFileMissingEvidence performs a merge with any union data inside the Evidence, using the provided FileMissingEvidence
-func (t *Evidence) MergeFileMissingEvidence(v FileMissingEvidence) error {
+// MergeFrameworkEvidence performs a merge with any union data inside the Evidence, using the provided FrameworkEvidence
+func (t *Evidence) MergeFrameworkEvidence(v FrameworkEvidence) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1193,22 +931,22 @@ func (t *Evidence) MergeFileMissingEvidence(v FileMissingEvidence) error {
 	return err
 }
 
-// AsAssertionFailedEvidence returns the union data inside the Evidence as a AssertionFailedEvidence
-func (t Evidence) AsAssertionFailedEvidence() (AssertionFailedEvidence, error) {
-	var body AssertionFailedEvidence
+// AsControlEvidence returns the union data inside the Evidence as a ControlEvidence
+func (t Evidence) AsControlEvidence() (ControlEvidence, error) {
+	var body ControlEvidence
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromAssertionFailedEvidence overwrites any union data inside the Evidence as the provided AssertionFailedEvidence
-func (t *Evidence) FromAssertionFailedEvidence(v AssertionFailedEvidence) error {
+// FromControlEvidence overwrites any union data inside the Evidence as the provided ControlEvidence
+func (t *Evidence) FromControlEvidence(v ControlEvidence) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeAssertionFailedEvidence performs a merge with any union data inside the Evidence, using the provided AssertionFailedEvidence
-func (t *Evidence) MergeAssertionFailedEvidence(v AssertionFailedEvidence) error {
+// MergeControlEvidence performs a merge with any union data inside the Evidence, using the provided ControlEvidence
+func (t *Evidence) MergeControlEvidence(v ControlEvidence) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1217,345 +955,6 @@ func (t *Evidence) MergeAssertionFailedEvidence(v AssertionFailedEvidence) error
 	merged, err := runtime.JSONMerge(t.union, b)
 	t.union = merged
 	return err
-}
-
-// AsContentDiffersEvidence returns the union data inside the Evidence as a ContentDiffersEvidence
-func (t Evidence) AsContentDiffersEvidence() (ContentDiffersEvidence, error) {
-	var body ContentDiffersEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromContentDiffersEvidence overwrites any union data inside the Evidence as the provided ContentDiffersEvidence
-func (t *Evidence) FromContentDiffersEvidence(v ContentDiffersEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeContentDiffersEvidence performs a merge with any union data inside the Evidence, using the provided ContentDiffersEvidence
-func (t *Evidence) MergeContentDiffersEvidence(v ContentDiffersEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsForbiddenPresentEvidence returns the union data inside the Evidence as a ForbiddenPresentEvidence
-func (t Evidence) AsForbiddenPresentEvidence() (ForbiddenPresentEvidence, error) {
-	var body ForbiddenPresentEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromForbiddenPresentEvidence overwrites any union data inside the Evidence as the provided ForbiddenPresentEvidence
-func (t *Evidence) FromForbiddenPresentEvidence(v ForbiddenPresentEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeForbiddenPresentEvidence performs a merge with any union data inside the Evidence, using the provided ForbiddenPresentEvidence
-func (t *Evidence) MergeForbiddenPresentEvidence(v ForbiddenPresentEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSettingMismatchEvidence returns the union data inside the Evidence as a SettingMismatchEvidence
-func (t Evidence) AsSettingMismatchEvidence() (SettingMismatchEvidence, error) {
-	var body SettingMismatchEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSettingMismatchEvidence overwrites any union data inside the Evidence as the provided SettingMismatchEvidence
-func (t *Evidence) FromSettingMismatchEvidence(v SettingMismatchEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSettingMismatchEvidence performs a merge with any union data inside the Evidence, using the provided SettingMismatchEvidence
-func (t *Evidence) MergeSettingMismatchEvidence(v SettingMismatchEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRulesetMissingEvidence returns the union data inside the Evidence as a RulesetMissingEvidence
-func (t Evidence) AsRulesetMissingEvidence() (RulesetMissingEvidence, error) {
-	var body RulesetMissingEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRulesetMissingEvidence overwrites any union data inside the Evidence as the provided RulesetMissingEvidence
-func (t *Evidence) FromRulesetMissingEvidence(v RulesetMissingEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRulesetMissingEvidence performs a merge with any union data inside the Evidence, using the provided RulesetMissingEvidence
-func (t *Evidence) MergeRulesetMissingEvidence(v RulesetMissingEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRulesetMismatchEvidence returns the union data inside the Evidence as a RulesetMismatchEvidence
-func (t Evidence) AsRulesetMismatchEvidence() (RulesetMismatchEvidence, error) {
-	var body RulesetMismatchEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRulesetMismatchEvidence overwrites any union data inside the Evidence as the provided RulesetMismatchEvidence
-func (t *Evidence) FromRulesetMismatchEvidence(v RulesetMismatchEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRulesetMismatchEvidence performs a merge with any union data inside the Evidence, using the provided RulesetMismatchEvidence
-func (t *Evidence) MergeRulesetMismatchEvidence(v RulesetMismatchEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsScopeEvidence returns the union data inside the Evidence as a ScopeEvidence
-func (t Evidence) AsScopeEvidence() (ScopeEvidence, error) {
-	var body ScopeEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromScopeEvidence overwrites any union data inside the Evidence as the provided ScopeEvidence
-func (t *Evidence) FromScopeEvidence(v ScopeEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeScopeEvidence performs a merge with any union data inside the Evidence, using the provided ScopeEvidence
-func (t *Evidence) MergeScopeEvidence(v ScopeEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIgnoredEvidence returns the union data inside the Evidence as a IgnoredEvidence
-func (t Evidence) AsIgnoredEvidence() (IgnoredEvidence, error) {
-	var body IgnoredEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIgnoredEvidence overwrites any union data inside the Evidence as the provided IgnoredEvidence
-func (t *Evidence) FromIgnoredEvidence(v IgnoredEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIgnoredEvidence performs a merge with any union data inside the Evidence, using the provided IgnoredEvidence
-func (t *Evidence) MergeIgnoredEvidence(v IgnoredEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGateClosedEvidence returns the union data inside the Evidence as a GateClosedEvidence
-func (t Evidence) AsGateClosedEvidence() (GateClosedEvidence, error) {
-	var body GateClosedEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGateClosedEvidence overwrites any union data inside the Evidence as the provided GateClosedEvidence
-func (t *Evidence) FromGateClosedEvidence(v GateClosedEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGateClosedEvidence performs a merge with any union data inside the Evidence, using the provided GateClosedEvidence
-func (t *Evidence) MergeGateClosedEvidence(v GateClosedEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsBranchMissingEvidence returns the union data inside the Evidence as a BranchMissingEvidence
-func (t Evidence) AsBranchMissingEvidence() (BranchMissingEvidence, error) {
-	var body BranchMissingEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromBranchMissingEvidence overwrites any union data inside the Evidence as the provided BranchMissingEvidence
-func (t *Evidence) FromBranchMissingEvidence(v BranchMissingEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeBranchMissingEvidence performs a merge with any union data inside the Evidence, using the provided BranchMissingEvidence
-func (t *Evidence) MergeBranchMissingEvidence(v BranchMissingEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGateErrorEvidence returns the union data inside the Evidence as a GateErrorEvidence
-func (t Evidence) AsGateErrorEvidence() (GateErrorEvidence, error) {
-	var body GateErrorEvidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGateErrorEvidence overwrites any union data inside the Evidence as the provided GateErrorEvidence
-func (t *Evidence) FromGateErrorEvidence(v GateErrorEvidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGateErrorEvidence performs a merge with any union data inside the Evidence, using the provided GateErrorEvidence
-func (t *Evidence) MergeGateErrorEvidence(v GateErrorEvidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsMigratedFromV1Evidence returns the union data inside the Evidence as a MigratedFromV1Evidence
-func (t Evidence) AsMigratedFromV1Evidence() (MigratedFromV1Evidence, error) {
-	var body MigratedFromV1Evidence
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMigratedFromV1Evidence overwrites any union data inside the Evidence as the provided MigratedFromV1Evidence
-func (t *Evidence) FromMigratedFromV1Evidence(v MigratedFromV1Evidence) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMigratedFromV1Evidence performs a merge with any union data inside the Evidence, using the provided MigratedFromV1Evidence
-func (t *Evidence) MergeMigratedFromV1Evidence(v MigratedFromV1Evidence) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t Evidence) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"reason"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t Evidence) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "assertion_failed":
-		return t.AsAssertionFailedEvidence()
-	case "branch_missing":
-		return t.AsBranchMissingEvidence()
-	case "content_differs":
-		return t.AsContentDiffersEvidence()
-	case "empty_repository":
-		return t.AsScopeEvidence()
-	case "file_missing":
-		return t.AsFileMissingEvidence()
-	case "forbidden_present":
-		return t.AsForbiddenPresentEvidence()
-	case "foreign_pr_open":
-		return t.AsScopeEvidence()
-	case "gate_closed":
-		return t.AsGateClosedEvidence()
-	case "gate_error":
-		return t.AsGateErrorEvidence()
-	case "ignored_global":
-		return t.AsIgnoredEvidence()
-	case "ignored_rule":
-		return t.AsIgnoredEvidence()
-	case "migrated_from_v1":
-		return t.AsMigratedFromV1Evidence()
-	case "out_of_scope_policy":
-		return t.AsScopeEvidence()
-	case "out_of_scope_rule":
-		return t.AsScopeEvidence()
-	case "ruleset_mismatch":
-		return t.AsRulesetMismatchEvidence()
-	case "ruleset_missing":
-		return t.AsRulesetMissingEvidence()
-	case "setting_mismatch":
-		return t.AsSettingMismatchEvidence()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
 }
 
 func (t Evidence) MarshalJSON() ([]byte, error) {
@@ -1570,15 +969,15 @@ func (t *Evidence) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// ListComplianceHistory Compliance snapshots over time, oldest first.
+	// GetComplianceHistory Compliance snapshots by org and control, oldest first.
 	// (GET /compliance/history)
-	ListComplianceHistory(w http.ResponseWriter, r *http.Request, params ListComplianceHistoryParams)
-	// ListFindings Findings in the visible orgs, filtered.
-	// (GET /findings)
-	ListFindings(w http.ResponseWriter, r *http.Request, params ListFindingsParams)
-	// ListInstallations Installations in the visible orgs with their rate-limit snapshot.
-	// (GET /installations)
-	ListInstallations(w http.ResponseWriter, r *http.Request, params ListInstallationsParams)
+	GetComplianceHistory(w http.ResponseWriter, r *http.Request, params GetComplianceHistoryParams)
+	// ListControls Every assigned control with its compliance over the visible orgs.
+	// (GET /controls)
+	ListControls(w http.ResponseWriter, r *http.Request, params ListControlsParams)
+	// GetControl One control's compliance with its per-org breakdown.
+	// (GET /controls/{id})
+	GetControl(w http.ResponseWriter, r *http.Request, id ControlID)
 	// GetMe The caller's identity and visible orgs.
 	// (GET /me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -1588,36 +987,36 @@ type ServerInterface interface {
 	// ListOrgs Compliance by org over the visible orgs.
 	// (GET /orgs)
 	ListOrgs(w http.ResponseWriter, r *http.Request)
-	// GetOrg One org's rules and why rules did not apply.
+	// GetOrg One org's baseline-versus-org compliance, worst controls and exclusions.
 	// (GET /orgs/{org})
 	GetOrg(w http.ResponseWriter, r *http.Request, org string)
-	// GetPolicy The current policy version, its rollout state and rule summaries.
-	// (GET /policy)
-	GetPolicy(w http.ResponseWriter, r *http.Request)
+	// GetPolicies The active policy, scoped to the visible orgs.
+	// (GET /policies)
+	GetPolicies(w http.ResponseWriter, r *http.Request)
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(w http.ResponseWriter, r *http.Request, params ListRepositoriesParams)
-	// GetRepository One repository with its installation, last check and every finding.
+	// GetRepository One repository with its last evaluation.
 	// (GET /repositories/{id})
-	GetRepository(w http.ResponseWriter, r *http.Request, id RepositoryID, params GetRepositoryParams)
-	// ListRepositoryChecks The repository's recent checks, newest first.
-	// (GET /repositories/{id}/checks)
-	ListRepositoryChecks(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryChecksParams)
-	// ListRepositoryEvents The repository's timeline, finding and repository events merged, newest first.
+	GetRepository(w http.ResponseWriter, r *http.Request, id RepositoryID)
+	// ListRepositoryControls The repository's assignments with their results, rule results and evidence.
+	// (GET /repositories/{id}/controls)
+	ListRepositoryControls(w http.ResponseWriter, r *http.Request, id RepositoryID)
+	// EvaluateRepository Ask for the repository to be evaluated now.
+	// (POST /repositories/{id}/evaluate)
+	EvaluateRepository(w http.ResponseWriter, r *http.Request, id RepositoryID)
+	// ListRepositoryEvaluations The repository's evaluation log, newest first.
+	// (GET /repositories/{id}/evaluations)
+	ListRepositoryEvaluations(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEvaluationsParams)
+	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEventsParams)
-	// ListRules Compliance by rule over the visible orgs, with the trend against the previous snapshot.
-	// (GET /rules)
-	ListRules(w http.ResponseWriter, r *http.Request)
-	// GetRule One rule across the visible orgs.
-	// (GET /rules/{kind}/{name})
-	GetRule(w http.ResponseWriter, r *http.Request, kind RuleKind, name RuleName)
 	// GetStatus Public service status.
 	// (GET /status)
 	GetStatus(w http.ResponseWriter, r *http.Request)
-	// GetSummary Fleet summary over the caller's visible orgs.
+	// GetSummary Fleet totals over the visible orgs.
 	// (GET /summary)
-	GetSummary(w http.ResponseWriter, r *http.Request, params GetSummaryParams)
+	GetSummary(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1629,174 +1028,24 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// ListComplianceHistory operation middleware
-func (siw *ServerInterfaceWrapper) ListComplianceHistory(w http.ResponseWriter, r *http.Request) {
+// GetComplianceHistory operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceHistory(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListComplianceHistoryParams
+	var params GetComplianceHistoryParams
 
-	// ------------- Optional query parameter "org" -------------
+	// ------------- Optional query parameter "control" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "control", r.URL.Query(), &params.Control, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "control"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "kind" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "rule" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "rule", r.URL.Query(), &params.Rule, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rule"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "from" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "to" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "aggregate" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "aggregate", r.URL.Query(), &params.Aggregate, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "aggregate"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aggregate", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComplianceHistory(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListFindings operation middleware
-func (siw *ServerInterfaceWrapper) ListFindings(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListFindingsParams
-
-	// ------------- Optional query parameter "status" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "reason" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "reason", r.URL.Query(), &params.Reason, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "reason"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reason", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "remediation" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "remediation", r.URL.Query(), &params.Remediation, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "remediation"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remediation", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "control", Err: err})
 		}
 		return
 	}
@@ -1814,112 +1063,21 @@ func (siw *ServerInterfaceWrapper) ListFindings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// ------------- Optional query parameter "kind" -------------
+	// ------------- Optional query parameter "days" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "rule" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "rule", r.URL.Query(), &params.Rule, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rule"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "pr_stale" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "pr_stale", r.URL.Query(), &params.PrStale, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pr_stale"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pr_stale", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "since_before" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "since_before", r.URL.Query(), &params.SinceBefore, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since_before"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since_before", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "sort" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "stale_after" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "stale_after", r.URL.Query(), &params.StaleAfter, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stale_after"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stale_after", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
 		}
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListFindings(w, r, params)
+		siw.Handler.GetComplianceHistory(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1929,43 +1087,56 @@ func (siw *ServerInterfaceWrapper) ListFindings(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// ListInstallations operation middleware
-func (siw *ServerInterfaceWrapper) ListInstallations(w http.ResponseWriter, r *http.Request) {
+// ListControls operation middleware
+func (siw *ServerInterfaceWrapper) ListControls(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListInstallationsParams
+	var params ListControlsParams
 
-	// ------------- Optional query parameter "cursor" -------------
+	// ------------- Optional query parameter "org" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
 		}
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListInstallations(w, r, params)
+		siw.Handler.ListControls(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetControl operation middleware
+func (siw *ServerInterfaceWrapper) GetControl(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ControlID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetControl(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2043,11 +1214,11 @@ func (siw *ServerInterfaceWrapper) GetOrg(w http.ResponseWriter, r *http.Request
 	handler.ServeHTTP(w, r)
 }
 
-// GetPolicy operation middleware
-func (siw *ServerInterfaceWrapper) GetPolicy(w http.ResponseWriter, r *http.Request) {
+// GetPolicies operation middleware
+func (siw *ServerInterfaceWrapper) GetPolicies(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPolicy(w, r)
+		siw.Handler.GetPolicies(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2101,6 +1272,19 @@ func (siw *ServerInterfaceWrapper) ListRepositories(w http.ResponseWriter, r *ht
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "park_reason"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "park_reason", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "policy_state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "policy_state", r.URL.Query(), &params.PolicyState, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "policy_state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_state", Err: err})
 		}
 		return
 	}
@@ -2170,24 +1354,8 @@ func (siw *ServerInterfaceWrapper) GetRepository(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetRepositoryParams
-
-	// ------------- Optional query parameter "stale_after" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "stale_after", r.URL.Query(), &params.StaleAfter, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stale_after"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stale_after", Err: err})
-		}
-		return
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRepository(w, r, id, params)
+		siw.Handler.GetRepository(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2197,8 +1365,60 @@ func (siw *ServerInterfaceWrapper) GetRepository(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
-// ListRepositoryChecks operation middleware
-func (siw *ServerInterfaceWrapper) ListRepositoryChecks(w http.ResponseWriter, r *http.Request) {
+// ListRepositoryControls operation middleware
+func (siw *ServerInterfaceWrapper) ListRepositoryControls(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id RepositoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRepositoryControls(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EvaluateRepository operation middleware
+func (siw *ServerInterfaceWrapper) EvaluateRepository(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id RepositoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EvaluateRepository(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRepositoryEvaluations operation middleware
+func (siw *ServerInterfaceWrapper) ListRepositoryEvaluations(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -2213,7 +1433,7 @@ func (siw *ServerInterfaceWrapper) ListRepositoryChecks(w http.ResponseWriter, r
 	}
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListRepositoryChecksParams
+	var params ListRepositoryEvaluationsParams
 
 	// ------------- Optional query parameter "cursor" -------------
 
@@ -2242,7 +1462,7 @@ func (siw *ServerInterfaceWrapper) ListRepositoryChecks(w http.ResponseWriter, r
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListRepositoryChecks(w, r, id, params)
+		siw.Handler.ListRepositoryEvaluations(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2307,55 +1527,6 @@ func (siw *ServerInterfaceWrapper) ListRepositoryEvents(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
-// ListRules operation middleware
-func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListRules(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetRule operation middleware
-func (siw *ServerInterfaceWrapper) GetRule(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "kind" -------------
-	var kind RuleKind
-
-	err = runtime.BindStyledParameterWithOptions("simple", "kind", r.PathValue("kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "name" -------------
-	var name RuleName
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRule(w, r, kind, name)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -2373,27 +1544,8 @@ func (siw *ServerInterfaceWrapper) GetStatus(w http.ResponseWriter, r *http.Requ
 // GetSummary operation middleware
 func (siw *ServerInterfaceWrapper) GetSummary(w http.ResponseWriter, r *http.Request) {
 
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetSummaryParams
-
-	// ------------- Optional query parameter "stale_after" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "stale_after", r.URL.Query(), &params.StaleAfter, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stale_after"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stale_after", Err: err})
-		}
-		return
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetSummary(w, r, params)
+		siw.Handler.GetSummary(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2525,18 +1677,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/summary", wrapper.GetSummary)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/rules", wrapper.ListRules)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/rules/{kind}/{name}", wrapper.GetRule)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/controls", wrapper.ListControls)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/controls/{id}", wrapper.GetControl)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/policies", wrapper.GetPolicies)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/orgs", wrapper.ListOrgs)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/orgs/{org}", wrapper.GetOrg)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/findings", wrapper.ListFindings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories", wrapper.ListRepositories)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}", wrapper.GetRepository)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/controls", wrapper.ListRepositoryControls)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/events", wrapper.ListRepositoryEvents)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/checks", wrapper.ListRepositoryChecks)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/compliance/history", wrapper.ListComplianceHistory)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/policy", wrapper.GetPolicy)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/installations", wrapper.ListInstallations)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/evaluations", wrapper.ListRepositoryEvaluations)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/repositories/{id}/evaluate", wrapper.EvaluateRepository)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/compliance/history", wrapper.GetComplianceHistory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/status", wrapper.GetStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/openapi.yaml", wrapper.GetOpenAPI)
 
@@ -2560,17 +1712,17 @@ type UnauthorizedApplicationProblemPlusJSONResponse struct {
 	Headers UnauthorizedResponseHeaders
 }
 
-type ListComplianceHistoryRequestObject struct {
-	Params ListComplianceHistoryParams
+type GetComplianceHistoryRequestObject struct {
+	Params GetComplianceHistoryParams
 }
 
-type ListComplianceHistoryResponseObject interface {
-	VisitListComplianceHistoryResponse(w http.ResponseWriter) error
+type GetComplianceHistoryResponseObject interface {
+	VisitGetComplianceHistoryResponse(w http.ResponseWriter) error
 }
 
-type ListComplianceHistory200JSONResponse HistoryPage
+type GetComplianceHistory200JSONResponse ComplianceHistory
 
-func (response ListComplianceHistory200JSONResponse) VisitListComplianceHistoryResponse(w http.ResponseWriter) error {
+func (response GetComplianceHistory200JSONResponse) VisitGetComplianceHistoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2582,11 +1734,11 @@ func (response ListComplianceHistory200JSONResponse) VisitListComplianceHistoryR
 	return err
 }
 
-type ListComplianceHistory400ApplicationProblemPlusJSONResponse struct {
+type GetComplianceHistory400ApplicationProblemPlusJSONResponse struct {
 	BadRequestApplicationProblemPlusJSONResponse
 }
 
-func (response ListComplianceHistory400ApplicationProblemPlusJSONResponse) VisitListComplianceHistoryResponse(w http.ResponseWriter) error {
+func (response GetComplianceHistory400ApplicationProblemPlusJSONResponse) VisitGetComplianceHistoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2598,11 +1750,11 @@ func (response ListComplianceHistory400ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
-type ListComplianceHistory401ApplicationProblemPlusJSONResponse struct {
+type GetComplianceHistory401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListComplianceHistory401ApplicationProblemPlusJSONResponse) VisitListComplianceHistoryResponse(w http.ResponseWriter) error {
+func (response GetComplianceHistory401ApplicationProblemPlusJSONResponse) VisitGetComplianceHistoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2617,11 +1769,11 @@ func (response ListComplianceHistory401ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
-type ListComplianceHistory403ApplicationProblemPlusJSONResponse struct {
+type GetComplianceHistory403ApplicationProblemPlusJSONResponse struct {
 	ForbiddenApplicationProblemPlusJSONResponse
 }
 
-func (response ListComplianceHistory403ApplicationProblemPlusJSONResponse) VisitListComplianceHistoryResponse(w http.ResponseWriter) error {
+func (response GetComplianceHistory403ApplicationProblemPlusJSONResponse) VisitGetComplianceHistoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2633,12 +1785,12 @@ func (response ListComplianceHistory403ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
-type ListComplianceHistorydefaultApplicationProblemPlusJSONResponse struct {
+type GetComplianceHistorydefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListComplianceHistorydefaultApplicationProblemPlusJSONResponse) VisitListComplianceHistoryResponse(w http.ResponseWriter) error {
+func (response GetComplianceHistorydefaultApplicationProblemPlusJSONResponse) VisitGetComplianceHistoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2650,17 +1802,17 @@ func (response ListComplianceHistorydefaultApplicationProblemPlusJSONResponse) V
 	return err
 }
 
-type ListFindingsRequestObject struct {
-	Params ListFindingsParams
+type ListControlsRequestObject struct {
+	Params ListControlsParams
 }
 
-type ListFindingsResponseObject interface {
-	VisitListFindingsResponse(w http.ResponseWriter) error
+type ListControlsResponseObject interface {
+	VisitListControlsResponse(w http.ResponseWriter) error
 }
 
-type ListFindings200JSONResponse FindingPage
+type ListControls200JSONResponse ControlList
 
-func (response ListFindings200JSONResponse) VisitListFindingsResponse(w http.ResponseWriter) error {
+func (response ListControls200JSONResponse) VisitListControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2672,27 +1824,11 @@ func (response ListFindings200JSONResponse) VisitListFindingsResponse(w http.Res
 	return err
 }
 
-type ListFindings400ApplicationProblemPlusJSONResponse struct {
-	BadRequestApplicationProblemPlusJSONResponse
-}
-
-func (response ListFindings400ApplicationProblemPlusJSONResponse) VisitListFindingsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListFindings401ApplicationProblemPlusJSONResponse struct {
+type ListControls401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListFindings401ApplicationProblemPlusJSONResponse) VisitListFindingsResponse(w http.ResponseWriter) error {
+func (response ListControls401ApplicationProblemPlusJSONResponse) VisitListControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2707,11 +1843,11 @@ func (response ListFindings401ApplicationProblemPlusJSONResponse) VisitListFindi
 	return err
 }
 
-type ListFindings403ApplicationProblemPlusJSONResponse struct {
+type ListControls403ApplicationProblemPlusJSONResponse struct {
 	ForbiddenApplicationProblemPlusJSONResponse
 }
 
-func (response ListFindings403ApplicationProblemPlusJSONResponse) VisitListFindingsResponse(w http.ResponseWriter) error {
+func (response ListControls403ApplicationProblemPlusJSONResponse) VisitListControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2723,12 +1859,12 @@ func (response ListFindings403ApplicationProblemPlusJSONResponse) VisitListFindi
 	return err
 }
 
-type ListFindingsdefaultApplicationProblemPlusJSONResponse struct {
+type ListControlsdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListFindingsdefaultApplicationProblemPlusJSONResponse) VisitListFindingsResponse(w http.ResponseWriter) error {
+func (response ListControlsdefaultApplicationProblemPlusJSONResponse) VisitListControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2740,17 +1876,17 @@ func (response ListFindingsdefaultApplicationProblemPlusJSONResponse) VisitListF
 	return err
 }
 
-type ListInstallationsRequestObject struct {
-	Params ListInstallationsParams
+type GetControlRequestObject struct {
+	Id ControlID `json:"id"`
 }
 
-type ListInstallationsResponseObject interface {
-	VisitListInstallationsResponse(w http.ResponseWriter) error
+type GetControlResponseObject interface {
+	VisitGetControlResponse(w http.ResponseWriter) error
 }
 
-type ListInstallations200JSONResponse InstallationPage
+type GetControl200JSONResponse ControlDetail
 
-func (response ListInstallations200JSONResponse) VisitListInstallationsResponse(w http.ResponseWriter) error {
+func (response GetControl200JSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2762,11 +1898,11 @@ func (response ListInstallations200JSONResponse) VisitListInstallationsResponse(
 	return err
 }
 
-type ListInstallations400ApplicationProblemPlusJSONResponse struct {
+type GetControl400ApplicationProblemPlusJSONResponse struct {
 	BadRequestApplicationProblemPlusJSONResponse
 }
 
-func (response ListInstallations400ApplicationProblemPlusJSONResponse) VisitListInstallationsResponse(w http.ResponseWriter) error {
+func (response GetControl400ApplicationProblemPlusJSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2778,11 +1914,11 @@ func (response ListInstallations400ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
-type ListInstallations401ApplicationProblemPlusJSONResponse struct {
+type GetControl401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListInstallations401ApplicationProblemPlusJSONResponse) VisitListInstallationsResponse(w http.ResponseWriter) error {
+func (response GetControl401ApplicationProblemPlusJSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2797,11 +1933,11 @@ func (response ListInstallations401ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
-type ListInstallations403ApplicationProblemPlusJSONResponse struct {
+type GetControl403ApplicationProblemPlusJSONResponse struct {
 	ForbiddenApplicationProblemPlusJSONResponse
 }
 
-func (response ListInstallations403ApplicationProblemPlusJSONResponse) VisitListInstallationsResponse(w http.ResponseWriter) error {
+func (response GetControl403ApplicationProblemPlusJSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2813,12 +1949,28 @@ func (response ListInstallations403ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
-type ListInstallationsdefaultApplicationProblemPlusJSONResponse struct {
+type GetControl404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetControl404ApplicationProblemPlusJSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetControldefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListInstallationsdefaultApplicationProblemPlusJSONResponse) VisitListInstallationsResponse(w http.ResponseWriter) error {
+func (response GetControldefaultApplicationProblemPlusJSONResponse) VisitGetControlResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3094,16 +2246,16 @@ func (response GetOrgdefaultApplicationProblemPlusJSONResponse) VisitGetOrgRespo
 	return err
 }
 
-type GetPolicyRequestObject struct {
+type GetPoliciesRequestObject struct {
 }
 
-type GetPolicyResponseObject interface {
-	VisitGetPolicyResponse(w http.ResponseWriter) error
+type GetPoliciesResponseObject interface {
+	VisitGetPoliciesResponse(w http.ResponseWriter) error
 }
 
-type GetPolicy200JSONResponse Policy
+type GetPolicies200JSONResponse Policies
 
-func (response GetPolicy200JSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+func (response GetPolicies200JSONResponse) VisitGetPoliciesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3115,11 +2267,11 @@ func (response GetPolicy200JSONResponse) VisitGetPolicyResponse(w http.ResponseW
 	return err
 }
 
-type GetPolicy401ApplicationProblemPlusJSONResponse struct {
+type GetPolicies401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response GetPolicy401ApplicationProblemPlusJSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+func (response GetPolicies401ApplicationProblemPlusJSONResponse) VisitGetPoliciesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3134,11 +2286,11 @@ func (response GetPolicy401ApplicationProblemPlusJSONResponse) VisitGetPolicyRes
 	return err
 }
 
-type GetPolicy403ApplicationProblemPlusJSONResponse struct {
+type GetPolicies403ApplicationProblemPlusJSONResponse struct {
 	ForbiddenApplicationProblemPlusJSONResponse
 }
 
-func (response GetPolicy403ApplicationProblemPlusJSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+func (response GetPolicies403ApplicationProblemPlusJSONResponse) VisitGetPoliciesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3150,11 +2302,11 @@ func (response GetPolicy403ApplicationProblemPlusJSONResponse) VisitGetPolicyRes
 	return err
 }
 
-type GetPolicy404ApplicationProblemPlusJSONResponse struct {
+type GetPolicies404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response GetPolicy404ApplicationProblemPlusJSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+func (response GetPolicies404ApplicationProblemPlusJSONResponse) VisitGetPoliciesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3166,12 +2318,12 @@ func (response GetPolicy404ApplicationProblemPlusJSONResponse) VisitGetPolicyRes
 	return err
 }
 
-type GetPolicydefaultApplicationProblemPlusJSONResponse struct {
+type GetPoliciesdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response GetPolicydefaultApplicationProblemPlusJSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+func (response GetPoliciesdefaultApplicationProblemPlusJSONResponse) VisitGetPoliciesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3274,8 +2426,7 @@ func (response ListRepositoriesdefaultApplicationProblemPlusJSONResponse) VisitL
 }
 
 type GetRepositoryRequestObject struct {
-	Id     RepositoryID `json:"id"`
-	Params GetRepositoryParams
+	Id RepositoryID `json:"id"`
 }
 
 type GetRepositoryResponseObject interface {
@@ -3380,18 +2531,17 @@ func (response GetRepositorydefaultApplicationProblemPlusJSONResponse) VisitGetR
 	return err
 }
 
-type ListRepositoryChecksRequestObject struct {
-	Id     RepositoryID `json:"id"`
-	Params ListRepositoryChecksParams
+type ListRepositoryControlsRequestObject struct {
+	Id RepositoryID `json:"id"`
 }
 
-type ListRepositoryChecksResponseObject interface {
-	VisitListRepositoryChecksResponse(w http.ResponseWriter) error
+type ListRepositoryControlsResponseObject interface {
+	VisitListRepositoryControlsResponse(w http.ResponseWriter) error
 }
 
-type ListRepositoryChecks200JSONResponse CheckPage
+type ListRepositoryControls200JSONResponse RepositoryControlList
 
-func (response ListRepositoryChecks200JSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControls200JSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3403,11 +2553,11 @@ func (response ListRepositoryChecks200JSONResponse) VisitListRepositoryChecksRes
 	return err
 }
 
-type ListRepositoryChecks400ApplicationProblemPlusJSONResponse struct {
+type ListRepositoryControls400ApplicationProblemPlusJSONResponse struct {
 	BadRequestApplicationProblemPlusJSONResponse
 }
 
-func (response ListRepositoryChecks400ApplicationProblemPlusJSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControls400ApplicationProblemPlusJSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3419,11 +2569,11 @@ func (response ListRepositoryChecks400ApplicationProblemPlusJSONResponse) VisitL
 	return err
 }
 
-type ListRepositoryChecks401ApplicationProblemPlusJSONResponse struct {
+type ListRepositoryControls401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListRepositoryChecks401ApplicationProblemPlusJSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControls401ApplicationProblemPlusJSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3438,11 +2588,11 @@ func (response ListRepositoryChecks401ApplicationProblemPlusJSONResponse) VisitL
 	return err
 }
 
-type ListRepositoryChecks403ApplicationProblemPlusJSONResponse struct {
+type ListRepositoryControls403ApplicationProblemPlusJSONResponse struct {
 	ForbiddenApplicationProblemPlusJSONResponse
 }
 
-func (response ListRepositoryChecks403ApplicationProblemPlusJSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControls403ApplicationProblemPlusJSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3454,11 +2604,11 @@ func (response ListRepositoryChecks403ApplicationProblemPlusJSONResponse) VisitL
 	return err
 }
 
-type ListRepositoryChecks404ApplicationProblemPlusJSONResponse struct {
+type ListRepositoryControls404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response ListRepositoryChecks404ApplicationProblemPlusJSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControls404ApplicationProblemPlusJSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3470,12 +2620,247 @@ func (response ListRepositoryChecks404ApplicationProblemPlusJSONResponse) VisitL
 	return err
 }
 
-type ListRepositoryChecksdefaultApplicationProblemPlusJSONResponse struct {
+type ListRepositoryControlsdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListRepositoryChecksdefaultApplicationProblemPlusJSONResponse) VisitListRepositoryChecksResponse(w http.ResponseWriter) error {
+func (response ListRepositoryControlsdefaultApplicationProblemPlusJSONResponse) VisitListRepositoryControlsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepositoryRequestObject struct {
+	Id RepositoryID `json:"id"`
+}
+
+type EvaluateRepositoryResponseObject interface {
+	VisitEvaluateRepositoryResponse(w http.ResponseWriter) error
+}
+
+type EvaluateRepository202Response struct {
+}
+
+func (response EvaluateRepository202Response) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type EvaluateRepository400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response EvaluateRepository400ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepository401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response EvaluateRepository401ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepository403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response EvaluateRepository403ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepository404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response EvaluateRepository404ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepository409ApplicationProblemPlusJSONResponse Problem
+
+func (response EvaluateRepository409ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepository501ApplicationProblemPlusJSONResponse Problem
+
+func (response EvaluateRepository501ApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRepositorydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EvaluateRepositorydefaultApplicationProblemPlusJSONResponse) VisitEvaluateRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluationsRequestObject struct {
+	Id     RepositoryID `json:"id"`
+	Params ListRepositoryEvaluationsParams
+}
+
+type ListRepositoryEvaluationsResponseObject interface {
+	VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error
+}
+
+type ListRepositoryEvaluations200JSONResponse EvaluationPage
+
+func (response ListRepositoryEvaluations200JSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluations400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListRepositoryEvaluations400ApplicationProblemPlusJSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluations401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListRepositoryEvaluations401ApplicationProblemPlusJSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluations403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListRepositoryEvaluations403ApplicationProblemPlusJSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluations404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListRepositoryEvaluations404ApplicationProblemPlusJSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRepositoryEvaluationsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRepositoryEvaluationsdefaultApplicationProblemPlusJSONResponse) VisitListRepositoryEvaluationsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3594,170 +2979,6 @@ func (response ListRepositoryEventsdefaultApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
-type ListRulesRequestObject struct {
-}
-
-type ListRulesResponseObject interface {
-	VisitListRulesResponse(w http.ResponseWriter) error
-}
-
-type ListRules200JSONResponse RuleList
-
-func (response ListRules200JSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListRules401ApplicationProblemPlusJSONResponse struct {
-	UnauthorizedApplicationProblemPlusJSONResponse
-}
-
-func (response ListRules401ApplicationProblemPlusJSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	if response.Headers.WWWAuthenticate != nil {
-		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
-	}
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListRules403ApplicationProblemPlusJSONResponse struct {
-	ForbiddenApplicationProblemPlusJSONResponse
-}
-
-func (response ListRules403ApplicationProblemPlusJSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListRulesdefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response ListRulesdefaultApplicationProblemPlusJSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetRuleRequestObject struct {
-	Kind RuleKind `json:"kind"`
-	Name RuleName `json:"name"`
-}
-
-type GetRuleResponseObject interface {
-	VisitGetRuleResponse(w http.ResponseWriter) error
-}
-
-type GetRule200JSONResponse RuleDetail
-
-func (response GetRule200JSONResponse) VisitGetRuleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetRule401ApplicationProblemPlusJSONResponse struct {
-	UnauthorizedApplicationProblemPlusJSONResponse
-}
-
-func (response GetRule401ApplicationProblemPlusJSONResponse) VisitGetRuleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	if response.Headers.WWWAuthenticate != nil {
-		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
-	}
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetRule403ApplicationProblemPlusJSONResponse struct {
-	ForbiddenApplicationProblemPlusJSONResponse
-}
-
-func (response GetRule403ApplicationProblemPlusJSONResponse) VisitGetRuleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetRule404ApplicationProblemPlusJSONResponse struct {
-	NotFoundApplicationProblemPlusJSONResponse
-}
-
-func (response GetRule404ApplicationProblemPlusJSONResponse) VisitGetRuleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetRuledefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response GetRuledefaultApplicationProblemPlusJSONResponse) VisitGetRuleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type GetStatusRequestObject struct {
 }
 
@@ -3797,7 +3018,6 @@ func (response GetStatusdefaultApplicationProblemPlusJSONResponse) VisitGetStatu
 }
 
 type GetSummaryRequestObject struct {
-	Params GetSummaryParams
 }
 
 type GetSummaryResponseObject interface {
@@ -3814,22 +3034,6 @@ func (response GetSummary200JSONResponse) VisitGetSummaryResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetSummary400ApplicationProblemPlusJSONResponse struct {
-	BadRequestApplicationProblemPlusJSONResponse
-}
-
-func (response GetSummary400ApplicationProblemPlusJSONResponse) VisitGetSummaryResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3888,15 +3092,15 @@ func (response GetSummarydefaultApplicationProblemPlusJSONResponse) VisitGetSumm
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// ListComplianceHistory Compliance snapshots over time, oldest first.
+	// GetComplianceHistory Compliance snapshots by org and control, oldest first.
 	// (GET /compliance/history)
-	ListComplianceHistory(ctx context.Context, request ListComplianceHistoryRequestObject) (ListComplianceHistoryResponseObject, error)
-	// ListFindings Findings in the visible orgs, filtered.
-	// (GET /findings)
-	ListFindings(ctx context.Context, request ListFindingsRequestObject) (ListFindingsResponseObject, error)
-	// ListInstallations Installations in the visible orgs with their rate-limit snapshot.
-	// (GET /installations)
-	ListInstallations(ctx context.Context, request ListInstallationsRequestObject) (ListInstallationsResponseObject, error)
+	GetComplianceHistory(ctx context.Context, request GetComplianceHistoryRequestObject) (GetComplianceHistoryResponseObject, error)
+	// ListControls Every assigned control with its compliance over the visible orgs.
+	// (GET /controls)
+	ListControls(ctx context.Context, request ListControlsRequestObject) (ListControlsResponseObject, error)
+	// GetControl One control's compliance with its per-org breakdown.
+	// (GET /controls/{id})
+	GetControl(ctx context.Context, request GetControlRequestObject) (GetControlResponseObject, error)
 	// GetMe The caller's identity and visible orgs.
 	// (GET /me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
@@ -3906,34 +3110,34 @@ type StrictServerInterface interface {
 	// ListOrgs Compliance by org over the visible orgs.
 	// (GET /orgs)
 	ListOrgs(ctx context.Context, request ListOrgsRequestObject) (ListOrgsResponseObject, error)
-	// GetOrg One org's rules and why rules did not apply.
+	// GetOrg One org's baseline-versus-org compliance, worst controls and exclusions.
 	// (GET /orgs/{org})
 	GetOrg(ctx context.Context, request GetOrgRequestObject) (GetOrgResponseObject, error)
-	// GetPolicy The current policy version, its rollout state and rule summaries.
-	// (GET /policy)
-	GetPolicy(ctx context.Context, request GetPolicyRequestObject) (GetPolicyResponseObject, error)
+	// GetPolicies The active policy, scoped to the visible orgs.
+	// (GET /policies)
+	GetPolicies(ctx context.Context, request GetPoliciesRequestObject) (GetPoliciesResponseObject, error)
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
-	// GetRepository One repository with its installation, last check and every finding.
+	// GetRepository One repository with its last evaluation.
 	// (GET /repositories/{id})
 	GetRepository(ctx context.Context, request GetRepositoryRequestObject) (GetRepositoryResponseObject, error)
-	// ListRepositoryChecks The repository's recent checks, newest first.
-	// (GET /repositories/{id}/checks)
-	ListRepositoryChecks(ctx context.Context, request ListRepositoryChecksRequestObject) (ListRepositoryChecksResponseObject, error)
-	// ListRepositoryEvents The repository's timeline, finding and repository events merged, newest first.
+	// ListRepositoryControls The repository's assignments with their results, rule results and evidence.
+	// (GET /repositories/{id}/controls)
+	ListRepositoryControls(ctx context.Context, request ListRepositoryControlsRequestObject) (ListRepositoryControlsResponseObject, error)
+	// EvaluateRepository Ask for the repository to be evaluated now.
+	// (POST /repositories/{id}/evaluate)
+	EvaluateRepository(ctx context.Context, request EvaluateRepositoryRequestObject) (EvaluateRepositoryResponseObject, error)
+	// ListRepositoryEvaluations The repository's evaluation log, newest first.
+	// (GET /repositories/{id}/evaluations)
+	ListRepositoryEvaluations(ctx context.Context, request ListRepositoryEvaluationsRequestObject) (ListRepositoryEvaluationsResponseObject, error)
+	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(ctx context.Context, request ListRepositoryEventsRequestObject) (ListRepositoryEventsResponseObject, error)
-	// ListRules Compliance by rule over the visible orgs, with the trend against the previous snapshot.
-	// (GET /rules)
-	ListRules(ctx context.Context, request ListRulesRequestObject) (ListRulesResponseObject, error)
-	// GetRule One rule across the visible orgs.
-	// (GET /rules/{kind}/{name})
-	GetRule(ctx context.Context, request GetRuleRequestObject) (GetRuleResponseObject, error)
 	// GetStatus Public service status.
 	// (GET /status)
 	GetStatus(ctx context.Context, request GetStatusRequestObject) (GetStatusResponseObject, error)
-	// GetSummary Fleet summary over the caller's visible orgs.
+	// GetSummary Fleet totals over the visible orgs.
 	// (GET /summary)
 	GetSummary(ctx context.Context, request GetSummaryRequestObject) (GetSummaryResponseObject, error)
 }
@@ -3977,25 +3181,25 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
-// ListComplianceHistory operation middleware
-func (sh *strictHandler) ListComplianceHistory(w http.ResponseWriter, r *http.Request, params ListComplianceHistoryParams) {
-	var request ListComplianceHistoryRequestObject
+// GetComplianceHistory operation middleware
+func (sh *strictHandler) GetComplianceHistory(w http.ResponseWriter, r *http.Request, params GetComplianceHistoryParams) {
+	var request GetComplianceHistoryRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListComplianceHistory(ctx, request.(ListComplianceHistoryRequestObject))
+		return sh.ssi.GetComplianceHistory(ctx, request.(GetComplianceHistoryRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListComplianceHistory")
+		handler = middleware(handler, "GetComplianceHistory")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListComplianceHistoryResponseObject); ok {
-		if err := validResponse.VisitListComplianceHistoryResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetComplianceHistoryResponseObject); ok {
+		if err := validResponse.VisitGetComplianceHistoryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4003,25 +3207,25 @@ func (sh *strictHandler) ListComplianceHistory(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// ListFindings operation middleware
-func (sh *strictHandler) ListFindings(w http.ResponseWriter, r *http.Request, params ListFindingsParams) {
-	var request ListFindingsRequestObject
+// ListControls operation middleware
+func (sh *strictHandler) ListControls(w http.ResponseWriter, r *http.Request, params ListControlsParams) {
+	var request ListControlsRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListFindings(ctx, request.(ListFindingsRequestObject))
+		return sh.ssi.ListControls(ctx, request.(ListControlsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListFindings")
+		handler = middleware(handler, "ListControls")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListFindingsResponseObject); ok {
-		if err := validResponse.VisitListFindingsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListControlsResponseObject); ok {
+		if err := validResponse.VisitListControlsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4029,25 +3233,25 @@ func (sh *strictHandler) ListFindings(w http.ResponseWriter, r *http.Request, pa
 	}
 }
 
-// ListInstallations operation middleware
-func (sh *strictHandler) ListInstallations(w http.ResponseWriter, r *http.Request, params ListInstallationsParams) {
-	var request ListInstallationsRequestObject
+// GetControl operation middleware
+func (sh *strictHandler) GetControl(w http.ResponseWriter, r *http.Request, id ControlID) {
+	var request GetControlRequestObject
 
-	request.Params = params
+	request.Id = id
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListInstallations(ctx, request.(ListInstallationsRequestObject))
+		return sh.ssi.GetControl(ctx, request.(GetControlRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListInstallations")
+		handler = middleware(handler, "GetControl")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListInstallationsResponseObject); ok {
-		if err := validResponse.VisitListInstallationsResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetControlResponseObject); ok {
+		if err := validResponse.VisitGetControlResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4153,23 +3357,23 @@ func (sh *strictHandler) GetOrg(w http.ResponseWriter, r *http.Request, org stri
 	}
 }
 
-// GetPolicy operation middleware
-func (sh *strictHandler) GetPolicy(w http.ResponseWriter, r *http.Request) {
-	var request GetPolicyRequestObject
+// GetPolicies operation middleware
+func (sh *strictHandler) GetPolicies(w http.ResponseWriter, r *http.Request) {
+	var request GetPoliciesRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPolicy(ctx, request.(GetPolicyRequestObject))
+		return sh.ssi.GetPolicies(ctx, request.(GetPoliciesRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPolicy")
+		handler = middleware(handler, "GetPolicies")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetPolicyResponseObject); ok {
-		if err := validResponse.VisitGetPolicyResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetPoliciesResponseObject); ok {
+		if err := validResponse.VisitGetPoliciesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4204,11 +3408,10 @@ func (sh *strictHandler) ListRepositories(w http.ResponseWriter, r *http.Request
 }
 
 // GetRepository operation middleware
-func (sh *strictHandler) GetRepository(w http.ResponseWriter, r *http.Request, id RepositoryID, params GetRepositoryParams) {
+func (sh *strictHandler) GetRepository(w http.ResponseWriter, r *http.Request, id RepositoryID) {
 	var request GetRepositoryRequestObject
 
 	request.Id = id
-	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetRepository(ctx, request.(GetRepositoryRequestObject))
@@ -4230,26 +3433,78 @@ func (sh *strictHandler) GetRepository(w http.ResponseWriter, r *http.Request, i
 	}
 }
 
-// ListRepositoryChecks operation middleware
-func (sh *strictHandler) ListRepositoryChecks(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryChecksParams) {
-	var request ListRepositoryChecksRequestObject
+// ListRepositoryControls operation middleware
+func (sh *strictHandler) ListRepositoryControls(w http.ResponseWriter, r *http.Request, id RepositoryID) {
+	var request ListRepositoryControlsRequestObject
 
 	request.Id = id
-	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRepositoryChecks(ctx, request.(ListRepositoryChecksRequestObject))
+		return sh.ssi.ListRepositoryControls(ctx, request.(ListRepositoryControlsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRepositoryChecks")
+		handler = middleware(handler, "ListRepositoryControls")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListRepositoryChecksResponseObject); ok {
-		if err := validResponse.VisitListRepositoryChecksResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListRepositoryControlsResponseObject); ok {
+		if err := validResponse.VisitListRepositoryControlsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EvaluateRepository operation middleware
+func (sh *strictHandler) EvaluateRepository(w http.ResponseWriter, r *http.Request, id RepositoryID) {
+	var request EvaluateRepositoryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EvaluateRepository(ctx, request.(EvaluateRepositoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EvaluateRepository")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EvaluateRepositoryResponseObject); ok {
+		if err := validResponse.VisitEvaluateRepositoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRepositoryEvaluations operation middleware
+func (sh *strictHandler) ListRepositoryEvaluations(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEvaluationsParams) {
+	var request ListRepositoryEvaluationsRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRepositoryEvaluations(ctx, request.(ListRepositoryEvaluationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRepositoryEvaluations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRepositoryEvaluationsResponseObject); ok {
+		if err := validResponse.VisitListRepositoryEvaluationsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4284,57 +3539,6 @@ func (sh *strictHandler) ListRepositoryEvents(w http.ResponseWriter, r *http.Req
 	}
 }
 
-// ListRules operation middleware
-func (sh *strictHandler) ListRules(w http.ResponseWriter, r *http.Request) {
-	var request ListRulesRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRules(ctx, request.(ListRulesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRules")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListRulesResponseObject); ok {
-		if err := validResponse.VisitListRulesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetRule operation middleware
-func (sh *strictHandler) GetRule(w http.ResponseWriter, r *http.Request, kind RuleKind, name RuleName) {
-	var request GetRuleRequestObject
-
-	request.Kind = kind
-	request.Name = name
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetRule(ctx, request.(GetRuleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetRule")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetRuleResponseObject); ok {
-		if err := validResponse.VisitGetRuleResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // GetStatus operation middleware
 func (sh *strictHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	var request GetStatusRequestObject
@@ -4360,10 +3564,8 @@ func (sh *strictHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSummary operation middleware
-func (sh *strictHandler) GetSummary(w http.ResponseWriter, r *http.Request, params GetSummaryParams) {
+func (sh *strictHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	var request GetSummaryRequestObject
-
-	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetSummary(ctx, request.(GetSummaryRequestObject))
@@ -4390,127 +3592,127 @@ func (sh *strictHandler) GetSummary(w http.ResponseWriter, r *http.Request, para
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

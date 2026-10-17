@@ -3,6 +3,20 @@
 Changes to the `repo-guardian` Helm chart only. For application-level
 changes, see the root [CHANGELOG.md](../../CHANGELOG.md).
 
+## [2.0.0-rc.11] - 2026-10-16
+
+### Features
+
+- *(chart)* Mirror the controls alert catalogue (IMPL-0029 6.7)
+- *(workflows)* The evaluator runs the controls workflows (IMPL-0029 7.1)
+- *(chart)* Mount the controls policy directory (IMPL-0029 7.9)
+- *(api)* Re-evaluate a repository on request (IMPL-0029 8.4)
+- *(api)* Status page for the controls line (IMPL-0029 8.5)
+
+### Bug Fixes
+
+- *(chart)* Take policy.files as a nested map by directory (IMPL-0029 7.9, OQ11)
+
 ## [1.0.0-rc.1] - 2026-06-23
 
 First release candidate on the path to chart `1.0.0`. Ships the

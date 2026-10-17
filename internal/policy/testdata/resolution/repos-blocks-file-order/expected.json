@@ -1,0 +1,22 @@
+{
+  "state": "managed",
+  "assignments": [
+    {
+      "control": "catalog@1",
+      "revision": "75fe041248faefca97dfe534941b3ceb9c5bf77b7165a7e68f80976ee0d356ca",
+      "state": "excluded",
+      "decision": "excluded",
+      "baseline_control": "catalog",
+      "source": "org:acme/repos[backstage-legacy]",
+      "source_block": "backstage-legacy",
+      "ordinal": 1,
+      "excluded_by": "org:acme/repos[backstage-legacy]",
+      "reason": "being decommissioned",
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    }
+  ],
+  "max_open_prs": 3,
+  "reopen_after": 1209600000000000
+}

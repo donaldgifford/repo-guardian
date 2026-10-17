@@ -324,7 +324,7 @@ rule must declare its own `scope { }` sub-block:
 All per-rule and per-repo Prometheus counters carry an `org` label so
 operators can slice work, errors, and PR creation rates per organization.
 For a GitHub Enterprise App installed across every org in the enterprise,
-see `examples/guardian-enterprise.hcl` — the policy enumerates which orgs
+see `examples/policy/enterprise/` — the policy enumerates which orgs
 to reconcile, and each configured org can carry its own rules.
 
 ### Custom Properties

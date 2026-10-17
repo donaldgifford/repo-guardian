@@ -1,0 +1,11 @@
+{
+  "repository": {
+    "org": "acme",
+    "name": "backstage-legacy",
+    "active": true
+  },
+  "access": {
+    "evaluable": true,
+    "remediable": true
+  }
+}

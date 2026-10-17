@@ -4,6 +4,131 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0-rc.11] - 2026-10-16
+
+### Features
+
+- *(control)* Framework value types and template.Vars (IMPL-0029 1.2)
+- *(control)* Canonical resource keys (IMPL-0029 1.3)
+- *(control)* Validate and StatusOf (IMPL-0029 1.4)
+- *(control)* Revision and Fingerprint (IMPL-0029 1.5)
+- *(control)* ValidateChangeSet (IMPL-0029 1.6)
+- *(control)* Evaluation reader (IMPL-0029 1.7)
+- *(control)* File-control adapter and LocateFile (IMPL-0029 1.8)
+- *(control)* Type registry and definition validation (IMPL-0029 1.9)
+- *(control)* Controltest conformance suite (IMPL-0029 1.10)
+- *(controls)* Codeowners reference type (IMPL-0029 1.11)
+- *(policy)* Policy-root loader (IMPL-0029 2.2)
+- *(policy)* Control catalogue decoding (IMPL-0029 2.3)
+- *(policy)* Enterprise and org policy decoding (IMPL-0029 2.4)
+- *(policy)* Load-time validation (IMPL-0029 2.5)
+- *(policy)* Load-time ownership overlap warnings (IMPL-0029 2.6)
+- *(policy)* Repository resolution (IMPL-0029 2.7)
+- *(policy)* Snapshot version, accessors and summary (IMPL-0029 2.9)
+- *(controls)* Generic file control type (IMPL-0029 3.1)
+- *(catalog)* Document parse with node tree and source spans (IMPL-0029 3.2)
+- *(controls)* Catalog_info control type (IMPL-0029 3.3)
+- *(controls)* Dependency_updates control type (IMPL-0029 3.4)
+- *(controls)* Repo_settings control type and vulnerability-alerts reads (IMPL-0029 3.5)
+- *(controls)* Branch_ruleset control type (IMPL-0029 3.6)
+- *(controls)* Labels control type (IMPL-0029 3.7)
+- *(controls)* Custom_properties control type with workflow apply (IMPL-0029 3.8)
+- *(control)* Apply is for API types only (IMPL-0029 3.9)
+- *(examples)* Controls-model example policy roots with summary goldens (IMPL-0029 2.10)
+- *(controls)* Generated control-type reference (IMPL-0029 3.11)
+- *(store)* Controls policy schema (IMPL-0029 4.1)
+- *(store)* Controls results and remediation schema (IMPL-0029 4.2)
+- *(store)* Controls compliance snapshots (IMPL-0029 4.3)
+- *(store)* Evaluator controls store (IMPL-0029 4.5)
+- *(store)* Park with the result rule (IMPL-0029 4.6)
+- *(store)* Controls compliance queries (IMPL-0029 4.7)
+- *(workflows)* Controls evaluation names and signals (IMPL-0029 5.1)
+- *(workflows)* EvaluationWorkflow (IMPL-0029 5.2)
+- *(activities)* Controls Evaluate activity (IMPL-0029 5.3)
+- *(activities)* RecordEvaluation and ParkRepository (IMPL-0029 5.4)
+- *(workflows)* ControlsDiscoveryWorkflow (IMPL-0029 5.5)
+- *(workflows)* Controls rollout and evaluator schedules (IMPL-0029 5.6)
+- *(activities)* Controls webhook routing (IMPL-0029 5.7)
+- *(workflows)* Controls compliance snapshot (IMPL-0029 5.8)
+- *(cmd)* Repo-guardian evaluate (IMPL-0029 5.9)
+- *(metrics)* Controls evaluation metrics (IMPL-0029 6.1)
+- *(metrics)* Deployment_info carries the binary version (IMPL-0029 6.2)
+- *(api)* Controls posture exporter (IMPL-0029 6.3)
+- *(monitoring)* Derive the model from the controls policy snapshot (IMPL-0029 6.4)
+- *(monitoring)* Rebuild the dashboards over controls posture (IMPL-0029 6.5)
+- *(monitoring)* Controls alert catalogue (IMPL-0029 6.6)
+- *(chart)* Mirror the controls alert catalogue (IMPL-0029 6.7)
+- *(report)* Render compliance from control results (IMPL-0029 6.9)
+- *(workflows)* The evaluator runs the controls workflows (IMPL-0029 7.1)
+- *(api)* Remove the findings-era endpoints (IMPL-0029 7.6)
+- *(ui)* Remove the findings-era views (IMPL-0029 7.7)
+- *(chart)* Mount the controls policy directory (IMPL-0029 7.9)
+- *(api)* Specify the controls endpoints (IMPL-0029 8.1)
+- *(store)* Add the controls API queries (IMPL-0029 8.2)
+- *(api)* Serve the controls views (IMPL-0029 8.3)
+- *(api)* Re-evaluate a repository on request (IMPL-0029 8.4)
+- *(api)* Status page for the controls line (IMPL-0029 8.5)
+- *(ui)* The controls views (IMPL-0029 8.7)
+
+### Bug Fixes
+
+- *(store)* Discovery parks archived and forked repositories (IMPL-0029 5.5)
+- *(activities)* The evaluator feeds rate_limit_remaining (IMPL-0029 6.6)
+- *(chart)* Take policy.files as a nested map by directory (IMPL-0029 7.9, OQ11)
+
+### Refactor
+
+- *(template)* Move PRConfig/PRTemplate to template; D17 depguard edges (IMPL-0029 1.1)
+- *(policy)* Move internal/policy to internal/rulepolicy (IMPL-0029 2.1)
+- Delete the rule engine (IMPL-0029 7.3)
+- *(store)* Re-cut the API reader onto the controls schema (IMPL-0029 7.4)
+- *(store)* Remove the rc schema code (IMPL-0029 7.5)
+- *(config)* Give every rule-engine env var a fate (IMPL-0029 7.8)
+
+### Documentation
+
+- *(impl)* Rc.8 released and confirmed on dev (IMPL-0028 10.4)
+- *(control)* Non-vacuous probes and Phase 1 close-out (IMPL-0029 1.12)
+- *(impl)* Record per-type non-vacuous probes (IMPL-0029 3.12)
+- CLAUDE.md architecture for IMPL-0029 Phase 3
+- *(impl)* Tick IMPL-0029 4.1
+- *(store)* Fix ControlsSchemaVersion comment
+- *(store)* Restore ControlsSchemaVersion doc line
+- *(impl)* Record Phase 4 non-vacuous probes (IMPL-0029 4.11)
+- CLAUDE.md store notes for IMPL-0029 Phase 4
+- CLAUDE.md for IMPL-0029 Phase 5
+- CLAUDE.md and monitoring docs for IMPL-0029 Phase 6
+- Record the controls switch-over in CLAUDE.md (IMPL-0029 Phase 7)
+- Record the controls API and UI (IMPL-0029 Phase 8)
+- Record the controls framework invariants in CLAUDE.md (IMPL-0029 9.4)
+- *(impl)* IMPL-0031 8.1 and 8.2 done on rc.9/rc.10 ([#218](https://github.com/donaldgifford/repo-guardian/issues/218))
+
+### Testing
+
+- *(policy)* Resolution golden cases (IMPL-0029 2.8)
+- *(policy)* Non-vacuous probes and two more goldens (IMPL-0029 2.11)
+- *(controls)* Parser fuzzing and size caps (IMPL-0029 3.10)
+- *(store)* Controls grant boundary as the roles (IMPL-0029 4.8)
+- *(store)* Epoch fencing, policy revert and posture scenarios (IMPL-0029 4.9)
+- *(migrate)* Controls dry run covers 00001-00004 (IMPL-0029 4.10)
+- *(workflows)* EvaluationWorkflow coalescing, parking and history bound (IMPL-0029 5.10)
+- Controls change-detection tables (IMPL-0029 5.11)
+- *(activities)* TestIntegration_OneEvaluation and evaluation history (IMPL-0029 5.12)
+- *(activities)* Push selection by Reads and the Phase 5 non-vacuous check (IMPL-0029 5.13)
+- *(monitoring)* Phase 6 non-vacuous checks (IMPL-0029 6.10)
+- Retire the parity suite scenario by scenario (IMPL-0029 7.2)
+- Confirm the rc workflow and chart guards fire (IMPL-0029 7.11)
+- *(api)* Validate every endpoint against the spec (IMPL-0029 8.6)
+- *(ui)* E2e over the controls views (IMPL-0029 8.8)
+- *(api)* Prove the scope tests are non-vacuous (IMPL-0029 8.10)
+
+### Miscellaneous Tasks
+
+- *(policy)* Policy-leaf depguard rule and Phase 2 docs (IMPL-0029)
+- *(store)* Sqlc block for the controls chain (IMPL-0029 4.4)
+- *(monitoring)* Regenerate the static tier for controls (IMPL-0029 6.8)
+- *(examples)* Replace the guardian.hcl examples with the policy map (IMPL-0029 7.10)
+
 ## [1.9.0] - 2026-06-23
 
 Bundled with chart `1.0.0-rc.1`. IMPL-0016 (memory backend

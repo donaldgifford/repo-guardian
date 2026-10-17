@@ -3,11 +3,10 @@ package store
 import (
 	"slices"
 	"strings"
-	"time"
 )
 
 // APIScope is the set of orgs an API caller may see (DESIGN-0027 §
-// Authorization). Unlike Scope, where no orgs means every org, the zero
+// Authorization). Unlike the compliance queries, where no orgs means every org, the zero
 // APIScope sees nothing: a principal that lost its groups must never
 // read the fleet. Build one with ScopeAll or ScopeOrgs.
 type APIScope struct {
@@ -47,37 +46,10 @@ func (s APIScope) Orgs() []string {
 // Empty reports whether the scope sees no org at all.
 func (s APIScope) Empty() bool { return !s.all && len(s.orgs) == 0 }
 
-// StatusCounts counts findings by status.
+// StatusCounts counts results by status.
 type StatusCounts struct {
 	Compliant     int
 	NonCompliant  int
 	NotApplicable int
 	Unknown       int
-}
-
-// ParkedCount is the number of inactive repositories with one reason.
-type ParkedCount struct {
-	Reason ParkReason
-	Count  int
-}
-
-// FindingAgeBuckets are Summary.FindingAge's buckets in order: how long
-// a non-compliant finding has failed (IMPL-0031 7.3).
-var FindingAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30-90d", "90-180d", "180d+"}
-
-// Summary is the fleet summary over an APIScope.
-type Summary struct {
-	// Tracked counts active repositories.
-	Tracked int
-	Parked  []ParkedCount
-	// Findings counts findings on active repositories.
-	Findings StatusCounts
-	// CompliantPercent is the shared compliance math; nil when nothing
-	// is measured.
-	CompliantPercent *float64
-	// OpenPRs holds each open repo-guardian PR's created_at.
-	OpenPRs []time.Time
-	// FindingAge counts non-compliant findings per FindingAgeBuckets
-	// bucket, keyed by bucket name; absent buckets are zero.
-	FindingAge map[string]int
 }

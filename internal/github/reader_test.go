@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -231,5 +232,74 @@ func TestRepoReader_PropertiesAndLabels(t *testing.T) {
 	labels, err := r.ListLabels(t.Context())
 	if err != nil || len(labels) != 1 || labels[0] != (control.Label{Name: "bug", Color: "d73a4a", Description: "broken"}) {
 		t.Errorf("ListLabels = %v, %v; want the bug label", labels, err)
+	}
+}
+
+func TestRepoReader_ForbiddenIsPermission(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/o/r/labels", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"Resource not accessible by integration"}`))
+	})
+
+	c, srv := newTestClient(t, mux)
+	defer srv.Close()
+
+	_, err := c.RepoReader("o", "r", "abc123").ListLabels(t.Context())
+	if !errors.Is(err, control.ErrPermission) {
+		t.Errorf("ListLabels() err = %v, want control.ErrPermission", err)
+	}
+}
+
+func TestRepoReader_SymlinkIsNotRegularFile(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v3/repos/o/r/contents/CODEOWNERS", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"type": "symlink", "sha": "s1", "target": "/etc/passwd"})
+	})
+
+	c, srv := newTestClient(t, mux)
+	defer srv.Close()
+
+	_, _, _, err := c.RepoReader("o", "r", "abc123").GetContents(t.Context(), "CODEOWNERS")
+	if !errors.Is(err, control.ErrNotRegularFile) {
+		t.Errorf("GetContents(symlink) err = %v, want control.ErrNotRegularFile", err)
+	}
+}
+
+func TestRepoReader_VulnerabilityAlerts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		status  int
+		want    bool
+		wantErr error
+	}{
+		{"enabled", http.StatusNoContent, true, nil},
+		{"disabled", http.StatusNotFound, false, nil},
+		{"forbidden is permission", http.StatusForbidden, false, control.ErrPermission},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("GET /api/v3/repos/o/r/vulnerability-alerts", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			})
+
+			c, srv := newTestClient(t, mux)
+			defer srv.Close()
+
+			got, err := c.RepoReader("o", "r", "abc123").GetVulnerabilityAlerts(t.Context())
+			if got != tt.want || !errors.Is(err, tt.wantErr) {
+				t.Errorf("GetVulnerabilityAlerts() = %v, %v; want %v, %v", got, err, tt.want, tt.wantErr)
+			}
+		})
 	}
 }

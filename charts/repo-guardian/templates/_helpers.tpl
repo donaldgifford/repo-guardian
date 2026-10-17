@@ -63,17 +63,6 @@ Create the name of the service account to use.
 {{- end }}
 
 {{/*
-Create the name of the secret to use.
-*/}}
-{{- define "repo-guardian.secretName" -}}
-{{- if .Values.secrets.create }}
-{{- include "repo-guardian.fullname" . }}
-{{- else }}
-{{- required "secrets.existingSecret is required when secrets.create is false" .Values.secrets.existingSecret }}
-{{- end }}
-{{- end }}
-
-{{/*
 Reserved env-var names — keys that the chart already manages on the
 Deployment container env list. `templating.vars` may not redeclare any
 of these because the chart-emitted entry would shadow the operator's
@@ -82,7 +71,7 @@ attempt and produce confusing behavior at runtime.
 Returns a space-separated string for has-element style checks.
 */}}
 {{- define "repo-guardian.reservedEnvVars" -}}
-GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN SKIP_FORKS SKIP_ARCHIVED AUTO_CLOSE_PR ORPHAN_CLEANUP TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID WORKER_ACTIVITY_CONCURRENCY CHECK_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_POSTGRES_MAX_CONNS POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD RECONCILE_FRESHNESS API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG PR_STALE_AFTER STATUS_PUBLIC
+LISTEN_ADDR METRICS_ADDR LOG_LEVEL GUARDIAN_CONFIG EVAL_GITHUB_APP_ID EVAL_GITHUB_PRIVATE_KEY_PATH EVAL_WEBHOOK_SECRET REMEDIATE_GITHUB_APP_ID REMEDIATE_GITHUB_PRIVATE_KEY_PATH REMEDIATE_WEBHOOK_SECRET TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_EVAL_TASK_QUEUE TEMPORAL_REMEDIATE_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID EVALUATOR_CONCURRENCY EVALUATOR_DB_POOL_SIZE REMEDIATOR_CONCURRENCY REMEDIATOR_DB_POOL_SIZE EVAL_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_DSN_EVALUATOR STORE_DSN_REMEDIATOR POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD MIGRATE_WAIT API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM API_AUTHZ_CONFIG STATUS_PUBLIC
 {{- end }}
 
 {{/*
@@ -208,7 +197,7 @@ the entry once operators have had a release or two to notice.
 {{- end -}}
 {{- range $k := list "workerCount" "queueSize" "scheduleInterval" "maxJobAttempts" -}}
 {{- if hasKey $.Values.config $k -}}
-{{- fail (printf "config.%s was removed in chart 2.0.0 (use worker.concurrency and checkInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- fail (printf "config.%s was removed in chart 2.0.0 (use evaluator.concurrency and evalInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
 {{- end -}}
 {{- end -}}
 {{- if hasKey (.Values.posture | default dict) "exportInterval" -}}
@@ -222,6 +211,41 @@ the entry once operators have had a release or two to notice.
 {{- end -}}
 {{- if hasKey .Values "webhookIPAllowlist" -}}
 {{- fail "webhookIPAllowlist.* was removed in IMPL-0024: the in-app IP allowlist was spoofable behind every documented proxy and was deleted — source-IP enforcement now lives at the operator's edge layer. Delete the block. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
+{{- end -}}
+{{- /* The controls switch-over (IMPL-0029 7.9): the rule engine, its
+templates and the single-App credentials are gone. */ -}}
+{{- $controls := "See docs/operations/v2-migration.md#controls-chart-values" -}}
+{{- range $k := list "templates" "secrets" "checkInterval" -}}
+{{- if hasKey $.Values $k -}}
+{{- fail (printf "%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "config" "autoClosePR" "orphanCleanup" -}}
+{{- if hasKey $.Values.policy $k -}}
+{{- fail (printf "policy.%s was removed in the controls switch-over (IMPL-0029): the policy is a directory in policy.files. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "appId" "dryRun" "skipForks" "skipArchived" -}}
+{{- if hasKey $.Values.config $k -}}
+{{- fail (printf "config.%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "replicas" "concurrency" "resources" -}}
+{{- if hasKey $.Values.worker $k -}}
+{{- fail (printf "worker.%s was removed in the controls switch-over (IMPL-0029): the rc worker is gone; size evaluator.* and remediator.*. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey ($.Values.templating | default dict) "strict" -}}
+{{- fail (printf "templating.strict was removed in the controls switch-over (IMPL-0029): policy load validates every template. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.store.postgres "maxConns" -}}
+{{- fail (printf "store.postgres.maxConns was removed in the controls switch-over (IMPL-0029): use evaluator.dbPoolSize and remediator.dbPoolSize. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.api "prStaleAfter" -}}
+{{- fail (printf "api.prStaleAfter was removed in the controls switch-over (IMPL-0029): the findings endpoints that used it are gone. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.migrate "freshness" -}}
+{{- fail (printf "migrate.freshness was removed in the controls switch-over (IMPL-0029): the rc backfill that read it is gone. %s" $controls) -}}
 {{- end -}}
 {{- end }}
 
@@ -256,9 +280,10 @@ Deployment and the migrate Job so the two can never disagree on the DSN.
 ===========================================================================
 v2 roles (DESIGN-0026 § Chart 2.0.0, IMPL-0025 Phase 17).
 
-topology=split renders one Deployment per role (ingest, worker, and api
-when api.enabled); topology=all renders a single Deployment running every
-role. Each role helper takes a dict: {ctx: $, role: "<name>"}.
+topology=split renders one Deployment per role (ingest, the controls
+roles whose App is configured, and api when api.enabled); topology=all
+renders a single Deployment running every role. The rc's worker role is
+gone (IMPL-0029 task 7.1). Each role helper takes a dict: {ctx: $, role: "<name>"}.
 ===========================================================================
 */}}
 
@@ -269,7 +294,7 @@ The roles rendered for the current topology.
 {{- if eq .Values.topology "all" -}}
 all
 {{- else -}}
-ingest worker{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
+ingest{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
 {{- end -}}
 {{- end }}
 
@@ -340,25 +365,105 @@ app.kubernetes.io/component: {{ .role }}
 {{- end }}
 
 {{/*
-What each role holds. Secret scoping (DESIGN-0026): the App key only in
-worker and all, the webhook secret only in ingest and all, Temporal in
+What each role holds. Secret scoping (DESIGN-0026): the rc App key only
+in all, the webhook secret only in ingest and all, Temporal in
 every role that dials it, and nothing but the read-only DSN in api.
 */}}
-{{- define "repo-guardian.roleHasAppKey" -}}{{ if has .role (list "worker" "all") }}true{{ end }}{{- end }}
 {{- /* Per-App keys (IMPL-0028 task 3.5): each App's key reaches only the roles that act as it, and only when its block is enabled. */ -}}
 {{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleDialsTemporal" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- /* The api role dials only with api.temporal: its client sends the
+re-evaluate POST's signal and probes the queues (DESIGN-0032 § API). */ -}}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if or (has .role (list "ingest" "evaluator" "remediator" "all")) (and (eq .role "api") .ctx.Values.api.temporal) }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 {{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
-{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "worker" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
 
 {{/*
-Whether a policy file is mounted.
+Whether a policy directory is mounted.
 */}}
 {{- define "repo-guardian.hasPolicy" -}}
-{{- if or .Values.policy.config .Values.policy.existingConfigMap }}true{{ end -}}
+{{- if or .Values.policy.files .Values.policy.existingConfigMap }}true{{ end -}}
+{{- end }}
+
+{{/*
+The policy root's mount path: GUARDIAN_CONFIG on every role that loads
+the policy and on the migrate Job.
+*/}}
+{{- define "repo-guardian.policyRoot" -}}/etc/repo-guardian/policy{{- end }}
+
+{{/*
+policy.files is the policy root as a nested map (IMPL-0029 7.9, OQ11
+(a)): a string is a file, a map is a directory. policyFiles walks it and
+returns JSON {"<path>": "<content>"}, e.g. "catalogue/codeowners.hcl".
+Callers fromJson it.
+*/}}
+{{- define "repo-guardian.policyFiles" -}}
+{{- $out := dict -}}
+{{- include "repo-guardian.policyWalk" (dict "node" (.Values.policy.files | default dict) "prefix" "" "out" $out) -}}
+{{- toJson $out -}}
+{{- end }}
+
+{{- define "repo-guardian.policyWalk" -}}
+{{- range $k, $v := .node -}}
+{{- if or (eq $k "") (eq $k ".") (eq $k "..") (contains "/" $k) -}}
+{{- fail (printf "policy.files entry %q under %q: a name is one path segment, never empty, \".\", \"..\" or containing /" $k (default "/" $.prefix)) -}}
+{{- end -}}
+{{- $p := ternary $k (printf "%s/%s" $.prefix $k) (eq $.prefix "") -}}
+{{- if kindIs "map" $v -}}
+{{- include "repo-guardian.policyWalk" (dict "node" $v "prefix" $p "out" $.out) -}}
+{{- else -}}
+{{- $_ := set $.out $p (toString $v) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The ConfigMap key for a policy path: "/" becomes "." (OQ11:
+catalogue/codeowners.hcl → catalogue.codeowners.hcl). The volume's items
+put each file back at its path, so catalogue/ and orgs/ survive the
+mount (kubelet's ..data layout, which policy.Load follows).
+*/}}
+{{- define "repo-guardian.policyKey" -}}
+{{- regexReplaceAll "[^-._a-zA-Z0-9]" (replace "/" "." .) "_" -}}
+{{- end }}
+
+{{/*
+The policy volume, shared by the Deployment and the migrate Job. An
+operator ConfigMap is mounted whole; policy.files is mounted through
+items, one per file.
+*/}}
+{{- define "repo-guardian.policyVolume" -}}
+- name: policy
+  configMap:
+    name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+    {{- if not .Values.policy.existingConfigMap }}
+    items:
+      {{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson }}
+      - key: {{ include "repo-guardian.policyKey" $path }}
+        path: {{ $path }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+
+{{/*
+Render-time guard for policy.files: distinct ConfigMap keys, and not
+beside an existingConfigMap. policyWalk refuses names that would leave
+the root.
+*/}}
+{{- define "repo-guardian.validatePolicyFiles" -}}
+{{- if and .Values.policy.files .Values.policy.existingConfigMap -}}
+{{- fail "policy.files and policy.existingConfigMap are mutually exclusive: set one" -}}
+{{- end -}}
+{{- $keys := dict -}}
+{{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson -}}
+{{- $k := include "repo-guardian.policyKey" $path -}}
+{{- if hasKey $keys $k -}}
+{{- fail (printf "policy.files paths %q and %q map to the same ConfigMap key %q: rename one" (get $keys $k) $path $k) -}}
+{{- end -}}
+{{- $_ := set $keys $k $path -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -483,8 +588,6 @@ The api role's env: listener, read-only DSN, auth and status.
 - name: API_AUTH_ENABLED
   value: "false"
 {{- end }}
-- name: PR_STALE_AFTER
-  value: {{ $v.api.prStaleAfter | quote }}
 - name: STATUS_PUBLIC
   value: {{ $v.api.status.public | quote }}
 {{- end }}
@@ -548,10 +651,10 @@ success; failure aborts the render with the fix.
 */}}
 {{- define "repo-guardian.validateRoles" -}}
 {{- if not .Values.temporal.address -}}
-{{- fail "temporal.address is required: ingest and the worker dial Temporal. See docs/operations/v2-migration.md" -}}
+{{- fail "temporal.address is required: ingest and the controls workers dial Temporal. See docs/operations/v2-migration.md" -}}
 {{- end -}}
 {{- if not (include "repo-guardian.hasPolicy" .) -}}
-{{- fail "policy.config or policy.existingConfigMap is required: the worker will not start without GUARDIAN_CONFIG" -}}
+{{- fail "policy.files or policy.existingConfigMap is required: ingest and the controls workers will not start without GUARDIAN_CONFIG" -}}
 {{- end -}}
 {{- if and .Values.api.enabled .Values.api.auth.enabled (not .Values.api.auth.issuer) -}}
 {{- fail "api.auth.issuer is required when api.auth.enabled (or set api.auth.enabled=false for a pod-network-only API)" -}}
@@ -652,7 +755,8 @@ Takes (dict "ctx" $ "app" "eval"|"remediate").
 
 {{/*
 One controls App's env: the webhook secret and App id for ingest, the
-App id and key path for the role that acts as it. Takes (dict "ctx" $
+App id and key path for the role that acts as it, and the App id alone
+for an api role with api.temporal, which probes that App's queue. Takes (dict "ctx" $
 "role" <role> "app" "eval"|"remediate").
 */}}
 {{- define "repo-guardian.appEnv" -}}
@@ -660,7 +764,8 @@ App id and key path for the role that acts as it. Takes (dict "ctx" $
 {{- $prefix := ternary "EVAL" "REMEDIATE" (eq .app "eval") -}}
 {{- $hasKey := ternary (include "repo-guardian.roleHasEvalKey" .) (include "repo-guardian.roleHasRemediateKey" .) (eq .app "eval") -}}
 {{- $hasHook := and $a.appId (include "repo-guardian.roleHasWebhookSecret" .) -}}
-{{- if or $hasKey $hasHook }}
+{{- $probes := and $a.appId (eq .role "api") .ctx.Values.api.temporal -}}
+{{- if or $hasKey $hasHook $probes }}
 - name: {{ $prefix }}_GITHUB_APP_ID
   value: {{ $a.appId | quote }}
 {{- end }}

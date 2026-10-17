@@ -26,8 +26,8 @@ func TestControlsHalves(t *testing.T) {
 		{"remediator alone", &config.Config{}, config.RoleRemediator, []string{temporal.TaskQueueRemediate}},
 		{"all, both Apps", both, config.RoleAll, []string{temporal.TaskQueueEval, temporal.TaskQueueRemediate}},
 		{"all, Evaluation App only", evalOnly, config.RoleAll, []string{temporal.TaskQueueEval}},
-		{"all, rc single App", &config.Config{}, config.RoleAll, nil},
-		{"rc worker", both, config.RoleWorker, nil},
+		{"all, no App", &config.Config{}, config.RoleAll, nil},
+		{"ingest", both, config.RoleIngest, nil},
 	}
 
 	for _, tt := range tests {

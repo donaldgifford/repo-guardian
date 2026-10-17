@@ -205,33 +205,35 @@ func indent(s, prefix string) string {
 }
 
 // TestSuite_PostureQueriesDedupeAcrossReplicas pins the aggregation
-// order on the leader-published gauges.
+// order on the posture gauges.
 //
-// The posture gauges are served by one replica, and a demoted replica
-// keeps serving its last values until the process restarts. `sum` over
-// those series multiplies the fleet by the number of replicas that ever
-// held the lock — silently, and in the direction that makes compliance
-// look worse than it is. The inner aggregation must be `max by (...)`.
+// Every api replica exports the same posture, and a replica that stopped
+// exporting keeps serving its last values until the process restarts.
+// `sum` over those series multiplies the fleet by the replica count —
+// silently. So every occurrence of a posture gauge must sit DIRECTLY
+// inside a `max by (...)`: a query that merely contains a max somewhere
+// (`max by (control) (sum by (org, control) (gauge))`) has the nesting
+// reversed and still double-counts.
 func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 	t.Parallel()
 
-	postureGauges := []string{
-		"repo_guardian_repos_tracked",
-		"repo_guardian_repos_actionable",
-		"repo_guardian_repos_unmeasurable",
-	}
+	seen := 0
 
 	for _, tgt := range promTargets(t) {
-		for _, gauge := range postureGauges {
-			if !strings.Contains(tgt.Expr, gauge) {
-				continue
-			}
+		for _, gauge := range []string{"repo_guardian_controls_status", "repo_guardian_controls_coverage"} {
+			all := strings.Count(tgt.Expr, gauge)
+			wrapped := len(regexp.MustCompile(`max by \([^)]*\) \(`+gauge+`\b`).FindAllString(tgt.Expr, -1))
+			seen += all
 
-			if !strings.Contains(tgt.Expr, "max by (") {
-				t.Errorf("%s / %s queries %s without a max-by dedupe:\n%s",
-					tgt.Dashboard, tgt.Panel, gauge, tgt.Expr)
+			if all != wrapped {
+				t.Errorf("%s / %s reads %s outside a max-by dedupe (%d of %d occurrences wrapped):\n%s",
+					tgt.Dashboard, tgt.Panel, gauge, wrapped, all, tgt.Expr)
 			}
 		}
+	}
+
+	if seen == 0 {
+		t.Fatal("no panel reads a posture gauge; the dedupe check would pass vacuously")
 	}
 }
 
@@ -348,7 +350,7 @@ func TestSuite_PrometheusSelectorScopesTheOrgVariable(t *testing.T) {
 	t.Parallel()
 
 	ds := dashboard.Datasources{PrometheusSelector: testSelector}.WithDefaults()
-	want := `label_values(repo_guardian_repos_tracked{` + testSelector + `}, org)`
+	want := `label_values(repo_guardian_controls_coverage{` + testSelector + `}, org)`
 
 	found := false
 

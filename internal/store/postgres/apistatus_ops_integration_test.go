@@ -16,26 +16,21 @@ import (
 func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 	t.Parallel()
 
-	f := newV2Fixture(t)
+	f := newAPIFixture(t)
 	seedTwoOrgs(t, f)
 
 	ctx := t.Context()
-	now := t0.Add(time.Hour)
+	now := time.Now()
 	day := 24 * time.Hour
 
-	old, err := f.store.UpsertDiscovered(ctx, &store.DiscoveredRepo{Org: "acme", Name: "old", InstallationID: testInstallation})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// acme/old was last checked two days ago; the store stamps real time,
+	// so the owner moves the check back.
+	old := f.discover(t, "acme", "old")
+	f.evaluate(t, old, "old", "compliant")
+	run(t, f.dsns.Owner, `UPDATE checks SET started_at = now() - interval '2 days', finished_at = now() - interval '2 days'
+		WHERE check_key = 'old'`)
 
-	if _, err := f.store.RecordCheck(ctx, &store.CheckRecord{
-		Key: "old", RepositoryID: old.ID, InstallationID: testInstallation, Trigger: store.TriggerSchedule,
-		PolicyVersion: "v2:test", StartedAt: t0.Add(-2 * day), FinishedAt: t0.Add(-2 * day), Outcomes: []store.Outcome{compliant("codeowners")},
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	pool, err := postgres.NewReadOnlyPool(ctx, f.dsn)
+	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,37 +38,47 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 
 	r := postgres.NewAPIReader(pool)
 
-	in, err := r.StatusInputs(ctx, now)
+	in, err := r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if in.Rollout != nil || in.LastSnapshot != nil || len(in.History) != 0 {
-		t.Fatalf("before any version or snapshot: rollout %+v, last snapshot %v, history %v", in.Rollout, in.LastSnapshot, in.History)
+	// The fixture activates its policy version before anything else.
+	if in.Rollout == nil || in.Rollout.CompletedAt != nil || in.LastSnapshot != nil || len(in.History) != 0 {
+		t.Fatalf("before any snapshot: rollout %+v, last snapshot %v, history %v", in.Rollout, in.LastSnapshot, in.History)
 	}
 
-	// The three seeded checks finished at t0; acme/old's two days ago.
-	if in.CheckedLastDay != 3 || in.ActiveRepositories != 4 {
-		t.Errorf("checked_24h = %d, tracked = %d, want 3 and 4", in.CheckedLastDay, in.ActiveRepositories)
+	// Three seeded checks are fresh; acme/old's is two days old. d is
+	// archived, so four repositories are active.
+	if in.EvaluatedLastDay != 3 || in.ActiveRepositories != 4 {
+		t.Errorf("evaluated_24h = %d, tracked = %d, want 3 and 4", in.EvaluatedLastDay, in.ActiveRepositories)
 	}
 
-	for _, at := range []time.Time{t0.Add(-40 * day), t0.Add(-2*day - 6*time.Hour), t0.Add(-2 * day), t0.Add(-day)} {
+	// acme/old's only success is older than the one-day window.
+	if in.Overdue != 1 {
+		t.Errorf("overdue = %d, want 1", in.Overdue)
+	}
+
+	// The fixture's one Evaluation App installation reaches every
+	// discovered repository, the archived one included.
+	if len(in.Apps) != 1 || in.Apps[0] != (store.AppInstallations{App: store.AppEval, Installations: 1, Repositories: 5}) {
+		t.Errorf("apps = %+v, want one eval installation reaching 5 repositories", in.Apps)
+	}
+
+	noon := now.UTC().Truncate(day).Add(-12 * time.Hour)
+	for _, at := range []time.Time{noon.Add(-40 * day), noon.Add(-day - 6*time.Hour), noon.Add(-day), noon} {
 		if _, err := f.store.InsertComplianceSnapshot(ctx, at); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if _, err := f.store.RecordPolicyVersion(ctx, "v2:ops", store.PolicySummary{}); err != nil {
-		t.Fatal(err)
-	}
-
-	in, err = r.StatusInputs(ctx, now)
+	in, err = r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// 40 days ago is out of range; the 06:00 snapshot loses to its day's noon.
-	want := []time.Time{t0.Add(-2 * day), t0.Add(-day)}
+	want := []time.Time{noon.Add(-day), noon}
 	if len(in.History) != len(want) {
 		t.Fatalf("history = %+v, want points at %v", in.History, want)
 	}
@@ -85,19 +90,15 @@ func TestStatusInputs_HistoryAndOperations(t *testing.T) {
 		}
 	}
 
-	if in.LastSnapshot == nil || !in.LastSnapshot.Equal(t0.Add(-day)) {
-		t.Errorf("last snapshot = %v, want %v", in.LastSnapshot, t0.Add(-day))
+	if in.LastSnapshot == nil || !in.LastSnapshot.Equal(noon) {
+		t.Errorf("last snapshot = %v, want %v", in.LastSnapshot, noon)
 	}
 
-	if in.Rollout == nil || in.Rollout.CompletedAt != nil {
-		t.Fatalf("rollout = %+v, want in progress", in.Rollout)
-	}
-
-	if err := f.store.CompletePolicyRollout(ctx, "v2:ops"); err != nil {
+	if err := f.store.CompletePolicyRollout(ctx, testPolicyVersion); err != nil {
 		t.Fatal(err)
 	}
 
-	in, err = r.StatusInputs(ctx, now)
+	in, err = r.StatusInputs(ctx, now, day)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0031
 title: "Control framework: controls, control rules and file controls"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-02
 ---
@@ -11,6 +11,8 @@ created: 2026-10-02
 # DESIGN-0031: Control framework: controls, control rules and file controls
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -50,6 +52,7 @@ created: 2026-10-02
 - [Open Questions](#open-questions)
   - [OQ1: What does "pattern is owned by owners" mean for CODEOWNERS?](#oq1-what-does-pattern-is-owned-by-owners-mean-for-codeowners)
   - [OQ2: Can catalog-info remediation edit fields in an existing file?](#oq2-can-catalog-info-remediation-edit-fields-in-an-existing-file)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

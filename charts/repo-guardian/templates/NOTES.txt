@@ -3,7 +3,7 @@ repo-guardian has been deployed!
 Topology: {{ .Values.topology }} ({{ include "repo-guardian.roles" . | replace " " ", " }})
 Temporal: {{ .Values.temporal.address }} (namespace {{ .Values.temporal.namespace }}, task queue {{ .Values.temporal.taskQueue }})
 
-Webhook endpoint: POST /webhooks/github
+Webhook endpoints: POST /webhooks/github/eval, POST /webhooks/github/remediate
 Health check:     GET  /healthz
 Readiness check:  GET  /readyz
 Metrics:          GET  :{{ .Values.config.metricsPort }}/metrics (every role)
@@ -20,11 +20,6 @@ that can reach the Service. Keep it off the network edge.
 Schema migrations ran as the {{ include "repo-guardian.fullname" . }}-migrate hook Job.
 {{- end }}
 
-{{- if .Values.config.dryRun }}
-
-NOTE: Dry run mode is ENABLED. No PRs will be created.
-Set config.dryRun=false to enable live mode.
-{{- end }}
 
 Ingress is operator-owned: route external webhook traffic to the
 {{ include "repo-guardian.fullname" . }} service on port {{ .Values.service.httpPort }}.
@@ -32,30 +27,7 @@ See docs/operations/ingress.md in the repo-guardian repository for the
 documented options (AWS LBC + Gateway API, Tailscale operator Funnel,
 Cloudflare Tunnel, ngrok) and each option's source-IP enforcement.
 
-Configure your GitHub App's webhook URL to point to:
-  https://<your-domain>/webhooks/github
+Configure each GitHub App's webhook URL to point to its route:
+  https://<your-domain>/webhooks/github/eval       (Evaluation App)
+  https://<your-domain>/webhooks/github/remediate  (Remediation App)
 
-{{- $hasLegacy := false }}
-{{- if hasKey .Values.templates "codeowners" }}{{- $hasLegacy = true }}{{- end }}
-{{- if hasKey .Values.templates "dependabot" }}{{- $hasLegacy = true }}{{- end }}
-{{- if hasKey .Values.templates "renovate" }}{{- $hasLegacy = true }}{{- end }}
-{{- if $hasLegacy }}
-
-WARNING: legacy template slots detected.
-
-Chart 0.4.0 removed templates.codeowners, templates.dependabot, and
-templates.renovate. Move existing values into templates.files keyed by
-filename:
-
-  templates:
-    files:
-      codeowners.tmpl: |
-        * @platform-team
-      dependabot.tmpl: |
-        version: 2
-        updates: [...]
-
-For out-of-band template management, set
-templates.existingConfigMap: <name> and the chart will mount that
-ConfigMap at TEMPLATE_DIR instead of rendering one.
-{{- end }}

@@ -1,7 +1,7 @@
 {
   "uid": "repo-guardian-kpi",
   "title": "repo-guardian — KPI",
-  "description": "Fleet compliance posture and the health of the service that measures it.",
+  "description": "Fleet controls posture and the health of the service that measures it.",
   "tags": [
     "repo-guardian",
     "generated"
@@ -34,13 +34,13 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(max by (org) (repo_guardian_repos_tracked))",
+          "expr": "(\n  sum (max by (org, control) (repo_guardian_controls_status{bucket=\"compliant\"}))\n  /\n  (sum (max by (org, control, bucket) (repo_guardian_controls_status{bucket=~\"compliant|non_compliant\"})) \u003e 0)\n)\nand on() (sum (max by (org, control) (repo_guardian_controls_coverage)) \u003e 0)",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Repositories tracked",
-      "description": "Active repositories with any recorded posture. Parked repositories (archived, forked, unreadable) are excluded and counted separately.",
+      "title": "Fleet compliance",
+      "description": "Compliant over compliant plus non-compliant, across every control assignment. Pending, stale and unmeasurable repositories are outside the denominator. Reads 'no data' rather than 100% when nothing is assigned, because an unmeasured fleet is not a compliant one.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -68,7 +68,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percentunit",
           "noValue": "no data"
         },
         "overrides": []
@@ -78,13 +78,13 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(max by (org, reason) (repo_guardian_repos_unmeasurable))",
+          "expr": "sum(max by (org, control) (repo_guardian_controls_coverage))",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Repositories unmeasurable",
-      "description": "Parked repositories, by reason. These are excluded from every compliance number — a rising access_denied share means the numbers cover less of the fleet.",
+      "title": "Control assignments",
+      "description": "Repositories each control is actively assigned to, summed over controls. One repository with three controls counts three times: this is the amount of posture being measured, not the number of repositories.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -119,17 +119,16 @@
       }
     },
     {
-      "type": "timeseries",
+      "type": "stat",
       "targets": [
         {
-          "expr": "(\n  1 - (sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable)) / scalar(sum(max by (org) (repo_guardian_repos_tracked))))\n)\nand on() (sum(max by (org) (repo_guardian_repos_tracked)) \u003e 0)",
-          "instant": false,
-          "legendFormat": "{{ rule_name }}",
-          "range": true
+          "expr": "sum(max by (org, control) (repo_guardian_controls_status{bucket=\"unmeasurable\"}))",
+          "instant": true,
+          "range": false
         }
       ],
-      "title": "Compliance by rule",
-      "description": "Share of tracked repositories satisfying each rule. Reads 'no data' rather than 100% when nothing is tracked, because an unmeasured rule is not a compliant one.",
+      "title": "Unmeasurable assignments",
+      "description": "Assignments the evaluator could not measure: access denied, a suspended installation, or an ownership conflict. They are outside every compliance number, so a rising count means the numbers cover less of the fleet.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -139,6 +138,51 @@
         "h": 9,
         "w": 12,
         "x": 0,
+        "y": 10
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": []
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": ""
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "(\n  sum by (control) (max by (org, control) (repo_guardian_controls_status{bucket=\"compliant\"}))\n  /\n  (sum by (control) (max by (org, control, bucket) (repo_guardian_controls_status{bucket=~\"compliant|non_compliant\"})) \u003e 0)\n)\nand on (control) (sum by (control) (max by (org, control) (repo_guardian_controls_coverage)) \u003e 0)",
+          "instant": false,
+          "legendFormat": "{{ control }}",
+          "range": true
+        }
+      ],
+      "title": "Compliance by control",
+      "description": "Share of each control's measured repositories that pass. A control drops out rather than reading 100% when it measures nothing.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
         "y": 10
       },
       "repeatDirection": "h",
@@ -167,13 +211,13 @@
       "type": "table",
       "targets": [
         {
-          "expr": "sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable))",
+          "expr": "sum by (control) (max by (org, control) (repo_guardian_controls_status{bucket=\"non_compliant\"}))",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Repositories failing each rule",
-      "description": "Current non-compliant count per rule. This is state read back from the store, not a rate over check events: a repository fixed yesterday is not in it.",
+      "title": "Repositories failing each control",
+      "description": "Current non-compliant count per control. State read back from the store, not a rate over evaluation events: a repository fixed yesterday is not in it.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -182,8 +226,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 12,
-        "y": 10
+        "x": 0,
+        "y": 19
       },
       "repeatDirection": "h",
       "options": {
@@ -209,81 +253,17 @@
       }
     },
     {
-      "type": "row",
-      "collapsed": false,
-      "title": "Convergence",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 19
-      },
-      "id": 0,
-      "panels": []
-    },
-    {
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (age_bucket) (max by (org, rule, age_bucket) (repo_guardian_open_prs_by_rule))",
+          "expr": "sum by (bucket) (max by (org, control, bucket) (repo_guardian_controls_status))",
           "instant": false,
-          "legendFormat": "{{ age_bucket }}",
+          "legendFormat": "{{ bucket }}",
           "range": true
         }
       ],
-      "title": "Open repo-guardian PRs by age",
-      "description": "CAVEAT: this series is incremented by whichever replica performs a check and reset only by the replica holding the sweep lock, so on a multi-replica deployment a non-leader's copy accumulates rather than reflecting the current open set. Read the shape, not the absolute number, until it is re-derived from the store.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 20
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum(rate(repo_guardian_prs_created_total[1h])) * 3600",
-          "instant": false,
-          "legendFormat": "opened/h",
-          "range": true
-        },
-        {
-          "expr": "sum(rate(repo_guardian_prs_closed_total{reason=\"satisfied\"}[1h])) * 3600",
-          "instant": false,
-          "legendFormat": "auto-closed/h",
-          "range": true
-        }
-      ],
-      "title": "PR throughput",
-      "description": "Opened versus auto-closed-as-satisfied. Both are business-tier PR events, so they belong on one panel: convergence is the relationship between them, and split across two panels nobody reads it that way.",
+      "title": "Assignments by status",
+      "description": "Every assignment in exactly one bucket. Pending is assigned but not yet evaluated; stale is evaluated longer ago than the freshness window. A growing pending or stale share means evaluation is not keeping up with the fleet.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -293,7 +273,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 19
       },
       "repeatDirection": "h",
       "options": {
@@ -318,16 +298,29 @@
       }
     },
     {
+      "type": "row",
+      "collapsed": false,
+      "title": "Service health",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(max by (org, rule) (repo_guardian_open_prs_by_rule{age_bucket=\"30d+\"}))",
+          "expr": "sum(rate(repo_guardian_evaluations_total{outcome=\"error\"}[15m]))\n/\n(sum(rate(repo_guardian_evaluations_total[15m])) \u003e 0)",
           "instant": true,
           "range": false
         }
       ],
-      "title": "PRs open over 30 days",
-      "description": "A repo-guardian PR nobody merged. With auto_close_pr disabled a satisfied PR stays open by design and will show up here.",
+      "title": "Evaluation error rate",
+      "description": "Share of evaluations that ended in an error. The `\u003e 0` on the denominator makes an idle evaluator read 'no data' instead of dividing by zero.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -355,36 +348,23 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percentunit",
           "noValue": "no data"
         },
         "overrides": []
       }
     },
     {
-      "type": "row",
-      "collapsed": false,
-      "title": "Service health",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 38
-      },
-      "id": 0,
-      "panels": []
-    },
-    {
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(rate(repo_guardian_errors_total[15m]))\n/\nclamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)",
+          "expr": "histogram_quantile(0.95,\n  sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[1h]))\n)",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Check failure rate",
-      "description": "Share of repository checks that errored. Matches the expression behind RepoGuardianHighErrorRate, which pages above 10%. clamp_min keeps the ratio defined when no check has completed in the window; without it an idle fleet divides by zero and reads NaN, which nobody can tell from a broken exporter.",
+      "title": "Evaluation freshness p95",
+      "description": "Age of a control's previous result when it is re-evaluated. This is the freshness SLO: a value climbing past EVAL_INTERVAL means repositories wait longer than their timer between evaluations.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -393,8 +373,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
-        "y": 39
+        "x": 12,
+        "y": 29
       },
       "repeatDirection": "h",
       "options": {
@@ -412,7 +392,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "s",
           "noValue": "no data"
         },
         "overrides": []
@@ -428,51 +408,7 @@
         }
       ],
       "title": "GitHub API budget remaining",
-      "description": "Minimum remaining across installations. Fed solely by the sweep's per-installation sample, so it updates once per sweep rather than continuously.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 39
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": []
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": ""
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "expr": "max(repo_guardian_queue_depth{queue=\"jobs\"})",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "title": "Job queue depth",
-      "description": "Jobs waiting to be claimed. A depth that only grows means workers are not keeping up.",
+      "description": "Minimum remaining across installations, set by every evaluation that talks to GitHub.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -482,7 +418,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 38
       },
       "repeatDirection": "h",
       "options": {
@@ -510,13 +446,13 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "max(repo_guardian_scheduler_is_leader{name=\"stale-sweep\"})",
+          "expr": "sum(rate(repo_guardian_budget_acquire_total{result=\"wait\"}[1h])) * 3600",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Sweep leader",
-      "description": "1 when a replica holds the stale-sweep lock. 0 means nothing is enqueuing stale repositories and every posture number above is frozen. Aggregated with max, never sum: during failover both replicas can briefly hold a series.",
+      "title": "Budget waits per hour",
+      "description": "Evaluations the installation budget told to wait for the rate-limit reset. Sustained waits are backpressure: work is not lost, but the fleet is not converging either.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -526,51 +462,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 48
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": []
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": ""
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "expr": "sum(increase(repo_guardian_posture_export_total{outcome=\"ok\"}[1h]))",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "title": "Posture exporter ticks",
-      "description": "Successful posture reads in the last hour. Zero means every gauge above is stale but still being served, which is the one failure the gauges cannot show themselves. RepoGuardianPostureExportStalled pages on it.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 57
+        "y": 38
       },
       "repeatDirection": "h",
       "options": {

@@ -275,17 +275,14 @@ func TestMonitoringGenerate_WritesArtifacts(t *testing.T) {
 				t.Fatalf("ReadFile(%s) = %v, want nil", path, err)
 			}
 
-			// The default policy configures file rules and auto-close but
-			// no custom_properties reconciler, so the always-on service
-			// health alerts must be present and the property alerts must
-			// not. An artifact carrying both would mean the mechanism
-			// scoping never ran.
-			if !strings.Contains(string(body), "RepoGuardianNoRepoChecks") {
+			// The always-on evaluation alerts must be present, and no
+			// alert over a series the switch-over deletes may survive.
+			if !strings.Contains(string(body), "RepoGuardianEvaluationErrorRate") {
 				t.Errorf("%s has no service-health alert:\n%s", tt.alert, body)
 			}
 
-			if strings.Contains(string(body), "RepoGuardianPropertySchemaMissing") {
-				t.Errorf("%s carries an alert whose reconciler is not configured:\n%s", tt.alert, body)
+			if strings.Contains(string(body), "RepoGuardianNoRepoChecks") {
+				t.Errorf("%s carries an alert over the rc check counters:\n%s", tt.alert, body)
 			}
 		})
 	}

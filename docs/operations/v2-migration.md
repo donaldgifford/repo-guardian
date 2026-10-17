@@ -102,6 +102,53 @@ them: concurrency is `WORKER_ACTIVITY_CONCURRENCY` and cadence is
 `CHECK_INTERVAL`. No other part of the policy language
 changes; see [v2 at a glance](v2-overview.md#writing-rules-before-you-migrate).
 
+### Controls environment variables
+
+The switch to controls (IMPL-0029) removed the rule engine and the
+single-App worker. The variables below are ignored, and the same
+startup warning names each one still set, with `migration` pointing
+here:
+
+| Removed | Replacement |
+| --- | --- |
+| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PATH`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` | `EVAL_*` and `REMEDIATE_*` (`_GITHUB_APP_ID`, `_GITHUB_PRIVATE_KEY_PATH`, `_WEBHOOK_SECRET`) |
+| `CHECK_INTERVAL` | `EVAL_INTERVAL` |
+| `WORKER_ACTIVITY_CONCURRENCY` | `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY` |
+| `STORE_POSTGRES_MAX_CONNS` | `EVALUATOR_DB_POOL_SIZE`, `REMEDIATOR_DB_POOL_SIZE` |
+| `TEMPLATE_DIR` | the policy root's `templates/` directory |
+| `SKIP_FORKS`, `SKIP_ARCHIVED` | none: archived repositories and forks are always parked |
+| `DRY_RUN`, `AUTO_CLOSE_PR`, `ORPHAN_CLEANUP`, `STRICT_TEMPLATES` | none: the evaluator never writes, and the rule engine they configured is gone |
+| `RECONCILE_FRESHNESS` | none: the rc backfill that read it is gone |
+| `PR_STALE_AFTER` | none: the findings endpoints that used it are gone |
+
+`GUARDIAN_CONFIG` stays, but it now names the controls policy
+directory (`enterprise.hcl`, `catalogue/`, `orgs/`, `templates/`), not
+a `guardian.hcl` file. `RATE_LIMIT_THRESHOLD`, `DISCOVERY_*`,
+`COMPLIANCE_SNAPSHOT_INTERVAL`, `POLICY_ROLLOUT_WINDOW` and
+`CHECKS_RETENTION` keep their meaning.
+
+### Controls chart values
+
+The chart fails the render on each of these, naming the key and this
+section (the schema first, the `validateRemovedValues` helper behind
+it):
+
+| Removed | Replacement |
+| --- | --- |
+| `policy.config` | `policy.files`: the policy directory as a nested map, a string per file and a map per directory (`enterprise.hcl`, `catalogue: {...}`, `orgs: {...}`, `templates: {...}`) |
+| `templates.*` | the policy directory's `templates/`, in `policy.files` |
+| `secrets.*`, `config.appId` | `github.eval.*` and `github.remediate.*` |
+| `checkInterval` | `evalInterval` |
+| `worker.replicas`, `worker.concurrency`, `worker.resources` | `evaluator.*` and `remediator.*` (`worker.buildId` stays) |
+| `store.postgres.maxConns` | `evaluator.dbPoolSize`, `remediator.dbPoolSize` |
+| `config.dryRun`, `config.skipForks`, `config.skipArchived`, `policy.autoClosePR`, `policy.orphanCleanup`, `templating.strict` | none |
+| `migrate.freshness`, `api.prStaleAfter` | none |
+
+`policy.existingConfigMap` stays: an operator ConfigMap is mounted
+whole at `GUARDIAN_CONFIG`, so it holds flat keys unless you mount it
+with your own `items` through `extraVolumes`. `templating.vars` stays
+for the templates' `env` helper.
+
 ## The data migration
 
 `repo-guardian migrate` runs as the chart's hook Job. On a v1 database

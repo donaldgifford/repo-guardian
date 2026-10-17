@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
@@ -65,83 +64,6 @@ func nextCursor[T any](p store.Page[T], key func(*T) any, filters any) (*string,
 	return &c, nil
 }
 
-// staleBefore is the pr_stale cut-off: a PR created before it is stale.
-func (s *server) staleBefore(staleAfter time.Duration) time.Time {
-	return s.opts.Now().Add(-staleAfter)
-}
-
-// ListRules returns compliance for every rule over the visible orgs.
-func (s *server) ListRules(ctx context.Context, _ gen.ListRulesRequestObject) (gen.ListRulesResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	rep, err := s.opts.Reader.Rules(ctx, p.Visible)
-	if err != nil {
-		return nil, err
-	}
-
-	return gen.ListRules200JSONResponse{Items: ruleCompliancesOut(rep.Current, rep.Previous)}, nil
-}
-
-// GetRule returns one rule across the visible orgs.
-func (s *server) GetRule(ctx context.Context, req gen.GetRuleRequestObject) (gen.GetRuleResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	kind := findings.RuleKind(req.Kind)
-
-	view, err := s.opts.Reader.Rule(ctx, p.Visible, kind, req.Name, s.staleBefore(s.opts.StaleAfter))
-	if err != nil {
-		return nil, readErr(err)
-	}
-
-	totals := ruleTotals(view.Current, nil)
-	out := gen.GetRule200JSONResponse{
-		Kind: req.Kind, Name: req.Name, Counts: counts(totals[0].counts), CompliantPercent: store.CompliantPercent(totals[0].counts),
-		Orgs: make([]gen.OrgCompliance, 0, len(view.Current)), TopReasons: reasonsOut(view.Reasons),
-	}
-
-	for i := range view.Current {
-		c := view.Current[i].Counts()
-		out.Orgs = append(out.Orgs, gen.OrgCompliance{Org: view.Current[i].Org, Counts: counts(c), CompliantPercent: view.Current[i].Percent})
-	}
-
-	if out.OldestFailures, err = findingsOut(view.Oldest); err != nil {
-		return nil, err
-	}
-
-	out.Description, err = s.ruleDescription(ctx, kind, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
-// ruleDescription looks the rule up in the current policy summary.
-func (s *server) ruleDescription(ctx context.Context, kind findings.RuleKind, name string) (*string, error) {
-	pol, err := s.opts.Reader.Policy(ctx)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, nil //nolint:nilnil // no policy recorded yet
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range pol.Summary.Rules {
-		if r := &pol.Summary.Rules[i]; r.Kind == kind && r.Name == name {
-			return optStr(r.Description), nil
-		}
-	}
-
-	return nil, nil //nolint:nilnil // rule not in the current policy
-}
-
 // ListOrgs returns every visible org.
 func (s *server) ListOrgs(ctx context.Context, _ gen.ListOrgsRequestObject) (gen.ListOrgsResponseObject, error) {
 	p, err := principal(ctx)
@@ -154,82 +76,18 @@ func (s *server) ListOrgs(ctx context.Context, _ gen.ListOrgsRequestObject) (gen
 		return nil, err
 	}
 
-	totals := orgTotals(view.Repositories, view.Current)
+	totals := orgTotals(view.Repositories, view.Compliance)
 	out := gen.ListOrgs200JSONResponse{Items: make([]gen.OrgSummary, 0, len(totals))}
 
 	for i := range totals {
 		t := &totals[i]
-		parked := 0
-
-		for _, pc := range t.parked {
-			parked += pc.Count
-		}
-
 		out.Items = append(out.Items, gen.OrgSummary{
-			Org: t.org, Tracked: t.tracked, Parked: parked, Counts: counts(t.counts), CompliantPercent: store.CompliantPercent(t.counts),
+			Org: t.org, Tracked: t.tracked, Parked: t.parked, Compliance: postureOut(&t.posture),
 			OpenPrs: view.OpenPRs[strings.ToLower(t.org)],
 		})
 	}
 
 	return out, nil
-}
-
-// GetOrg returns one visible org.
-func (s *server) GetOrg(ctx context.Context, req gen.GetOrgRequestObject) (gen.GetOrgResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	view, err := s.opts.Reader.Org(ctx, p.Visible, req.Org)
-	if err != nil {
-		return nil, readErr(err)
-	}
-
-	t := orgTotals(view.Repositories, nil)[0]
-
-	return gen.GetOrg200JSONResponse{
-		Org: view.Org, Tracked: t.tracked, Parked: parkedOut(t.parked),
-		Rules: ruleCompliancesOut(view.Current, view.Previous), NotApplicable: reasonsOut(view.NotApplicable),
-	}, nil
-}
-
-// findingFilters is what a findings cursor is bound to.
-type findingFilters struct {
-	Status      string     `json:"status,omitempty"`
-	Reason      string     `json:"reason,omitempty"`
-	Remediation string     `json:"remediation,omitempty"`
-	Org         string     `json:"org,omitempty"`
-	Kind        string     `json:"kind,omitempty"`
-	Rule        string     `json:"rule,omitempty"`
-	PRStale     *bool      `json:"pr_stale,omitempty"`
-	SinceBefore *time.Time `json:"since_before,omitempty"`
-	StaleAfter  string     `json:"stale_after"`
-	Sort        string     `json:"sort,omitempty"`
-}
-
-type findingKey struct {
-	RepositoryID int64      `json:"r"`
-	Kind         string     `json:"k"`
-	RuleName     string     `json:"n"`
-	PRCreatedAt  *time.Time `json:"p,omitempty"`
-}
-
-// findingSort maps the query parameter onto the store's sort; an absent
-// parameter is the default.
-func findingSort(s *gen.ListFindingsParamsSort) (store.FindingSort, error) {
-	if s == nil {
-		return store.FindingSortDefault, nil
-	}
-
-	switch *s {
-	case gen.Default:
-		return store.FindingSortDefault, nil
-	case gen.PrAge:
-		return store.FindingSortPRAge, nil
-	default:
-		return "", statusError(http.StatusBadRequest, "sort must be default or pr_age")
-	}
 }
 
 func deref(s *string) string {
@@ -240,83 +98,12 @@ func deref(s *string) string {
 	return *s
 }
 
-// ListFindings returns one page of findings over the visible orgs.
-//
-//nolint:gocritic // hugeParam: the signature is fixed by gen.StrictServerInterface
-func (s *server) ListFindings(ctx context.Context, req gen.ListFindingsRequestObject) (gen.ListFindingsResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	q := req.Params
-
-	staleAfter, err := s.staleAfter(q.StaleAfter)
-	if err != nil {
-		return nil, err
-	}
-
-	sort, err := findingSort(q.Sort)
-	if err != nil {
-		return nil, err
-	}
-
-	limit, err := pageSize(q.Limit)
-	if err != nil {
-		return nil, err
-	}
-
-	// The sort is part of the cursor's filter hash: a cursor from one sort
-	// is rejected under another.
-	filters := findingFilters{
-		Status: deref(q.Status), Reason: deref(q.Reason), Remediation: deref(q.Remediation), Org: deref(q.Org),
-		Kind: deref(q.Kind), Rule: deref(q.Rule), PRStale: q.PrStale, SinceBefore: q.SinceBefore, StaleAfter: staleAfter.String(),
-		Sort: string(sort),
-	}
-
-	f := store.FindingFilter{
-		Status: findings.Status(filters.Status), Reason: findings.Reason(filters.Reason),
-		Remediation: findings.Remediation(filters.Remediation), Org: filters.Org, Kind: findings.RuleKind(filters.Kind),
-		RuleName: filters.Rule, PRStale: q.PrStale, SinceBefore: q.SinceBefore, StaleBefore: s.staleBefore(staleAfter), Limit: limit,
-		Sort: sort,
-	}
-
-	var key findingKey
-	if ok, err := cursorIn(q.Cursor, &key, filters); err != nil {
-		return nil, err
-	} else if ok {
-		f.After = &store.FindingKey{
-			RepositoryID: key.RepositoryID, Kind: findings.RuleKind(key.Kind), RuleName: key.RuleName, PRCreatedAt: key.PRCreatedAt,
-		}
-	}
-
-	page, err := s.opts.Reader.Findings(ctx, p.Visible, &f)
-	if err != nil {
-		return nil, err
-	}
-
-	out := gen.ListFindings200JSONResponse{}
-	if out.Items, err = findingsOut(page.Items); err != nil {
-		return nil, err
-	}
-
-	out.NextCursor, err = nextCursor(page, func(it *store.APIFinding) any {
-		k := findingKey{RepositoryID: it.RepositoryID, Kind: string(it.Kind), RuleName: it.RuleName}
-		if sort == store.FindingSortPRAge {
-			k.PRCreatedAt = it.PRCreatedAt()
-		}
-
-		return k
-	}, filters)
-
-	return out, err
-}
-
 // repositoryFilters is what a repositories cursor is bound to.
 type repositoryFilters struct {
 	Org        string `json:"org,omitempty"`
 	Active     *bool  `json:"active,omitempty"`
 	ParkReason string `json:"park_reason,omitempty"`
+	State      string `json:"policy_state,omitempty"`
 	Q          string `json:"q,omitempty"`
 }
 
@@ -338,9 +125,10 @@ func (s *server) ListRepositories(ctx context.Context, req gen.ListRepositoriesR
 		return nil, err
 	}
 
-	filters := repositoryFilters{Org: deref(q.Org), Active: q.Active, ParkReason: deref(q.ParkReason), Q: deref(q.Q)}
+	filters := repositoryFilters{Org: deref(q.Org), Active: q.Active, ParkReason: deref(q.ParkReason), State: deref(q.PolicyState), Q: deref(q.Q)}
 	f := store.RepositoryFilter{
-		Org: filters.Org, Active: q.Active, ParkReason: store.ParkReason(filters.ParkReason), NamePrefix: filters.Q, Limit: limit,
+		Org: filters.Org, Active: q.Active, ParkReason: store.ParkReason(filters.ParkReason), PolicyState: filters.State,
+		NamePrefix: filters.Q, Limit: limit,
 	}
 
 	var key idKey
@@ -372,28 +160,19 @@ func (s *server) GetRepository(ctx context.Context, req gen.GetRepositoryRequest
 		return nil, err
 	}
 
-	staleAfter, err := s.staleAfter(req.Params.StaleAfter)
-	if err != nil {
-		return nil, err
-	}
-
-	d, err := s.opts.Reader.Repository(ctx, p.Visible, req.Id, s.staleBefore(staleAfter))
+	d, err := s.opts.Reader.Repository(ctx, p.Visible, req.Id)
 	if err != nil {
 		return nil, readErr(err)
 	}
 
-	out := gen.GetRepository200JSONResponse{
-		Repository: repositoryOut(&d.Repository), Installation: installationOut(&d.Installation, s.opts.Now()),
-	}
+	out := gen.GetRepository200JSONResponse{Repository: repositoryOut(&d.Repository)}
 
 	if d.LastCheck != nil {
-		c := checkOut(d.LastCheck)
-		out.LastCheck = &c
+		c := evaluationOut(d.LastCheck)
+		out.LastEvaluation = &c
 	}
 
-	out.Findings, err = findingsOut(d.Findings)
-
-	return out, err
+	return out, nil
 }
 
 // repositoryScoped binds a per-repository cursor to its repository.
@@ -401,10 +180,10 @@ type repositoryScoped struct {
 	RepositoryID int64 `json:"repository_id"`
 }
 
-// ListRepositoryChecks returns one page of a repository's checks.
-func (s *server) ListRepositoryChecks(
-	ctx context.Context, req gen.ListRepositoryChecksRequestObject,
-) (gen.ListRepositoryChecksResponseObject, error) {
+// ListRepositoryEvaluations returns one page of a repository's evaluation log.
+func (s *server) ListRepositoryEvaluations(
+	ctx context.Context, req gen.ListRepositoryEvaluationsRequestObject,
+) (gen.ListRepositoryEvaluationsResponseObject, error) {
 	p, err := principal(ctx)
 	if err != nil {
 		return nil, err
@@ -422,14 +201,14 @@ func (s *server) ListRepositoryChecks(
 		return nil, err
 	}
 
-	page, err := s.opts.Reader.RepositoryChecks(ctx, p.Visible, req.Id, key.ID, limit)
+	page, err := s.opts.Reader.RepositoryEvaluations(ctx, p.Visible, req.Id, key.ID, limit)
 	if err != nil {
 		return nil, readErr(err)
 	}
 
-	out := gen.ListRepositoryChecks200JSONResponse{Items: make([]gen.Check, 0, len(page.Items))}
+	out := gen.ListRepositoryEvaluations200JSONResponse{Items: make([]gen.Evaluation, 0, len(page.Items))}
 	for i := range page.Items {
-		out.Items = append(out.Items, checkOut(&page.Items[i]))
+		out.Items = append(out.Items, evaluationOut(&page.Items[i]))
 	}
 
 	out.NextCursor, err = nextCursor(page, func(it *store.Check) any { return idKey{ID: it.ID} }, filters)
@@ -491,160 +270,4 @@ func (s *server) ListRepositoryEvents(
 	}, filters)
 
 	return out, err
-}
-
-// historyFilters is what a history cursor is bound to.
-type historyFilters struct {
-	Org       string     `json:"org,omitempty"`
-	Kind      string     `json:"kind,omitempty"`
-	Rule      string     `json:"rule,omitempty"`
-	From      *time.Time `json:"from,omitempty"`
-	To        *time.Time `json:"to,omitempty"`
-	Aggregate string     `json:"aggregate,omitempty"`
-}
-
-type historyKey struct {
-	SnapshotAt time.Time `json:"at"`
-	Org        string    `json:"o"`
-	Kind       string    `json:"k"`
-	RuleName   string    `json:"n"`
-}
-
-// historyAggregate maps the query parameter onto the store's mode; an
-// absent parameter is none.
-func historyAggregate(a *gen.ListComplianceHistoryParamsAggregate) (store.HistoryAggregate, error) {
-	if a == nil {
-		return store.AggregateNone, nil
-	}
-
-	switch *a {
-	case gen.ListComplianceHistoryParamsAggregateNone:
-		return store.AggregateNone, nil
-	case gen.ListComplianceHistoryParamsAggregateFleet:
-		return store.AggregateFleet, nil
-	case gen.ListComplianceHistoryParamsAggregateOrg:
-		return store.AggregateOrg, nil
-	default:
-		return "", statusError(http.StatusBadRequest, "aggregate must be none, fleet or org")
-	}
-}
-
-// ListComplianceHistory returns one page of stored snapshots.
-func (s *server) ListComplianceHistory(
-	ctx context.Context, req gen.ListComplianceHistoryRequestObject,
-) (gen.ListComplianceHistoryResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	q := req.Params
-
-	limit, err := pageSize(q.Limit)
-	if err != nil {
-		return nil, err
-	}
-
-	agg, err := historyAggregate(q.Aggregate)
-	if err != nil {
-		return nil, err
-	}
-
-	// The aggregate is part of the cursor's filter hash: a cursor from one
-	// mode is rejected under another.
-	filters := historyFilters{Org: deref(q.Org), Kind: deref(q.Kind), Rule: deref(q.Rule), From: q.From, To: q.To, Aggregate: string(agg)}
-	f := store.HistoryFilter{
-		Org: filters.Org, Kind: findings.RuleKind(filters.Kind), RuleName: filters.Rule, From: q.From, To: q.To, Limit: limit,
-		Aggregate: agg,
-	}
-
-	var key historyKey
-	if ok, err := cursorIn(q.Cursor, &key, filters); err != nil {
-		return nil, err
-	} else if ok {
-		f.After = &store.HistoryKey{SnapshotAt: key.SnapshotAt, Org: key.Org, Kind: findings.RuleKind(key.Kind), RuleName: key.RuleName}
-	}
-
-	page, err := s.opts.Reader.ComplianceHistory(ctx, p.Visible, &f)
-	if err != nil {
-		return nil, err
-	}
-
-	out := gen.ListComplianceHistory200JSONResponse{Items: make([]gen.HistoryPoint, 0, len(page.Items))}
-	for i := range page.Items {
-		out.Items = append(out.Items, historyOut(&page.Items[i], agg))
-	}
-
-	out.NextCursor, err = nextCursor(page, func(it *store.ComplianceSnapshot) any {
-		return historyKey{SnapshotAt: it.SnapshotAt, Org: it.Org, Kind: string(it.Kind), RuleName: it.RuleName}
-	}, filters)
-
-	return out, err
-}
-
-// ListInstallations returns one page of installations over the visible
-// orgs.
-func (s *server) ListInstallations(ctx context.Context, req gen.ListInstallationsRequestObject) (gen.ListInstallationsResponseObject, error) {
-	p, err := principal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	limit, err := pageSize(req.Params.Limit)
-	if err != nil {
-		return nil, err
-	}
-
-	filters := struct{}{}
-
-	var key idKey
-	if _, err := cursorIn(req.Params.Cursor, &key, filters); err != nil {
-		return nil, err
-	}
-
-	page, err := s.opts.Reader.Installations(ctx, p.Visible, key.ID, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	now := s.opts.Now()
-	out := gen.ListInstallations200JSONResponse{Items: make([]gen.Installation, 0, len(page.Items))}
-
-	for i := range page.Items {
-		out.Items = append(out.Items, installationOut(&page.Items[i], now))
-	}
-
-	out.NextCursor, err = nextCursor(page, func(it *store.InstallationStatus) any { return idKey{ID: it.InstallationID} }, filters)
-
-	return out, err
-}
-
-// Rollout states.
-const (
-	rolloutInProgress = "in_progress"
-	rolloutComplete   = "complete"
-)
-
-// GetPolicy returns the current policy version, its rollout and rules.
-// The policy is one document for the fleet, so it is not org-scoped.
-func (s *server) GetPolicy(ctx context.Context, _ gen.GetPolicyRequestObject) (gen.GetPolicyResponseObject, error) {
-	pol, err := s.opts.Reader.Policy(ctx)
-	if err != nil {
-		return nil, readErr(err)
-	}
-
-	out := gen.GetPolicy200JSONResponse{
-		Version: pol.Version, FirstSeenAt: pol.FirstSeenAt, RolloutCompletedAt: pol.RolloutCompletedAt,
-		RolloutState: rolloutInProgress, Rules: make([]gen.PolicyRule, 0, len(pol.Summary.Rules)),
-	}
-
-	if pol.RolloutCompletedAt != nil {
-		out.RolloutState = rolloutComplete
-	}
-
-	for i := range pol.Summary.Rules {
-		out.Rules = append(out.Rules, policyRuleOut(&pol.Summary.Rules[i]))
-	}
-
-	return out, nil
 }

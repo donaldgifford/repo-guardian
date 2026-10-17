@@ -11,13 +11,15 @@ import (
 	"strconv"
 	"strings"
 
+	// Registers the "pgx" database/sql driver used by goose.
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
 )
 
 // migrationsControls holds the controls line's goose chain (DESIGN-0032
-// § Data model, D27): a fresh chain for an empty database, never applied
-// over the rc line's migrations_v2.
+// § Data model, D27): a fresh chain for an empty database. The rc line's
+// chains were removed in IMPL-0029 7.5.
 //
 //go:embed migrations_controls
 var migrationsControls embed.FS
@@ -31,12 +33,25 @@ const controlsDir = "migrations_controls"
 const ControlsVersionTable = "goose_controls_version"
 
 // ControlsSchemaVersion is the controls chain version this binary was
-// built for, tracked apart from the rc's SchemaVersion. IMPL-0029 and
-// IMPL-0030 raise it as they add 00002 to 00004.
-const ControlsSchemaVersion = 1
+// built for: 00001_core (IMPL-0028) and IMPL-0029's 00002 to 00004.
+// Roles pass it to RequireControlsSchema so a pod never serves against
+// an older schema.
+const ControlsSchemaVersion = 4
 
-// NewControlsMigrator returns a goose provider over the controls chain,
-// serialized by a session advisory lock like NewMigrator.
+// OpenDB opens a database/sql handle over pgx for goose. The caller
+// owns the returned handle and must close it.
+func OpenDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("opening database: %w", err)
+	}
+
+	return db, nil
+}
+
+// NewControlsMigrator returns a goose provider over the controls chain.
+// A Postgres session-level advisory lock serializes concurrent runners,
+// so two migrate Jobs racing on one database apply each migration once.
 func NewControlsMigrator(db *sql.DB) (*goose.Provider, error) {
 	fsys, err := fs.Sub(migrationsControls, controlsDir)
 	if err != nil {

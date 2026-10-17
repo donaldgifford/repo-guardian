@@ -1,0 +1,38 @@
+# This workflow was created by repo-guardian to set repository custom
+# properties. It runs once when merged to the default branch, then can
+# be safely deleted.
+#
+# Prerequisites:
+#   - The org custom property schema defines:{{ range .Properties }} {{ .Name }}{{ end }}
+#   - GITHUB_TOKEN may write custom properties
+#
+# Property values reach the shell only through the env block (rendered
+# YAML-safe by yamlq) and are expanded as "$RG_PROP_*" variables, which
+# the shell substitutes literally and never re-parses. Never interpolate
+# a property VALUE into the run script (IMPL-0020 A2); property NAMES
+# are policy, validated against a safe charset at load.
+name: Set Custom Properties
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  set-properties:
+    if: {{`${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}`}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set repository custom properties
+        env:
+          GH_TOKEN: {{`${{ secrets.GITHUB_TOKEN }}`}}{{ range .Properties }}{{ if not .Clear }}
+          {{ propenv .Name }}: {{ yamlq .Value }}{{ end }}{{ end }}
+        run: |
+          args=(
+            --method PATCH
+            "repos/{{`${{ github.repository }}`}}/properties/values"
+          ){{ range .Properties }}{{ if .Clear }}
+          args+=(-f 'properties[][property_name]={{ .Name }}' -F 'properties[][value]=null'){{ else }}
+          args+=(-f 'properties[][property_name]={{ .Name }}' -f "properties[][value]=${{ propenv .Name }}"){{ end }}{{ end }}
+          gh api "${args[@]}"

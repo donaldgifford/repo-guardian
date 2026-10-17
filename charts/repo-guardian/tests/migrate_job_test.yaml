@@ -46,11 +46,11 @@ tests:
                 name: RELEASE-NAME-repo-guardian-postgres
                 key: STORE_DSN
           any: true
-      - contains:
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
             name: RECONCILE_FRESHNESS
-            value: 24h
+          any: true
 
   - it: assembles the DSN from a baked-Postgres operator secret
     set:
@@ -65,16 +65,6 @@ tests:
               secretKeyRef:
                 name: pg-pass
                 key: POSTGRES_PASSWORD
-
-  - it: passes migrate.freshness to the v1 backfill
-    set:
-      migrate.freshness: 48h
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: RECONCILE_FRESHNESS
-            value: "48h"
 
   - it: waits for the database for migrate.waitSeconds (IMPL-0028 8.2)
     asserts:

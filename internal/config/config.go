@@ -11,20 +11,6 @@ import (
 
 // Config holds all configuration values for repo-guardian.
 type Config struct {
-	// GitHubAppID is the GitHub App's numeric ID.
-	GitHubAppID int64
-
-	// GitHubPrivateKeyPath is the filesystem path to the App's PEM private key.
-	// Mutually exclusive with GitHubPrivateKey; one must be set.
-	GitHubPrivateKeyPath string
-
-	// GitHubPrivateKey is the raw PEM-encoded private key content.
-	// Mutually exclusive with GitHubPrivateKeyPath; one must be set.
-	GitHubPrivateKey string
-
-	// GitHubWebhookSecret is the HMAC secret for validating webhook payloads.
-	GitHubWebhookSecret string
-
 	// EvalApp is the Evaluation App's credentials (EVAL_*), read by the
 	// evaluator role and the ingest route /webhooks/github/eval
 	// (IMPL-0028 Phase 3).
@@ -35,8 +21,8 @@ type Config struct {
 	RemediateApp AppCredentials
 
 	// Evaluator and Remediator size the controls workers
-	// (EVALUATOR_*/REMEDIATOR_*, IMPL-0028 task 4.9). The rc's worker
-	// keeps WORKER_ACTIVITY_CONCURRENCY and STORE_POSTGRES_MAX_CONNS.
+	// (EVALUATOR_*/REMEDIATOR_*, IMPL-0028 task 4.9); zero takes the
+	// defaults.
 	Evaluator  WorkerSizing
 	Remediator WorkerSizing
 
@@ -50,18 +36,6 @@ type Config struct {
 	// MetricsAddr is the HTTP listen address for the Prometheus metrics server.
 	MetricsAddr string
 
-	// TemplateDir is the directory containing template overrides (ConfigMap mount).
-	TemplateDir string
-
-	// SkipForks controls whether forked repositories are skipped.
-	SkipForks bool
-
-	// SkipArchived controls whether archived repositories are skipped.
-	SkipArchived bool
-
-	// DryRun logs actions without creating PRs when true.
-	DryRun bool
-
 	// LogLevel controls log verbosity (debug, info, warn, error).
 	LogLevel string
 
@@ -69,9 +43,9 @@ type Config struct {
 	// at which pre-emptive throttling begins (e.g., 0.10 = 10%).
 	RateLimitThreshold float64
 
-	// GuardianConfigPath is the path to a guardian.hcl policy file or
-	// directory of .hcl files. When set, operational settings are loaded
-	// from the HCL config instead of environment variables.
+	// GuardianConfigPath is GUARDIAN_CONFIG, the controls policy root
+	// directory (enterprise.hcl, catalogue/, orgs/, templates/) that
+	// policy.Load reads (DESIGN-0030).
 	GuardianConfigPath string
 
 	// StoreDSN is the Postgres connection string for the worker and api
@@ -83,9 +57,10 @@ type Config struct {
 	// require it.
 	TemporalAddress string
 
-	// CheckInterval is CHECK_INTERVAL, each repository's check cadence
-	// in v2 (DESIGN-0026 OQ3). Default 24h.
-	CheckInterval time.Duration
+	// EvalInterval is EVAL_INTERVAL, each repository's evaluation
+	// cadence (DESIGN-0026 OQ3; CHECK_INTERVAL before IMPL-0029).
+	// Default 24h.
+	EvalInterval time.Duration
 
 	// PolicyRolloutWindow is POLICY_ROLLOUT_WINDOW, the span a policy
 	// change spreads its re-checks over. Default 24h.
@@ -97,10 +72,6 @@ type Config struct {
 	// ChecksRetention is CHECKS_RETENTION: SnapshotWorkflow prunes checks
 	// older than this. Default 2160h (90 days, DESIGN-0025 OQ8).
 	ChecksRetention time.Duration
-
-	// StorePostgresMaxConns caps the postgres pool connection count.
-	// Zero falls back to pgxpool's default (derived from GOMAXPROCS).
-	StorePostgresMaxConns int32
 
 	// DiscoveryEnabled gates the worker's `discovery` Temporal Schedule;
 	// false removes it. Default true.
@@ -148,43 +119,11 @@ func LoadRole(role Role) (*Config, error) {
 // parse reads configuration from environment variables and applies
 // defaults, without validation.
 func parse() (*Config, error) {
-	skipForks, err := envOrDefaultBool("SKIP_FORKS", true)
-	if err != nil {
-		return nil, err
-	}
-
-	skipArchived, err := envOrDefaultBool("SKIP_ARCHIVED", true)
-	if err != nil {
-		return nil, err
-	}
-
-	dryRun, err := envOrDefaultBool("DRY_RUN", false)
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := &Config{
-		ListenAddr:           envOrDefault("LISTEN_ADDR", defaultListenAddr),
-		MetricsAddr:          envOrDefault("METRICS_ADDR", ":9090"),
-		TemplateDir:          envOrDefault("TEMPLATE_DIR", "/etc/repo-guardian/templates"),
-		SkipForks:            skipForks,
-		SkipArchived:         skipArchived,
-		DryRun:               dryRun,
-		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
-		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
-		GitHubPrivateKey:     os.Getenv("GITHUB_PRIVATE_KEY"),
-		GitHubWebhookSecret:  os.Getenv("GITHUB_WEBHOOK_SECRET"),
-		GitHubHost:           envOrDefault("GITHUB_HOST", "github.com"),
-	}
-
-	appIDStr := os.Getenv("GITHUB_APP_ID")
-	if appIDStr != "" {
-		appID, err := strconv.ParseInt(appIDStr, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parsing GITHUB_APP_ID %q: %w", appIDStr, err)
-		}
-
-		cfg.GitHubAppID = appID
+		ListenAddr:  envOrDefault("LISTEN_ADDR", defaultListenAddr),
+		MetricsAddr: envOrDefault("METRICS_ADDR", ":9090"),
+		LogLevel:    envOrDefault("LOG_LEVEL", "info"),
+		GitHubHost:  envOrDefault("GITHUB_HOST", "github.com"),
 	}
 
 	rateLimitThreshold, err := envOrDefaultFloat("RATE_LIMIT_THRESHOLD", 0.10)
@@ -214,13 +153,6 @@ func parse() (*Config, error) {
 	cfg.TemporalAddress = os.Getenv("TEMPORAL_ADDRESS")
 
 	cfg.StoreDSN = os.Getenv("STORE_DSN")
-
-	maxConns, err := envOrDefaultInt("STORE_POSTGRES_MAX_CONNS", 0)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.StorePostgresMaxConns = int32(maxConns) //nolint:gosec // operator-supplied cap, narrow conversion is intentional
 
 	if err := loadDiscoveryConfig(cfg); err != nil {
 		return nil, err
@@ -262,7 +194,7 @@ func loadDiscoveryConfig(cfg *Config) error {
 
 // v2 duration defaults (DESIGN-0026 § Configuration).
 const (
-	defaultCheckInterval       = 24 * time.Hour
+	defaultEvalInterval        = 24 * time.Hour
 	defaultPolicyRolloutWindow = 24 * time.Hour
 	defaultChecksRetention     = 2160 * time.Hour
 )
@@ -274,7 +206,7 @@ func loadV2Durations(cfg *Config) error {
 		def  time.Duration
 		dest *time.Duration
 	}{
-		{"CHECK_INTERVAL", defaultCheckInterval, &cfg.CheckInterval},
+		{"EVAL_INTERVAL", defaultEvalInterval, &cfg.EvalInterval},
 		{"POLICY_ROLLOUT_WINDOW", defaultPolicyRolloutWindow, &cfg.PolicyRolloutWindow},
 		{"CHECKS_RETENTION", defaultChecksRetention, &cfg.ChecksRetention},
 	} {

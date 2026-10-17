@@ -14,7 +14,7 @@ import (
 )
 
 // Budget is the AcquireBudget activity. Workflow code cannot call
-// Update-with-Start, so RepoWorkflow reaches its InstallationWorkflow
+// Update-with-Start, so EvaluationWorkflow reaches its InstallationWorkflow
 // through this activity.
 type Budget struct {
 	app       string

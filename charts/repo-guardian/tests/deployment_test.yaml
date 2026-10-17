@@ -7,13 +7,9 @@ set:
   topology: all
   temporal:
     address: temporal:7233
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "test-secret"
-    privateKey: "test-key"
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
 
 tests:
   - it: should set replica count
@@ -58,6 +54,9 @@ tests:
           value: "ghcr.io/donaldgifford/repo-guardian:v1.0.0"
 
   - it: should set environment variables from config
+    set:
+      github:
+        eval: {appId: "11", existingSecret: eval-app}
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -67,61 +66,50 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: DRY_RUN
-            value: "false"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: CHECK_INTERVAL
+            name: EVAL_INTERVAL
             value: "24h"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: SKIP_FORKS
-            value: "true"
+            name: GUARDIAN_CONFIG
+            value: /etc/repo-guardian/policy
 
-  - it: should mount private key as file by default
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GITHUB_PRIVATE_KEY_PATH
-            value: /etc/repo-guardian/private-key/private-key.pem
-      - contains:
-          path: spec.template.spec.containers[0].volumeMounts
-          content:
-            name: github-private-key
-            mountPath: /etc/repo-guardian/private-key
-            readOnly: true
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: github-private-key
-            secret:
-              secretName: RELEASE-NAME-repo-guardian
-              items:
-                - key: private-key
-                  path: private-key.pem
-
-  - it: should use env var for private key when privateKeyAsFile is false
+  # IMPL-0029 7.9: the rule engine's and the single-App worker's env
+  # never render.
+  - it: renders no removed env var
     set:
-      secrets:
-        privateKeyAsFile: false
-        webhookSecret: "test-secret"
-        privateKey: "test-key"
+      github:
+        eval: {appId: "11", existingSecret: eval-app}
     asserts:
-      - contains:
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: GITHUB_PRIVATE_KEY
-            valueFrom:
-              secretKeyRef:
-                name: RELEASE-NAME-repo-guardian
-                key: private-key
+            name: DRY_RUN
+          any: true
       - notContains:
-          path: spec.template.spec.containers[0].volumeMounts
+          path: spec.template.spec.containers[0].env
           content:
-            name: github-private-key
+            name: CHECK_INTERVAL
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GITHUB_APP_ID
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TEMPLATE_DIR
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WORKER_ACTIVITY_CONCURRENCY
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PR_STALE_AFTER
           any: true
 
   - it: should run exactly one container (ingress is operator-owned, IMPL-0024)

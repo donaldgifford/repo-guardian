@@ -1,678 +1,312 @@
 package policy
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
 
-func TestValidate_ValidDefaults(t *testing.T) {
-	cfg := BuiltinDefaults()
-
-	if err := Validate(cfg); err != nil {
-		t.Errorf("Validate(BuiltinDefaults()) = %v, want nil", err)
-	}
+// ent is an enterprise policy over the test catalogue.
+func ent(controls string) string {
+	return "enterprise {\n  orgs     = [\"acme\"]\n  controls = [" + controls + "]\n}\n"
 }
 
-func TestValidate_GuardianRateLimitThreshold(t *testing.T) {
+// org is an org policy for acme with body.
+func org(body string) string { return "org \"acme\" {\n" + body + "}\n" }
+
+func TestValidate_Errors(t *testing.T) {
+	t.Parallel()
+
+	base := ent(`"codeowners@1", "deps@1"`)
+
 	tests := []struct {
-		name    string
-		value   float64
-		wantErr bool
+		name  string
+		files map[string]string
+		want  string
 	}{
-		{"valid zero", 0.0, false},
-		{"valid mid", 0.5, false},
-		{"valid one", 1.0, false},
-		{"negative", -0.1, true},
-		{"above one", 1.1, true},
+		{
+			"unknown control",
+			map[string]string{"enterprise.hcl": ent(`"nope@1"`)},
+			`enterprise.hcl:3: unknown control nope@1: no "nope" in the catalogue`,
+		},
+		{
+			"unknown version",
+			map[string]string{"enterprise.hcl": ent(`"codeowners@9"`)},
+			"enterprise.hcl:3: unknown control version codeowners@9: the catalogue has codeowners@1, codeowners@2",
+		},
+		{
+			"rejected parameter",
+			map[string]string{
+				"enterprise.hcl":    base,
+				"catalogue/bad.hcl": "control \"bad\" {\n  version = 1\n  type = \"testsetting\"\n  rule \"x\" {\n    kind = \"equals\"\n    property = 1\n    value = true\n  }\n}\n",
+			},
+			`catalogue/bad.hcl:1: bad@1/x: parameter "property" must be string`,
+		},
+		{
+			"rule without kind",
+			map[string]string{
+				"enterprise.hcl":    base,
+				"catalogue/bad.hcl": "control \"bad\" {\n  version = 1\n  type = \"testsetting\"\n  rule \"x\" {}\n}\n",
+			},
+			"catalogue/bad.hcl:4: bad@1/x: a rule without kind needs an id that is a rule kind of its type",
+		},
+		{
+			"org not onboarded",
+			map[string]string{"enterprise.hcl": base, "orgs/x.hcl": "org \"stray\" {}\n"},
+			`orgs/x.hcl:1: org "stray" is not in enterprise.orgs`,
+		},
+		{
+			"replace source missing",
+			map[string]string{
+				"enterprise.hcl": base,
+				"orgs/acme.hcl":  org("  replace \"legacy_codeowners@1\" {\n    with = \"codeowners@2\"\n    reason = \"r\"\n  }\n"),
+			},
+			"orgs/acme.hcl:2: replace legacy_codeowners@1: the source is not assigned at this layer",
+		},
+		{
+			"replace shares no resource",
+			map[string]string{
+				"enterprise.hcl": base,
+				"orgs/acme.hcl":  org("  replace \"codeowners@1\" {\n    with = \"deps@1\"\n    reason = \"r\"\n  }\n"),
+			},
+			"orgs/acme.hcl:2: replace codeowners@1 with deps@1: the two controls own no resource in common",
+		},
+		{
+			"exclude without reason",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  exclude \"deps@1\" {}\n")},
+			"orgs/acme.hcl:2: exclude deps@1 needs a reason",
+		},
+		{
+			"replace without reason",
+			map[string]string{
+				"enterprise.hcl": base,
+				"orgs/acme.hcl":  org("  replace \"codeowners@1\" {\n    with = \"codeowners@2\"\n  }\n"),
+			},
+			"orgs/acme.hcl:2: replace codeowners@1 needs a reason",
+		},
+		{
+			"exclude_repos without reason",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  exclude_repos {\n    match = [\"x\"]\n  }\n")},
+			"orgs/acme.hcl:2: exclude_repos needs a reason",
+		},
+		{
+			"repos without label",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  repos {\n    match = [\"x\"]\n  }\n")},
+			"orgs/acme.hcl:2",
+		},
+		{
+			"duplicate repos label",
+			map[string]string{
+				"enterprise.hcl": base,
+				"orgs/acme.hcl":  org("  repos \"a\" {\n    match = [\"x\"]\n  }\n  repos \"a\" {\n    match = [\"y\"]\n  }\n"),
+			},
+			`orgs/acme.hcl:5: repos block "a" is declared twice in org acme (first at orgs/acme.hcl:2)`,
+		},
+		{
+			"override of unassigned control",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  control \"wiki@1\" {\n    mode = \"evaluate\"\n  }\n")},
+			"orgs/acme.hcl:2: control wiki@1 override: no layer of org acme assigns wiki@1",
+		},
+		{
+			"max_open_prs below 1",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  remediation {\n    max_open_prs = 0\n  }\n")},
+			"orgs/acme.hcl:3: remediation.max_open_prs = 0: must be at least 1",
+		},
+		{
+			"reopen_after not a duration",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  remediation {\n    reopen_after = \"soon\"\n  }\n")},
+			`orgs/acme.hcl:3: remediation.reopen_after = "soon": must be a duration of at least 1h0m0s`,
+		},
+		{
+			"reopen_after below 1h",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  remediation {\n    reopen_after = \"30m\"\n  }\n")},
+			`orgs/acme.hcl:3: remediation.reopen_after = "30m": must be a duration of at least 1h0m0s`,
+		},
+		{
+			"duplicate org policy",
+			map[string]string{"enterprise.hcl": base, "orgs/a.hcl": org(""), "orgs/b.hcl": org("")},
+			`orgs/b.hcl:1: a second policy for org "acme" (first at orgs/a.hcl:1)`,
+		},
+		{
+			"duplicate control version",
+			map[string]string{
+				"enterprise.hcl":    base,
+				"catalogue/dup.hcl": "control \"deps\" {\n  version = 1\n  type = \"testfile\"\n  paths = [\"x\"]\n  rule \"exists\" {}\n}\n",
+			},
+			"control deps@1 is defined twice",
+		},
+		{
+			"referenced file missing",
+			map[string]string{"enterprise.hcl": "enterprise {\n  orgs = file(\"orgs.txt\")\n}\n"},
+			"orgs.txt: no such file under the policy root",
+		},
+		{
+			"referenced file too large",
+			map[string]string{"enterprise.hcl": base, "data/big": strings.Repeat("x", MaxFileBytes+1)},
+			"data/big: 1048577 bytes, over the 1048576-byte limit",
+		},
+		{
+			"bad mode",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  mode = \"fix\"\n")},
+			`orgs/acme.hcl:2: mode "fix": want "evaluate" or "remediate"`,
+		},
+		{
+			"bad glob",
+			map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": org("  repos \"a\" {\n    match = [\"[\"]\n  }\n")},
+			`orgs/acme.hcl:2: match pattern "["`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := BuiltinDefaults()
-			cfg.Guardian.RateLimitThreshold = tt.value
+			t.Parallel()
 
-			err := Validate(cfg)
-
-			if tt.wantErr && err == nil {
-				t.Error("expected error")
-			}
-
-			if !tt.wantErr && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			_, err := Load(writeRoot(t, withCatalogue(tt.files)), testRegistry(), discard())
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("Load() err = %v, want it to contain %q", err, tt.want)
 			}
 		})
 	}
 }
 
-func TestValidate_GuardianLogLevel(t *testing.T) {
+func TestValidate_Warnings(t *testing.T) {
+	t.Parallel()
+
+	base := ent(`"codeowners@1", "deps@1", "catalog@1"`)
+
 	tests := []struct {
-		level   string
-		wantErr bool
+		name string
+		org  string
+		want string
 	}{
-		{"debug", false},
-		{"info", false},
-		{"warn", false},
-		{"error", false},
-		{"trace", true},
-		{"INFO", true},
-		{"", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.level, func(t *testing.T) {
-			cfg := BuiltinDefaults()
-			cfg.Guardian.LogLevel = tt.level
-
-			err := Validate(cfg)
-
-			if tt.wantErr && err == nil {
-				t.Errorf("expected error for log_level %q", tt.level)
-			}
-
-			if !tt.wantErr && err != nil {
-				t.Errorf("unexpected error for log_level %q: %v", tt.level, err)
-			}
-		})
-	}
-}
-
-func TestValidate_FileRuleCheckMode(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "invalid",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for invalid check mode")
-	}
-
-	if !strings.Contains(err.Error(), "check must be one of") {
-		t.Errorf("error %q should mention valid check values", err)
-	}
-}
-
-func TestValidate_FileRuleEmptyPaths(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Paths:    []string{},
-		Target:   "test",
-		Template: "test.tmpl",
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty paths")
-	}
-
-	if !strings.Contains(err.Error(), "paths must be non-empty") {
-		t.Errorf("error %q should mention paths", err)
-	}
-}
-
-func TestValidate_FileRuleEmptyTarget(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Paths:    []string{"test"},
-		Target:   "",
-		Template: "test.tmpl",
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty target")
-	}
-
-	if !strings.Contains(err.Error(), "target must be non-empty") {
-		t.Errorf("error %q should mention target", err)
-	}
-}
-
-func TestValidate_FileRuleEmptyTemplate(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "",
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty template")
-	}
-
-	if !strings.Contains(err.Error(), "template must be non-empty") {
-		t.Errorf("error %q should mention template", err)
-	}
-}
-
-func TestValidate_AssertionsRequireContainsMode(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "exists",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-		Assertions: []AssertionConfig{
-			{Pattern: "foo", Message: "must have foo"},
+		{
+			"exclusion of an unassigned control", org("  exclude \"wiki@1\" {\n    reason = \"r\"\n  }\n"),
+			"orgs/acme.hcl:2: exclude wiki@1: not assigned at this layer, so the exclusion does nothing",
 		},
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for assertions with check=exists")
-	}
-
-	if !strings.Contains(err.Error(), "assertions require check") {
-		t.Errorf("error %q should mention assertions require contains", err)
-	}
-}
-
-func TestValidate_AssertionPatternAndYAMLPathMutuallyExclusive(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "contains",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-		Assertions: []AssertionConfig{
-			{Pattern: "foo", YAMLPath: "spec.owner", Contains: "bar", Message: "conflict"},
-		},
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for pattern + yaml_path")
-	}
-
-	if !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Errorf("error %q should mention mutually exclusive", err)
-	}
-}
-
-func TestValidate_AssertionYAMLPathRequiresContainsOrEquals(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "contains",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-		Assertions: []AssertionConfig{
-			{YAMLPath: "spec.owner", Message: "missing check"},
-		},
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for yaml_path without contains/equals")
-	}
-
-	if !strings.Contains(err.Error(), "requires one of contains, equals, or non_empty") {
-		t.Errorf("error %q should mention requires contains, equals, or non_empty", err)
-	}
-}
-
-func TestValidate_AssertionMessageRequired(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "contains",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-		Assertions: []AssertionConfig{
-			{Pattern: "foo", Message: ""},
-		},
-	}}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty message")
-	}
-
-	if !strings.Contains(err.Error(), "message is required") {
-		t.Errorf("error %q should mention message required", err)
-	}
-}
-
-func TestValidate_DuplicateRuleNames(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{
-		{Type: "file", Name: "test", Paths: []string{"a"}, Target: "a", Template: "a.tmpl"},
-		{Type: "file", Name: "test", Paths: []string{"b"}, Target: "b", Template: "b.tmpl"},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for duplicate rule names")
-	}
-
-	if !strings.Contains(err.Error(), "duplicate rule") {
-		t.Errorf("error %q should mention duplicate rule", err)
-	}
-}
-
-func TestValidate_ValidContainsWithAssertions(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{{
-		Type:     "file",
-		Name:     "test",
-		Check:    "contains",
-		Paths:    []string{"test"},
-		Target:   "test",
-		Template: "test.tmpl",
-		Assertions: []AssertionConfig{
-			{Pattern: "foo", Message: "must have foo"},
-			{YAMLPath: "spec.owner", Contains: "team", Message: "must have owner"},
-		},
-	}}
-
-	if err := Validate(cfg); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestValidate_SettingRule_Valid(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "enable_issues", Property: "has_issues", Expected: true},
-		{Name: "default_branch", Property: "default_branch", Expected: "main"},
-	}
-
-	if err := Validate(cfg); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestValidate_SettingRule_UnsupportedProperty(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "bad_prop", Property: "nonexistent_thing", Expected: true},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for unsupported property")
-	}
-
-	if !strings.Contains(err.Error(), "unsupported property") {
-		t.Errorf("error %q should mention unsupported property", err)
-	}
-}
-
-func TestValidate_SettingRule_WrongExpectedType_Bool(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "enable_issues", Property: "has_issues", Expected: "yes"},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for wrong expected type")
-	}
-
-	if !strings.Contains(err.Error(), "must be a bool") {
-		t.Errorf("error %q should mention must be a bool", err)
-	}
-}
-
-func TestValidate_SettingRule_WrongExpectedType_String(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "default_branch", Property: "default_branch", Expected: true},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for wrong expected type")
-	}
-
-	if !strings.Contains(err.Error(), "must be a string") {
-		t.Errorf("error %q should mention must be a string", err)
-	}
-}
-
-func TestValidate_SettingRule_DuplicateNames(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "dup", Property: "has_issues", Expected: true},
-		{Name: "dup", Property: "has_wiki", Expected: true},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for duplicate setting rule names")
-	}
-
-	if !strings.Contains(err.Error(), "duplicate setting rule") {
-		t.Errorf("error %q should mention duplicate setting rule", err)
-	}
-}
-
-func TestValidate_SettingRule_NilExpected(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.SettingRules = []SettingRuleConfig{
-		{Name: "test", Property: "has_issues", Expected: nil},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for nil expected")
-	}
-
-	if !strings.Contains(err.Error(), "expected must be set") {
-		t.Errorf("error %q should mention expected must be set", err)
-	}
-}
-
-func TestValidate_BranchProtection_Valid(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
-		{Name: "main_protection", Branch: "main", RequirePR: true, RequiredApprovals: 1},
-	}
-
-	if err := Validate(cfg); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestValidate_BranchProtection_EmptyBranch(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
-		{Name: "bad", Branch: ""},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty branch")
-	}
-
-	if !strings.Contains(err.Error(), "branch must be non-empty") {
-		t.Errorf("error %q should mention branch must be non-empty", err)
-	}
-}
-
-func TestValidate_BranchProtection_NegativeApprovals(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
-		{Name: "bad", Branch: "main", RequiredApprovals: -1},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for negative required_approvals")
-	}
-
-	if !strings.Contains(err.Error(), "required_approvals must be >= 0") {
-		t.Errorf("error %q should mention required_approvals", err)
-	}
-}
-
-func TestValidate_BranchProtection_DuplicateNames(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.BranchProtectionRules = []BranchProtectionRuleConfig{
-		{Name: "dup", Branch: "main"},
-		{Name: "dup", Branch: "develop"},
-	}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for duplicate names")
-	}
-
-	if !strings.Contains(err.Error(), "duplicate branch_protection rule") {
-		t.Errorf("error %q should mention duplicate", err)
-	}
-}
-
-func TestValidate_ErrorMessageClarity(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.Guardian.RateLimitThreshold = 2
-	cfg.Guardian.LogLevel = "invalid"
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected errors")
-	}
-
-	errStr := err.Error()
-
-	if !strings.Contains(errStr, "guardian.rate_limit_threshold") {
-		t.Error("error should include full field path guardian.rate_limit_threshold")
-	}
-
-	if !strings.Contains(errStr, "guardian.log_level") {
-		t.Error("error should include full field path guardian.log_level")
-	}
-}
-
-func fileRuleWithReconciler(annotationProperties map[string]string) FileRuleConfig {
-	return FileRuleConfig{
-		Type:     "file",
-		Name:     "catalog_info",
-		Check:    "exists",
-		Paths:    []string{"catalog-info.yaml"},
-		Target:   "catalog-info.yaml",
-		Template: "test.tmpl",
-		Reconcilers: []ReconcilerConfig{{
-			Type:                 "custom_properties",
-			Mode:                 "api",
-			AnnotationProperties: annotationProperties,
-		}},
-	}
-}
-
-func TestValidate_AnnotationProperties_Valid(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"jira/project-key": "JiraProject",
-		"jira/label":       "JiraLabel",
-	})}
-
-	if err := Validate(cfg); err != nil {
-		t.Errorf("Validate() = %v, want nil", err)
-	}
-}
-
-func TestValidate_AnnotationProperties_EmptyOrNilIsValid(t *testing.T) {
-	for _, props := range []map[string]string{nil, {}} {
-		cfg := BuiltinDefaults()
-		cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(props)}
-
-		if err := Validate(cfg); err != nil {
-			t.Errorf("Validate() with AnnotationProperties=%v = %v, want nil", props, err)
-		}
-	}
-}
-
-func TestValidate_AnnotationProperties_ReservedName(t *testing.T) {
-	for _, reserved := range []string{"Owner", "owner", "OWNER", "Component", "component"} {
-		cfg := BuiltinDefaults()
-		cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-			"some/annotation": reserved,
-		})}
-
-		err := Validate(cfg)
-		if err == nil {
-			t.Fatalf("expected error for reserved property name %q", reserved)
-		}
-
-		if !strings.Contains(err.Error(), "reserved property name") {
-			t.Errorf("error %q should mention reserved property name for %q", err, reserved)
-		}
-	}
-}
-
-func TestValidate_AnnotationProperties_EmptyAnnotationKey(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"": "SomeProperty",
-	})}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty annotation key")
-	}
-
-	if !strings.Contains(err.Error(), "empty annotation key") {
-		t.Errorf("error %q should mention empty annotation key", err)
-	}
-}
-
-func TestValidate_AnnotationProperties_EmptyPropertyName(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"jira/project-key": "",
-	})}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for empty property name")
-	}
-
-	if !strings.Contains(err.Error(), "empty property name") {
-		t.Errorf("error %q should mention empty property name", err)
-	}
-}
-
-func TestValidate_AnnotationProperties_DuplicateTarget(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"jira/project-key": "JiraProject",
-		"other/annotation": "jiraproject",
-	})}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for duplicate property target (case-insensitive)")
-	}
-
-	if !strings.Contains(err.Error(), "duplicate property name") {
-		t.Errorf("error %q should mention duplicate property name", err)
-	}
-}
-
-func TestValidate_AnnotationProperties_InvalidCharset(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"jira/project-key": "Jira Project!",
-	})}
-
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for invalid property name charset")
-	}
-
-	if !strings.Contains(err.Error(), "must match") {
-		t.Errorf("error %q should mention charset constraint", err)
-	}
-}
-
-// TestValidate_AnnotationProperties_Charset is the INV-0011 A6
-// regression. The original pattern allowed a period and omitted `$`
-// and `#`, inverting GitHub's actual charset on both edges: a `$`/`#`
-// name was rejected at load even though GitHub accepts it, and a dotted
-// name loaded cleanly only to 422 at sync time.
-func TestValidate_AnnotationProperties_Charset(t *testing.T) {
-	tests := []struct {
-		name     string
-		property string
-		wantErr  bool
-	}{
-		{name: "dollar sign accepted", property: "Cost$Center"},
-		{name: "number sign accepted", property: "Team#1"},
-		{name: "hyphen accepted", property: "cost-center"},
-		{name: "underscore accepted", property: "cost_center"},
-		{name: "alphanumeric accepted", property: "JiraProject2"},
-		{name: "period rejected", property: "jira.project", wantErr: true},
-		{name: "space rejected", property: "Jira Project", wantErr: true},
-		{name: "slash rejected", property: "jira/project", wantErr: true},
+		{"re-add after an overlapping exclusion", org(`  repos "a" {
+    match = ["backstage-*"]
+    exclude "catalog@1" {
+      reason = "r"
+    }
+  }
+  repos "b" {
+    match    = ["backstage-api"]
+    controls = ["catalog@1"]
+  }
+`), `orgs/acme.hcl:10: repos "b" re-adds catalog@1, which repos "a" excluded for an overlapping match; block order decides`},
+		{"two modes at one specificity", org(`  repos "a" {
+    match = ["x-*"]
+    mode  = "remediate"
+  }
+  repos "b" {
+    match = ["x-1"]
+    mode  = "evaluate"
+  }
+`), `orgs/acme.hcl:8: repos "a" and "b" may match one repository with different modes; the later one wins`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := BuiltinDefaults()
-			cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-				"jira/project-key": tt.property,
-			})}
+			t.Parallel()
 
-			err := Validate(cfg)
+			snap := mustLoad(t, map[string]string{"enterprise.hcl": base, "orgs/acme.hcl": tt.org})
 
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("Validate(property=%q) = nil, want a charset error", tt.property)
-				}
-
-				if !strings.Contains(err.Error(), "must match") {
-					t.Errorf("Validate(property=%q) error = %q, want it to mention the charset constraint", tt.property, err)
-				}
-
-				return
+			var got []string
+			for _, w := range snap.Warnings() {
+				got = append(got, w.String())
 			}
 
-			if err != nil {
-				t.Errorf("Validate(property=%q) = %v, want nil (GitHub accepts this name)", tt.property, err)
+			if len(got) != 1 || got[0] != tt.want {
+				t.Errorf("Warnings() = %q, want [%q]", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestValidate_AnnotationProperties_TooLong(t *testing.T) {
-	cfg := BuiltinDefaults()
-	cfg.FileRules = []FileRuleConfig{fileRuleWithReconciler(map[string]string{
-		"jira/project-key": strings.Repeat("a", 76),
-	})}
+func TestUnmatchedReposBlocks(t *testing.T) {
+	t.Parallel()
 
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected error for property name > 75 characters")
-	}
+	snap := mustLoad(t, map[string]string{
+		"enterprise.hcl": ent(`"codeowners@1"`),
+		"orgs/acme.hcl":  org("  repos \"web\" {\n    match = [\"web-*\"]\n  }\n  repos \"ghost\" {\n    match = [\"nothing\"]\n  }\n"),
+	})
 
-	if !strings.Contains(err.Error(), "must match") {
-		t.Errorf("error %q should mention charset constraint", err)
+	got := snap.UnmatchedReposBlocks("ACME", []string{"web-app", "api"})
+	if len(got) != 1 || got[0].String() != `orgs/acme.hcl:5: repos "ghost" matches no known repository` {
+		t.Errorf("UnmatchedReposBlocks() = %v, want only ghost", got)
 	}
 }
 
-// A blank search term substring-matches every open PR, so the rule
-// would skip itself on any repo that has any PR open — silently, with
-// no log line or metric to notice it by (INV-0011 B4).
-func TestValidate_FileRuleBlankSearchTerm(t *testing.T) {
-	for _, term := range []string{"", "   "} {
-		cfg := BuiltinDefaults()
-		cfg.FileRules = []FileRuleConfig{{
-			Type:     "file",
-			Name:     "test",
-			Paths:    []string{"test"},
-			Target:   "test",
-			Template: "test.tmpl",
-			PR:       &PRConfig{SearchTerms: []string{"codeowners", term}},
-		}}
+func TestValidate_OwnershipWarnings(t *testing.T) {
+	t.Parallel()
 
-		err := Validate(cfg)
-		if err == nil {
-			t.Fatalf("expected error for blank search term %q", term)
-		}
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{
+			"baseline overlap for an org with no file",
+			map[string]string{"enterprise.hcl": ent(`"codeowners@1", "legacy_codeowners@1"`)},
+			[]string{
+				"enterprise.hcl:2: codeowners@1 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"org addition overlaps the baseline",
+			map[string]string{
+				"enterprise.hcl": ent(`"codeowners@1"`),
+				"orgs/acme.hcl":  org("  controls = [\"legacy_codeowners@1\"]\n"),
+			},
+			[]string{
+				"orgs/acme.hcl:1: codeowners@1 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"two blocks together overlap",
+			map[string]string{
+				"enterprise.hcl": ent(`"deps@1"`),
+				"orgs/acme.hcl": org(`  repos "a" {
+    match    = ["x-*"]
+    controls = ["codeowners@2"]
+  }
+  repos "b" {
+    match    = ["y-*"]
+    controls = ["legacy_codeowners@1"]
+  }
+`),
+			},
+			[]string{
+				"orgs/acme.hcl:6: codeowners@2 and legacy_codeowners@1 both own file:CODEOWNERS in org acme; " +
+					"a repository assigned both is a resource conflict",
+			},
+		},
+		{
+			"a replace removes its source",
+			map[string]string{
+				"enterprise.hcl": ent(`"legacy_codeowners@1"`),
+				"orgs/acme.hcl":  org("  replace \"legacy_codeowners@1\" {\n    with   = \"codeowners@1\"\n    reason = \"r\"\n  }\n"),
+			},
+			nil,
+		},
+	}
 
-		if !strings.Contains(err.Error(), "search_terms[1] must be non-blank") {
-			t.Errorf("error %q should identify the blank term by index", err)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			snap := mustLoad(t, tt.files)
+
+			var got []string
+			for _, w := range snap.Warnings() {
+				got = append(got, w.String())
+			}
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Warnings() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

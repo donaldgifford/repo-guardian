@@ -7,7 +7,9 @@ package ingest
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	gh "github.com/google/go-github/v68/github"
@@ -15,6 +17,7 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
@@ -196,12 +199,15 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 			return nil, false
 		}
 
-		return &workflows.WebhookInput{
+		in := &workflows.WebhookInput{
 			Event: eventType, Action: e.GetAction(),
 			InstallationID: e.GetInstallation().GetID(),
 			AccountLogin:   e.GetInstallation().GetAccount().GetLogin(),
 			Repositories:   reposOf(e.Repositories),
-		}, true
+		}
+		h.installationFacts(in, e.GetInstallation())
+
+		return in, true
 	case *gh.InstallationRepositoriesEvent:
 		if !handled[eventType][e.GetAction()] {
 			return nil, false
@@ -212,14 +218,17 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 			repos = e.RepositoriesRemoved
 		}
 
-		return &workflows.WebhookInput{
+		in := &workflows.WebhookInput{
 			Event: eventType, Action: e.GetAction(),
 			InstallationID: e.GetInstallation().GetID(),
 			AccountLogin:   e.GetInstallation().GetAccount().GetLogin(),
 			Repositories:   reposOf(repos),
 
 			RepositorySelection: e.GetRepositorySelection(),
-		}, true
+		}
+		h.installationFacts(in, e.GetInstallation())
+
+		return in, true
 	default:
 		h.logger.Debug("ignoring unhandled event type", "type", eventType)
 
@@ -229,22 +238,77 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 
 // routePush keeps only default-branch pushes that add, modify or remove
 // a watched path. Removals count: a removed renovate.json closes a gate.
+// On the Evaluation App's route the input carries the change set.
 func (h *Handler) routePush(e *gh.PushEvent) (*workflows.WebhookInput, bool) {
 	ref := e.GetRef()
 	if strings.HasPrefix(ref, "refs/tags/") || ref != "refs/heads/"+e.GetRepo().GetDefaultBranch() {
 		return nil, false
 	}
 
-	if !h.touchesWatched(e) {
-		return nil, false
-	}
-
 	repo := e.GetRepo()
-
-	return &workflows.WebhookInput{
+	in := &workflows.WebhookInput{
 		Event: eventPush, InstallationID: e.GetInstallation().GetID(),
 		Repositories: []workflows.WebhookRepo{{ID: repo.GetID(), Org: repo.GetOwner().GetLogin(), Name: repo.GetName()}},
-	}, true
+	}
+
+	if h.app == workflows.AppEval {
+		in.Paths, in.Unknown = h.changeSet(e)
+
+		return in, len(in.Paths) > 0 || in.Unknown
+	}
+
+	return in, h.touchesWatched(e)
+}
+
+// The bounds past which a push's change set is unknown (DESIGN-0032 §
+// history growth): GitHub lists at most 2048 commits, a forced push's
+// commits do not describe its diff, and a larger path set would grow
+// the workflow history past what one signal should carry.
+const (
+	maxPushCommits = 2048
+	maxPushPaths   = workflows.MaxChangedPaths
+)
+
+// changeSet returns the watched paths a push touched, sorted, or unknown.
+func (h *Handler) changeSet(e *gh.PushEvent) (paths []string, unknown bool) {
+	if len(e.Commits) >= maxPushCommits || e.GetForced() {
+		return nil, true
+	}
+
+	seen := make(map[string]bool)
+
+	for _, c := range e.Commits {
+		for _, ps := range [][]string{c.Added, c.Modified, c.Removed} {
+			for _, p := range ps {
+				if h.watched[p] {
+					seen[p] = true
+				}
+			}
+		}
+	}
+
+	if len(seen) > maxPushPaths {
+		return nil, true
+	}
+
+	return slices.Sorted(maps.Keys(seen)), false
+}
+
+// installationFacts adds the account type and repository selection on a
+// controls App's route; the rc's route keeps its inputs unchanged.
+func (h *Handler) installationFacts(in *workflows.WebhookInput, inst *gh.Installation) {
+	if h.app == "" {
+		return
+	}
+
+	in.AccountType = control.AccountOrganization
+	if inst.GetAccount().GetType() == "User" {
+		in.AccountType = control.AccountUser
+	}
+
+	if in.RepositorySelection == "" {
+		in.RepositorySelection = inst.GetRepositorySelection()
+	}
 }
 
 func (h *Handler) touchesWatched(e *gh.PushEvent) bool {
@@ -262,7 +326,7 @@ func (h *Handler) touchesWatched(e *gh.PushEvent) bool {
 }
 
 func repoOf(r *gh.Repository) workflows.WebhookRepo {
-	return workflows.WebhookRepo{ID: r.GetID(), Org: ownerOf(r), Name: r.GetName()}
+	return workflows.WebhookRepo{ID: r.GetID(), Org: ownerOf(r), Name: r.GetName(), Archived: r.GetArchived(), Fork: r.GetFork()}
 }
 
 func reposOf(rs []*gh.Repository) []workflows.WebhookRepo {

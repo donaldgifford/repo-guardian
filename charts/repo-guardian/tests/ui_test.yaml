@@ -12,7 +12,8 @@ set:
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
   api:
     enabled: true
     auth:

@@ -1,5 +1,4 @@
----
-suite: policy configmap and deployment integration
+suite: policy directory (IMPL-0029 7.9, OQ11)
 templates:
   - templates/policy-configmap.yaml
   - templates/deployment.yaml
@@ -9,28 +8,36 @@ set:
   topology: all
   temporal:
     address: temporal:7233
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "test-secret"
-    privateKey: "test-key"
 tests:
-  - it: should render policy ConfigMap with inline config
+  # OQ11 (a): policy.files is a nested map by directory; the ConfigMap
+  # key joins the path with dots.
+  - it: renders one key per file in the tree, path joined with dots
     template: templates/policy-configmap.yaml
     set:
       policy:
-        config: |
-          guardian {
-            log_level = "debug"
-          }
+        files:
+          enterprise.hcl: "enterprise {}"
+          catalogue:
+            files.hcl: "control {}"
+          orgs:
+            acme.hcl: "org {}"
     asserts:
       - isKind:
           of: ConfigMap
       - equal:
           path: metadata.name
           value: RELEASE-NAME-repo-guardian-policy
+      - equal:
+          path: metadata.namespace
+          value: NAMESPACE
+      - equal:
+          path: data
+          value:
+            enterprise.hcl: "enterprise {}\n"
+            catalogue.files.hcl: "control {}\n"
+            orgs.acme.hcl: "org {}\n"
 
-  - it: should not render policy ConfigMap when config is empty
+  - it: renders no ConfigMap for an existing one
     template: templates/policy-configmap.yaml
     set:
       policy:
@@ -39,48 +46,18 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should set GUARDIAN_CONFIG env var when policy config is set
+  - it: points GUARDIAN_CONFIG at the policy root
     template: templates/deployment.yaml
     set:
       policy:
-        config: |
-          guardian {
-            log_level = "debug"
-          }
+        files:
+          enterprise.hcl: "enterprise {}"
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: GUARDIAN_CONFIG
-            value: /etc/repo-guardian/policy/guardian.hcl
-
-  - it: should set GUARDIAN_CONFIG env var when existing ConfigMap is used
-    template: templates/deployment.yaml
-    set:
-      policy:
-        existingConfigMap: my-external-policy
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GUARDIAN_CONFIG
-            value: /etc/repo-guardian/policy/guardian.hcl
-
-  - it: fails without a policy, since the worker needs GUARDIAN_CONFIG
-    template: templates/deployment.yaml
-    asserts:
-      - failedTemplate:
-          errorPattern: "policy.config or policy.existingConfigMap is required"
-
-  - it: should mount policy volume when config is set
-    template: templates/deployment.yaml
-    set:
-      policy:
-        config: |
-          guardian {
-            log_level = "debug"
-          }
-    asserts:
+            value: /etc/repo-guardian/policy
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
@@ -88,14 +65,20 @@ tests:
             mountPath: /etc/repo-guardian/policy
             readOnly: true
 
-  - it: should add policy volume from inline config
+  # The items put each file back at its path, so the policy root keeps
+  # catalogue/ and orgs/ (kubelet's ..data layout, which policy.Load
+  # follows).
+  - it: mounts policy.files through items at their paths
     template: templates/deployment.yaml
     set:
       policy:
-        config: |
-          guardian {
-            log_level = "debug"
-          }
+        files:
+          enterprise.hcl: "enterprise {}"
+          orgs:
+            acme.hcl: "org {}"
+          templates:
+            codeowners:
+              CODEOWNERS.tmpl: "* @team"
     asserts:
       - contains:
           path: spec.template.spec.volumes
@@ -103,8 +86,15 @@ tests:
             name: policy
             configMap:
               name: RELEASE-NAME-repo-guardian-policy
+              items:
+                - key: enterprise.hcl
+                  path: enterprise.hcl
+                - key: orgs.acme.hcl
+                  path: orgs/acme.hcl
+                - key: templates.codeowners.CODEOWNERS.tmpl
+                  path: templates/codeowners/CODEOWNERS.tmpl
 
-  - it: should use external ConfigMap for policy volume
+  - it: mounts an existing ConfigMap whole
     template: templates/deployment.yaml
     set:
       policy:
@@ -116,3 +106,65 @@ tests:
             name: policy
             configMap:
               name: my-external-policy
+
+  - it: rolls the pods when the policy changes
+    template: templates/deployment.yaml
+    set:
+      policy:
+        files:
+          enterprise.hcl: "enterprise { a = 1 }"
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/policy"]
+      - notExists:
+          path: spec.template.metadata.annotations["checksum/templates"]
+
+  - it: fails without a policy, since ingest and the workers need GUARDIAN_CONFIG
+    template: templates/deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "policy.files or policy.existingConfigMap is required"
+
+  - it: refuses policy.files beside an existing ConfigMap
+    template: templates/deployment.yaml
+    set:
+      policy:
+        files:
+          enterprise.hcl: "enterprise {}"
+        existingConfigMap: my-external-policy
+    asserts:
+      - failedTemplate:
+          errorPattern: "mutually exclusive"
+
+  - it: refuses a name that leaves the policy root
+    template: templates/policy-configmap.yaml
+    set:
+      policy:
+        files:
+          "..":
+            passwd: "x"
+    asserts:
+      - failedTemplate:
+          errorPattern: "a name is one path segment"
+
+  - it: refuses a name holding a slash
+    template: templates/policy-configmap.yaml
+    set:
+      policy:
+        files:
+          orgs/acme.hcl: "x"
+    asserts:
+      - failedTemplate:
+          errorPattern: "a name is one path segment"
+
+  - it: refuses two paths that fold to one key
+    template: templates/deployment.yaml
+    set:
+      policy:
+        files:
+          orgs:
+            acme.hcl: "a"
+          orgs.acme.hcl: "b"
+    asserts:
+      - failedTemplate:
+          errorPattern: "map to the same ConfigMap key"

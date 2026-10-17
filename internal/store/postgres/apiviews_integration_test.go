@@ -15,17 +15,16 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
 // apiClient serves the API over a read-only pool on f's database with
 // auth disabled, so every caller sees every org.
-func apiClient(t *testing.T, f *v2Fixture) (*apitest.Client, *postgres.APIReader) {
+func apiClient(t *testing.T, f *apiFixture) (*apitest.Client, *postgres.APIReader) {
 	t.Helper()
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsn)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +33,7 @@ func apiClient(t *testing.T, f *v2Fixture) (*apitest.Client, *postgres.APIReader
 	reader := postgres.NewAPIReader(pool)
 
 	return apitest.New(t, &api.Options{
-		Reader: reader, StaleAfter: 30 * 24 * time.Hour, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Reader: reader, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now: func() time.Time { return t0 },
 	}), reader
 }
@@ -64,23 +63,14 @@ type eventID struct {
 func TestAPI_TimelineMergesBothSourcesAndPagesStably(t *testing.T) {
 	t.Parallel()
 
-	f := newV2Fixture(t)
-	ctx := t.Context()
+	f := newAPIFixture(t)
 
-	// A failing check, then a passing one: two finding events. Parking
-	// and unparking add repository events beside the discovery event.
-	for i, o := range []store.Outcome{missing("codeowners", "CODEOWNERS"), compliant("codeowners")} {
-		if _, err := f.store.RecordCheck(ctx, &store.CheckRecord{
-			Key: "tl" + string(rune('a'+i)), RepositoryID: f.repoID, InstallationID: testInstallation, Trigger: store.TriggerSchedule,
-			PolicyVersion: "v2:test", StartedAt: t0, FinishedAt: t0, Outcomes: []store.Outcome{o},
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := f.store.Park(ctx, f.repoID, store.ParkAccessDenied, true); err != nil {
-		t.Fatal(err)
-	}
+	// A failing evaluation, then a passing one: two result events.
+	// Archiving withdraws the result (a third, with no to_status) and adds
+	// a parked repository event beside the discovery event.
+	f.evaluate(t, f.repoID, "tl-a", "non_compliant")
+	f.evaluate(t, f.repoID, "tl-b", "compliant")
+	f.park(t, f.repoID, "archived")
 
 	c, _ := apiClient(t, f)
 	base := "/repositories/" + strconv.FormatInt(f.repoID, 10) + "/events"
@@ -98,10 +88,10 @@ func TestAPI_TimelineMergesBothSourcesAndPagesStably(t *testing.T) {
 			t.Errorf("event %d is newer than event %d: the timeline is not newest first", i, i-1)
 		}
 
-		// A finding cleared by parking has no to_status; every finding
-		// event names its rule.
-		if e.Source == store.EventSourceFinding && (e.RuleName == nil || e.FromStatus == nil && e.ToStatus == nil) {
-			t.Errorf("finding event %d lacks its rule or statuses: %+v", e.Id, e)
+		// A result withdrawn by parking has no to_status; every result
+		// event names its control.
+		if e.Source == store.EventSourceResult && (e.ControlId == nil || e.FromStatus == nil && e.ToStatus == nil) {
+			t.Errorf("result event %d lacks its control or statuses: %+v", e.Id, e)
 		}
 
 		if e.Source == store.EventSourceRepository && e.Kind == nil {
@@ -109,7 +99,7 @@ func TestAPI_TimelineMergesBothSourcesAndPagesStably(t *testing.T) {
 		}
 	}
 
-	if sources[store.EventSourceFinding] < 2 || sources[store.EventSourceRepository] < 1 {
+	if sources[store.EventSourceResult] < 3 || sources[store.EventSourceRepository] < 2 {
 		t.Fatalf("timeline sources = %v, want both merged", sources)
 	}
 
@@ -143,45 +133,16 @@ func TestAPI_TimelineMergesBothSourcesAndPagesStably(t *testing.T) {
 	}
 }
 
-func TestAPI_PolicyShowsVersionRolloutAndRules(t *testing.T) {
-	t.Parallel()
-
-	f := newV2Fixture(t)
-	c, _ := apiClient(t, f)
-
-	if resp := c.Get("/policy", ""); resp.Status != http.StatusNotFound {
-		t.Fatalf("policy before any version = %d, want 404", resp.Status)
-	}
-
-	summary := store.PolicySummary{Rules: []store.PolicyRule{
-		{Kind: findings.RuleKindFile, Name: "codeowners", Description: "CODEOWNERS exists", CheckMode: "exists"},
-	}}
-	if _, err := f.store.RecordPolicyVersion(t.Context(), "v2:abc", summary); err != nil {
-		t.Fatal(err)
-	}
-
-	pol := getJSON[gen.Policy](t, c, "/policy")
-	if pol.Version != "v2:abc" || pol.RolloutState != "in_progress" || len(pol.Rules) != 1 || pol.Rules[0].Name != "codeowners" {
-		t.Errorf("policy = %+v", pol)
-	}
-
-	if err := f.store.CompletePolicyRollout(t.Context(), "v2:abc"); err != nil {
-		t.Fatal(err)
-	}
-
-	if pol := getJSON[gen.Policy](t, c, "/policy"); pol.RolloutState != "complete" || pol.RolloutCompletedAt == nil {
-		t.Errorf("policy after rollout = %+v", pol)
-	}
-}
-
 func TestStatus_RefreshReadsPostgres(t *testing.T) {
 	t.Parallel()
 
-	f := newV2Fixture(t)
+	f := newAPIFixture(t)
 	seedTwoOrgs(t, f)
 
+	// The store stamps checks with the real clock, so the page reads it too.
+	now := time.Now()
 	if err := f.store.RecordServiceRun(t.Context(), &store.ServiceRun{
-		Kind: store.ServiceRunDiscovery, Success: true, StartedAt: t0.Add(-2 * time.Minute), FinishedAt: t0.Add(-time.Minute),
+		Kind: store.ServiceRunDiscovery, Success: true, StartedAt: now.Add(-2 * time.Minute), FinishedAt: now.Add(-time.Minute),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +150,7 @@ func TestStatus_RefreshReadsPostgres(t *testing.T) {
 	_, reader := apiClient(t, f)
 	page := api.NewStatusPage(&api.StatusConfig{
 		Reader: reader, CheckInterval: 24 * time.Hour, DiscoveryInterval: time.Hour, SnapshotInterval: 24 * time.Hour,
-		RateReserve: 0.1, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return t0.Add(5 * time.Minute) },
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return now.Add(5 * time.Minute) },
 	})
 
 	if err := page.Refresh(t.Context()); err != nil {

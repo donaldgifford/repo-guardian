@@ -22,17 +22,21 @@ const (
 	PriorityWebhook  Priority = 2
 	PrioritySchedule Priority = 3
 	PriorityRollout  Priority = 4
+
+	// PriorityManual is a person-requested evaluation (the evaluate
+	// command, an API recheck): the same key as PriorityHuman.
+	PriorityManual Priority = 1
 )
 
-// Trigger values, matching store.Trigger and the checks.trigger CHECK
-// constraint.
+// Trigger values, matching the checks.trigger CHECK constraint.
 const (
 	TriggerSchedule      = "schedule"
 	TriggerWebhook       = "webhook"
 	TriggerPush          = "push"
 	TriggerDiscovery     = "discovery"
 	TriggerPolicyRollout = "policy_rollout"
-	TriggerBootstrap     = "bootstrap"
+	TriggerPREvent       = "pr_event"
+	TriggerManual        = "manual"
 )
 
 // Park reasons, matching store.ParkReason.
@@ -42,7 +46,7 @@ const (
 	ParkFork         = "fork"
 )
 
-// CheckKind says how a CheckRepo activity ended.
+// CheckKind says how an Evaluate activity ended.
 type CheckKind string
 
 // CheckKind values. A failed check is an activity error, not a kind.
@@ -52,19 +56,8 @@ const (
 	CheckParked   CheckKind = "parked"
 )
 
-// CheckRepoInput is the CheckRepo activity input.
-type CheckRepoInput struct {
-	RepositoryID int64
-	CheckKey     string
-	Trigger      string
-
-	// Deferrals counts consecutive Deferred results before this one. It
-	// keys the backoff when a throttle carries no usable reset time.
-	Deferrals int
-}
-
-// Rate is an installation's X-RateLimit-* values as the check last saw
-// them.
+// Rate is an installation's X-RateLimit-* values as the evaluation last
+// saw them.
 type Rate struct {
 	Limit      int
 	Remaining  int
@@ -72,113 +65,29 @@ type Rate struct {
 	ObservedAt time.Time
 }
 
-// CheckRepoResult is the CheckRepo activity result.
-type CheckRepoResult struct {
-	Kind     CheckKind
-	CheckKey string
-
-	// Calls is the number of GitHub requests the check sent, and Rate
-	// the last rate-limit headers it saw (nil when none were seen).
-	Calls int
-	Rate  *Rate
-
-	// Until is when a Deferred check may run again.
-	Until time.Time
-
-	// ParkReason, ClearFindings and Cause describe a Parked check.
-	// Cause is the clipped error text, empty for archived and fork.
-	ParkReason    string
-	ClearFindings bool
-	Cause         string
-
-	// Checked-only fields, handed to RecordCheck.
-	InstallationID int64
-	PolicyVersion  string
-	ProviderRepoID *int64
-	Org            string
-	Name           string
-	CatalogParseOK *bool
-	StartedAt      time.Time
-	FinishedAt     time.Time
-}
-
-// RecordCheckInput is the RecordCheck activity input: a Checked result
-// plus the trigger that started it. The outcomes are read back from the
-// staged checks row.
-type RecordCheckInput struct {
-	RepositoryID int64
-	Trigger      string
-	Result       CheckRepoResult
-}
-
-// RecordCheckResult summarizes what RecordCheck applied.
-type RecordCheckResult struct {
-	Transitions  int
-	AlreadyFinal bool
-}
-
-// RecordCheckErrorInput is the RecordCheckError activity input.
-type RecordCheckErrorInput struct {
-	RepositoryID int64
-	CheckKey     string
-	Trigger      string
-	StartedAt    time.Time
-	FinishedAt   time.Time
-	Error        string
-}
-
-// ParkInput is the Park activity input.
-type ParkInput struct {
-	RepositoryID   int64
-	InstallationID int64
-	CheckKey       string
-	Trigger        string
-	Reason         string
-	ClearFindings  bool
-	Cause          string
-}
-
-// Recheck is the recheck signal payload.
+// Recheck is the recheck signal payload. The controls evaluation loop
+// also reads the changed paths: Paths selects the controls that own or
+// read them, and Unknown (a forced push, a truncated commit list, too
+// many paths) selects every control and dominates when coalescing.
 type Recheck struct {
 	Trigger  string
 	Priority Priority
+	Paths    []string `json:",omitempty"`
+	Unknown  bool     `json:",omitempty"`
 }
+
+// MaxChangedPaths caps the changed paths a re-check carries, in a signal
+// or coalesced in the workflow's carried state; past it the change set
+// is unknown. It keeps an EvaluationWorkflow run's history under
+// Temporal's warning limit at maxIterationsPerRun (INV-0022 spike 5(c),
+// DESIGN-0032 § history growth).
+const MaxChangedPaths = 256
 
 // PolicyChanged is the policy_changed signal payload: re-check by By,
 // at a random point between now and then.
 type PolicyChanged struct {
 	Version string
 	By      time.Time
-}
-
-// Park is the park signal payload.
-type Park struct {
-	Reason        string
-	ClearFindings bool
-}
-
-// RepoWorkflowInput is RepoWorkflow's input and its ContinueAsNew
-// state.
-type RepoWorkflowInput struct {
-	RepositoryID   int64
-	InstallationID int64
-
-	// CheckInterval is the time between scheduled checks.
-	CheckInterval time.Duration
-
-	// NextDue is when the next scheduled check runs. Zero runs it now.
-	NextDue time.Time
-
-	// Pending is a signalled re-check that has not run yet.
-	Pending *Recheck
-
-	// PolicyVersion is the last policy version this workflow was told
-	// about.
-	PolicyVersion string
-
-	// Iteration counts checks across ContinueAsNew; it makes check keys
-	// unique within a run.
-	Iteration int
 }
 
 // AcquireInput is the AcquireBudget activity input. UpdateID makes a
@@ -223,6 +132,11 @@ type WebhookRepo struct {
 	ID   int64
 	Org  string
 	Name string
+
+	// Archived and Fork are the payload's flags where it carries them
+	// (repository events); the controls routing parks on them.
+	Archived bool `json:",omitempty"`
+	Fork     bool `json:",omitempty"`
 }
 
 // The controls Apps as WebhookInput.App names them; they match
@@ -247,7 +161,19 @@ type WebhookInput struct {
 	AccountLogin   string
 	Repositories   []WebhookRepo
 
-	// RepositorySelection is an installation_repositories delivery's
-	// repository_selection, "all" or "selected"; empty for other events.
+	// RepositorySelection is an installation or installation_repositories
+	// delivery's repository_selection, "all" or "selected"; empty for
+	// other events.
 	RepositorySelection string `json:",omitempty"`
+
+	// AccountType is an installation-level delivery's account type on a
+	// controls App's route: control.AccountUser for a personal account,
+	// else control.AccountOrganization.
+	AccountType string `json:",omitempty"`
+
+	// Paths and Unknown are an Evaluation App push's change set: the
+	// watched paths it touched, or Unknown when the payload cannot say
+	// (2048 commits, a forced push, or more than 256 watched paths).
+	Paths   []string `json:",omitempty"`
+	Unknown bool     `json:",omitempty"`
 }

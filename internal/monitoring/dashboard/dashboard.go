@@ -296,7 +296,7 @@ func Row(title string) *sdk.RowBuilder {
 // OrgVariable builds the org template variable used when the org rows
 // cannot be declared from the config.
 //
-// Discovered from repos_tracked rather than from any event counter:
+// Discovered from controls_coverage rather than from any event counter:
 // the gauge is present for every org the exporter knows about,
 // including one with zero failures, whereas a counter only exists once
 // something has gone wrong. A variable driven by an event counter
@@ -306,7 +306,7 @@ func Row(title string) *sdk.RowBuilder {
 // a label name side by side, and ScopePromQL would read the label name
 // as a second metric.
 func OrgVariable(ds Datasources) *sdk.QueryVariableBuilder {
-	query := "label_values(" + ds.scope("repo_guardian_repos_tracked") + ", org)"
+	query := "label_values(" + ds.scope("repo_guardian_controls_coverage") + ", org)"
 
 	return sdk.NewQueryVariableBuilder("org").
 		Label("Organisation").

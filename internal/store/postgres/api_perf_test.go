@@ -15,33 +15,39 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
-// perfSeed is IMPL-0025 15.10's fixture: 20 orgs, 20k repositories, 10
-// rules each (200k findings, 1 in 7 failing with a PR), and 50 finding
-// events per repository (1M), bulk-inserted in SQL.
+// perfSeed is IMPL-0025 15.10's fixture on the controls schema
+// (IMPL-0029 7.4): 20 orgs, 20k repositories, 10 controls each (200k
+// assignments and results, 1 in 7 failing, 1 in 11 not applicable), 50
+// result events per repository (1M), and 20 checks per repository,
+// bulk-inserted in SQL as the owner.
 const perfSeed = `
-INSERT INTO installations (installation_id, account_login)
-SELECT 1000 + o, 'org-' || o FROM generate_series(0, 19) o;
+INSERT INTO repositories (org, name, last_checked_at)
+SELECT 'org-' || (i % 20), 'repo-' || i, now() FROM generate_series(1, 20000) i;
 
-INSERT INTO repositories (org, name, installation_id, last_check_outcome, policy_version)
-SELECT 'org-' || (i % 20), 'repo-' || i, 1000 + (i % 20), 'success', 'v2:perf' FROM generate_series(1, 20000) i;
+INSERT INTO repository_policy_state (repository_id, state, max_open_prs, reopen_after, policy_version, resolved_at)
+SELECT r.id, 'managed', 3, '336 hours', 'c:1', now() FROM repositories r WHERE r.org LIKE 'org-%';
 
-INSERT INTO findings (repository_id, rule_kind, rule_name, status, reason, remediation, evidence,
-                      status_since, last_evaluated_at, policy_version)
-SELECT r.id, 'file', 'rule-' || n,
+INSERT INTO control_assignments (repository_id, control_id, control_version, revision, state, decision, baseline_control,
+                                 source, ordinal, requested_mode, effective_mode, mode_source, epoch, policy_version, resolved_at)
+SELECT r.id, 'control-' || n, 1, 'r1', 'active', 'baseline', 'control-' || n, 'enterprise', n,
+       'evaluate', 'evaluate', 'enterprise', 1, 'c:1', now()
+FROM repositories r CROSS JOIN generate_series(1, 10) n WHERE r.org LIKE 'org-%';
+
+INSERT INTO control_results (repository_id, control_id, control_version, revision, assignment_epoch, status, fingerprint,
+                             intent_revision, eval_generation, evaluated_sha, evaluated_at, last_changed_at)
+SELECT r.id, 'control-' || n, 1, 'r1', 1,
        CASE WHEN (r.id + n) % 7 = 0 THEN 'non_compliant' WHEN (r.id + n) % 11 = 0 THEN 'not_applicable' ELSE 'compliant' END,
-       CASE WHEN (r.id + n) % 7 = 0 THEN 'file_missing' WHEN (r.id + n) % 11 = 0 THEN 'out_of_scope_rule' END,
-       CASE WHEN (r.id + n) % 7 = 0 THEN 'pr_open' ELSE 'none' END,
-       CASE WHEN (r.id + n) % 7 = 0
-            THEN jsonb_build_object('paths_checked', jsonb_build_array('X'),
-                   'pr', jsonb_build_object('number', r.id, 'url', 'https://example/pull/' || r.id,
-                                            'created_at', to_char(now() - ((r.id % 60) || ' days')::interval, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')))
-            ELSE '{}'::jsonb END,
-       now() - ((r.id % 90) || ' days')::interval, now(), 'v2:perf'
-FROM repositories r CROSS JOIN generate_series(1, 10) n;
+       'f', 'i', 1, 'sha', now(), now() - ((r.id % 90) || ' days')::interval
+FROM repositories r CROSS JOIN generate_series(1, 10) n WHERE r.org LIKE 'org-%';
 
-INSERT INTO finding_events (repository_id, rule_kind, rule_name, from_status, to_status, policy_version, occurred_at)
-SELECT r.id, 'file', 'rule-' || (e % 10 + 1), 'compliant', 'non_compliant', 'v2:perf', now() - (e || ' hours')::interval
-FROM repositories r CROSS JOIN generate_series(1, 50) e;
+INSERT INTO result_events (repository_id, control_id, control_version, revision, assignment_epoch, from_status, to_status,
+                           eval_generation, occurred_at)
+SELECT r.id, 'control-' || (e % 10 + 1), 1, 'r1', 1, 'compliant', 'non_compliant', e, now() - (e || ' hours')::interval
+FROM repositories r CROSS JOIN generate_series(1, 50) e WHERE r.org LIKE 'org-%';
+
+INSERT INTO checks (repository_id, check_key, trigger, outcome, policy_version, started_at, finished_at)
+SELECT r.id, r.id || '/' || c, 'schedule', 'success', 'c:1', now() - (c || ' hours')::interval, now() - (c || ' hours')::interval
+FROM repositories r CROSS JOIN generate_series(1, 20) c WHERE r.org LIKE 'org-%';
 
 ANALYZE;
 `
@@ -54,23 +60,21 @@ ANALYZE;
 // handler (auth disabled, so every request reads the whole fleet — the
 // worst case) and fails when a p99 exceeds 100ms.
 func TestAPIPerf(t *testing.T) {
-	f := newV2Fixture(t)
+	f := newAPIFixture(t)
 
 	start := time.Now()
-	if _, err := f.pool.Exec(t.Context(), perfSeed); err != nil {
-		t.Fatal(err)
-	}
+	run(t, f.dsns.Owner, perfSeed)
 
 	t.Logf("seeded in %s", time.Since(start).Round(time.Second))
 
-	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsn)
+	pool, err := postgres.NewReadOnlyPool(t.Context(), f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 
 	h, err := api.New(&api.Options{
-		Reader: postgres.NewAPIReader(pool), StaleAfter: 30 * 24 * time.Hour, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Reader: postgres.NewAPIReader(pool), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +83,8 @@ func TestAPIPerf(t *testing.T) {
 	const requests = 200
 
 	for _, path := range []string{
-		"/summary", "/rules", "/orgs", "/findings?status=non_compliant&org=org-3&limit=50", "/findings?pr_stale=true&limit=50",
+		"/orgs", "/repositories?limit=50", "/repositories?org=org-3&limit=50", "/repositories/5000/events?limit=50",
+		"/repositories/5000/evaluations?limit=50",
 	} {
 		var d []time.Duration
 

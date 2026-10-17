@@ -1,92 +1,85 @@
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 
-import { useHistory, useRules } from "../api/queries";
-import { ChartCard, TrendChart, trendTable } from "../components/charts";
-import { Empty, Loading } from "../components/common";
-import { OrgScope, PageHeader, RangeTabs } from "../components/page";
-import { parseRange, rangeDays, rangeFrom } from "../lib/range";
+import { useComplianceHistory, useControls } from "../api/queries";
+import { TrendChart } from "../components/charts";
+import { Loading } from "../components/common";
+import { PageHeader } from "../components/page/PageHeader";
+import { Card } from "../components/ui/card";
+import { Tabs } from "../components/ui/tabs";
+import { formatPercent } from "../lib/format";
+import { historySeries } from "../lib/posture";
 import { patchSearch } from "../lib/search";
-import { seriesByOrg } from "../lib/viewmodel";
 
-// HistorySearch picks the rule whose series is shown; none means every
-// rule, summed. The range rides on the shared `?range=`.
+const ranges = [
+  { value: "7", label: "7d" },
+  { value: "30", label: "30d" },
+  { value: "90", label: "90d" },
+] as const;
+
+type RangeValue = (typeof ranges)[number]["value"];
+
+// HistorySearch keeps days a number, so the URL reads ?days=7 rather
+// than the router's JSON-quoted string.
 export interface HistorySearch {
-  kind?: string;
-  rule?: string;
+  control?: string;
+  days?: 7 | 90 | undefined;
 }
 
 export function parseHistorySearch(s: Record<string, unknown>): HistorySearch {
   const out: HistorySearch = {};
-  if (typeof s.kind === "string" && s.kind !== "") out.kind = s.kind;
-  if (typeof s.rule === "string" && s.rule !== "") out.rule = s.rule;
+  if (typeof s.control === "string" && s.control !== "") out.control = s.control;
+  const days = Number(s.days);
+  if (days === 7 || days === 90) out.days = days;
   return out;
 }
 
 const route = getRouteApi("/app/history");
 
-// HistoryView is small multiples: one compliance trend per org over the
-// chosen range, optionally for one rule.
+// HistoryView is compliance over time from the daily snapshots, for the
+// fleet or one control: every org and lineage summed per snapshot.
 export function HistoryView() {
-  const { org, range: rawRange, ...search } = route.useSearch();
-  const range = parseRange(rawRange);
+  const search = route.useSearch();
   const navigate = useNavigate();
-  const rules = useRules();
-  const history = useHistory({ ...search, ...(org ? { org } : {}), from: rangeFrom(range) });
-  const selected = search.kind && search.rule ? `${search.kind}/${search.rule}` : "";
-  const ruleLabel = search.rule ? `${search.rule} (${search.kind})` : "all rules";
-
+  const days: RangeValue = search.days ? (String(search.days) as RangeValue) : "30";
+  const controls = useControls();
+  const history = useComplianceHistory({ days: Number(days), ...(search.control ? { control: search.control } : {}) });
+  const series = useMemo(() => historySeries(history.data?.items ?? []), [history.data]);
+  const setControl = (control: string | undefined) => void navigate({ to: ".", search: (prev: HistorySearch) => patchSearch(prev, { control }) });
+  const setDays = (v: RangeValue) =>
+    void navigate({ to: ".", search: (prev: HistorySearch): HistorySearch => ({ ...prev, days: v === "7" ? 7 : v === "90" ? 90 : undefined }) });
+  const last = series[series.length - 1];
   return (
     <>
       <PageHeader
         title="History"
         subtitle={
           <>
-            Compliance snapshots over time from <code>/compliance/history</code>, one chart per org.
+            Each UTC day's last snapshot · <code>GET /compliance/history</code>
           </>
         }
         controls={
           <>
-            <OrgScope />
-            <RangeTabs />
-            <label className="inline-flex items-center overflow-hidden rounded-lg border border-border text-xs">
-              <span className="px-2.5 py-[5px] text-muted-foreground">Rule</span>
-              <select
-                aria-label="Rule"
-                className="h-full bg-panel-2 px-2.5 py-[5px] text-xs text-foreground outline-none"
-                value={selected}
-                onChange={(e) => {
-                  const [kind, ...rest] = e.target.value.split("/");
-                  const rule = rest.join("/");
-                  void navigate({ to: ".", search: (prev) => patchSearch(prev, { kind, rule }) });
-                }}
-              >
-                <option value="">All rules</option>
-                {rules.data?.items.map((r) => (
-                  <option key={`${r.kind}/${r.name}`} value={`${r.kind}/${r.name}`}>
-                    {r.name} ({r.kind})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <select
+              aria-label="Control"
+              value={search.control ?? ""}
+              onChange={(e) => setControl(e.target.value || undefined)}
+              className="h-7 rounded-lg border border-border bg-panel px-2 text-xs"
+            >
+              <option value="">every control</option>
+              {(controls.data?.items ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.id}
+                </option>
+              ))}
+            </select>
+            <Tabs label="Range" options={ranges} value={days} onChange={setDays} />
           </>
         }
       />
-      {!history.data ? (
-        <Loading />
-      ) : history.data.items.length === 0 ? (
-        <Empty>No snapshots in this range.</Empty>
-      ) : (
-        <>
-          {history.data.truncated ? <p className="text-sm text-muted-foreground">History is longer than the page cap; each chart shows its first pages only. Narrow the range or the rule.</p> : null}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {[...seriesByOrg(history.data.items)].map(([o, series]) => (
-              <ChartCard key={o} title={o} subtitle={`compliance % · ${ruleLabel}`} table={trendTable(series, "compliance %")}>
-                <TrendChart series={series} rangeDays={rangeDays(range)} height={180} aria-label={`${o} compliance % over ${range}`} />
-              </ChartCard>
-            ))}
-          </div>
-        </>
-      )}
+      <Card title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.percent)}` : "No snapshot in range."}>
+        {history.data ? <TrendChart series={series} rangeDays={Number(days)} aria-label="Compliance over time" /> : <Loading />}
+      </Card>
     </>
   );
 }

@@ -34,14 +34,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "max by (org) (repo_guardian_repos_tracked)",
+          "expr": "(\n  sum by (org) (max by (org, control) (repo_guardian_controls_status{bucket=\"compliant\"}))\n  /\n  (sum by (org) (max by (org, control, bucket) (repo_guardian_controls_status{bucket=~\"compliant|non_compliant\"})) \u003e 0)\n)\nand on (org) (sum by (org) (max by (org, control) (repo_guardian_controls_coverage)) \u003e 0)",
           "instant": false,
           "legendFormat": "{{ org }}",
           "range": true
         }
       ],
-      "title": "Repositories tracked by org",
-      "description": "Active repositories per organisation. A line that drops to zero is an org that stopped reporting — which is the signal a declared row exists to preserve.",
+      "title": "Compliance by org",
+      "description": "Each organisation's compliant share across its control assignments. An org drops out rather than reading 100% when it measures nothing.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -68,7 +68,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percentunit",
           "noValue": "no data",
           "custom": {}
         },
@@ -79,14 +79,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (rule_name) (max by (rule_name, org) (repo_guardian_repos_actionable))",
+          "expr": "sum by (org) (max by (org, control) (repo_guardian_controls_coverage))",
           "instant": false,
-          "legendFormat": "{{ rule_name }}",
+          "legendFormat": "{{ org }}",
           "range": true
         }
       ],
-      "title": "Repositories failing each rule",
-      "description": "Fleet totals per rule, summed across orgs after the per-replica max.",
+      "title": "Control assignments by org",
+      "description": "Assignments per organisation. A line that drops to zero is an org that stopped being measured — which is the signal a declared row exists to preserve.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -131,7 +131,7 @@
         }
       ],
       "title": "Repositories parked in the last 24h",
-      "description": "Why repositories left the measurable fleet. This is the denominator context for every compliance number above: a fleet whose tracked count drops needs the archived and fork series beside it to tell 'repositories left the fleet' from 'the exporter broke'. A rising access_denied share is the one to act on.",
+      "description": "Why repositories left the measurable fleet. This is the denominator context for every compliance number above: archived and fork parks are routine, a rising access_denied share is the one to act on.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -227,13 +227,13 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "max by (org) (repo_guardian_repos_tracked{org=\"$org\"})",
+          "expr": "sum(max by (org, control) (repo_guardian_controls_coverage{org=\"$org\"}))",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Repositories tracked",
-      "description": "Active repositories in this organisation. Reads 'no data' if the org has stopped reporting entirely, which is a different condition from zero repositories.",
+      "title": "Control assignments",
+      "description": "Assignments in this organisation. Reads 'no data' if the org has stopped being measured entirely, which is a different condition from zero assignments.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -271,14 +271,14 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "(\n  1 - (\n    max by (rule_name) (repo_guardian_repos_actionable{org=\"$org\"})\n    / scalar(max by (org) (repo_guardian_repos_tracked{org=\"$org\"}))\n  )\n)\nand on() (max by (org) (repo_guardian_repos_tracked{org=\"$org\"}) \u003e 0)",
+          "expr": "(\n  sum by (control) (max by (org, control) (repo_guardian_controls_status{bucket=\"compliant\", org=\"$org\"}))\n  /\n  (sum by (control) (max by (org, control, bucket) (repo_guardian_controls_status{bucket=~\"compliant|non_compliant\", org=\"$org\"})) \u003e 0)\n)\nand on (control) (sum by (control) (max by (org, control) (repo_guardian_controls_coverage{org=\"$org\"})) \u003e 0)",
           "instant": false,
-          "legendFormat": "{{ rule_name }}",
+          "legendFormat": "{{ control }}",
           "range": true
         }
       ],
-      "title": "Compliance by rule",
-      "description": "Share of this organisation's tracked repositories satisfying each rule. Undefined, and therefore blank, when the org tracks nothing — an unmeasured rule is not a compliant one.",
+      "title": "Compliance by control",
+      "description": "Share of this organisation's measured repositories passing each control. Blank for a control that measures nothing here — an unmeasured control is not a compliant one.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -316,13 +316,13 @@
       "type": "table",
       "targets": [
         {
-          "expr": "max by (rule_name) (repo_guardian_repos_actionable{org=\"$org\"})",
+          "expr": "max by (control, bucket) (repo_guardian_controls_status{org=\"$org\"})",
           "instant": true,
           "range": false
         }
       ],
-      "title": "Repositories failing each rule",
-      "description": "Current non-compliant count per rule for this organisation. State read back from the store, not a rate over check events.",
+      "title": "Assignments by control and status",
+      "description": "Current bucket counts per control for this organisation. State read back from the store, not a rate over evaluation events.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -361,20 +361,20 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (level) (increase(repo_guardian_out_of_scope_total{org=\"$org\"}[24h]))",
+          "expr": "sum by (control) (increase(repo_guardian_evaluation_errors_total{org=\"$org\"}[24h]))",
           "instant": false,
-          "legendFormat": "out of scope ({{ level }})",
+          "legendFormat": "errors ({{ control }})",
           "range": true
         },
         {
-          "expr": "sum by (scope) (increase(repo_guardian_ignored_total{org=\"$org\"}[24h]))",
+          "expr": "sum by (control) (increase(repo_guardian_evaluation_changes_total{org=\"$org\"}[24h]))",
           "instant": false,
-          "legendFormat": "ignored ({{ scope }})",
+          "legendFormat": "changes ({{ control }})",
           "range": true
         }
       ],
-      "title": "Rules skipped for scope or ignore",
-      "description": "Rules that never ran against this organisation's repositories. A rule skipped everywhere is a rule that is not protecting anything, and it looks identical to a rule that is passing.",
+      "title": "Evaluation errors and changes",
+      "description": "Control evaluations that ended in an error, and recorded results whose evidence moved, over a day. Every control of the org erroring at once is a permission problem, not a repository problem.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -416,7 +416,7 @@
         "name": "org",
         "label": "Organisation",
         "skipUrlSync": false,
-        "query": "label_values(repo_guardian_repos_tracked, org)",
+        "query": "label_values(repo_guardian_controls_coverage, org)",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"

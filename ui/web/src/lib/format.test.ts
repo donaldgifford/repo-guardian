@@ -16,9 +16,9 @@ describe("compliantPercent", () => {
 });
 
 describe("formatPercent", () => {
-  test("null is unmeasured, never 0% or 100%", () => {
-    expect(formatPercent(null)).toBe("unmeasured");
-    expect(formatPercent(undefined)).toBe("unmeasured");
+  test("null is no data, never 0% or 100%", () => {
+    expect(formatPercent(null)).toBe("no data");
+    expect(formatPercent(undefined)).toBe("no data");
   });
 
   test("renders one decimal", () => {

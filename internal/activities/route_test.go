@@ -2,28 +2,17 @@ package activities
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/mock"
-	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 
-	"github.com/donaldgifford/repo-guardian/internal/store"
-	"github.com/donaldgifford/repo-guardian/internal/store/mocks"
+	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
-
-// routeStore joins the generated Writer and Reader mocks.
-type routeStore struct {
-	*mocks.MockWriter
-	*mocks.MockReader
-}
 
 // signal is one signal the router sent.
 type signal struct {
@@ -79,13 +68,12 @@ func (c *recordingTemporal) SignalWorkflow(_ context.Context, id, _, name string
 	return c.signalErr
 }
 
-func newRouter(t *testing.T) (*Router, routeStore, *recordingTemporal) {
+// newRouter returns a router and a strict Temporal mock: the router
+// itself never signals, so any call fails the test.
+func newRouter(t *testing.T) (*Router, *recordingTemporal) {
 	t.Helper()
 
-	st := routeStore{MockWriter: mocks.NewMockWriter(t), MockReader: mocks.NewMockReader(t)}
-	tc := &recordingTemporal{Client: temporalmocks.NewClient(t)}
-
-	return NewRouter(st, tc, "repo-guardian", 24*time.Hour, 0.1, slog.New(slog.NewTextHandler(io.Discard, nil))), st, tc
+	return NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil))), &recordingTemporal{Client: temporalmocks.NewClient(t)}
 }
 
 var widgets = workflows.WebhookRepo{ID: 9, Org: "acme", Name: "widgets"}
@@ -121,267 +109,10 @@ func recheckOf(t *testing.T, s *signal) workflows.Recheck {
 	return r
 }
 
-func TestRouteWebhook_PushRechecksKnownActiveRepo(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).
-		Return(&store.Repository{ID: 42, InstallationID: 7, Active: true}, nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("push", "", widgets)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true, priority: int(workflows.PriorityWebhook)})
-
-	if got := recheckOf(t, &tc.signals[0]); got.Trigger != workflows.TriggerPush {
-		t.Errorf("trigger = %q", got.Trigger)
-	}
-}
-
-func TestRouteWebhook_PushLeavesParkedRepoParked(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).
-		Return(&store.Repository{ID: 42, Active: false}, nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("push", "", widgets)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc)
-}
-
-func TestRouteWebhook_PushDiscoversUnknownRepo(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).Return(nil, store.ErrNotFound)
-	st.MockWriter.EXPECT().UpsertDiscovered(mock.Anything, mock.MatchedBy(func(d *store.DiscoveredRepo) bool {
-		return d.Org == "acme" && d.Name == "widgets" && d.ProviderRepoID != nil && *d.ProviderRepoID == 9
-	})).Return(store.UpsertResult{ID: 42, Created: true}, nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("push", "", widgets)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
-}
-
-func TestRouteWebhook_PayloadDiscoveryEvents(t *testing.T) {
-	tests := []struct {
-		event, action string
-		trigger       string
-		priority      workflows.Priority
-	}{
-		{"repository", "created", workflows.TriggerWebhook, workflows.PriorityWebhook},
-		{"repository", "renamed", workflows.TriggerWebhook, workflows.PriorityWebhook},
-		{"repository", "transferred", workflows.TriggerWebhook, workflows.PriorityWebhook},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.event+"."+tt.action, func(t *testing.T) {
-			r, st, tc := newRouter(t)
-			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
-			st.MockWriter.EXPECT().UpsertDiscovered(mock.Anything, mock.Anything).Return(store.UpsertResult{ID: 42}, nil)
-
-			if err := r.RouteWebhook(t.Context(), webhook(tt.event, tt.action, widgets)); err != nil {
-				t.Fatal(err)
-			}
-
-			wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true, priority: int(tt.priority)})
-
-			if got := recheckOf(t, &tc.signals[0]); got.Trigger != tt.trigger || got.Priority != tt.priority {
-				t.Errorf("recheck = %+v", got)
-			}
-		})
-	}
-}
-
-// Installation-level events hand the listing to a single-installation
-// DiscoveryWorkflow: the listing, not the payload, decides what is
-// upserted and un-parked.
-func TestRouteWebhook_InstallationDiscoveryEvents(t *testing.T) {
-	for _, ev := range [][2]string{
-		{"repository", "unarchived"}, {"installation", "created"}, {"installation_repositories", "added"},
-	} {
-		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
-			r, st, tc := newRouter(t)
-			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
-
-			if err := r.RouteWebhook(t.Context(), webhook(ev[0], ev[1], widgets)); err != nil {
-				t.Fatal(err)
-			}
-
-			wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
-
-			if in, ok := tc.signals[0].arg.(*workflows.DiscoveryInput); !ok || in.InstallationID != 7 {
-				t.Errorf("discovery input = %+v", tc.signals[0].arg)
-			}
-		})
-	}
-}
-
-// On an all-repositories installation, installation_repositories.added
-// is discovered from its payload like repository.created; a selected
-// installation, or a payload past one listing page, is listed.
-func TestRouteWebhook_InstallationRepositoriesAdded(t *testing.T) {
-	many := make([]workflows.WebhookRepo, payloadDiscoveryMax+1)
-	for i := range many {
-		many[i] = workflows.WebhookRepo{ID: int64(100 + i), Org: "acme", Name: fmt.Sprintf("r%d", i)}
-	}
-
-	tests := []struct {
-		name      string
-		selection string
-		repos     []workflows.WebhookRepo
-		listing   bool
-	}{
-		{name: "all", selection: "all", repos: []workflows.WebhookRepo{widgets}},
-		{name: "selected", selection: "selected", repos: []workflows.WebhookRepo{widgets}, listing: true},
-		{name: "all past one page", selection: "all", repos: many, listing: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r, st, tc := newRouter(t)
-			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).Return(nil)
-
-			if !tt.listing {
-				st.MockWriter.EXPECT().UpsertDiscovered(mock.Anything, mock.MatchedBy(func(d *store.DiscoveredRepo) bool {
-					return d.Name == "widgets" && d.InstallationID == 7
-				})).Return(store.UpsertResult{ID: 42}, nil)
-			}
-
-			in := webhook("installation_repositories", "added", tt.repos...)
-			in.RepositorySelection = tt.selection
-
-			if err := r.RouteWebhook(t.Context(), in); err != nil {
-				t.Fatal(err)
-			}
-
-			if tt.listing {
-				wantSignals(t, tc, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
-
-				return
-			}
-
-			wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
-		})
-	}
-}
-
-// A rename matches the row by provider id, so the repository id, and
-// with it the workflow ID, survives the new name.
-func TestRouteWebhook_RenameKeepsWorkflowID(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, mock.Anything).Return(nil)
-	st.MockWriter.EXPECT().UpsertDiscovered(mock.Anything, mock.MatchedBy(func(d *store.DiscoveredRepo) bool {
-		return d.Name == "gadgets" && *d.ProviderRepoID == 9
-	})).Return(store.UpsertResult{ID: 42, Renamed: true}, nil)
-
-	renamed := workflows.WebhookRepo{ID: 9, Org: "acme", Name: "gadgets"}
-	if err := r.RouteWebhook(t.Context(), webhook("repository", "renamed", renamed)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
-}
-
-func TestRouteWebhook_ArchivedRechecksKnownRepo(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).
-		Return(&store.Repository{ID: 42, InstallationID: 7, Active: true}, nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("repository", "archived", widgets)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.RecheckSignal, started: true})
-}
-
-func TestRouteWebhook_ArchivedUnknownRepoIsIgnored(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).Return(nil, store.ErrNotFound)
-
-	if err := r.RouteWebhook(t.Context(), webhook("repository", "archived", widgets)); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc)
-}
-
-func TestRouteWebhook_RemovedParksThroughWorkflow(t *testing.T) {
-	for _, ev := range [][2]string{{"repository", "deleted"}, {"installation_repositories", "removed"}} {
-		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
-			r, st, tc := newRouter(t)
-			st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).
-				Return(&store.Repository{ID: 42, Active: true}, nil)
-
-			if err := r.RouteWebhook(t.Context(), webhook(ev[0], ev[1], widgets)); err != nil {
-				t.Fatal(err)
-			}
-
-			wantSignals(t, tc, signal{workflowID: "repo/42", name: workflows.ParkSignal})
-
-			if p, ok := tc.signals[0].arg.(workflows.Park); !ok || p.Reason != string(store.ParkRemoved) {
-				t.Errorf("park arg = %+v", tc.signals[0].arg)
-			}
-		})
-	}
-}
-
-func TestRouteWebhook_RemovedWithoutWorkflowParksRow(t *testing.T) {
-	r, st, tc := newRouter(t)
-	tc.signalErr = serviceerror.NewNotFound("workflow not found")
-	st.MockReader.EXPECT().FindRepository(mock.Anything, "acme", "widgets", mock.Anything).
-		Return(&store.Repository{ID: 42, Active: true}, nil)
-	st.MockWriter.EXPECT().Park(mock.Anything, int64(42), store.ParkRemoved, false).Return(nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("repository", "deleted", widgets)); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestRouteWebhook_InstallationDeletedMarksRemoved(t *testing.T) {
-	r, st, tc := newRouter(t)
-	st.MockWriter.EXPECT().MarkInstallationRemoved(mock.Anything, int64(7), mock.Anything).Return(nil)
-
-	if err := r.RouteWebhook(t.Context(), webhook("installation", "deleted")); err != nil {
-		t.Fatal(err)
-	}
-
-	wantSignals(t, tc)
-}
-
-func TestRouteWebhook_SuspendSignalsBudget(t *testing.T) {
-	for _, action := range []string{"suspend", "unsuspend"} {
-		t.Run(action, func(t *testing.T) {
-			r, st, tc := newRouter(t)
-			st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, mock.MatchedBy(func(in store.Installation) bool {
-				return in.InstallationID == 7 && (in.SuspendedAt != nil) == (action == "suspend")
-			})).Return(nil).Once()
-
-			if action == "unsuspend" {
-				st.MockWriter.EXPECT().UpsertInstallation(mock.Anything, store.Installation{InstallationID: 7, AccountLogin: "acme"}).
-					Return(nil).Once()
-			}
-
-			if err := r.RouteWebhook(t.Context(), webhook("installation", action)); err != nil {
-				t.Fatal(err)
-			}
-
-			want := []signal{{workflowID: "installation/7", name: workflows.SuspendSignal, started: true}}
-			if action == "unsuspend" {
-				want = append(want, signal{workflowID: "discovery/installation/7/d1", name: workflows.DiscoveryWorkflowName, started: true})
-			}
-
-			wantSignals(t, tc, want...)
-
-			if s, ok := tc.signals[0].arg.(workflows.Suspend); !ok || s.Suspended != (action == "suspend") {
-				t.Errorf("suspend arg = %+v", tc.signals[0].arg)
-			}
-		})
-	}
-}
-
+// TestRouteWebhook_UnroutedEventIsDropped: a delivery naming neither
+// controls App has no routing since the switch-over (IMPL-0029 7.1).
 func TestRouteWebhook_UnroutedEventIsDropped(t *testing.T) {
-	r, _, tc := newRouter(t)
+	r, tc := newRouter(t)
 
 	if err := r.RouteWebhook(t.Context(), webhook("star", "created")); err != nil {
 		t.Fatal(err)
@@ -411,7 +142,7 @@ func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
 		{"installation_repositories", "removed"},
 	} {
 		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
-			r, _, tc := newRouter(t)
+			r, tc := newRouter(t)
 			rec := &recordingAccess{}
 			r.WithAccessRecorder(rec)
 
@@ -431,28 +162,37 @@ func TestRouteWebhook_RemediationAppAccess(t *testing.T) {
 	}
 }
 
-// TestRouteWebhook_EvaluationAppDropped is IMPL-0028 task 9.1: until the
-// controls switch-over the rc's single App does the work and holds no
-// token for the Evaluation App's installation, so its deliveries touch
-// neither the store nor Temporal. The strict mocks fail on any call.
-func TestRouteWebhook_EvaluationAppDropped(t *testing.T) {
+// recordingControls records the deliveries handed to the controls
+// routing.
+type recordingControls struct {
+	got []*workflows.WebhookInput
+}
+
+func (c *recordingControls) RouteWebhook(_ context.Context, in *workflows.WebhookInput) error {
+	c.got = append(c.got, in)
+
+	return nil
+}
+
+// TestRouteWebhook_EvaluationAppTakesTheControlsRouting is IMPL-0029
+// task 5.7, replacing IMPL-0028 task 9.1's drop: every Evaluation App
+// delivery goes to the controls routing. The strict mock fails on any
+// Temporal call the router makes itself.
+func TestRouteWebhook_EvaluationAppTakesTheControlsRouting(t *testing.T) {
 	for _, ev := range [][2]string{
 		{"installation", "created"},
-		{"installation", "unsuspend"},
 		{"installation_repositories", "added"},
 		{"repository", "created"},
-		{"repository", "renamed"},
 		{"repository", "deleted"},
 		{"push", ""},
 	} {
 		t.Run(ev[0]+"."+ev[1], func(t *testing.T) {
-			r, _, tc := newRouter(t)
-			rec := &recordingAccess{}
-			r.WithAccessRecorder(rec)
+			r, tc := newRouter(t)
+			ctl := &recordingControls{}
+			r.WithControls(ctl)
 
 			in := webhook(ev[0], ev[1], widgets)
 			in.App = workflows.AppEval
-			in.RepositorySelection = selectionAll
 
 			if err := r.RouteWebhook(t.Context(), in); err != nil {
 				t.Fatal(err)
@@ -460,9 +200,22 @@ func TestRouteWebhook_EvaluationAppDropped(t *testing.T) {
 
 			wantSignals(t, tc)
 
-			if len(rec.got) != 0 {
-				t.Errorf("recorded = %+v, want nothing for the Evaluation App", rec.got)
+			if len(ctl.got) != 1 || ctl.got[0] != in {
+				t.Errorf("controls routing got %d deliveries, want this one", len(ctl.got))
 			}
 		})
 	}
+}
+
+// fakeLister answers the discovery listings.
+type fakeLister struct {
+	repos []*ghclient.Repository
+}
+
+func (*fakeLister) ListInstallations(context.Context) ([]*ghclient.Installation, error) {
+	return nil, nil
+}
+
+func (f *fakeLister) ListInstallationRepos(context.Context, int64) ([]*ghclient.Repository, error) {
+	return f.repos, nil
 }

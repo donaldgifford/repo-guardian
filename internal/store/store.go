@@ -1,11 +1,11 @@
-// Package store defines repo-guardian's persistent state: the v2 domain
-// types (repositories, findings, checks, events), the Writer the worker
-// role records through, the Reader and API views the api role reads,
-// and the shared compliance math.
+// Package store defines repo-guardian's persistent state: the Controls
+// interface the evaluation and remediation roles record through, the
+// repository and timeline views the api role reads, and the shared
+// compliance math.
 //
-// The implementation lives in store/postgres. The v1 Store (repo_state
-// and rule_state, read by the stale sweep and posture exporter) was
-// deleted with the v1 runtime in IMPL-0028 Phase 1.
+// The implementation lives in store/postgres, over the controls schema
+// chain (migrations_controls). The rc line's findings store and its v1
+// predecessor were deleted in IMPL-0029 Phase 7.
 package store
 
 import "errors"

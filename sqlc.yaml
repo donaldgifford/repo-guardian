@@ -1,5 +1,5 @@
 ---
-# sqlc configuration (IMPL-0025 task 2.6).
+# sqlc configuration (IMPL-0025 task 2.6; controls only since IMPL-0029 7.5).
 #
 # Schema comes from the goose migrations (sqlc understands the
 # `-- +goose Up/Down` annotations); queries live beside them. The
@@ -7,13 +7,14 @@
 # Regenerate with `make generate-sql`.
 version: "2"
 sql:
+  # The controls chain (IMPL-0029 4.4). The rc block went in 7.5.
   - engine: postgresql
-    schema: internal/store/postgres/migrations_v2
-    queries: internal/store/postgres/queries
+    schema: internal/store/postgres/migrations_controls
+    queries: internal/store/postgres/queries_controls
     gen:
       go:
-        package: sqlcdb
-        out: internal/store/postgres/sqlcdb
+        package: controlsdb
+        out: internal/store/postgres/controlsdb
         sql_package: pgx/v5
         emit_json_tags: false
         emit_pointers_for_null_types: true

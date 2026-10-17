@@ -128,49 +128,68 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | --- | --- |
 | `/status` | public service status (below) |
 | `/me` | the caller, and the orgs it may see |
-| `/summary` | tracked and parked repositories, compliance, findings by status, open PRs by age, stale PRs, and `finding_age`: failing findings bucketed by how long they have failed (`<1d`, `1-7d`, `7-30d`, `30-90d`, `90-180d`, `180d+`, every bucket listed) |
-| `/rules`, `/rules/{kind}/{name}` | compliance per rule with trend; one rule by org, with top reasons and oldest failures |
-| `/orgs`, `/orgs/{org}` | compliance and `open_prs` per org (findings with an open repo-guardian PR, equal to the `/findings?org=&remediation=pr_open` total); one org by rule, and why rules did not apply |
-| `/findings` | findings filtered by `status`, `reason`, `remediation`, `org`, `kind`, `rule`, `pr_stale`, `since_before`; `sort=pr_age` lists the oldest open PR first and findings without a PR last |
-| `/repositories`, `/repositories/{id}` | repositories filtered by `org`, `active`, `park_reason`, `q`; one repository with its findings |
-| `/repositories/{id}/events`, `/repositories/{id}/checks` | a repository's timeline and recent checks |
-| `/compliance/history` | snapshot series by `org`, `kind`, `rule`, `from`, `to`; `aggregate=fleet` sums each snapshot into one point and `aggregate=org` into one point per org, with the percentage computed from the sums |
-| `/policy` | the current policy version, its rollout and its rules |
-| `/installations` | installations and their last rate-limit snapshot |
+| `/summary` | tracked and parked repositories, the fleet posture, open PRs, repositories evaluated in the last 24 hours and the active policy version |
+| `/controls`, `/controls/{id}` | each assigned control's posture (`?org=` narrows it); one control by org and lineage, with the versions and revisions each org carries |
+| `/orgs`, `/orgs/{org}` | posture and `open_prs` per org; one org's baseline against what it added (percent and coverage each), its controls, its five worst and its exclusions |
+| `/repositories`, `/repositories/{id}` | repositories filtered by `org`, `active`, `park_reason`, `policy_state`, `q`; one repository with its last evaluation, policy state and whether each App can reach it |
+| `/repositories/{id}/controls` | the repository's assignments in remediation order, each with its bucket, mode, rule results and evidence |
+| `/repositories/{id}/evaluations`, `/repositories/{id}/events` | the evaluation log; result changes and repository events |
+| `POST /repositories/{id}/evaluate` | asks for an evaluation now (below) |
+| `/compliance/history` | each UTC day's last snapshot per org, control and lineage, by `control`, `org` and `days` (1–365, default 30) |
+| `/policies` | the active policy as the caller may see it: its version and rollout, each visible org's layer, the catalogue entries those reference, and the enterprise layer for callers who see every org |
 | `/openapi.yaml` | the contract (public) |
 
-**Compliance** everywhere is `compliant / (compliant + non_compliant)`
-over active repositories, floored to one decimal. `not_applicable` and
-`unknown` are counted separately. When nothing is measured the value is
-`null`, never 100. `repo-guardian report` computes the same number.
+**Posture.** Every compliance object is a `Posture`: one count per
+bucket (compliant, non-compliant, pending, stale, three unmeasurable
+reasons, not applicable, unknown, excluded), `assigned`, and two
+percentages floored to one decimal. `percent` is
+`compliant / (compliant + non_compliant)`; `coverage` is the measured
+assignments (compliant, non-compliant, not applicable) over
+`assigned`. When the denominator is zero the value is `null`, never
+100, and the UI prints "no data". The API sums rows and recomputes both
+from the sums, exactly as the SQL does, so no total is an average of
+percentages.
 
-**Evidence** explains a finding and is keyed by `reason`. Values in it
-came from repositories (paths, assertion messages, PR titles): treat
-them as data and never render them as markup. Build PR links from
-`org`, `repository` and `pr.number` rather than trusting `pr.url`.
+**Evidence** explains a rule result. Each object carries
+`evidence_kind` (`<control type>.<rule kind>`) and `evidence_version`;
+framework evidence, written when an evaluation could not decide, adds
+`reason`. Values in it came from repositories (paths, file contents,
+setting values): treat them as data and never render them as markup.
 
-`pr_stale` compares an open repo-guardian PR's age with `stale_after`,
-which defaults to `api.prStaleAfter` (720h) and can be set per request
-with `?stale_after=`.
+**Re-evaluation.** `POST /repositories/{id}/evaluate` signals the
+repository's evaluation workflow at the highest priority and answers
+`202`. It is the API's only write and touches no table. Visibility
+comes first (`404`, as for the GET). An API replica with no Temporal
+client answers `501`, and the UI hides its button; set `api.temporal`
+in the chart to give the api role one. A parked repository is `409`
+with type `parked`, and one with no running workflow `409`
+`workflow_missing`. Each replica sends at most one signal per
+repository per minute and answers `202` to the rest.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://guardian.example.com/api/v1/findings?status=non_compliant&org=acme&limit=200"
+  "https://guardian.example.com/api/v1/controls?org=acme"
 ```
 
 ## The status page
 
 `GET /api/v1/status` is public when `api.status.public` is true (the
 default). It reports an overall state, one state per component
-(checks, webhooks, discovery, snapshots, GitHub budget) with a
-fixed-template detail such as "last success 3m ago", and fleet-wide
-compliance with `compliance.history`: one point per UTC day over the
-last 30 days, taken from that day's last snapshot. `operations` adds
-repositories checked in the last 24 hours, tracked repositories, the
-newest policy version's `rollout_state` (`none`, `in_progress` or
-`complete`, with `rollout_completed_at`) and `last_snapshot_at`. It names no org, repository, rule or installation and
-carries no error text. The API computes it every 30 seconds in memory,
-so a request never reaches the database.
+(checks, webhooks, discovery, snapshots, and `backlog_evaluation` /
+`backlog_remediation` for each queue whose App is configured) with a
+fixed-template detail such as "last success 3m ago", the deployment's
+`topology` (`split` or `all`), and `apps`: each App with an
+installation and its installation, suspended and reachable-repository
+counts. `compliance` carries the fleet percent and coverage and
+`compliance.history`: one point per UTC day over the last 30 days,
+taken from that day's last snapshot. `operations` adds repositories
+evaluated in the last 24 hours, `overdue` (managed repositories with no
+successful evaluation within twice `EVAL_INTERVAL`), tracked
+repositories, the newest policy version's `rollout_state` (`none`,
+`in_progress` or `complete`, with `rollout_completed_at`) and
+`last_snapshot_at`. It names no org, repository, control or
+installation and carries no error text. The API computes it every 30
+seconds in memory, so a request never reaches the database.
 
 ## Pagination
 
@@ -214,9 +233,13 @@ Errors are RFC 9457 `application/problem+json`:
 - nothing is removed or renamed, and no field changes type.
 
 The contract's `info.version` follows semver: an addition bumps the
-minor version. 1.1.0 added `Summary.finding_age`, `OrgSummary.open_prs`,
-`sort=pr_age` on `/findings`, `aggregate` on `/compliance/history`, and
-the status page's `compliance.history` and `operations`.
+minor version. 2.0.0 is the controls line (IMPL-0029): the findings
+endpoints (`/rules`, `/findings`, `/policy`, `/installations`,
+`/repositories/{id}/checks`) are gone, replaced by `/controls`,
+`/policies`, `/repositories/{id}/controls` and
+`/repositories/{id}/evaluations`, and every compliance object is a
+`Posture`. It ships before v2.0.0 is released, so no 1.x client exists
+to break.
 
 Anything else would be `/api/v2`, served beside v1 for a deprecation
 window. The UI and the API are released together from one tag, so the

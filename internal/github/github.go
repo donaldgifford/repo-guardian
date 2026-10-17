@@ -35,10 +35,15 @@ type PullRequest struct {
 type Installation struct {
 	ID      int64
 	Account string
+	// Personal is an installation on a user account rather than an
+	// organization.
+	Personal bool
+	// RepositorySelection is "all" or "selected".
+	RepositorySelection string
 }
 
 // Repository represents a GitHub repository with metadata needed
-// for the checker engine to decide whether to process it.
+// for discovery and evaluation to decide whether to process it.
 type Repository struct {
 	// ID is GitHub's numeric repository id. It survives renames and
 	// transfers, so v2 matches repositories by it (DESIGN-0025 §

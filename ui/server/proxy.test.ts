@@ -70,6 +70,33 @@ describe("api proxy", () => {
     expect(seen).toHaveLength(0);
   });
 
+  test("forwards the re-evaluate POST from our own origin only", async () => {
+    const { browser, seen, config } = await signIn();
+    const path = "/api/v1/repositories/42/evaluate";
+
+    const cross = await browser.request(path, { method: "POST", headers: { origin: "https://evil.example" } });
+    expect(cross.status).toBe(403);
+    const none = await browser.request(path, { method: "POST" });
+    expect(none.status).toBe(403);
+    expect(seen).toHaveLength(0);
+
+    const res = await browser.request(path, { method: "POST", headers: { origin: config.publicUrl.origin } });
+    expect(res.status).toBe(200);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe(`http://repo-guardian-api${path}`);
+    expect(seen[0]?.headers.get("authorization")).toMatch(/^Bearer \S+$/);
+  });
+
+  test("allows no other POST, even same-origin", async () => {
+    const { browser, seen, config } = await signIn();
+    for (const path of ["/api/v1/repositories/42", "/api/v1/repositories/x/evaluate", "/api/v1/repositories/42/evaluate/x"]) {
+      const res = await browser.request(path, { method: "POST", headers: { origin: config.publicUrl.origin } });
+      expect(res.status).toBe(405);
+    }
+    expect(seen).toHaveLength(0);
+  });
+
   test("HEAD is forwarded without a body", async () => {
     const { browser, seen } = await signIn();
     const res = await browser.request("/api/v1/summary", { method: "HEAD" });

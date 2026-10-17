@@ -1,0 +1,115 @@
+{
+  "version": "controls:a745bb819aa404b9b63ec200ec0a397ab9a0b60452af47baa8a77070aac83551",
+  "enterprise": {
+    "orgs": [
+      "platform",
+      "payments",
+      "data",
+      "sandbox"
+    ],
+    "mode": "evaluate",
+    "controls": [
+      "codeowners@1",
+      "dependabot@1",
+      "catalog_info@1",
+      "repo_settings@1"
+    ]
+  },
+  "orgs": [
+    {
+      "org": "payments",
+      "mode": "remediate",
+      "replaced": [
+        {
+          "control": "codeowners@1",
+          "with": "codeowners@2",
+          "reason": "payments requires a CODEOWNERS entry naming its review team"
+        },
+        {
+          "control": "dependabot@1",
+          "with": "renovate@1",
+          "reason": "payments runs Renovate with the org preset"
+        }
+      ]
+    },
+    {
+      "org": "platform",
+      "mode": "remediate",
+      "added": [
+        {
+          "control": "protect_main@1"
+        }
+      ],
+      "repos": [
+        {
+          "label": "experiments",
+          "match": [
+            "exp-*"
+          ],
+          "mode": "evaluate"
+        }
+      ]
+    },
+    {
+      "org": "sandbox",
+      "excluded": [
+        {
+          "control": "repo_settings@1",
+          "reason": "sandbox repositories keep their wikis"
+        }
+      ],
+      "excluded_repos": [
+        {
+          "match": [
+            "tmp-*"
+          ],
+          "reason": "throwaway repositories"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "control": "catalog_info@1",
+      "title": "Backstage catalog entry",
+      "type": "catalog_info",
+      "revision": "7f28d2df52b4d0d9cd44598c1656eb7df39396b73acb66133e00e25ce0881e96"
+    },
+    {
+      "control": "codeowners@1",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "c4d287e7406f96b5ef440605bb83fbe92ebe28034582f0cf3bec2e9222c2fd3e"
+    },
+    {
+      "control": "codeowners@2",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "d3f030d62e9e16de0f75a3146ef731d1599a9d5b02f565ad4de151924986b0c3"
+    },
+    {
+      "control": "dependabot@1",
+      "title": "Dependabot",
+      "type": "dependency_updates",
+      "revision": "658107a0aa31263cc5fda54bc81e6730dbeb1849f25bdcc188742bc2a20dad83"
+    },
+    {
+      "control": "protect_main@1",
+      "title": "Default branch ruleset",
+      "type": "branch_ruleset",
+      "revision": "58f5cdf9dd41689d5439cd2b4c075e9c183c98d73ec85ca64b382f77726bc659"
+    },
+    {
+      "control": "renovate@1",
+      "title": "Renovate",
+      "type": "dependency_updates",
+      "revision": "926fa6638ae8525af2f8c1259c26f031b2dc6baa207d10ba51b468d7e1c55d5d"
+    },
+    {
+      "control": "repo_settings@1",
+      "title": "Repository settings",
+      "type": "repo_settings",
+      "revision": "41571664a1f7409741a9bea06cdb7aa090bc76e9cb1f61e5a8e512f4a608b897"
+    }
+  ]
+}

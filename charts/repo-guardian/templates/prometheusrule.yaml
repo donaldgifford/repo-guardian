@@ -1,6 +1,7 @@
 {{- if .Values.prometheusRule.enabled -}}
 {{/*
-Starter alert pack for IMPL-0011 multi-replica deployments. Each
+Starter alert pack, mirrored by hand from the generated catalogue
+(internal/monitoring/alert, IMPL-0029 6.6) — keep the two in step. Each
 alert may be tuned via prometheusRule.alerts.<name>.{for,severity,
 threshold}; setting `enabled: false` skips rendering the alert.
 Scoped to the labels block from values.yaml so an operator running
@@ -22,72 +23,94 @@ spec:
     - name: repo-guardian.rules
       rules:
         {{- $a := .Values.prometheusRule.alerts -}}
-        {{- /* QueueDepthHigh */ -}}
-        {{- $alert := default dict $a.QueueDepthHigh -}}
+        {{- /* EvaluationErrorRate */ -}}
+        {{- $alert := default dict $a.EvaluationErrorRate -}}
         {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianQueueDepthHigh
-          expr: max(repo_guardian_queue_depth{queue="jobs"}) > {{ default 1000 (get $alert "threshold") }}
+        - alert: RepoGuardianEvaluationErrorRate
+          expr: (sum(rate(repo_guardian_evaluations_total{outcome="error"}[15m])) / (sum(rate(repo_guardian_evaluations_total[15m])) > 0)) > {{ default 0.1 (get $alert "threshold") }}
           for: {{ default "10m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
-            summary: "repo-guardian queue depth above threshold"
-            description: "queue:jobs depth has exceeded the threshold for {{ default `10m` (get $alert `for`) }}; workers may be falling behind."
+            summary: "more than 10% of repo-guardian evaluations are failing"
+            description: "at 100% the evaluator cannot read GitHub or the store at all: usually the Evaluation App's credentials, connectivity, or a policy that fails to load."
         {{- end }}
-        {{- /* ReaperRequeues */ -}}
-        {{- $alert := default dict $a.ReaperRequeues -}}
+        {{- /* ControlEvaluationErrors */ -}}
+        {{- $alert := default dict $a.ControlEvaluationErrors -}}
         {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianReaperRequeues
-          expr: rate(repo_guardian_queue_reaped_total[15m]) > {{ default 0.1 (get $alert "threshold") }}
+        - alert: RepoGuardianControlEvaluationErrors
+          {{- /* Per (org, control), first increment included: increase() cannot see a new series. */}}
+          expr: |
+            increase(repo_guardian_evaluation_errors_total[1h]) > 0
+            or
+            (repo_guardian_evaluation_errors_total
+              unless repo_guardian_evaluation_errors_total offset 1h) > 0
           for: {{ default "15m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
-            summary: "repo-guardian reaper actively requeueing jobs"
-            description: "the in-flight reaper has been requeueing jobs for over 15 minutes; workers may be crashing or hanging."
+            summary: "a repo-guardian control is returning an error status"
+            description: "the control could not evaluate: a GitHub read it needs failed or was refused. One control erroring across an org is usually a missing App permission; the logs dashboard names the repositories."
         {{- end }}
-        {{- /* NoLeader */ -}}
-        {{- $alert := default dict $a.NoLeader -}}
+        {{- /* EvaluationFreshness */ -}}
+        {{- $alert := default dict $a.EvaluationFreshness -}}
         {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianNoSchedulerLeader
-          {{- /*
-            name="stale-sweep", NOT name="sweep". The legacy full-
-            enumeration `sweep` schedule was deleted in IMPL-0015 Phase
-            0, so this alert watched a series with no producer from that
-            release until IMPL-0023 Phase 7 — and an == 0 comparison
-            against an empty vector is itself empty, so it did not fire
-            wrongly, it could not fire at all. INV-0012 finding A, again.
-          */}}
-          expr: max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0
-          for: {{ default "5m" (get $alert "for") | quote }}
+        - alert: RepoGuardianEvaluationFreshness
+          expr: histogram_quantile(0.95, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[6h]))) > {{ default 172800 (get $alert "threshold") }}
+          for: {{ default "1h" (get $alert "for") | quote }}
           labels:
-            severity: {{ default "critical" (get $alert "severity") | quote }}
+            severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
-            summary: "repo-guardian sweep scheduler has no leader"
-            description: "no replica has held the stale-sweep leader lock for 5+ minutes; reconciliation has stalled."
+            summary: "repo-guardian controls are re-evaluated more than two days apart (p95)"
+            description: "evaluation is not keeping up with the fleet: check the evaluation queue's schedule-to-start latency and budget waits before raising EVALUATOR_CONCURRENCY."
+        {{- end }}
+        {{- /* StaleEpochDiscards */ -}}
+        {{- $alert := default dict $a.StaleEpochDiscards -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianStaleEpochDiscards
+          expr: sum(increase(repo_guardian_results_discarded_total{reason="stale_epoch"}[2h])) > {{ default 100 (get $alert "threshold") }}
+          for: {{ default "1h" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian evaluations keep being discarded for a moved assignment epoch"
+            description: "assignments change between evaluation and record faster than evaluations finish, usually a policy being re-activated repeatedly. Evaluation work is being thrown away."
+        {{- end }}
+        {{- /* NoWebhooks */ -}}
+        {{- $alert := default dict $a.NoWebhooks -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianNoWebhooks
+          expr: increase(repo_guardian_webhook_received_total[24h]) == 0
+          for: {{ default "1h" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian has received no webhook in 24 hours"
+            description: "either the App's webhook delivery is broken or the endpoint is unreachable. Check the App's recent deliveries in GitHub."
+        {{- end }}
+        {{- /* WebhookRejectionsHigh */ -}}
+        {{- $alert := default dict $a.WebhookRejectionsHigh -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianWebhookRejectionsHigh
+          expr: sum by (reason) (rate(repo_guardian_webhook_rejected_total[30m])) > {{ default 0.1 (get $alert "threshold") }}
+          for: {{ default "30m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian webhook requests are being rejected"
+            description: "signature validation failures (401s), usually a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not here."
         {{- end }}
         {{- /* StoreErrors */ -}}
         {{- $alert := default dict $a.StoreErrors -}}
         {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianStoreQueryErrors
-          {{- /*
-            clamp_min on the denominator, and a 10m window to match the
-            generator's catalogue. Unclamped, an idle deployment divides
-            0 by 0 and the series goes NaN — which never crosses the
-            threshold, so the alert is merely useless rather than noisy,
-            but "useless exactly while nothing is happening" is not a
-            property worth keeping.
-          */}}
-          expr: |
-            sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m]))
-              / clamp_min(sum(rate(repo_guardian_store_query_seconds_count[10m])), 1)
-              > {{ default 0.1 (get $alert "threshold") }}
+        - alert: RepoGuardianStoreErrors
+          expr: sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m])) / (sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0) > {{ default 0.1 (get $alert "threshold") }}
           for: {{ default "10m" (get $alert "for") | quote }}
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
-            summary: "repo-guardian store error rate elevated"
-            description: "{{ "{{" }} $value | humanizePercentage {{ "}}" }} of store queries failed in the last 5 minutes."
+            summary: "more than 10% of repo-guardian store queries are failing"
+            description: "Postgres is unreachable, saturated, or the schema is behind the binary."
         {{- end }}
         {{- /* RateLimitNearExhaustion */ -}}
         {{- $alert := default dict $a.RateLimitNearExhaustion -}}
@@ -98,144 +121,8 @@ spec:
           labels:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
-            summary: "repo-guardian GitHub rate-limit nearly exhausted"
-            description: "an installation has fewer than the configured threshold rate-limit budget remaining; the reserve gate will start blocking sweeps."
-        {{- end }}
-        {{- /* RepoAccessDenied — INV-0015 circuit breaker */ -}}
-        {{- $alert := default dict $a.RepoAccessDenied -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianRepoAccessDenied
-          {{- /*
-            The second disjunct catches the FIRST access_denied park.
-            increase() cannot see a counter's first increment — the
-            series does not exist until it is incremented, so its first
-            sample is 1 and there is nothing earlier to subtract. On a
-            fleet where this happens once, that is the only occurrence
-            there will ever be. Mirrors alert.firstOrIncrease in the
-            generator catalogue; keep the two in step.
-          */}}
-          expr: |
-            increase(repo_guardian_repos_parked_total{reason="access_denied"}[1h]) > {{ default 0 (get $alert "threshold") }}
-            or
-            (repo_guardian_repos_parked_total{reason="access_denied"}
-              unless repo_guardian_repos_parked_total{reason="access_denied"} offset 1h) > {{ default 0 (get $alert "threshold") }}
-          for: {{ default "15m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian cannot read repositories it was asked to check"
-            description: "repositories were parked because the installation cannot read them — the App was uninstalled from them, lost a permission, or they were deleted. Only reason=access_denied is alerted; archived and fork parking is routine. Parked repos are skipped by the sweep and rejoin automatically when discovery sees them again."
-        {{- end }}
-        {{- /* StaleOpenPRs — IMPL-0013 Phase 1 drift visibility */ -}}
-        {{- $alert := default dict $a.StaleOpenPRs -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianStaleOpenPRs
-          expr: max(repo_guardian_open_prs_by_rule{age_bucket="30d+"}) > {{ default 0 (get $alert "threshold") }}
-          for: {{ default "1h" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian PR open for 30+ days"
-            description: "at least one repo-guardian PR has been open for over 30 days without convergence; investigate the rule / org pair."
-        {{- end }}
-        {{- /* PRDrift — INV-0005 drift surface */ -}}
-        {{- $alert := default dict $a.PRDrift -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianPRDrift
-          expr: sum(rate(repo_guardian_pr_open_with_empty_actionable_total[1h])) > {{ default 0 (get $alert "threshold") }}
-          for: {{ default "30m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian PR drift detected (INV-0005)"
-            description: "open repo-guardian PRs exist where every file rule is now satisfied on the default branch; IMPL-0013 Phase 3 will auto-converge these, but the metric flags them today."
-        {{- end }}
-        {{- /* QueueBackpressure — IMPL-0022 delayed-requeue depth */ -}}
-        {{- $alert := default dict $a.QueueBackpressure -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianQueueBackpressure
-          {{- /*
-            Gauge published by EVERY pod's reaper tick (each
-            REAPER_INTERVAL, default 60s), so the series is always
-            fresh and a sustained `for` is safe — no rate() window to
-            outlive (INV-0012 finding C class). max() because every
-            replica reports the same ZCARD.
-          */}}
-          expr: max(repo_guardian_queue_delayed_depth) > {{ default 100 (get $alert "threshold") }}
-          for: {{ default "30m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian delayed-job backlog sustained"
-            description: "more than the threshold number of jobs have sat parked in the delayed set for 30+ minutes; deferrals (rate-limit throttling) are outpacing promotion. Check queue_delayed_total by installation to find the throttled tenant. See docs/operations/scaling.md §Delayed requeue."
-        {{- end }}
-        {{- /* JobsExhausted — IMPL-0022 attempt-cap terminal drops */ -}}
-        {{- $alert := default dict $a.JobsExhausted -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianJobsExhausted
-          {{- /*
-            Two-legged on purpose: increase() cannot see a brand-new
-            series' first increment (needs two samples to diff, and
-            birth-at-1 diffs to 0 — INV-0012 finding E class). The
-            second leg fires for any exhausted-counter series younger
-            than 1h, covering exactly the window the first leg is
-            blind in; once the series is older than 1h the offset
-            sample exists and `unless` retires that leg.
-          */}}
-          expr: |
-            sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0
-              or sum(repo_guardian_queue_attempts_exhausted_total
-                unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0
-          for: {{ default "5m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian dropped a job at the attempt cap"
-            description: "a job exhausted MAX_JOB_ATTEMPTS and was dropped with a terminal StatusError in repo_state; the next stale sweep will retry the repo, but a sustained rate means a persistently failing installation. Check queue_attempts_exhausted_total by installation and the worker logs."
-        {{- end }}
-        {{- /* PostureExportStalled — IMPL-0023 Phase 2 */ -}}
-        {{- $alert := default dict $a.PostureExportStalled -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianPostureExportStalled
-          {{- /*
-            The one failure the compliance gauges cannot report about
-            themselves. The exporter runs on the leader and republishes
-            repos_actionable / repos_tracked / repos_unmeasurable on a
-            timer; if it stops, the gauges do not go to zero or go
-            stale-flagged — they keep serving their last values, with
-            total confidence, forever. Every number on the KPI dashboard
-            is then a lie of unknown age.
-          */}}
-          expr: sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == {{ default 0 (get $alert "threshold") }}
-          for: {{ default "15m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian posture exporter has stopped publishing"
-            description: "no successful posture export in the last hour. The compliance gauges are still being served but are frozen at their last values; treat every compliance number as unknown rather than as its last reading until this clears. Check the leader's logs for posture export errors and repo_guardian_posture_export_total{outcome=\"error\"}."
-        {{- end }}
-        {{- /* PropertySchemaMissing — DESIGN-0019 schema preflight */ -}}
-        {{- $alert := default dict $a.PropertySchemaMissing -}}
-        {{- if ne (toString (get $alert "enabled")) "false" }}
-        - alert: RepoGuardianPropertySchemaMissing
-          {{- /*
-            increase(...[1h]) with a short `for`, not rate(...[15m]) with
-            for: 30m. The window must outlive `for` or the alert can never
-            fire: a schema mismatch is observed once per repo per sweep, so
-            an isolated one leaves rate() positive for ~15m and the 30m
-            pending period resets before it elapses (INV-0011 A7).
-          */}}
-          expr: |
-            increase(repo_guardian_custom_property_missing_schema_total[1h]) > {{ default 0 (get $alert "threshold") }}
-            or
-            (repo_guardian_custom_property_missing_schema_total
-              unless repo_guardian_custom_property_missing_schema_total offset 1h) > {{ default 0 (get $alert "threshold") }}
-          for: {{ default "5m" (get $alert "for") | quote }}
-          labels:
-            severity: {{ default "warning" (get $alert "severity") | quote }}
-          annotations:
-            summary: "repo-guardian custom property missing from org schema"
-            description: "a mapped annotation_properties target has no matching org-level custom property definition; the sync for that property is being skipped. See docs/usage/policy-reference.md §Custom Property Schema Preflight — either define the property in the org's custom-property schema, or remove it from annotation_properties."
+            summary: "repo-guardian GitHub API budget is nearly exhausted"
+            description: "set by every evaluation from the response headers. The installation budget defers evaluations until the reset, so work waits rather than fails."
         {{- end }}
     {{- /*
       Temporal worker health (rc.2), mirrored by hand from the generated
@@ -258,7 +145,7 @@ spec:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
             summary: "repo-guardian activities wait more than a minute (p99) for a worker slot"
-            description: "far above Temporal's generic 200ms on purpose: checks are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget."
+            description: "far above Temporal's generic 200ms on purpose: evaluations are GitHub rate-limit bound and a policy rollout queues work by design. Minutes of sustained wait mean the fleet cannot keep up; add evaluator replicas (or KEDA maxReplicas) or EVALUATOR_CONCURRENCY, within the GitHub budget."
         {{- end }}
         {{- /* TemporalStickyCacheEvictions */ -}}
         {{- $alert := default dict $a.TemporalStickyCacheEvictions -}}
@@ -270,7 +157,7 @@ spec:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
             summary: "repo-guardian workers are force-evicting cached workflows"
-            description: "more long-lived workflows are active than the sticky cache holds (one RepoWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache."
+            description: "more long-lived workflows are active than the sticky cache holds (one EvaluationWorkflow per repository), so evicted workflows replay their history on every task. Add worker replicas; each has its own cache."
         {{- end }}
         {{- /* TemporalWorkerSlotsExhausted */ -}}
         {{- $alert := default dict $a.TemporalWorkerSlotsExhausted -}}
@@ -283,7 +170,7 @@ spec:
             severity: {{ default "warning" (get $alert "severity") | quote }}
           annotations:
             summary: "no repo-guardian worker has a free task slot"
-            description: "every worker's slots are in use, so new tasks queue. Add worker replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget."
+            description: "every worker's slots are in use, so new tasks queue. Add worker replicas, or raise EVALUATOR_CONCURRENCY within the GitHub budget."
         {{- end }}
         {{- /* TemporalWorkflowTaskLatency */ -}}
         {{- $alert := default dict $a.TemporalWorkflowTaskLatency -}}
@@ -296,5 +183,41 @@ spec:
           annotations:
             summary: "repo-guardian workflow tasks wait more than 200ms (p99) to start"
             description: "Temporal's recommended threshold. Workflow tasks are short, so waiting means workers are saturated, down, or their build is not the deployment's current version (check the worker's deployment readiness check)."
+        {{- end }}
+        {{- /* TemporalWorkflowTaskFailures */ -}}
+        {{- $alert := default dict $a.TemporalWorkflowTaskFailures -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalWorkflowTaskFailures
+          expr: sum by (task_queue) (rate(temporal_workflow_task_execution_failed[15m])) > 0
+          for: {{ default "15m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "repo-guardian workflow tasks are failing"
+            description: "a failing workflow task retries forever and its workflow makes no progress. Almost always nondeterminism: a workflow change shipped without workflow.GetVersion. The worker log names the workflow id."
+        {{- end }}
+        {{- /* TemporalNoWorkerPollers */ -}}
+        {{- $alert := default dict $a.TemporalNoWorkerPollers -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalNoWorkerPollers
+          expr: max by (task_queue, poller_type) (temporal_num_pollers{poller_type=~"workflow_task|activity_task"}) == 0
+          for: {{ default "10m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "critical" (get $alert "severity") | quote }}
+          annotations:
+            summary: "a repo-guardian worker has stopped polling its task queue"
+            description: "the process is up but takes no tasks: usually lost connectivity to the frontend or a build that is not the deployment's current version."
+        {{- end }}
+        {{- /* TemporalUnreachable */ -}}
+        {{- $alert := default dict $a.TemporalUnreachable -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianTemporalUnreachable
+          expr: sum(rate(temporal_long_request_failure[10m])) / (sum(rate(temporal_long_request[10m])) > 0) > {{ default 0.5 (get $alert "threshold") }}
+          for: {{ default "10m" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "critical" (get $alert "severity") | quote }}
+          annotations:
+            summary: "most repo-guardian Temporal polls are failing"
+            description: "workers cannot reach the Temporal frontend: check the address, mTLS material and the frontend's own health. Nothing evaluates until it recovers."
         {{- end }}
 {{- end }}

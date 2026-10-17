@@ -3,624 +3,445 @@ package policy
 import (
 	"errors"
 	"fmt"
-	"regexp"
-	"sort"
+	"path"
+	"slices"
 	"strings"
+	"time"
+
+	"github.com/hashicorp/hcl/v2"
+
+	"github.com/donaldgifford/repo-guardian/internal/control"
 )
 
-const (
-	logLevelDebug = "debug"
-	logLevelWarn  = "warn"
-	logLevelError = "error"
-)
+// minReopenAfter is the shortest reopen_after DESIGN-0030 allows.
+const minReopenAfter = time.Hour
 
-// Validate checks the PolicyConfig for configuration errors.
-// Returns a joined error with all validation failures.
-func Validate(cfg *PolicyConfig) error {
-	errs := make([]error, 0, len(cfg.FileRules)+len(cfg.SettingRules)+4)
-
-	errs = append(errs, validateGuardian(&cfg.Guardian)...)
-	errs = append(errs, validateFileRules(cfg.FileRules)...)
-	errs = append(errs, validateNoDuplicateRules(cfg.FileRules)...)
-	errs = append(errs, validateWhenGates(cfg)...)
-	errs = append(errs, validateSettingRules(cfg.SettingRules)...)
-	errs = append(errs, validateBranchProtectionRules(cfg.BranchProtectionRules)...)
-
-	return errors.Join(errs...)
+// validator checks a decoded policy against DESIGN-0030's validation list.
+// Errors fail load; warnings are logged once.
+type validator struct {
+	defs     map[control.ID]*definition
+	ent      *enterprisePolicy
+	orgs     []*orgPolicy
+	errs     []error
+	warnings []Warning
 }
 
-func validateGuardian(g *GuardianConfig) []error {
-	var errs []error
-
-	if g.RateLimitThreshold < 0 || g.RateLimitThreshold > 1.0 {
-		errs = append(errs, fmt.Errorf(
-			"guardian.rate_limit_threshold must be between 0.0 and 1.0, got %f",
-			g.RateLimitThreshold,
-		))
-	}
-
-	validLogLevels := map[string]bool{
-		logLevelDebug:   true,
-		defaultLogLevel: true,
-		logLevelWarn:    true,
-		logLevelError:   true,
-	}
-
-	if !validLogLevels[g.LogLevel] {
-		errs = append(errs, fmt.Errorf(
-			"guardian.log_level must be one of debug, info, warn, error; got %q",
-			g.LogLevel,
-		))
-	}
-
-	return errs
+func (v *validator) errorf(r hcl.Range, format string, args ...any) {
+	v.errs = append(v.errs, fmt.Errorf("%s: %s", at(r), fmt.Sprintf(format, args...)))
 }
 
-func validateFileRules(rules []FileRuleConfig) []error {
-	errs := make([]error, 0, len(rules))
-
-	for i := range rules {
-		r := &rules[i]
-		prefix := fmt.Sprintf("rule %q %q", r.Type, r.Name)
-
-		errs = append(errs, validateFileRule(r, prefix)...)
-	}
-
-	return errs
+func (v *validator) warnf(r hcl.Range, format string, args ...any) {
+	v.warnings = append(v.warnings, Warning{File: r.Filename, Line: r.Start.Line, Msg: fmt.Sprintf(format, args...)})
 }
 
-func validateFileRule(r *FileRuleConfig, prefix string) []error {
-	var errs []error
+// validate runs every check and returns the joined errors.
+func (v *validator) validate() error {
+	v.checkRefs()
+	v.checkModes()
+	v.checkRemediation(&v.ent.remed)
 
-	validChecks := map[string]bool{
-		string(CheckExists):   true,
-		string(CheckContains): true,
-		string(CheckExact):    true,
-		string(CheckAbsent):   true,
-		"":                    true, // defaults to "exists"
+	for _, org := range v.orgs {
+		v.checkRemediation(&org.remed)
+		v.checkReasons(org)
+		v.checkRepos(org)
+		v.checkLayers(org)
+		v.checkOverrides(org)
+		v.checkSameSpecificity(org)
+		v.checkReAdds(org)
 	}
 
-	if !validChecks[r.Check] {
-		errs = append(errs, fmt.Errorf(
-			"%s: check must be one of exists, contains, exact, absent; got %q",
-			prefix, r.Check,
-		))
+	if len(v.errs) == 0 {
+		v.checkOwnership()
 	}
 
-	if len(r.Paths) == 0 {
-		errs = append(errs, fmt.Errorf("%s: paths must be non-empty", prefix))
-	}
-
-	errs = append(errs, validateSearchTerms(r.PR, prefix)...)
-
-	// Absent rules delete by path and have nothing to render, assert, or
-	// reconcile: target/template/assertion/reconcile are all forbidden,
-	// and none of the content sub-validation below applies (DESIGN-0020).
-	if r.CheckMode() == CheckAbsent {
-		return append(errs, validateAbsentRule(r, prefix)...)
-	}
-
-	if r.Target == "" {
-		errs = append(errs, fmt.Errorf("%s: target must be non-empty", prefix))
-	}
-
-	if r.Template == "" {
-		errs = append(errs, fmt.Errorf("%s: template must be non-empty", prefix))
-	}
-
-	if len(r.Assertions) > 0 && r.CheckMode() != CheckContains {
-		errs = append(errs, fmt.Errorf(
-			"%s: assertions require check = \"contains\", got %q",
-			prefix, r.Check,
-		))
-	}
-
-	for j, a := range r.Assertions {
-		aPrefix := fmt.Sprintf("%s assertion[%d]", prefix, j)
-		errs = append(errs, validateAssertion(&a, aPrefix)...)
-	}
-
-	for j := range r.Reconcilers {
-		rec := &r.Reconcilers[j]
-		rPrefix := fmt.Sprintf("%s reconcile %q", prefix, rec.Type)
-		errs = append(errs, validateAnnotationProperties(rec.AnnotationProperties, rPrefix)...)
-	}
-
-	return errs
+	return errors.Join(v.errs...)
 }
 
-// validateSearchTerms rejects blank `pr { search_terms }` entries. A
-// blank term substring-matches every open pull request, so the rule
-// would skip itself on every repo that has any PR open at all — a
-// silently disabled rule with no log line and no metric to notice it by
-// (INV-0011 B4). Failing at load is the same stance IMPL-0018 took for
-// unknown `guardian {}` attributes.
-func validateSearchTerms(pr *PRConfig, prefix string) []error {
-	if pr == nil {
-		return nil
+// checkRefs: every control reference names a catalogue definition.
+func (v *validator) checkRefs() {
+	for _, r := range v.ent.controls {
+		v.checkRef(r.id, r.pos)
 	}
 
-	var errs []error
+	for _, org := range v.orgs {
+		for _, ly := range org.layers() {
+			for i := range ly.ops {
+				o := &ly.ops[i]
+				v.checkRef(o.id, o.pos)
 
-	for i, term := range pr.SearchTerms {
-		if strings.TrimSpace(term) == "" {
-			errs = append(errs, fmt.Errorf(
-				"%s pr: search_terms[%d] must be non-blank (a blank term matches every open PR)",
-				prefix, i,
-			))
+				if o.kind == opReplace {
+					v.checkRef(o.with, o.pos)
+				}
+			}
+
+			for i := range ly.overrides {
+				v.checkRef(ly.overrides[i].id, ly.overrides[i].pos)
+			}
 		}
 	}
-
-	return errs
 }
 
-// validateAbsentRule enforces the absent-mode restrictions: an absent
-// rule deletes files by path and has nothing to render or assert, so
-// target, template, assertion blocks, and reconcile blocks are all
-// rejected (DESIGN-0020 validation matrix). The non-empty paths check
-// and the cross-rule when {} gate validation live in the caller and
-// validateWhenGates respectively, so they are not repeated here.
-func validateAbsentRule(r *FileRuleConfig, prefix string) []error {
-	var errs []error
-
-	if r.Target != "" {
-		errs = append(errs, fmt.Errorf(
-			"%s: check = \"absent\" forbids target (deletions operate on paths)", prefix,
-		))
+func (v *validator) checkRef(id control.ID, r hcl.Range) {
+	if _, ok := v.defs[id]; ok {
+		return
 	}
 
-	if r.Template != "" {
-		errs = append(errs, fmt.Errorf(
-			"%s: check = \"absent\" forbids template (nothing to render)", prefix,
-		))
+	var versions []string
+
+	for d := range v.defs {
+		if d.Slug == id.Slug {
+			versions = append(versions, d.String())
+		}
 	}
 
-	if len(r.Assertions) > 0 {
-		errs = append(errs, fmt.Errorf(
-			"%s: check = \"absent\" forbids assertion blocks (no content to assert)", prefix,
-		))
+	if len(versions) == 0 {
+		v.errorf(r, "unknown control %s: no %q in the catalogue", id, id.Slug)
+
+		return
 	}
 
-	if len(r.Reconcilers) > 0 {
-		errs = append(errs, fmt.Errorf(
-			"%s: check = \"absent\" forbids reconcile blocks (reconcilers consume file content that must not exist)",
-			prefix,
-		))
-	}
-
-	return errs
+	slices.Sort(versions)
+	v.errorf(r, "unknown control version %s: the catalogue has %s", id, strings.Join(versions, ", "))
 }
 
-// reservedPropertyNames are GitHub custom property names the
-// custom_properties reconciler always manages from contract-guaranteed
-// Component fields (spec.owner, metadata.name). annotation_properties
-// may not target them (DESIGN-0019: built-in names are fixed, not
-// renameable). Compared case-insensitively because GitHub property
-// names are unique case-insensitively — an operator mapping to "owner"
-// would collide with the built-in "Owner" at PATCH time anyway.
-var reservedPropertyNames = map[string]bool{
-	"owner":     true,
-	"component": true,
+// checkModes: every mode is evaluate or remediate.
+func (v *validator) checkModes() {
+	check := func(m *modeDecl) {
+		if m != nil && m.mode != ModeEvaluate && m.mode != ModeRemediate {
+			v.errorf(m.pos, "mode %q: want %q or %q", m.mode, ModeEvaluate, ModeRemediate)
+		}
+	}
+
+	check(v.ent.mode)
+
+	for _, org := range v.orgs {
+		for _, ly := range org.layers() {
+			check(ly.mode)
+
+			for i := range ly.overrides {
+				check(&ly.overrides[i].mode)
+			}
+		}
+	}
 }
 
-// githubPropertyNamePattern matches GitHub's constraint on custom
-// property names: alphanumeric, and the special characters hyphen,
-// underscore, dollar sign and number sign, up to 75 characters (GitHub
-// REST: organization custom properties).
-//
-// The original pattern here allowed a period and omitted `$` and `#`,
-// which got both edges wrong (INV-0011 A6): `$`/`#` names were rejected
-// at load even though GitHub accepts them, while a dotted name loaded
-// cleanly and then failed with a 422 at sync time. Failing loudly at
-// load is the better trade — see docs/operations/property-name-charset.md.
-var githubPropertyNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_$#-]{1,75}$`)
-
-// validateAnnotationProperties validates a reconciler's
-// annotation_properties map (DESIGN-0019): annotation keys and property
-// names must be non-empty, property names must not be reserved
-// (Owner/Component), must match GitHub's property-name charset/length,
-// and no two annotations may target the same property name. Keys are
-// sorted before validation so the returned errors are deterministic.
-func validateAnnotationProperties(props map[string]string, prefix string) []error {
-	if len(props) == 0 {
-		return nil
+// checkRemediation: max_open_prs at least 1, reopen_after a duration of
+// at least 1h.
+func (v *validator) checkRemediation(r *remediationDecl) {
+	if r.maxOpenPRs != nil && *r.maxOpenPRs < 1 {
+		v.errorf(r.maxOpenPRsPos, "remediation.max_open_prs = %d: must be at least 1", *r.maxOpenPRs)
 	}
 
-	var errs []error
-
-	annotations := make([]string, 0, len(props))
-	for annotation := range props {
-		annotations = append(annotations, annotation)
+	if r.reopenAfter == nil {
+		return
 	}
 
-	sort.Strings(annotations)
-
-	seenProperties := make(map[string]string, len(props))
-
-	for _, annotation := range annotations {
-		property := props[annotation]
-
-		if annotation == "" {
-			errs = append(errs, fmt.Errorf(
-				"%s: annotation_properties has an empty annotation key",
-				prefix,
-			))
-		}
-
-		if property == "" {
-			errs = append(errs, fmt.Errorf(
-				"%s: annotation_properties[%q] has an empty property name",
-				prefix, annotation,
-			))
-
-			continue
-		}
-
-		lower := strings.ToLower(property)
-
-		if reservedPropertyNames[lower] {
-			errs = append(errs, fmt.Errorf(
-				"%s: annotation_properties[%q] targets reserved property name %q (Owner/Component are built in and cannot be remapped)",
-				prefix, annotation, property,
-			))
-		}
-
-		if !githubPropertyNamePattern.MatchString(property) {
-			errs = append(errs, fmt.Errorf(
-				"%s: annotation_properties[%q] property name %q must match %s and be at most 75 characters",
-				prefix, annotation, property, githubPropertyNamePattern.String(),
-			))
-		}
-
-		if existing, ok := seenProperties[lower]; ok {
-			errs = append(errs, fmt.Errorf(
-				"%s: annotation_properties has duplicate property name %q targeted by both %q and %q",
-				prefix, property, existing, annotation,
-			))
-		} else {
-			seenProperties[lower] = annotation
-		}
+	d, err := time.ParseDuration(*r.reopenAfter)
+	if err != nil || d < minReopenAfter {
+		v.errorf(r.reopenAfterPos, "remediation.reopen_after = %q: must be a duration of at least %s", *r.reopenAfter, minReopenAfter)
 	}
-
-	return errs
 }
 
-func validateAssertion(a *AssertionConfig, prefix string) []error {
-	var errs []error
-
-	if a.Message == "" {
-		errs = append(errs, fmt.Errorf("%s: message is required", prefix))
+// checkReasons: every exclude, replace and exclude_repos carries a
+// non-empty reason (D2, D17).
+func (v *validator) checkReasons(org *orgPolicy) {
+	for _, ly := range org.layers() {
+		for i := range ly.ops {
+			if o := &ly.ops[i]; o.kind != opAdd && strings.TrimSpace(o.reason) == "" {
+				v.errorf(o.pos, "%s %s needs a reason", opName(o.kind), o.id)
+			}
+		}
 	}
 
-	hasPattern := a.Pattern != "" || a.NotPattern != ""
-	hasYAMLPath := a.YAMLPath != ""
-
-	if hasPattern && hasYAMLPath {
-		errs = append(errs, fmt.Errorf(
-			"%s: pattern/not_pattern and yaml_path are mutually exclusive",
-			prefix,
-		))
+	for i := range org.excludeRepos {
+		if er := &org.excludeRepos[i]; strings.TrimSpace(er.reason) == "" {
+			v.errorf(er.pos, "exclude_repos needs a reason")
+		}
 	}
-
-	if hasYAMLPath && a.Contains == "" && a.Equals == "" && !a.NonEmpty {
-		errs = append(errs, fmt.Errorf(
-			"%s: yaml_path requires one of contains, equals, or non_empty",
-			prefix,
-		))
-	}
-
-	if !hasPattern && !hasYAMLPath {
-		errs = append(errs, fmt.Errorf(
-			"%s: must set pattern, not_pattern, or yaml_path",
-			prefix,
-		))
-	}
-
-	return errs
 }
 
-func validateSettingRules(rules []SettingRuleConfig) []error {
-	errs := make([]error, 0, len(rules))
-
-	seen := make(map[string]bool)
-
-	for i := range rules {
-		r := &rules[i]
-		prefix := fmt.Sprintf("setting rule %q", r.Name)
-
-		if r.Name == "" {
-			errs = append(errs, fmt.Errorf("%s: name must be non-empty", prefix))
-		}
-
-		if !SupportedSettingProperties[r.Property] {
-			errs = append(errs, fmt.Errorf(
-				"%s: unsupported property %q; must be one of the supported setting properties",
-				prefix, r.Property,
-			))
-		}
-
-		if r.Expected == nil {
-			errs = append(errs, fmt.Errorf("%s: expected must be set", prefix))
-		} else {
-			errs = append(errs, validateSettingExpectedType(r, prefix)...)
-		}
-
-		if seen[r.Name] {
-			errs = append(errs, fmt.Errorf(
-				"duplicate setting rule %q defined more than once", r.Name,
-			))
-		}
-
-		seen[r.Name] = true
+func opName(k opKind) string {
+	switch k {
+	case opReplace:
+		return blockReplace
+	case opExclude:
+		return blockExclude
+	default:
+		return attrControls
 	}
-
-	return errs
 }
 
-func validateSettingExpectedType(r *SettingRuleConfig, prefix string) []error {
-	var errs []error
+// checkRepos: repos labels are unique within the org; every glob parses.
+func (v *validator) checkRepos(org *orgPolicy) {
+	seen := make(map[string]hcl.Range)
 
-	switch r.Property {
-	case SettingDefaultBranch:
-		if _, ok := r.Expected.(string); !ok {
-			errs = append(errs, fmt.Errorf(
-				"%s: expected must be a string for property %q, got %T",
-				prefix, r.Property, r.Expected,
-			))
+	for i := range org.repos {
+		rb := &org.repos[i]
+		if first, dup := seen[rb.label]; dup {
+			v.errorf(rb.pos, "repos block %q is declared twice in org %s (first at %s)", rb.label, org.name, at(first))
 		}
-	case SettingVulnerabilityAlertsEnabled, SettingHasIssues, SettingHasWiki,
-		SettingDeleteBranchOnMerge, SettingAllowMergeCommit,
-		SettingAllowSquashMerge, SettingAllowRebaseMerge:
-		if _, ok := r.Expected.(bool); !ok {
-			errs = append(errs, fmt.Errorf(
-				"%s: expected must be a bool for property %q, got %T",
-				prefix, r.Property, r.Expected,
-			))
-		}
+
+		seen[rb.label] = rb.pos
+		v.checkGlobs(rb.match, rb.pos)
 	}
 
-	return errs
+	for i := range org.excludeRepos {
+		v.checkGlobs(org.excludeRepos[i].match, org.excludeRepos[i].pos)
+	}
 }
 
-func validateBranchProtectionRules(rules []BranchProtectionRuleConfig) []error {
-	errs := make([]error, 0, len(rules))
-
-	seen := make(map[string]bool)
-
-	for i := range rules {
-		r := &rules[i]
-		prefix := fmt.Sprintf("branch_protection rule %q", r.Name)
-
-		if r.Name == "" {
-			errs = append(errs, fmt.Errorf("%s: name must be non-empty", prefix))
+func (v *validator) checkGlobs(patterns []string, r hcl.Range) {
+	for _, p := range patterns {
+		if _, err := path.Match(p, ""); err != nil {
+			v.errorf(r, "match pattern %q: %v", p, err)
 		}
-
-		if r.Branch == "" {
-			errs = append(errs, fmt.Errorf("%s: branch must be non-empty", prefix))
-		}
-
-		if r.RequiredApprovals < 0 {
-			errs = append(errs, fmt.Errorf(
-				"%s: required_approvals must be >= 0, got %d",
-				prefix, r.RequiredApprovals,
-			))
-		}
-
-		if seen[r.Name] {
-			errs = append(errs, fmt.Errorf(
-				"duplicate branch_protection rule %q defined more than once", r.Name,
-			))
-		}
-
-		seen[r.Name] = true
 	}
-
-	return errs
 }
 
-func validateNoDuplicateRules(rules []FileRuleConfig) []error {
-	var errs []error
+// checkLayers simulates the layers: a replace whose source is not in the
+// current set, or whose controls share no owned resource, is an error;
+// an exclusion of a control not assigned at that layer is a warning. For
+// a repos block the current set is the org layer's result plus whatever
+// an earlier block adds, since which earlier blocks a repository meets is
+// unknown at load.
+func (v *validator) checkLayers(org *orgPolicy) {
+	orgRows := newBaseline(v.ent)
+	v.report(orgRows.apply(&org.layer, orgSource(org.name), ""))
 
-	seen := make(map[string]bool)
+	for i := range org.repos {
+		cur := orgRows.clone()
 
-	for i := range rules {
-		key := rules[i].Type + ":" + rules[i].Name
-		if seen[key] {
-			errs = append(errs, fmt.Errorf(
-				"duplicate rule: %s %q defined more than once",
-				rules[i].Type, rules[i].Name,
-			))
+		for j := range i {
+			cur.addOnly(&org.repos[j].layer, blockSource(org.name, org.repos[j].label), org.repos[j].label)
 		}
 
-		seen[key] = true
+		rb := &org.repos[i]
+		v.report(cur.apply(&rb.layer, blockSource(org.name, rb.label), rb.label))
 	}
 
-	return errs
+	for _, ly := range org.layers() {
+		for i := range ly.ops {
+			if o := &ly.ops[i]; o.kind == opReplace {
+				v.checkReplaceOwnership(o)
+			}
+		}
+	}
 }
 
-// validateWhenGates validates every file rule's when {} gate against the
-// full policy: the referenced rule must exist among file rules (not a
-// setting/branch-protection rule), be enabled, and not be the rule
-// itself; the when {} block must name a rule (empty is an error); and
-// the gate graph must be acyclic. Cross-rule checks (existence, cycles)
-// cannot live in the per-rule validateFileRule, so they run here over
-// the whole rule set (DESIGN-0020 validation matrix).
-func validateWhenGates(cfg *PolicyConfig) []error {
-	fileRuleByName := make(map[string]*FileRuleConfig, len(cfg.FileRules))
-	for i := range cfg.FileRules {
-		fileRuleByName[cfg.FileRules[i].Name] = &cfg.FileRules[i]
-	}
+func (v *validator) report(issues []issue) {
+	for i := range issues {
+		is := &issues[i]
 
-	nonFileKind := make(map[string]string)
-	for i := range cfg.SettingRules {
-		nonFileKind[cfg.SettingRules[i].Name] = RuleTypeSetting
-	}
-
-	for i := range cfg.BranchProtectionRules {
-		nonFileKind[cfg.BranchProtectionRules[i].Name] = RuleTypeBranchProtection
-	}
-
-	var errs []error
-
-	// graph maps a gated rule to the rule it references; only well-formed
-	// gates (existing, enabled, non-self) enter it, so cycle detection
-	// never trips over an already-reported malformed gate.
-	graph := make(map[string]string)
-
-	for i := range cfg.FileRules {
-		r := &cfg.FileRules[i]
-		if r.When == nil {
-			continue
+		switch is.kind {
+		case issueReplaceMissing:
+			v.errorf(is.op.pos, "replace %s: the source is not assigned at this layer", is.op.id)
+		case issueExcludeNoop:
+			v.warnf(is.op.pos, "exclude %s: not assigned at this layer, so the exclusion does nothing", is.op.id)
 		}
-
-		prefix := fmt.Sprintf("rule %q %q when", r.Type, r.Name)
-		if err := validateWhenReference(r, prefix, fileRuleByName, nonFileKind, cfg.FileRules); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		graph[r.Name] = r.When.RuleSatisfied
 	}
-
-	return append(errs, detectGateCycles(graph)...)
 }
 
-// validateWhenReference checks a single rule's when reference and returns
-// the first problem found (empty, self-reference, wrong kind, nonexistent,
-// disabled), or nil when the gate is well-formed and safe to add to the
-// cycle graph.
-func validateWhenReference(
-	r *FileRuleConfig,
-	prefix string,
-	fileRuleByName map[string]*FileRuleConfig,
-	nonFileKind map[string]string,
-	fileRules []FileRuleConfig,
-) error {
-	ref := r.When.RuleSatisfied
+// addOnly applies a layer's additions (and the controls its replaces
+// bring in) without its removals.
+func (rs *rows) addOnly(ly *layer, source, block string) {
+	for i := range ly.ops {
+		o := &ly.ops[i]
 
-	switch ref {
-	case "":
-		return fmt.Errorf("%s: rule_satisfied must be set (empty when {} block)", prefix)
-	case r.Name:
-		return fmt.Errorf("%s: rule_satisfied cannot reference its own rule %q", prefix, ref)
-	}
-
-	referee, ok := fileRuleByName[ref]
-	if !ok {
-		if kind, isNonFile := nonFileKind[ref]; isNonFile {
-			return fmt.Errorf(
-				"%s: rule_satisfied %q is a %q rule; when gates reference file rules only",
-				prefix, ref, kind,
-			)
+		switch o.kind {
+		case opAdd:
+			rs.add(o.id, source, block)
+		case opReplace:
+			if rs.active(o.id) == nil {
+				rs.add(o.with, source, block)
+			} else {
+				rs.replace(o, source, block)
+			}
+		case opExclude:
 		}
-
-		return fmt.Errorf(
-			"%s: rule_satisfied %q names no file rule; known file rules: %s",
-			prefix, ref, knownFileRuleNames(fileRules),
-		)
 	}
-
-	if !referee.IsEnabled() {
-		return fmt.Errorf(
-			"%s: rule_satisfied %q references a disabled rule (a permanently-closed gate is a policy bug)",
-			prefix, ref,
-		)
-	}
-
-	return nil
 }
 
-// detectGateCycles reports every cycle in the gate graph. Each node has
-// at most one outgoing edge (a rule gates on exactly one referee), so
-// the graph is functional and a single forward walk per unseen node
-// finds any cycle: a node revisited while still on the current walk
-// closes a loop. Nodes are finalized (state 2) after each walk, so a
-// state-1 node is always on the current path.
-func detectGateCycles(graph map[string]string) []error {
-	const (
-		inProgress = 1
-		done       = 2
-	)
+// checkReplaceOwnership: a replace's two controls own a common resource.
+func (v *validator) checkReplaceOwnership(o *op) {
+	from, okFrom := v.defs[o.id]
+	with, okWith := v.defs[o.with]
 
-	state := make(map[string]int, len(graph))
-
-	starts := make([]string, 0, len(graph))
-	for name := range graph {
-		starts = append(starts, name)
+	if !okFrom || !okWith {
+		return // checkRefs reported it
 	}
 
-	sort.Strings(starts)
-
-	var errs []error
-
-	for _, start := range starts {
-		if state[start] != 0 {
-			continue
+	for _, r := range from.ctl.Owns() {
+		if slices.Contains(with.ctl.Owns(), r) {
+			return
 		}
+	}
 
-		var path []string
+	v.errorf(o.pos, "replace %s with %s: the two controls own no resource in common", o.id, o.with)
+}
 
-		for node := start; ; {
-			switch state[node] {
-			case done:
-				node = "" // joins an already-verified acyclic chain
-			case inProgress:
-				errs = append(errs, gateCycleError(path, node))
-				node = ""
-			default:
-				state[node] = inProgress
-				path = append(path, node)
+// checkOverrides: a control {} override names a control some layer of
+// the org assigns.
+func (v *validator) checkOverrides(org *orgPolicy) {
+	assigned := make(map[control.ID]bool)
 
-				next, ok := graph[node]
-				if !ok {
-					node = ""
-					break
+	for _, r := range v.ent.controls {
+		assigned[r.id] = true
+	}
+
+	for _, ly := range org.layers() {
+		for i := range ly.ops {
+			switch o := &ly.ops[i]; o.kind {
+			case opAdd:
+				assigned[o.id] = true
+			case opReplace:
+				assigned[o.with] = true
+			case opExclude:
+			}
+		}
+	}
+
+	for _, ly := range org.layers() {
+		for i := range ly.overrides {
+			if ov := &ly.overrides[i]; !assigned[ov.id] {
+				v.errorf(ov.pos, "control %s override: no layer of org %s assigns %s", ov.id, org.name, ov.id)
+			}
+		}
+	}
+}
+
+// checkSameSpecificity warns on two mode declarations at the same
+// specificity with different values (algorithm step 4): a repeated
+// override in one scope, or two overlapping repos blocks.
+func (v *validator) checkSameSpecificity(org *orgPolicy) {
+	for _, ly := range org.layers() {
+		v.checkRepeatedOverrides(ly)
+	}
+
+	for i := range org.repos {
+		for j := i + 1; j < len(org.repos); j++ {
+			if a, b := &org.repos[i], &org.repos[j]; overlaps(a.match, b.match) {
+				v.checkBlockModes(a, b)
+			}
+		}
+	}
+}
+
+// checkRepeatedOverrides warns on one control's mode declared twice in a
+// scope with different values.
+func (v *validator) checkRepeatedOverrides(ly *layer) {
+	for i := range ly.overrides {
+		for j := i + 1; j < len(ly.overrides); j++ {
+			a, b := &ly.overrides[i], &ly.overrides[j]
+			if a.id == b.id && a.mode.mode != b.mode.mode {
+				v.warnf(b.pos, "control %s mode is declared twice in one scope (%s at %s); the later one wins", b.id, a.mode.mode, at(a.pos))
+			}
+		}
+	}
+}
+
+// checkBlockModes warns when two overlapping repos blocks declare
+// different modes, block-wide or for one control.
+func (v *validator) checkBlockModes(a, b *reposBlock) {
+	if a.layer.mode != nil && b.layer.mode != nil && a.layer.mode.mode != b.layer.mode.mode {
+		v.warnf(b.layer.mode.pos, "repos %q and %q may match one repository with different modes; the later one wins", a.label, b.label)
+	}
+
+	for i := range a.layer.overrides {
+		for j := range b.layer.overrides {
+			oa, ob := &a.layer.overrides[i], &b.layer.overrides[j]
+			if oa.id == ob.id && oa.mode.mode != ob.mode.mode {
+				v.warnf(ob.pos, "repos %q and %q may match one repository with different modes for %s; the later one wins", a.label, b.label, ob.id)
+			}
+		}
+	}
+}
+
+// checkReAdds warns when a repos block re-adds a control an earlier
+// block excluded for an overlapping match: swapping the blocks changes
+// the result.
+func (v *validator) checkReAdds(org *orgPolicy) {
+	for i := range org.repos {
+		for j := i + 1; j < len(org.repos); j++ {
+			a, b := &org.repos[i], &org.repos[j]
+			if !overlaps(a.match, b.match) {
+				continue
+			}
+
+			for k := range a.layer.ops {
+				ex := &a.layer.ops[k]
+				if ex.kind != opExclude {
+					continue
 				}
 
-				node = next
+				for m := range b.layer.ops {
+					if add := &b.layer.ops[m]; add.kind == opAdd && ex.id == add.id {
+						v.warnf(
+							add.pos,
+							"repos %q re-adds %s, which repos %q excluded for an overlapping match; block order decides",
+							b.label,
+							add.id,
+							a.label,
+						)
+					}
+				}
 			}
-
-			if node == "" {
-				break
-			}
-		}
-
-		for _, n := range path {
-			state[n] = done
 		}
 	}
-
-	return errs
 }
 
-// gateCycleError formats the cycle closed when node is re-encountered on
-// path, as "a -> b -> a".
-func gateCycleError(path []string, node string) error {
-	start := 0
-
-	for i, n := range path {
-		if n == node {
-			start = i
-			break
+// overlaps reports whether two glob lists may match one name: a shared
+// pattern, or one pattern matching the other as a literal. It is a
+// conservative guess, used only for warnings.
+func overlaps(a, b []string) bool {
+	for _, p := range a {
+		for _, q := range b {
+			if p == q || globMatch(p, q) || globMatch(q, p) {
+				return true
+			}
 		}
 	}
 
-	cycle := make([]string, 0, len(path)-start+1)
-	cycle = append(cycle, path[start:]...)
-	cycle = append(cycle, node)
-
-	return fmt.Errorf("when gate cycle detected: %s", strings.Join(cycle, " -> "))
+	return false
 }
 
-// knownFileRuleNames returns the sorted, comma-separated file-rule names
-// for the "no such rule" diagnostic.
-func knownFileRuleNames(rules []FileRuleConfig) string {
-	names := make([]string, 0, len(rules))
-	for i := range rules {
-		names = append(names, rules[i].Name)
+func globMatch(pattern, name string) bool {
+	ok, err := path.Match(pattern, name)
+
+	return err == nil && ok
+}
+
+// layers returns the org layer and then each repos block's layer.
+func (o *orgPolicy) layers() []*layer {
+	out := make([]*layer, 0, 1+len(o.repos))
+	out = append(out, &o.layer)
+
+	for i := range o.repos {
+		out = append(out, &o.repos[i].layer)
 	}
 
-	sort.Strings(names)
+	return out
+}
 
-	return strings.Join(names, ", ")
+// UnmatchedReposBlocks is DESIGN-0030's after-discovery warning: the
+// repos blocks of org that match none of names.
+func (s *Snapshot) UnmatchedReposBlocks(org string, names []string) []Warning {
+	var out []Warning
+
+	for _, o := range s.orgs {
+		if !strings.EqualFold(o.name, org) {
+			continue
+		}
+
+		for i := range o.repos {
+			rb := &o.repos[i]
+			if !slices.ContainsFunc(names, func(n string) bool { return matchesAny(rb.match, n) }) {
+				out = append(
+					out,
+					Warning{File: rb.pos.Filename, Line: rb.pos.Start.Line, Msg: fmt.Sprintf("repos %q matches no known repository", rb.label)},
+				)
+			}
+		}
+	}
+
+	return out
 }

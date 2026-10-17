@@ -68,7 +68,20 @@ type Response struct {
 func (c *Client) Get(path, token string) *Response {
 	c.tb.Helper()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.srv.URL+api.BaseURL+path, http.NoBody)
+	return c.send(http.MethodGet, path, token)
+}
+
+// Post sends an empty-bodied POST to path, as Get does.
+func (c *Client) Post(path, token string) *Response {
+	c.tb.Helper()
+
+	return c.send(http.MethodPost, path, token)
+}
+
+func (c *Client) send(method, path, token string) *Response {
+	c.tb.Helper()
+
+	req, err := http.NewRequestWithContext(context.Background(), method, c.srv.URL+api.BaseURL+path, http.NoBody)
 	if err != nil {
 		c.tb.Fatalf("apitest: request: %v", err)
 	}

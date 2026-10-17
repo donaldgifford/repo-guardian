@@ -9,27 +9,16 @@ import (
 // Every one of these is a CONTRACT with the code that emits it, not a
 // convenience. A LogQL matcher that stops matching returns no rows, and
 // no rows renders identically to "this never happens" — the same
-// silent-success failure the whole of DESIGN-0022 exists to remove. The
-// catalog-parse line is locked by
-// internal/reconciler/log_contract_test.go; the rest are matched on a
-// stable prefix so a suffix reword does not break them.
+// silent-success failure the whole of DESIGN-0022 exists to remove. All
+// of them are emitted by internal/activities or internal/workflows,
+// which TestLogLines_AreStillEmittedByTheBinary checks; they are matched
+// on a stable prefix so a suffix reword does not break them.
 const (
-	logCatalogParseFailed = "catalog-info parse failed"
 	logRepositoryParked   = "parking repository until discovery sees it again"
-	logCheckDeferred      = "check deferred until budget reset"
-	logCheckFailed        = "check failed after retries"
-)
-
-// Webhook rejection lines.
-//
-// Post-IMPL-0024 the only app-layer rejection is HMAC signature
-// validation — source-IP enforcement happens at the operator's edge
-// (DESIGN-0023), so its rejections appear in edge telemetry, not here.
-const (
-	logInvalidPayload  = "invalid webhook payload"
-	logEnqueueFailed   = "failed to start webhook workflow"
-	webhookRejectedRe  = logInvalidPayload
-	webhookIncidentsRe = webhookRejectedRe + "|" + logEnqueueFailed
+	logEvaluationDeferred = "rate limit throttled; deferring evaluation"
+	logEvaluationFailed   = "evaluation failed after retries"
+	logAwaitsResolution   = "assignment awaits re-resolution"
+	logDiscoveryPartial   = "controls discovery: installation listing incomplete"
 )
 
 // Log levels as slog's JSON handler writes them.
@@ -48,7 +37,7 @@ const maxLogLines = 200
 
 // e4Loki builds the evidence dashboard.
 //
-// E1 says a rule is failing, E2 says which org, E3 says whether the
+// E1 says a control is failing, E2 says which org, E3 says whether the
 // service is healthy — and none of them can say WHICH repository or WHY,
 // because a metric with a repo label would be unbounded cardinality
 // (DESIGN-0022 Finding G). That answer only exists in the logs, so this
@@ -69,8 +58,7 @@ func e4Loki(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
 
 	b = withErrorSection(b, ds)
 	b = withRepositoryFaultSection(b, ds)
-	b = withCheckSection(b, ds)
-	b = withWebhookSection(b, ds)
+	b = withEvaluationLogSection(b, ds)
 
 	return id.dashboard(kindLogs, labelLogs, b)
 }
@@ -113,89 +101,63 @@ func withRepositoryFaultSection(b *Builder, ds Datasources) *Builder {
 
 	return b.
 		WithRow(Row("Repository faults")).
-		WithPanel(LogTimeSeries(ds, "Repositories with an unparseable catalog-info",
-			"The named counterpart to catalog_parse_failed_total, which says how many but not "+
-				"which. A repository here has had its custom properties left alone rather than "+
-				"cleared — deliberately (INV-0011 A1), and invisibly until you look here.",
-			unitShort, LogQuery{
-				Expr: `sum by (owner, repo) (
-  count_over_time(` + stream + ` |= "` + logCatalogParseFailed + `" | json [1h])
-)`,
-				Legend: "{{ owner }}/{{ repo }}",
-			})).
-		WithPanel(Logs(ds, "catalog-info parse failures",
-			"The `err` field says what is wrong with the file. Note the sibling condition — a "+
-				"valid non-Component entity — logs at INFO under a different message and is not a "+
-				"fault; this panel deliberately does not match it.",
-			LogQuery{
-				Expr:     stream + ` |= "` + logCatalogParseFailed + `" | json`,
-				MaxLines: maxLogLines,
-			})).
 		WithPanel(LogTimeSeries(ds, "Parked repositories",
-			"Repositories the installation can no longer read — archived, forked, transferred or "+
-				"un-installed. Parking is why repos_tracked can fall without anything being wrong, "+
-				"and this is the only per-repository record of it.",
+			"Repositories the Evaluation App can no longer read — archived, forked, transferred "+
+				"or un-installed. Parking is why assignments can fall without anything being "+
+				"wrong, and this is the only per-repository record of it.",
 			unitShort, LogQuery{
-				Expr: `sum by (owner, repo, reason) (
+				Expr: `sum by (repository_id, reason) (
   count_over_time(` + stream + ` |= "` + logRepositoryParked + `" | json [1h])
 )`,
-				Legend: "{{ owner }}/{{ repo }} ({{ reason }})",
+				Legend: "{{ repository_id }} ({{ reason }})",
+			})).
+		WithPanel(Logs(ds, "Assignments awaiting re-resolution",
+			"Stored assignments whose control revision the running policy no longer carries. "+
+				"They are skipped, not failed, until the policy rollout re-resolves the "+
+				"repository; one that stays here past POLICY_ROLLOUT_WINDOW is stuck.",
+			LogQuery{
+				Expr:     stream + ` |= "` + logAwaitsResolution + `" | json`,
+				MaxLines: maxLogLines,
+			})).
+		WithPanel(Logs(ds, "Incomplete discovery listings",
+			"An installation whose repository listing failed. Discovery parks nothing after an "+
+				"incomplete listing, so a removed repository stays assigned until a pass "+
+				"completes.",
+			LogQuery{
+				Expr:     stream + ` |= "` + logDiscoveryPartial + `" | json`,
+				MaxLines: maxLogLines,
 			}))
 }
 
-// withCheckSection charts the two ways a repository check does not
+// withEvaluationLogSection charts the two ways an evaluation does not
 // finish: deferred to the installation's budget reset, or failed after
-// its activity retries. Both are RepoWorkflow log lines; the workflow
-// tries again either way, so neither is lost work, but a repository that
-// keeps appearing here is not converging.
-func withCheckSection(b *Builder, ds Datasources) *Builder {
+// its activity retries. The EvaluationWorkflow tries again either way,
+// so neither is lost work, but a repository that keeps appearing here is
+// not converging.
+func withEvaluationLogSection(b *Builder, ds Datasources) *Builder {
 	stream := ds.Stream()
 
 	return b.
-		WithRow(Row("Deferred and failed checks")).
-		WithPanel(LogTimeSeries(ds, "Deferred and failed checks",
-			"A deferral is not a failure: the check never ran, so there is deliberately no error "+
-				"counted and no outcome recorded. A failed check exhausted its activity retries and "+
-				"waits for the next interval.",
+		WithRow(Row("Deferred and failed evaluations")).
+		WithPanel(LogTimeSeries(ds, "Deferred and failed evaluations",
+			"A deferral is not a failure: the evaluation never ran, so there is deliberately no "+
+				"error counted and no result recorded. A failed evaluation exhausted its activity "+
+				"retries and waits for the next interval.",
 			unitShort,
 			LogQuery{
-				Expr:   `sum(count_over_time(` + stream + ` |= "` + logCheckDeferred + `" [15m]))`,
+				Expr:   `sum(count_over_time(` + stream + ` |= "` + logEvaluationDeferred + `" [15m]))`,
 				Legend: "deferred",
 			},
 			LogQuery{
-				Expr:   `sum(count_over_time(` + stream + ` |= "` + logCheckFailed + `" [15m]))`,
+				Expr:   `sum(count_over_time(` + stream + ` |= "` + logEvaluationFailed + `" [15m]))`,
 				Legend: "failed",
 			})).
 		WithPanel(Logs(ds, "Deferrals and failures",
-			"The `check_key` field names the repository's workflow. Repeated failures of the same "+
-				"key are a repository that will not converge.",
+			"Deferrals carry owner and repo; failures carry the `check_key`, whose first "+
+				"segment names the repository's EvaluationWorkflow. Repeated failures of one "+
+				"repository are a repository that will not converge.",
 			LogQuery{
-				Expr:     stream + ` |~ "` + logCheckDeferred + `|` + logCheckFailed + `" | json`,
-				MaxLines: maxLogLines,
-			}))
-}
-
-// withWebhookSection charts what the front door rejected.
-func withWebhookSection(b *Builder, ds Datasources) *Builder {
-	stream := ds.Stream()
-
-	return b.
-		WithRow(Row("Webhook")).
-		WithPanel(LogTimeSeries(ds, "Rejected webhook deliveries",
-			"Signature rejections only: a burst here means a wrong or rotated webhook secret. "+
-				"Source-IP rejections happen at the operator's edge layer, not in the app — "+
-				"see docs/operations/ingress.md for where each edge's evidence lives.",
-			unitShort, LogQuery{
-				Expr: `sum by (msg) (
-  count_over_time(` + stream + ` |~ "` + webhookRejectedRe + `" | json [15m])
-)`,
-				Legend: "{{ msg }}",
-			})).
-		WithPanel(Logs(ds, "Webhook rejections and start failures",
-			"A start failure answers GitHub with 503, so the delivery is recorded as failed and "+
-				"can be redelivered from the App's settings.",
-			LogQuery{
-				Expr:     stream + ` |~ "` + webhookIncidentsRe + `" | json`,
+				Expr:     stream + ` |~ "` + logEvaluationDeferred + `|` + logEvaluationFailed + `" | json`,
 				MaxLines: maxLogLines,
 			}))
 }

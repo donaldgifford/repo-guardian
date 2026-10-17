@@ -1,0 +1,35 @@
+{
+  "version": "controls:17b5c951e7a6d8912f873b6e85db999ca5c0134cfebda7f2a82127ae97699743",
+  "enterprise": {
+    "orgs": [
+      "myorg"
+    ],
+    "mode": "remediate",
+    "controls": [
+      "codeowners@1",
+      "renovate@1",
+      "renovate_workflow@1"
+    ]
+  },
+  "orgs": [],
+  "controls": [
+    {
+      "control": "codeowners@1",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "c4d287e7406f96b5ef440605bb83fbe92ebe28034582f0cf3bec2e9222c2fd3e"
+    },
+    {
+      "control": "renovate@1",
+      "title": "Renovate",
+      "type": "dependency_updates",
+      "revision": "926fa6638ae8525af2f8c1259c26f031b2dc6baa207d10ba51b468d7e1c55d5d"
+    },
+    {
+      "control": "renovate_workflow@1",
+      "title": "Renovate workflow",
+      "type": "file",
+      "revision": "b470a252f4cb9522a4e4715bbf278f4147380784795d96253f9a630594847bd1"
+    }
+  ]
+}

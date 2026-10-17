@@ -3,7 +3,6 @@
 package postgres_test
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -15,22 +14,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
+	apispec "github.com/donaldgifford/repo-guardian/api"
 	"github.com/donaldgifford/repo-guardian/internal/api"
 	"github.com/donaldgifford/repo-guardian/internal/api/apitest"
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
 	"github.com/donaldgifford/repo-guardian/internal/api/oidctest"
-	"github.com/donaldgifford/repo-guardian/internal/findings"
-	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
 const endpointsAudience = "repo-guardian-api"
 
 // endpoints is the API with OIDC auth over a seeded database: acme
-// (widgets, compliant), acme-web (b, failing with a 40-day-old PR) and
-// acme-pay (c compliant, d parked), plus a snapshot and a policy.
+// (widgets, compliant), acme-web (b, failing with an open PR) and
+// acme-pay (c compliant, d archived), plus a snapshot.
 type endpoints struct {
-	f      *v2Fixture
+	f      *apiFixture
 	c      *apitest.Client
 	issuer *oidctest.Issuer
 	ids    map[string]int64
@@ -39,17 +39,11 @@ type endpoints struct {
 func newEndpoints(t *testing.T) *endpoints {
 	t.Helper()
 
-	f := newV2Fixture(t)
-	seedTwoOrgs(t, f)
+	f := newAPIFixture(t)
+	ids := seedTwoOrgs(t, f)
 
 	ctx := t.Context()
 	if _, err := f.store.InsertComplianceSnapshot(ctx, t0.Add(-24*time.Hour)); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := f.store.RecordPolicyVersion(ctx, "v2:test", store.PolicySummary{Rules: []store.PolicyRule{
-		{Kind: findings.RuleKindFile, Name: "codeowners", Description: "CODEOWNERS exists"},
-	}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,27 +65,16 @@ func newEndpoints(t *testing.T) *endpoints {
 	}, quiet)
 	authn.Start(ctx)
 
-	pool, err := postgres.NewReadOnlyPool(ctx, f.dsn)
+	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.ReadOnly)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 
-	e := &endpoints{f: f, issuer: iss, ids: map[string]int64{}, c: apitest.New(t, &api.Options{
-		Reader: postgres.NewAPIReader(pool), Authn: authn, Authz: authz, StaleAfter: 30 * 24 * time.Hour, Logger: quiet,
+	e := &endpoints{f: f, issuer: iss, ids: ids, c: apitest.New(t, &api.Options{
+		Reader: postgres.NewAPIReader(pool), Authn: authn, Authz: authz, Logger: quiet,
 		Now: func() time.Time { return t0 },
 	})}
-
-	for _, name := range []string{"acme/widgets", "acme-web/b", "acme-pay/c", "acme-pay/d"} {
-		org, repo := name[:len(name)-len(filepath.Base(name))-1], filepath.Base(name)
-
-		r, err := f.store.FindRepository(ctx, org, repo, nil)
-		if err != nil {
-			t.Fatalf("find %s: %v", name, err)
-		}
-
-		e.ids[name] = r.ID
-	}
 
 	return e
 }
@@ -121,35 +104,77 @@ func decodeAs[T any](t *testing.T, r *apitest.Response) T {
 	return v
 }
 
-// Every endpoint answers 200 for a caller who sees everything, and
-// apitest validates each body against the spec.
+// Every endpoint answers for a caller who sees everything, apitest
+// validates each body against the spec, and an operation the spec adds
+// without a case here fails the test.
 func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 	t.Parallel()
 
 	e := newEndpoints(t)
 
-	for _, path := range []string{
-		"/me", "/summary", "/rules", "/rules/file/codeowners", "/orgs", "/orgs/acme-web", "/orgs/ACME-PAY",
-		"/findings", "/findings?status=non_compliant", "/repositories", e.repoPath("acme-web/b", ""),
-		e.repoPath("acme-web/b", "/events"), e.repoPath("acme-web/b", "/checks"), "/compliance/history",
-		"/installations", "/policy",
-	} {
-		t.Run(path, func(t *testing.T) {
-			if r := e.get(t, path, "platform"); r.Status != http.StatusOK {
-				t.Errorf("GET %s = %d: %s", path, r.Status, r.Body)
+	cases := []struct {
+		op, method, path string
+		want             int
+	}{
+		{"/me", http.MethodGet, "/me", http.StatusOK},
+		{"/summary", http.MethodGet, "/summary", http.StatusOK},
+		{"/controls", http.MethodGet, "/controls", http.StatusOK},
+		{"/controls/{id}", http.MethodGet, "/controls/codeowners", http.StatusOK},
+		{"/policies", http.MethodGet, "/policies", http.StatusOK},
+		{"/orgs", http.MethodGet, "/orgs", http.StatusOK},
+		{"/orgs/{org}", http.MethodGet, "/orgs/acme-web", http.StatusOK},
+		{"/repositories", http.MethodGet, "/repositories", http.StatusOK},
+		{"/repositories/{id}", http.MethodGet, e.repoPath("acme-web/b", ""), http.StatusOK},
+		{"/repositories/{id}/controls", http.MethodGet, e.repoPath("acme-web/b", "/controls"), http.StatusOK},
+		{"/repositories/{id}/events", http.MethodGet, e.repoPath("acme-web/b", "/events"), http.StatusOK},
+		{"/repositories/{id}/evaluations", http.MethodGet, e.repoPath("acme-web/b", "/evaluations"), http.StatusOK},
+		// No Temporal client in this harness: the spec's 501.
+		{"/repositories/{id}/evaluate", http.MethodPost, e.repoPath("acme-web/b", "/evaluate"), http.StatusNotImplemented},
+		{"/compliance/history", http.MethodGet, "/compliance/history?days=7", http.StatusOK},
+		{"/status", http.MethodGet, "/status", http.StatusOK},
+		{"/openapi.yaml", http.MethodGet, "/openapi.yaml", http.StatusOK},
+	}
+
+	doc, err := openapi3.NewLoader().LoadFromData(apispec.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	covered := map[string]bool{}
+
+	for _, tc := range cases {
+		covered[tc.method+" "+tc.op] = true
+
+		t.Run(tc.method+" "+tc.op, func(t *testing.T) {
+			var r *apitest.Response
+			if tc.method == http.MethodPost {
+				r = e.c.Post(tc.path, e.issuer.Valid(t, "platform"))
+			} else {
+				r = e.get(t, tc.path, "platform")
+			}
+
+			if r.Status != tc.want {
+				t.Errorf("%s %s = %d, want %d: %s", tc.method, tc.path, r.Status, tc.want, r.Body)
 			}
 		})
 	}
 
-	rule := decodeAs[gen.RuleDetail](t, e.get(t, "/rules/file/codeowners", "platform"))
-	if rule.Counts.Compliant != 2 || rule.Counts.NonCompliant != 1 || len(rule.OldestFailures) != 1 ||
-		rule.Description == nil || len(rule.TopReasons) != 1 || rule.TopReasons[0].Reason != string(findings.ReasonFileMissing) {
-		t.Errorf("rule = %+v", rule)
+	for path, item := range doc.Paths.Map() {
+		for method := range item.Operations() {
+			if !covered[method+" "+path] {
+				t.Errorf("%s %s has no case", method, path)
+			}
+		}
 	}
 
 	b := decodeAs[gen.RepositoryDetail](t, e.get(t, e.repoPath("acme-web/b", ""), "platform"))
-	if len(b.Findings) != 1 || b.Findings[0].Pr == nil || !b.Findings[0].PrStale || b.Findings[0].Evidence == nil || b.LastCheck == nil {
+	if b.Repository.Name != "b" || b.LastEvaluation == nil {
 		t.Errorf("repository b = %+v", b)
+	}
+
+	rc := decodeAs[gen.RepositoryControlList](t, e.get(t, e.repoPath("acme-web/b", "/controls"), "platform"))
+	if len(rc.Items) != 1 || rc.Items[0].ControlId != "codeowners" {
+		t.Errorf("repository b controls = %+v, want codeowners", rc.Items)
 	}
 }
 
@@ -161,16 +186,12 @@ func TestEndpoints_TwoOrgAuthz(t *testing.T) {
 	e := newEndpoints(t)
 
 	for _, path := range []string{
-		"/orgs/acme-pay", "/orgs/no-such-org", e.repoPath("acme-pay/c", ""), e.repoPath("acme-pay/c", "/events"),
-		e.repoPath("acme-pay/c", "/checks"), "/repositories/999999",
+		e.repoPath("acme-pay/c", ""), e.repoPath("acme-pay/c", "/events"),
+		e.repoPath("acme-pay/c", "/evaluations"), "/repositories/999999",
 	} {
 		if r := e.get(t, path, "team-web"); r.Status != http.StatusNotFound {
 			t.Errorf("team-web GET %s = %d, want 404", path, r.Status)
 		}
-	}
-
-	if r := e.get(t, "/rules/file/no-such-rule", "team-web"); r.Status != http.StatusNotFound {
-		t.Errorf("unknown rule = %d, want 404", r.Status)
 	}
 
 	orgs := decodeAs[gen.OrgList](t, e.get(t, "/orgs", "team-web"))
@@ -183,60 +204,6 @@ func TestEndpoints_TwoOrgAuthz(t *testing.T) {
 		t.Errorf("team-web repositories = %+v", repos.Items)
 	}
 
-	pay := decodeAs[gen.FindingPage](t, e.get(t, "/findings?org=acme-pay", "team-web"))
-	if len(pay.Items) != 0 {
-		t.Errorf("team-web findings in acme-pay = %+v, want none", pay.Items)
-	}
-
-	rules := decodeAs[gen.RuleList](t, e.get(t, "/rules", "team-web"))
-	if len(rules.Items) != 1 || rules.Items[0].Counts.NonCompliant != 1 || rules.Items[0].Counts.Compliant != 0 {
-		t.Errorf("team-web rules = %+v", rules.Items)
-	}
-
-	history := decodeAs[gen.HistoryPage](t, e.get(t, "/compliance/history", "team-web"))
-	for _, h := range history.Items {
-		if h.Org == nil || *h.Org != "acme-web" {
-			t.Errorf("team-web history includes %v", h.Org)
-		}
-	}
-
-	if inst := decodeAs[gen.InstallationPage](t, e.get(t, "/installations", "team-web")); len(inst.Items) != 0 {
-		t.Errorf("team-web installations = %+v, want none (the installation's account is acme)", inst.Items)
-	}
-}
-
-func TestEndpoints_FindingFilters(t *testing.T) {
-	t.Parallel()
-
-	e := newEndpoints(t)
-
-	tests := []struct {
-		query string
-		want  int
-	}{
-		{query: "", want: 3},
-		{query: "status=non_compliant", want: 1},
-		{query: "status=compliant", want: 2},
-		{query: "reason=file_missing", want: 1},
-		{query: "remediation=pr_open", want: 1},
-		{query: "org=ACME-PAY", want: 1},
-		{query: "kind=file&rule=codeowners", want: 3},
-		{query: "rule=no-such-rule", want: 0},
-		{query: "pr_stale=true", want: 1},
-		{query: "pr_stale=false", want: 2},
-		{query: "pr_stale=true&stale_after=8760h", want: 0},
-		{query: "since_before=" + url.QueryEscape(t0.Add(time.Hour).Format(time.RFC3339)), want: 3},
-		{query: "since_before=" + url.QueryEscape(t0.Add(-time.Hour).Format(time.RFC3339)), want: 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.query, func(t *testing.T) {
-			page := decodeAs[gen.FindingPage](t, e.get(t, "/findings?"+tt.query, "platform"))
-			if len(page.Items) != tt.want {
-				t.Errorf("/findings?%s = %d items, want %d", tt.query, len(page.Items), tt.want)
-			}
-		})
-	}
 }
 
 func TestEndpoints_RepositoryFilters(t *testing.T) {
@@ -279,7 +246,7 @@ func TestEndpoints_BadPagingIs400(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		"/repositories?limit=0", "/repositories?limit=201", "/findings?cursor=not-a-cursor",
+		"/repositories?limit=0", "/repositories?limit=201", "/repositories?cursor=not-a-cursor",
 		"/repositories?limit=1&org=acme&cursor=" + url.QueryEscape(*first.NextCursor),
 	} {
 		if r := e.get(t, path, "platform"); r.Status != http.StatusBadRequest {
@@ -294,7 +261,6 @@ func TestEndpoints_PaginationIsStableUnderWrites(t *testing.T) {
 	t.Parallel()
 
 	e := newEndpoints(t)
-	ctx := context.Background()
 
 	want := map[int64]bool{}
 	for _, id := range e.ids {
@@ -316,12 +282,8 @@ func TestEndpoints_PaginationIsStableUnderWrites(t *testing.T) {
 			seen[r.Id], last = true, r.Id
 		}
 
-		// A write between pages: a new repository, and a changed finding.
-		if _, err := e.f.store.UpsertDiscovered(ctx, &store.DiscoveredRepo{
-			Org: "acme", Name: "new-" + strconv.Itoa(i), InstallationID: testInstallation,
-		}); err != nil {
-			t.Fatal(err)
-		}
+		// A write between pages: a new repository.
+		e.f.discover(t, "acme", "new-"+strconv.Itoa(i))
 
 		next = ""
 		if page.NextCursor != nil && i < 20 {
@@ -333,30 +295,5 @@ func TestEndpoints_PaginationIsStableUnderWrites(t *testing.T) {
 		if !seen[id] {
 			t.Errorf("repository %d was skipped", id)
 		}
-	}
-
-	var findingsSeen []gen.Finding
-
-	next = "/findings?limit=1"
-	for i := 0; next != "" && i < 10; i++ {
-		page := decodeAs[gen.FindingPage](t, e.get(t, next, "platform"))
-		findingsSeen = append(findingsSeen, page.Items...)
-
-		// Flip widgets' finding between pages.
-		if _, err := e.f.store.RecordCheck(ctx, &store.CheckRecord{
-			Key: "flip-" + strconv.Itoa(i), RepositoryID: e.f.repoID, InstallationID: testInstallation, Trigger: store.TriggerSchedule,
-			PolicyVersion: "v2:test", StartedAt: t0, FinishedAt: t0, Outcomes: []store.Outcome{missing("codeowners", "CODEOWNERS")},
-		}); err != nil {
-			t.Fatal(err)
-		}
-
-		next = ""
-		if page.NextCursor != nil {
-			next = "/findings?limit=1&cursor=" + url.QueryEscape(*page.NextCursor)
-		}
-	}
-
-	if len(findingsSeen) != 3 {
-		t.Errorf("paged %d findings, want the 3 seeded exactly once", len(findingsSeen))
 	}
 }

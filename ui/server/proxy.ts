@@ -12,6 +12,11 @@ import type { SealedCookie, Session } from "./session";
 // this list against the spec.
 export const publicApiPaths = new Set(["/api/v1/status", "/api/v1/openapi.yaml"]);
 
+// evaluatePath is the one write the API takes (DESIGN-0032 § API): a
+// re-evaluation request, proxied as a POST under the Origin check the
+// logout applies, since a cross-site form could otherwise trigger it.
+const evaluatePath = /^\/api\/v1\/repositories\/[1-9][0-9]*\/evaluate$/;
+
 // refreshSkewSeconds: a token expiring within this window is refreshed
 // before it is forwarded.
 const refreshSkewSeconds = 60;
@@ -61,19 +66,26 @@ export interface ProxyDeps {
 }
 
 // mountProxy forwards /api/* to API_UPSTREAM (DESIGN-0027 § The UI). It
-// reads only: GET and HEAD. The Authorization header comes from exactly
-// one place: the caller's own Bearer when it sent one, else the session.
+// reads only, GET and HEAD, except the re-evaluate POST. The
+// Authorization header comes from exactly one place: the caller's own
+// Bearer when it sent one, else the session.
 export function mountProxy(app: Hono, deps: ProxyDeps): void {
   const upstreamFetch: UpstreamFetch = deps.fetch ?? fetch;
 
   app.all("/api/*", async (c) => {
     const method = c.req.method;
-    if (method !== "GET" && method !== "HEAD") {
+    const reqUrl = new URL(c.req.url);
+    const isEvaluate = method === "POST" && evaluatePath.test(reqUrl.pathname);
+    if (method !== "GET" && method !== "HEAD" && !isEvaluate) {
       return c.json({ error: "method_not_allowed", message: "the API is read-only" }, 405, { allow: "GET, HEAD" });
     }
 
+    // CSRF: the one write must come from our own pages.
+    if (isEvaluate && c.req.header("origin") !== deps.config.publicUrl.origin) {
+      return c.json({ error: "forbidden", message: "cross-origin request refused" }, 403);
+    }
+
     const requestId = c.req.header("x-request-id") || crypto.randomUUID();
-    const reqUrl = new URL(c.req.url);
 
     const auth = await authorization(c, deps, publicApiPaths.has(reqUrl.pathname));
     if (auth.kind === "unauthenticated") {

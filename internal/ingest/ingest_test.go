@@ -11,7 +11,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -308,5 +310,92 @@ func TestNew_SingleAppRouteStampsNoApp(t *testing.T) {
 
 	if starter.inputs[0].App != "" {
 		t.Errorf("rc route stamped App %q, want empty", starter.inputs[0].App)
+	}
+}
+
+// TestNewApp_EvalPushCarriesTheChangeSet is IMPL-0029 task 5.7: the
+// Evaluation App's push input names the watched paths it touched,
+// sorted, or is unknown past the bounds; a push touching none is 204.
+func TestNewApp_EvalPushCarriesTheChangeSet(t *testing.T) {
+	watched := map[string]bool{"renovate.json": true, ".github/CODEOWNERS": true}
+	for i := range maxPushPaths + 1 {
+		watched["f"+strconv.Itoa(i)] = true
+	}
+
+	push := func(forced bool, commits string) string {
+		return `{"ref":"refs/heads/main","forced":` + strconv.FormatBool(forced) +
+			`,"repository":{"id":9,"name":"widgets","default_branch":"main","owner":{"login":"acme"}},"installation":{"id":7},"commits":[` + commits + `]}`
+	}
+
+	many := make([]string, 0, maxPushPaths+1)
+	for i := range maxPushPaths + 1 {
+		many = append(many, `"f`+strconv.Itoa(i)+`"`)
+	}
+
+	tests := []struct {
+		name        string
+		body        string
+		wantCode    int
+		wantPaths   []string
+		wantUnknown bool
+	}{
+		{
+			name:      "watched paths, sorted and deduplicated",
+			body:      push(false, `{"modified":["renovate.json","README.md"]},{"removed":[".github/CODEOWNERS","renovate.json"]}`),
+			wantCode:  http.StatusAccepted,
+			wantPaths: []string{".github/CODEOWNERS", "renovate.json"},
+		},
+		{name: "no watched path", body: push(false, `{"modified":["README.md"]}`), wantCode: http.StatusNoContent},
+		{name: "forced", body: push(true, `{"modified":["README.md"]}`), wantCode: http.StatusAccepted, wantUnknown: true},
+		{name: "too many paths", body: push(false, `{"added":[`+strings.Join(many, ",")+`]}`), wantCode: http.StatusAccepted, wantUnknown: true},
+		{
+			name: "too many commits", body: push(false, strings.TrimSuffix(strings.Repeat(`{},`, maxPushCommits), ",")),
+			wantCode: http.StatusAccepted, wantUnknown: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			starter := &fakeStarter{}
+			h := NewApp("eval", evalAppID, evalSecret, starter, "repo-guardian", watched, slog.New(slog.DiscardHandler))
+
+			rec := postWithKey(t, h, eventPush, "d1", tt.body, evalSecret)
+			if rec.Code != tt.wantCode {
+				t.Fatalf("push = %d, want %d", rec.Code, tt.wantCode)
+			}
+
+			if tt.wantCode != http.StatusAccepted {
+				return
+			}
+
+			if in := starter.inputs[0]; !slices.Equal(in.Paths, tt.wantPaths) || in.Unknown != tt.wantUnknown {
+				t.Errorf("input paths %v unknown %v, want %v %v", in.Paths, in.Unknown, tt.wantPaths, tt.wantUnknown)
+			}
+		})
+	}
+}
+
+// TestNewApp_InstallationFacts: a controls route stamps the account type
+// and selection; the rc route does not.
+func TestNewApp_InstallationFacts(t *testing.T) {
+	body := `{"action":"created","installation":{"id":7,"app_id":101,"repository_selection":"selected","account":{"login":"octocat","type":"User"}}}`
+
+	starter := &fakeStarter{}
+	eval, _ := newAppHandlers(starter)
+
+	if rec := postWithKey(t, eval, eventInstallation, "d1", body, evalSecret); rec.Code != http.StatusAccepted {
+		t.Fatalf("installation.created = %d, want 202", rec.Code)
+	}
+
+	if in := starter.inputs[0]; in.AccountType != "user" || in.RepositorySelection != "selected" {
+		t.Errorf("input = %+v, want a user account with selected repositories", in)
+	}
+
+	if rec := post(t, newHandler(starter), eventInstallation, "d2", body, true); rec.Code != http.StatusAccepted {
+		t.Fatalf("rc installation.created = %d, want 202", rec.Code)
+	}
+
+	if in := starter.inputs[1]; in.AccountType != "" {
+		t.Errorf("rc input account type = %q, want unchanged inputs", in.AccountType)
 	}
 }

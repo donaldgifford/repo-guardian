@@ -1,10 +1,7 @@
 package temporal
 
 import (
-	"fmt"
-	"os"
 	"runtime/debug"
-	"strconv"
 
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/contrib/sysinfo"
@@ -35,8 +32,8 @@ func DeploymentName(role string) string {
 	}
 }
 
-// DefaultActivityConcurrency is WORKER_ACTIVITY_CONCURRENCY's default:
-// the activities one worker runs at once.
+// DefaultActivityConcurrency is the activities one worker runs at once
+// when its role's sizing (EVALUATOR_/REMEDIATOR_CONCURRENCY) is unset.
 const DefaultActivityConcurrency = 10
 
 // buildIDRevisionLen shortens a VCS revision used as a build ID.
@@ -66,25 +63,15 @@ type WorkerConfig struct {
 	BuildID string
 }
 
-// WorkerConfigFromEnv reads WORKER_ACTIVITY_CONCURRENCY and
-// TEMPORAL_BUILD_ID. The build ID defaults to BuildID().
-func WorkerConfigFromEnv(cfg *Config) (WorkerConfig, error) {
-	wc := WorkerConfig{
+// WorkerConfigFromEnv reads TEMPORAL_BUILD_ID, which defaults to
+// BuildID(). The caller sets the task queue, deployment and any
+// per-role concurrency.
+func WorkerConfigFromEnv(cfg *Config) WorkerConfig {
+	return WorkerConfig{
 		TaskQueue:           cfg.TaskQueue,
 		ActivityConcurrency: DefaultActivityConcurrency,
 		BuildID:             envOr("TEMPORAL_BUILD_ID", BuildID()),
 	}
-
-	if v := os.Getenv("WORKER_ACTIVITY_CONCURRENCY"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			return WorkerConfig{}, fmt.Errorf("temporal: WORKER_ACTIVITY_CONCURRENCY=%q: want a positive integer", v)
-		}
-
-		wc.ActivityConcurrency = n
-	}
-
-	return wc, nil
 }
 
 func (wc *WorkerConfig) deployment() string {

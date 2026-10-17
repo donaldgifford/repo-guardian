@@ -30,8 +30,10 @@ docz create impl "Your Implementation Title"
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 ## All Implementation Plans
 
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 | ID | Title | Status | Date | Author | Link |
-|----|-------|--------|------|--------|------|
+| --- | --- | --- | --- | --- | --- |
 | IMPL-0001 | Repo Guardian Implementation Plan | Completed | 2026-02-06 | Donald Gifford | [0001-repo-guardian-implementation-plan.md](0001-repo-guardian-implementation-plan.md) |
 | IMPL-0002 | Custom Properties Implementation Plan | Completed | 2026-03-01 | Donald Gifford | [0002-custom-properties-implementation-plan.md](0002-custom-properties-implementation-plan.md) |
 | IMPL-0003 | GitHub Webhook IP Allowlist Middleware | Completed | 2026-03-14 | Donald Gifford | [0003-github-webhook-ip-allowlist-middleware.md](0003-github-webhook-ip-allowlist-middleware.md) |
@@ -59,7 +61,8 @@ docz create impl "Your Implementation Title"
 | IMPL-0025 | v2: findings model, Temporal control plane, read-only API and UI | Completed | 2026-09-25 | Donald Gifford | [0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md](0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md) |
 | IMPL-0026 | Temporal client auth: credential reload and OpenBao-issued certificates | Draft | 2026-10-01 | Donald Gifford | [0026-temporal-client-auth-credential-reload-keda-prometheus-trigger.md](0026-temporal-client-auth-credential-reload-keda-prometheus-trigger.md) |
 | IMPL-0028 | Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema | Draft | 2026-10-07 | Donald Gifford | [0028-controls-foundations-v1-runtime-removal-client-split-two-apps.md](0028-controls-foundations-v1-runtime-removal-client-split-two-apps.md) |
-| IMPL-0029 | Controls evaluation: policy model, control framework and evaluation workflow | Draft | 2026-10-07 | Donald Gifford | [0029-controls-evaluation-policy-model-control-framework-and.md](0029-controls-evaluation-policy-model-control-framework-and.md) |
+| IMPL-0029 | Controls evaluation: policy model, control framework and evaluation workflow | In Progress | 2026-10-07 | Donald Gifford | [0029-controls-evaluation-policy-model-control-framework-and.md](0029-controls-evaluation-policy-model-control-framework-and.md) |
 | IMPL-0030 | Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install | Draft | 2026-10-07 | Donald Gifford | [0030-controls-remediation-per-control-prs-remediation-workflow-and.md](0030-controls-remediation-per-control-prs-remediation-workflow-and.md) |
 | IMPL-0031 | Frontend design refresh for the v2 UI | Draft | 2026-10-16 | Donald Gifford | [0031-frontend-design-refresh-for-the-v2-ui.md](0031-frontend-design-refresh-for-the-v2-ui.md) |
+<!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

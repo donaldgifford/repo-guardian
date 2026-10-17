@@ -1,32 +1,6 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, type Schemas, unwrap } from "./client";
-import type { paths } from "./schema.gen";
-
-// Page is any cursor-paginated list.
-interface Page<T> {
-  items: T[];
-  next_cursor?: string;
-}
-
-// maxPages bounds a fetch-everything read (history series), so a huge
-// range degrades to a truncated chart instead of an unbounded loop.
-export const maxPages = 20;
-
-// fetchAll follows next_cursor until the list ends or maxPages is hit.
-export async function fetchAll<T>(page: (cursor: string | undefined) => Promise<Page<T>>): Promise<{ items: T[]; truncated: boolean }> {
-  const items: T[] = [];
-  let cursor: string | undefined;
-  for (let i = 0; i < maxPages; i++) {
-    const p = await page(cursor);
-    items.push(...p.items);
-    if (!p.next_cursor) {
-      return { items, truncated: false };
-    }
-    cursor = p.next_cursor;
-  }
-  return { items, truncated: true };
-}
+import { api, ProblemError, toProblem, unwrap } from "./client";
 
 export interface UIConfig {
   issuer: string;
@@ -50,52 +24,58 @@ export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => unwrap(api.GET("/me")), staleTime: 5 * 60_000 });
 }
 
+export function useStatus() {
+  return useQuery({ queryKey: ["status"], queryFn: () => unwrap(api.GET("/status")), refetchInterval: 30_000 });
+}
+
 export function useSummary() {
   return useQuery({ queryKey: ["summary"], queryFn: () => unwrap(api.GET("/summary")) });
 }
 
-export function useRules() {
-  return useQuery({ queryKey: ["rules"], queryFn: () => unwrap(api.GET("/rules")) });
+export function useControls(org?: string) {
+  return useQuery({ queryKey: ["controls", org ?? ""], queryFn: () => unwrap(api.GET("/controls", { params: { query: org ? { org } : {} } })) });
 }
 
-export function useRule(kind: string, name: string) {
-  return useQuery({
-    queryKey: ["rule", kind, name],
-    queryFn: () => unwrap(api.GET("/rules/{kind}/{name}", { params: { path: { kind, name } } })),
-  });
+export function useControl(id: string) {
+  return useQuery({ queryKey: ["control", id], queryFn: () => unwrap(api.GET("/controls/{id}", { params: { path: { id } } })) });
 }
 
 export function useOrgs() {
   return useQuery({ queryKey: ["orgs"], queryFn: () => unwrap(api.GET("/orgs")) });
 }
 
-export function useOrg(org: string | undefined) {
+export function useOrg(org: string) {
+  return useQuery({ queryKey: ["org", org], queryFn: () => unwrap(api.GET("/orgs/{org}", { params: { path: { org } } })) });
+}
+
+export interface RepositoryFilter {
+  org?: string;
+  q?: string;
+  policy_state?: string;
+}
+
+export function useRepositories(f: RepositoryFilter) {
   return useQuery({
-    queryKey: ["org", org],
-    queryFn: () => unwrap(api.GET("/orgs/{org}", { params: { path: { org: org ?? "" } } })),
-    enabled: org !== undefined,
+    queryKey: ["repositories", f],
+    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { ...f, limit: 100 } } })),
   });
 }
 
-// FindingFilters are /findings' query parameters, less the paging ones.
-export type FindingFilters = Omit<NonNullable<paths["/findings"]["get"]["parameters"]["query"]>, "cursor" | "limit">;
+export function useRepository(id: number) {
+  return useQuery({ queryKey: ["repository", id], queryFn: () => unwrap(api.GET("/repositories/{id}", { params: { path: { id } } })) });
+}
 
-export function useFindings(filters: FindingFilters) {
-  return useInfiniteQuery({
-    queryKey: ["findings", filters],
-    queryFn: ({ pageParam }) =>
-      unwrap(api.GET("/findings", { params: { query: { ...filters, ...(pageParam ? { cursor: pageParam } : {}), limit: 200 } } })),
-    initialPageParam: "",
-    getNextPageParam: (last: Schemas["FindingPage"]) => last.next_cursor,
-    placeholderData: keepPreviousData,
+export function useRepositoryControls(id: number) {
+  return useQuery({
+    queryKey: ["repository-controls", id],
+    queryFn: () => unwrap(api.GET("/repositories/{id}/controls", { params: { path: { id } } })),
   });
 }
 
-export function useRepository(id: number, enabled = true) {
+export function useRepositoryEvaluations(id: number) {
   return useQuery({
-    queryKey: ["repository", id],
-    queryFn: () => unwrap(api.GET("/repositories/{id}", { params: { path: { id } } })),
-    enabled,
+    queryKey: ["repository-evaluations", id],
+    queryFn: () => unwrap(api.GET("/repositories/{id}/evaluations", { params: { path: { id }, query: { limit: 20 } } })),
   });
 }
 
@@ -106,48 +86,44 @@ export function useRepositoryEvents(id: number) {
   });
 }
 
-export function useRepositoryChecks(id: number) {
-  return useQuery({
-    queryKey: ["repository-checks", id],
-    queryFn: () => unwrap(api.GET("/repositories/{id}/checks", { params: { path: { id }, query: { limit: 20 } } })),
-  });
-}
-
-// HistoryFilters are /compliance/history's query. aggregate sums on the
-// server (IMPL-0031 7.1): fleet for one series, org for one per org.
-export interface HistoryFilters {
+export interface HistoryFilter {
+  days: number;
+  control?: string;
   org?: string;
-  kind?: string;
-  rule?: string;
-  from?: string;
-  aggregate?: "none" | "fleet" | "org";
 }
 
-export function useHistory(filters: HistoryFilters) {
-  return useQuery({
-    queryKey: ["history", filters],
-    queryFn: () =>
-      fetchAll((cursor) =>
-        unwrap(api.GET("/compliance/history", { params: { query: { ...filters, ...(cursor ? { cursor } : {}), limit: 200 } } })),
-      ),
+export function useComplianceHistory(f: HistoryFilter) {
+  return useQuery({ queryKey: ["history", f], queryFn: () => unwrap(api.GET("/compliance/history", { params: { query: f } })) });
+}
+
+export function usePolicies() {
+  return useQuery({ queryKey: ["policies"], queryFn: () => unwrap(api.GET("/policies")) });
+}
+
+// evaluateUnsupportedKey records that this API answered 501 to the
+// re-evaluate POST (no Temporal client): the button stays hidden.
+export const evaluateUnsupportedKey = ["evaluate-unsupported"] as const;
+
+export function useEvaluateUnsupported(): boolean {
+  const q = useQuery({ queryKey: evaluateUnsupportedKey, queryFn: () => false, staleTime: Infinity, initialData: false });
+  return q.data;
+}
+
+// useEvaluate POSTs a re-evaluation. A 202 is success; 501 hides the
+// button for the session; anything else surfaces as a problem.
+export function useEvaluate(id: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST("/repositories/{id}/evaluate", { params: { path: { id } } });
+      if (response.status === 501) {
+        client.setQueryData(evaluateUnsupportedKey, true);
+        return "unsupported" as const;
+      }
+      if (!response.ok) {
+        throw new ProblemError(toProblem(error, response.status, response.statusText));
+      }
+      return "accepted" as const;
+    },
   });
-}
-
-// RepositoryQuery is the palette's search: a name prefix, scoped by org,
-// at most 20 rows, and nothing at all for an empty query.
-export function useRepositorySearch(q: string, org: string | undefined) {
-  return useQuery({
-    queryKey: ["repository-search", q, org ?? ""],
-    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { q, ...(org ? { org } : {}), limit: 20 } } })),
-    enabled: q.trim() !== "",
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function usePolicy() {
-  return useQuery({ queryKey: ["policy"], queryFn: () => unwrap(api.GET("/policy")) });
-}
-
-export function useStatus() {
-  return useQuery({ queryKey: ["status"], queryFn: () => unwrap(api.GET("/status")), refetchInterval: 30_000 });
 }

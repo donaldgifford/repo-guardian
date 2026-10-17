@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 
-import type { Schemas } from "../../api/client";
 import { NAV, navGroups, navItems } from "./nav";
 
 test("the Docs group exists only with a docs_url", () => {
@@ -11,14 +10,7 @@ test("the Docs group exists only with a docs_url", () => {
   expect(withDocs[2]?.[1]).toEqual([{ group: "DOCS", label: "Documentation", href: "https://docs.example.com/", icon: "book" }]);
 });
 
-test("Findings carries the failing count from /summary", () => {
-  const findings = NAV.find((n) => n.label === "Findings");
-  const summary = { findings: { compliant: 1, non_compliant: 37, not_applicable: 0, unknown: 0 } } as Schemas["Summary"];
-  expect(findings?.count?.(summary)).toBe(37);
-  expect(NAV.filter((n) => n.count).map((n) => n.label)).toEqual(["Findings"]);
-});
-
 test("every in-app entry has a route and the business group leads", () => {
-  expect(NAV.map((n) => n.to)).toEqual(["/", "/rules", "/orgs", "/findings", "/status"]);
+  expect(NAV.map((n) => n.to)).toEqual(["/", "/controls", "/orgs", "/repositories", "/history", "/policy", "/status"]);
   expect(NAV[0]?.group).toBe("BUSINESS");
 });

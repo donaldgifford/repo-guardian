@@ -9,7 +9,6 @@ type Role uint8
 // Roles, combinable as a bit set.
 const (
 	RoleIngest Role = 1 << iota
-	RoleWorker
 	RoleAPI
 
 	// RoleEvaluator and RoleRemediator are the controls worker roles
@@ -17,10 +16,9 @@ const (
 	RoleEvaluator
 	RoleRemediator
 
-	// RoleAll runs every role. Until the controls switch-over, an all
-	// process runs a controls half only when its App is configured (see
-	// Config.AppConfigured), so the rc's single-App all keeps working.
-	RoleAll = RoleIngest | RoleWorker | RoleAPI | RoleEvaluator | RoleRemediator
+	// RoleAll runs every role. An all process runs a controls half only
+	// when its App is configured (see Config.AppConfigured).
+	RoleAll = RoleIngest | RoleAPI | RoleEvaluator | RoleRemediator
 )
 
 // Has reports whether r includes every role in other.
@@ -30,23 +28,19 @@ func (r Role) Has(other Role) bool { return r&other == other }
 // several roles needs the union.
 //
 // ingest alone is the internet-facing role, so it refuses to start when
-// the GitHub App key or STORE_DSN is present: a compromised ingest pod
-// must hold neither. That refusal does not apply to all, which runs the
-// worker in the same process.
+// an App key or STORE_DSN is present: a compromised ingest pod must hold
+// neither. That refusal does not apply to all, which runs the controls
+// workers in the same process.
 func (c *Config) ValidateRole(role Role) error {
 	var errs []error
 
 	// The api role reads Temporal only for the optional status backlog.
-	if c.TemporalAddress == "" && role&(RoleIngest|RoleWorker|RoleEvaluator|RoleRemediator) != 0 {
+	if c.TemporalAddress == "" && role&(RoleIngest|RoleEvaluator|RoleRemediator) != 0 {
 		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
 	}
 
 	if role.Has(RoleIngest) {
 		errs = append(errs, c.validateIngest(role == RoleIngest)...)
-	}
-
-	if role.Has(RoleWorker) {
-		errs = append(errs, c.validateWorker()...)
 	}
 
 	if role.Has(RoleAPI) {
@@ -67,8 +61,7 @@ func (c *Config) ValidateRole(role Role) error {
 // RunsControls reports whether a process running role starts the
 // controls half half (RoleEvaluator or RoleRemediator). A process
 // running that role alone always does; a combined process (all) does
-// only when the half's App is configured, so an rc install with one App
-// runs unchanged (IMPL-0028 task 4.1).
+// only when the half's App is configured (IMPL-0028 task 4.1).
 func (c *Config) RunsControls(role, half Role) bool {
 	if !role.Has(half) {
 		return false
@@ -87,12 +80,14 @@ func (c *Config) RunsControls(role, half Role) bool {
 }
 
 // validateIngest checks the webhook secrets and, when ingest runs alone,
-// that the process holds no App key and no database credentials.
+// that the process holds no App key and no database credentials. Each
+// controls App with a webhook secret gets a route; with neither, ingest
+// would serve nothing.
 func (c *Config) validateIngest(alone bool) []error {
 	var errs []error
 
-	if c.GitHubWebhookSecret == "" {
-		errs = append(errs, errors.New("GITHUB_WEBHOOK_SECRET is required for the ingest role"))
+	if c.EvalApp.WebhookSecret == "" && c.RemediateApp.WebhookSecret == "" {
+		errs = append(errs, errors.New("EVAL_WEBHOOK_SECRET or REMEDIATE_WEBHOOK_SECRET is required for the ingest role"))
 	}
 
 	errs = append(errs, c.validateAppRoutes()...)
@@ -106,37 +101,8 @@ func (c *Config) validateIngest(alone bool) []error {
 			"the ingest role must not hold an App key: unset EVAL_GITHUB_PRIVATE_KEY_PATH and REMEDIATE_GITHUB_PRIVATE_KEY_PATH"))
 	}
 
-	if c.GitHubPrivateKeyPath != "" || c.GitHubPrivateKey != "" {
-		errs = append(errs, errors.New("the ingest role must not hold the GitHub App key: unset GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY"))
-	}
-
 	if c.StoreDSN != "" {
 		errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
-	}
-
-	return errs
-}
-
-func (c *Config) validateWorker() []error {
-	var errs []error
-
-	if c.GitHubAppID == 0 {
-		errs = append(errs, errors.New("GITHUB_APP_ID is required for the worker role"))
-	}
-
-	switch {
-	case c.GitHubPrivateKeyPath == "" && c.GitHubPrivateKey == "":
-		errs = append(errs, errors.New("one of GITHUB_PRIVATE_KEY_PATH or GITHUB_PRIVATE_KEY is required for the worker role"))
-	case c.GitHubPrivateKeyPath != "" && c.GitHubPrivateKey != "":
-		errs = append(errs, errors.New("GITHUB_PRIVATE_KEY_PATH and GITHUB_PRIVATE_KEY are mutually exclusive"))
-	}
-
-	if c.StoreDSN == "" {
-		errs = append(errs, errors.New("STORE_DSN is required for the worker role"))
-	}
-
-	if c.GuardianConfigPath == "" {
-		errs = append(errs, errors.New("GUARDIAN_CONFIG is required for the worker role"))
 	}
 
 	return errs

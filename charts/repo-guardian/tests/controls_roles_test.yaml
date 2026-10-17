@@ -7,15 +7,11 @@ release:
   name: rg
   namespace: rg-ns
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "x"
-    privateKey: "x"
   temporal:
     address: temporal:7233
   policy:
-    config: "guardian {}"
+    files:
+      enterprise.hcl: "enterprise {}"
   github:
     eval: {appId: "11", existingSecret: rg-eval}
     remediate: {appId: "22", existingSecret: rg-remediate}
@@ -24,7 +20,7 @@ tests:
     template: templates/deployment.yaml
     asserts:
       - hasDocuments:
-          count: 4
+          count: 3
       - equal:
           path: spec.template.spec.containers[0].args
           value: [evaluator]
@@ -41,7 +37,7 @@ tests:
         remediate: {appId: ""}
     asserts:
       - hasDocuments:
-          count: 3
+          count: 2
       - notContains:
           path: spec.template.spec.containers[0].args
           content: remediator
@@ -83,10 +79,15 @@ tests:
           path: spec.template.spec.containers[0].env
           content: {name: WORKER_ACTIVITY_CONCURRENCY}
           any: true
-      - notContains:
+      # The evaluation schedule and the service workflows run on the
+      # evaluator (IMPL-0029 7.9): it carries their env, the remediator
+      # does not.
+      - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: DISCOVERY_ENABLED}
-          any: true
+          content: {name: EVAL_INTERVAL, value: "24h"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: DISCOVERY_ENABLED, value: "true"}
 
   - it: lets the remediator run at zero replicas
     template: templates/deployment.yaml
@@ -119,7 +120,7 @@ tests:
           any: true
       - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy/guardian.hcl}
+          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy}
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: TEMPORAL_BUILD_ID}
@@ -136,9 +137,10 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: REMEDIATOR_CONCURRENCY, value: "10"}
-      - contains:
+      - notContains:
           path: spec.template.spec.containers[0].env
-          content: {name: WORKER_ACTIVITY_CONCURRENCY, value: "10"}
+          content: {name: WORKER_ACTIVITY_CONCURRENCY}
+          any: true
 
   - it: gives each controls role a metrics Service
     template: templates/service.yaml

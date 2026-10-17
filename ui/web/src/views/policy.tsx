@@ -1,72 +1,130 @@
 import type { Schemas } from "../api/client";
-import { usePolicy } from "../api/queries";
-import { KindBadge } from "../components/badges";
+import { usePolicies } from "../api/queries";
 import { Loading } from "../components/common";
-import { PageHeader } from "../components/page";
+import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "../components/time";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { Kpi } from "../components/ui/kpi";
-import { humanize } from "../lib/format";
+import { DetailKV } from "../components/ui/detail-drawer";
 
-// PolicyView shows the current policy version, its rollout and its
-// rules, read-only.
+// PolicyView is the active policy as the caller may see it: the
+// enterprise baseline (all-org callers only), each visible org's layer,
+// and the catalogue entries those reference.
 export function PolicyView() {
-  const policy = usePolicy();
-  if (!policy.data) {
+  const policies = usePolicies();
+  if (!policies.data) {
     return <Loading />;
   }
-  const p = policy.data;
+  const p = policies.data;
   return (
     <>
       <PageHeader
         title="Policy"
-        badge={<Badge tone={p.rollout_state === "complete" ? "ok" : "warn"}>{humanize(p.rollout_state)}</Badge>}
         subtitle={
           <>
-            The active policy version and its rollout from <code>/policy</code>.
+            The active policy version · <code>GET /policies</code>
           </>
         }
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Version" value={<span className="font-mono text-sm break-all">{p.version}</span>} />
-        <Kpi label="First seen" value={<Time iso={p.first_seen_at} style="date" />} subline={<Time iso={p.first_seen_at} style="relative" />} />
-        <Kpi
-          label="Rollout"
-          value={humanize(p.rollout_state)}
-          subline={
-            p.rollout_completed_at ? (
-              <>
-                completed <Time iso={p.rollout_completed_at} style="relative" />
-              </>
-            ) : (
-              "repositories are re-checked across the rollout window"
-            )
-          }
-        />
-        <Kpi label="Rules" value={p.rules.length.toLocaleString()} subline="in this version" />
+      <div className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card title="Version">
+            <DetailKV
+              rows={[
+                { key: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
+                { key: "first seen", value: <Time iso={p.first_seen_at} /> },
+                { key: "activated", value: <Time iso={p.activated_at} /> },
+                { key: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
+              ]}
+            />
+          </Card>
+          {p.enterprise ? (
+            <Card title="Enterprise baseline">
+              <DetailKV
+                rows={[
+                  { key: "mode", value: <Badge tone="outline">{p.enterprise.mode}</Badge> },
+                  { key: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
+                  { key: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
+                ]}
+              />
+            </Card>
+          ) : null}
+        </div>
+        {p.orgs.map((o) => (
+          <OrgLayer key={o.org} org={o} />
+        ))}
+        <Card title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
+          <DataTable columns={catalogueColumns} rows={p.controls} rowKey={(c) => c.id} empty="No control is referenced." aria-label="Catalogue" />
+        </Card>
       </div>
-      <Card title="Rules" subtitle="Every rule the policy declares, with its scope and ignore patterns." bodyClassName="p-0">
-        <DataTable columns={ruleColumns} rows={p.rules} rowKey={(r) => `${r.kind}/${r.name}`} empty="This policy declares no rules." aria-label="Policy rules" />
-      </Card>
     </>
   );
 }
 
-const ruleColumns: Column<Schemas["PolicyRule"]>[] = [
-  {
-    key: "rule",
-    header: "Rule",
-    cell: (r) => (
-      <>
-        <span className="font-mono font-medium">{r.name}</span>
-        {r.description ? <span className="block text-xs text-muted-foreground">{r.description}</span> : null}
-      </>
-    ),
-  },
-  { key: "kind", header: "Kind", cell: (r) => <KindBadge kind={r.kind} /> },
-  { key: "check", header: "Check", cell: (r) => (r.check_mode ? <span className="font-mono text-xs">{r.check_mode}</span> : <span className="text-muted-foreground">—</span>) },
-  { key: "scope", header: "Scope", cell: (r) => <span className="font-mono text-xs">{r.scope?.join(", ") ?? "all"}</span>, hideBelow: "md" },
-  { key: "ignore", header: "Ignore", cell: (r) => (r.ignore && r.ignore.length > 0 ? <span className="font-mono text-xs">{r.ignore.join(", ")}</span> : <span className="text-muted-foreground">—</span>), hideBelow: "lg" },
+function changes(list: readonly Schemas["PolicyChange"][]) {
+  if (list.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <ul className="space-y-0.5">
+      {list.map((c) => (
+        <li key={`${c.control}/${c.with ?? ""}`} className="font-mono text-xs">
+          {c.control}
+          {c.with ? ` → ${c.with}` : ""}
+          {c.reason ? <span className="text-muted-foreground"> · {c.reason}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
+  return (
+    <Card title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge tone="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
+      <DetailKV
+        rows={[
+          { key: "added", value: changes(o.added) },
+          { key: "replaced", value: changes(o.replaced) },
+          { key: "excluded", value: changes(o.excluded) },
+          {
+            key: "excluded repos",
+            value:
+              o.excluded_repos.length === 0 ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                <ul className="space-y-0.5">
+                  {o.excluded_repos.map((e) => (
+                    <li key={e.match.join(",")} className="font-mono text-xs">
+                      {e.match.join(", ")} <span className="text-muted-foreground">· {e.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              ),
+          },
+          {
+            key: "repo groups",
+            value:
+              o.repos.length === 0 ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                <ul className="space-y-0.5">
+                  {o.repos.map((r) => (
+                    <li key={r.label} className="font-mono text-xs">
+                      {r.label}: {r.match.join(", ")}
+                      {r.mode ? <span className="text-muted-foreground"> · {r.mode}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ),
+          },
+        ]}
+      />
+    </Card>
+  );
+}
+
+const catalogueColumns: Column<Schemas["PolicyControl"]>[] = [
+  { key: "id", header: "Control", cell: (c) => <span className="font-mono font-medium">{c.id}</span> },
+  { key: "title", header: "Title", cell: (c) => c.title ?? "" },
+  { key: "type", header: "Type", cell: (c) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span> },
+  { key: "revision", header: "Revision", cell: (c) => <span className="font-mono text-xs">{c.revision.slice(0, 12)}</span>, hideBelow: "md" },
 ];

@@ -1,0 +1,11 @@
+{
+  "repository": {
+    "org": "elsewhere",
+    "name": "api",
+    "active": true
+  },
+  "access": {
+    "evaluable": true,
+    "remediable": true
+  }
+}

@@ -1178,10 +1178,13 @@ URL).
   helm-docs regenerated; `make lint-ui`, `make test-ui`,
   `make test-ui-e2e`, `make ci` and `make helm-test` green; PR to `v2`
   with `dont-release`, closing #207.
-- [ ] 10.4 Release (human-run): merge, tag `v2.0.0-rc.8`, dispatch
+- [x] 10.4 Release (human-run): merge, tag `v2.0.0-rc.8`, dispatch
   `ghcr.yml`, deploy to dev; the browser's network tab shows one history
   request on the home page.
-  **Deferred - human required.**
+  Done 2026-10-16: tagged `v2.0.0-rc.8` at `90a2b90`, ghcr.yml run
+  38852565558 green; both images verified with cosign and slsa-verifier,
+  chart pulled at `2.0.0-rc.8`; #207 closed. Dev deployed rc.8 and the
+  maintainer confirmed the fix on https://repo-guardian.fartlab.dev/.
 
 #### Success Criteria
 

@@ -2,9 +2,7 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"time"
 )
 
 // APIConfig configures the read-only api role (DESIGN-0027).
@@ -29,22 +27,10 @@ type APIConfig struct {
 	// AuthzConfigPath is API_AUTHZ_CONFIG, the groups → orgs file.
 	AuthzConfigPath string
 
-	// PRStaleAfter is PR_STALE_AFTER: an open repo-guardian PR older
-	// than this is stale. Default 720h (DESIGN-0027 OQ14).
-	PRStaleAfter time.Duration
-
 	// StatusPublic is STATUS_PUBLIC, default true: the status page needs
 	// no token. False puts it behind authentication like every route.
 	StatusPublic bool
 }
-
-// PR_STALE_AFTER defaults to 720h and is bounded to 1h–8760h, the same
-// bounds the API applies to ?stale_after= (IMPL-0025 15.4).
-const (
-	defaultPRStaleAfter = 720 * time.Hour
-	minPRStaleAfter     = time.Hour
-	maxPRStaleAfter     = 8760 * time.Hour
-)
 
 // Listener defaults. The api role alone takes the main port; beside
 // other roles it takes the next one.
@@ -55,11 +41,6 @@ const (
 
 func loadAPIConfig(cfg *Config) error {
 	enabled, err := envOrDefaultBool("API_AUTH_ENABLED", true)
-	if err != nil {
-		return err
-	}
-
-	stale, err := envOrDefaultDuration("PR_STALE_AFTER", defaultPRStaleAfter)
 	if err != nil {
 		return err
 	}
@@ -78,7 +59,6 @@ func loadAPIConfig(cfg *Config) error {
 		OIDCNameClaim:   envOrDefault("OIDC_NAME_CLAIM", "preferred_username"),
 		OIDCGroupsClaim: envOrDefault("OIDC_GROUPS_CLAIM", "groups"),
 		AuthzConfigPath: os.Getenv("API_AUTHZ_CONFIG"),
-		PRStaleAfter:    stale,
 		StatusPublic:    statusPublic,
 	}
 
@@ -118,10 +98,6 @@ func (c *Config) validateAPI(role Role) []error {
 
 	if c.APIStoreDSN(role) == "" {
 		errs = append(errs, errors.New("STORE_RO_DSN is required for the api role"))
-	}
-
-	if c.API.PRStaleAfter < minPRStaleAfter || c.API.PRStaleAfter > maxPRStaleAfter {
-		errs = append(errs, fmt.Errorf("PR_STALE_AFTER must be between %s and %s", minPRStaleAfter, maxPRStaleAfter))
 	}
 
 	if !c.API.AuthEnabled {

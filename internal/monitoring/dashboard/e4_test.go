@@ -95,31 +95,6 @@ func TestE4_EveryQueryStartsFromTheStreamSelector(t *testing.T) {
 	}
 }
 
-// TestE4_MatchesTheLockedCatalogParseLine ties the panel to the log.
-//
-// The literal is duplicated from internal/reconciler/log_contract_test.go
-// on purpose: it is a contract between two packages that do not import
-// each other, and a shared constant would let a rename move both ends at
-// once and pass. Two independent copies means a rename fails here.
-func TestE4_MatchesTheLockedCatalogParseLine(t *testing.T) {
-	t.Parallel()
-
-	const locked = "catalog-info parse failed"
-
-	var matched bool
-
-	for _, tgt := range e4Targets(t) {
-		if strings.Contains(tgt.Expr, locked) {
-			matched = true
-		}
-	}
-
-	if !matched {
-		t.Errorf("no E4 panel matches %q; the counter says how many repositories have a broken "+
-			"catalog and only the log says which", locked)
-	}
-}
-
 // TestE4_ChartsNoPrometheusSeries pins the tier split from the other
 // direction to E3's test.
 //

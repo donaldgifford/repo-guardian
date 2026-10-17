@@ -15,13 +15,13 @@ var apiScopePredicate = regexp.MustCompile(
 
 var queryName = regexp.MustCompile(`(?m)^-- name: (\w+)`)
 
-// TestAPIQueries_AreScoped fails on any api_*.sql query without the
-// scope predicate (IMPL-0025 14.9), so a new endpoint cannot read past
-// the caller's orgs by forgetting it.
+// TestAPIQueries_AreScoped fails on any queries_controls/api_*.sql query
+// without the scope predicate (IMPL-0025 14.9), so a new endpoint cannot
+// read past the caller's orgs by forgetting it.
 func TestAPIQueries_AreScoped(t *testing.T) {
 	t.Parallel()
 
-	files, err := filepath.Glob(filepath.Join("queries", "api_*.sql"))
+	files, err := filepath.Glob(filepath.Join("queries_controls", "api_*.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

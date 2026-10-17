@@ -34,6 +34,19 @@ type FileVars struct {
 	Org string
 }
 
+// Vars is the variable context a control template sees (DESIGN-0031):
+// {{ .Org }}, {{ .Repo }}, {{ .Owner }}, {{ .DefaultBranch }} and, for
+// catalog-aware templates, {{ .Catalog }}. It replaces FileVars for
+// control code. The zero value is a valid empty context.
+type Vars struct {
+	Common
+	// Org is the repository's org; the same value as Owner.
+	Org string
+	// Catalog is non-nil only for catalog-info-aware templates. Guard
+	// with `{{ if .Catalog }}` where it may be nil.
+	Catalog *CatalogInfo
+}
+
 // PRVars is the variable context passed to PR title and PR body
 // rendering. Single-rule PRs populate Rule and leave Rules nil; bundled
 // multi-rule PRs leave Rule zero-valued and populate Rules. The zero

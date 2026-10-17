@@ -2,34 +2,36 @@
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-2 of 3 rule evaluations pass across 1 rule(s).
+Compliance: 12.5% (1 of 8 measured assignments pass).
+Coverage: 66.6% of 12 assignments (4 pending, 0 stale, 0 unmeasurable, 0 unknown); 0 excluded.
 
-## Compliance by rule
+## Baseline controls
 
-| Rule | Kind | Failing | Passing | N/A | Unknown | Compliant |
-|---|---|---:|---:|---:|---:|---:|
-| dependabot | file | 1 | 2 | 0 | 0 | 66.6% |
+| Control | Decision | Failing | Passing | Pending | Stale | Unmeasurable | N/A | Unknown | Excluded | Compliant | Coverage |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| codeowners | baseline | 7 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 12.5% | 100.0% |
 
+## Org-added controls
 
-No previous snapshot exists, so no trend is shown. Trends appear once
-the `compliance-snapshot` handler has run at least twice.
+| Control | Decision | Failing | Passing | Pending | Stale | Unmeasurable | N/A | Unknown | Excluded | Compliant | Coverage |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| labels | org_added | 0 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | no data | 0.0% |
 
-## Findings
+## Exclusions
 
-| Repository | Rule | Reason | Failing since | PR |
+| Repository | Control | State | Reason | Excluded by |
 |---|---|---|---|---|
-| tools | dependabot | file_missing | 2026-08-03 | — |
-
+| infra | codeowners | excluded | owned by the platform team |  |
 
 ---
 
-Compliant is Passing / (Passing + Failing). N/A (the rule does not apply
-to the repository) and Unknown (it could not be evaluated) are counted
-beside the percentage, never in it. A `migrated_from_v1` reason means
-repo-guardian v1 recorded the failure and v2 has not re-checked it yet;
-its date is v1's.
+Compliant is Passing / (Passing + Failing), floored to one decimal, and
+reads "no data" when nothing is measured. Coverage is measured
+(Passing + Failing + N/A) over assigned. Pending (assigned, not yet
+evaluated), Stale (evaluated under an older assignment or revision),
+Unmeasurable (access lost, installation suspended, or an ownership
+conflict) and Unknown are counted beside the percentage, never in it.
 
-Parked repositories — archived, forked, or unreadable by the App — are
-excluded from every number above. A repository nobody can measure is
-neither compliant nor failing, and counting it either way would be a
-guess.
+A replaced control is the org's version of a baseline control and
+counts in the baseline lineage. Exclusions are never in either side of
+the percentage: they are listed above with their reasons.

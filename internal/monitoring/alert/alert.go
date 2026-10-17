@@ -75,70 +75,86 @@ type Spec struct {
 //
 // Ordered by group then name, so the generated manifest is stable for
 // the drift gate without a sort at emit time.
+//
+// Nothing in it is mechanism-gated today: the controls line evaluates
+// every assigned control the same way, and the gated alerts (PR churn,
+// remediation, the custom-properties workflow) return with remediation
+// in IMPL-0030. Requires and Excludes stay so they can.
 func Catalogue() []Spec {
-	specs := make([]Spec, 0, 32)
+	specs := make([]Spec, 0, 16)
 	specs = append(specs, coreSpecs()...)
-	specs = append(specs, mechanismSpecs()...)
 	specs = append(specs, infraSpecs()...)
 	specs = append(specs, temporalSpecs()...)
 
 	return specs
 }
 
-// coreSpecs are the always-on service-health alerts.
+// coreSpecs are the always-on service-health and evaluation alerts.
 func coreSpecs() []Spec {
 	const group = "repo-guardian"
 
 	return []Spec{
 		{
-			Name:     "RepoGuardianNoRepoChecks",
-			Group:    group,
-			Expr:     `sum(increase(repo_guardian_repos_checked_total[2h])) == 0`,
-			Window:   2 * time.Hour,
-			For:      30 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "repo-guardian has checked no repositories in 2 hours",
-			Description: "The sweep, the queue, or the worker pool has stopped. " +
-				"Check scheduler_is_leader and queue_depth first.",
-		},
-		{
-			Name:  "RepoGuardianHighErrorRate",
+			Name:  "RepoGuardianEvaluationErrorRate",
 			Group: group,
+			// The `> 0` on the denominator leaves an idle evaluator with
+			// no result instead of a division by zero; an evaluator
+			// recording only errors reads 1 and fires.
 			Expr: "(\n" +
-				"  sum(rate(repo_guardian_errors_total[15m]))\n" +
+				"  sum(rate(repo_guardian_evaluations_total{outcome=\"error\"}[15m]))\n" +
 				"  /\n" +
-				"  clamp_min(sum(rate(repo_guardian_repos_checked_total[15m])), 1)\n" +
+				"  (sum(rate(repo_guardian_evaluations_total[15m])) > 0)\n" +
 				") > 0.10",
-			Window:      15 * time.Minute,
-			For:         10 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "More than 10% of repository checks are failing",
-			Description: "clamp_min keeps the ratio defined when no check has completed in the window.",
+			Window:   15 * time.Minute,
+			For:      10 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "More than 10% of evaluations are failing",
+			Description: "At 100% the evaluator cannot read GitHub or the store at all: usually " +
+				"the Evaluation App's credentials, connectivity, or a policy that fails to load.",
 		},
 		{
-			Name:  "RepoGuardianAllChecksFailing",
+			Name:  "RepoGuardianControlEvaluationErrors",
 			Group: group,
-			Expr: "(\n" +
-				"  sum(rate(repo_guardian_errors_total[30m])) > 0\n" +
-				"  and\n" +
-				"  sum(rate(repo_guardian_repos_checked_total[30m])) == 0\n" +
-				")",
-			Window:   30 * time.Minute,
+			// Per (org, control), first increment included: a control
+			// that errors on every repository from the moment it is
+			// assigned creates its series at a non-zero value.
+			Expr:     firstOrIncrease(`repo_guardian_evaluation_errors_total`, "1h"),
+			Window:   time.Hour,
 			For:      15 * time.Minute,
-			Severity: SeverityCritical,
-			Summary:  "Every repository check is failing",
-			Description: "Errors are being recorded and no check is completing. " +
-				"Usually credentials, connectivity, or a policy that fails to load.",
+			Severity: SeverityWarning,
+			Summary:  "A control is returning an error status",
+			Description: "The control could not evaluate: a GitHub read it needs failed or was " +
+				"refused. One control erroring across an org is usually a missing App " +
+				"permission; the E4 logs name the repositories.",
 		},
 		{
-			Name:        "RepoGuardianSlowChecks",
-			Group:       group,
-			Expr:        `histogram_quantile(0.99, sum(rate(repo_guardian_check_duration_seconds_bucket[15m])) by (le)) > 30`,
-			Window:      15 * time.Minute,
-			For:         15 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "p99 repository check duration is above 30s",
-			Description: "Usually GitHub API latency or a repository with an unusually large file set.",
+			Name:  "RepoGuardianEvaluationFreshness",
+			Group: group,
+			// Twice the default EVAL_INTERVAL. The p50 sits near the
+			// interval by design, so only a p95 well past it means
+			// repositories are waiting longer than their timer.
+			Expr: "histogram_quantile(0.95, sum by (le) " +
+				"(rate(repo_guardian_evaluation_freshness_seconds_bucket[6h]))) > 172800",
+			Window:   6 * time.Hour,
+			For:      time.Hour,
+			Severity: SeverityWarning,
+			Summary:  "Controls are re-evaluated more than two days apart (p95)",
+			Description: "Evaluation is not keeping up with the fleet: check the evaluation queue's " +
+				"schedule-to-start latency and budget waits before raising EVALUATOR_CONCURRENCY.",
+		},
+		{
+			Name:  "RepoGuardianStaleEpochDiscards",
+			Group: group,
+			// A threshold, not a first-increment alert: a policy rollout
+			// discards a few results by design (DESIGN-0030 D14).
+			Expr:     `sum(increase(repo_guardian_results_discarded_total{reason="stale_epoch"}[2h])) > 100`,
+			Window:   2 * time.Hour,
+			For:      time.Hour,
+			Severity: SeverityWarning,
+			Summary:  "Evaluations keep being discarded for a moved assignment epoch",
+			Description: "Assignments change between evaluation and record faster than evaluations " +
+				"finish — usually a policy being re-activated repeatedly. Evaluation work is " +
+				"being thrown away.",
 		},
 		{
 			Name:     "RepoGuardianNoWebhooks",
@@ -166,118 +182,6 @@ func coreSpecs() []Spec {
 			Description: "Signature validation failures (401s) — usually a wrong or rotated webhook secret. " +
 				"Source-IP rejections happen at the operator's edge layer, not here (DESIGN-0023).",
 		},
-		{
-			Name:  "RepoGuardianPostureExportStalled",
-			Group: group,
-			// The liveness signal for every posture gauge, which have no
-			// other heartbeat: a leader whose store reads all fail keeps
-			// serving its last successful values indefinitely, and a
-			// dashboard reading them cannot tell "the fleet is stable"
-			// from "nothing has updated in six hours". Alert on the
-			// absence of ok increments, never on the gauges.
-			Expr:     `sum(increase(repo_guardian_posture_export_total{outcome="ok"}[1h])) == 0`,
-			Window:   time.Hour,
-			For:      30 * time.Minute,
-			Severity: SeverityCritical,
-			Summary:  "The posture exporter has not completed a successful tick in an hour",
-			Description: "Every compliance gauge is now stale but still being served, so dashboards " +
-				"show old numbers as if they were current. Check the leader and the store.",
-		},
-	}
-}
-
-// mechanismSpecs are the alerts gated on a configured feature.
-func mechanismSpecs() []Spec {
-	return append(prSpecs(), propertySpecs()...)
-}
-
-func prSpecs() []Spec {
-	const group = "repo-guardian.pr-convergence"
-
-	return []Spec{
-		{
-			Name:     "RepoGuardianPRBurst",
-			Group:    group,
-			Expr:     `sum(increase(repo_guardian_prs_created_total[1h])) > 50`,
-			Window:   time.Hour,
-			For:      5 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "More than 50 PRs opened in an hour",
-			Description: "Usually a policy change that made a rule actionable fleet-wide. " +
-				"Verify it was intended before the PRs land.",
-			Requires: []monitoring.Mechanism{monitoring.MechanismFileRules},
-			// dry_run suppresses prs_created_total entirely, so this
-			// alert is empty by construction on a dry-run deployment.
-			Excludes: []monitoring.Mechanism{monitoring.MechanismDryRun},
-		},
-		{
-			Name:     "RepoGuardianStaleOpenPRs",
-			Group:    group,
-			Expr:     `max(repo_guardian_open_prs_by_rule{age_bucket="30d+"}) > 0`,
-			For:      time.Hour,
-			Severity: SeverityWarning,
-			Summary:  "A repo-guardian PR has been open for over 30 days",
-			Description: "Nobody is merging them, or they are stuck. Note this threshold assumes " +
-				"auto-close is on: with auto_close_pr = false a satisfied PR stays open by design " +
-				"and will trip this eventually.",
-			Requires: []monitoring.Mechanism{monitoring.MechanismFileRules},
-			Excludes: []monitoring.Mechanism{monitoring.MechanismDryRun},
-		},
-		{
-			Name:     "RepoGuardianPRDrift",
-			Group:    group,
-			Expr:     `sum(rate(repo_guardian_pr_open_with_empty_actionable_total[1h])) > 0`,
-			Window:   time.Hour,
-			For:      30 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "Open PRs have no actionable rule left",
-			Description: "Every rule is satisfied on the default branch but the PR is still open, " +
-				"so auto-close is not converging. This is the INV-0005 drift surface.",
-			// Gated on auto-close, and this is the subtle one: with
-			// auto-close OFF, drift is the DESIGNED behaviour and the
-			// alert would fire permanently on a correctly-configured
-			// deployment. An alert that is always firing is an alert
-			// nobody reads.
-			Requires: []monitoring.Mechanism{monitoring.MechanismAutoClosePR},
-			Excludes: []monitoring.Mechanism{monitoring.MechanismDryRun},
-		},
-		{
-			Name:        "RepoGuardianSettingRemediationChurn",
-			Group:       group,
-			Expr:        "sum by (rule_name, org) (\n  rate(repo_guardian_settings_remediated_total[6h])\n) > 0.01",
-			Window:      6 * time.Hour,
-			For:         6 * time.Hour,
-			Severity:    SeverityWarning,
-			Summary:     "A repository setting is being remediated repeatedly",
-			Description: "repo-guardian and something else are fighting over the same setting.",
-			Requires:    []monitoring.Mechanism{monitoring.MechanismSettingRemediation},
-		},
-		{
-			Name:        "RepoGuardianBranchProtectionChurn",
-			Group:       group,
-			Expr:        "sum by (rule_name, org) (\n  rate(repo_guardian_branch_protection_remediated_total[6h])\n) > 0.01",
-			Window:      6 * time.Hour,
-			For:         6 * time.Hour,
-			Severity:    SeverityWarning,
-			Summary:     "A branch protection ruleset is being remediated repeatedly",
-			Description: "repo-guardian and something else are fighting over the same ruleset.",
-			Requires:    []monitoring.Mechanism{monitoring.MechanismBranchProtectionRemediation},
-		},
-		{
-			Name:  "RepoGuardianRuleNeverApplies",
-			Group: group,
-			Expr: "sum by (org) (increase(repo_guardian_out_of_scope_total{level=\"rule\"}[24h])) > 0\n" +
-				"and\n" +
-				"sum by (org) (increase(repo_guardian_files_missing_total[24h])) == 0",
-			Window:   24 * time.Hour,
-			For:      2 * time.Hour,
-			Severity: SeverityWarning,
-			Summary:  "An org has rules skipped for scope and no rule applying",
-			Description: "Probably a scope block that matches nothing. The repositories are being " +
-				"processed and every rule is being skipped.",
-			// out_of_scope_total has no producer outside strict mode.
-			Requires: []monitoring.Mechanism{monitoring.MechanismStrictScope},
-		},
 	}
 }
 
@@ -296,9 +200,9 @@ func prSpecs() []Spec {
 // window ago is new, and its value is its whole history.
 //
 // Neither disjunct aggregates, so the alert keeps the counter's own
-// labels — `org` and `property` on the schema alert, `org` and
-// `installation_id` on the parking one. Those are the whole value of
-// the notification, and a sum() would throw them away.
+// labels — `org` and `control` on the evaluation-errors alert. Those are
+// the whole value of the notification, and a sum() would throw them
+// away.
 //
 // Only for RARE counters where the FIRST event matters. On a busy
 // counter the second disjunct is noise, and on a threshold alert
@@ -317,139 +221,21 @@ func firstOrIncrease(selector, window string) string {
 		"(" + sel + " unless " + sel + " offset " + window + ") > 0"
 }
 
-func propertySpecs() []Spec {
-	const group = "repo-guardian.custom-property-sync"
-
-	return []Spec{
-		{
-			Name:     "RepoGuardianPropertySchemaMissing",
-			Group:    group,
-			Expr:     firstOrIncrease("repo_guardian_custom_property_missing_schema_total", "1h"),
-			Window:   time.Hour,
-			For:      5 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "A mapped custom property is not defined in the org schema",
-			Description: "The property is dropped from the PATCH and the rest of the payload still " +
-				"syncs. Define it in the org's custom-property schema.",
-			// Gates on the RECONCILER, not on its mode: the schema
-			// preflight runs in both api and github-action mode.
-			// Gating on mode silently drops this alert for every
-			// api-mode deployment.
-			Requires: []monitoring.Mechanism{monitoring.MechanismCustomProperties},
-		},
-		{
-			Name:     "RepoGuardianCatalogParseFailures",
-			Group:    group,
-			Expr:     firstOrIncrease("repo_guardian_catalog_parse_failed_total", "1h"),
-			Window:   time.Hour,
-			For:      5 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "A catalog-info.yaml failed to parse",
-			Description: "The reconcile is skipped rather than clearing the managed properties " +
-				"(INV-0011 A1), so the repository keeps its last-known values.",
-			Requires: []monitoring.Mechanism{monitoring.MechanismCustomProperties},
-		},
-		// RepoGuardianPropertiesPRBurst was here until IMPL-0023 Phase 7.
-		// It watched repo_guardian_properties_prs_created_total, an
-		// unlabelled counter that existed only because reconciler PRs
-		// were counted separately from engine PRs. Now that they are not,
-		// this alert would be RepoGuardianPRBurst with a different name
-		// and the same 50-per-hour threshold.
-		//
-		// The coverage question was checked rather than assumed: PRBurst
-		// requires MechanismFileRules, and a custom_properties reconciler
-		// is only ever attached to a file rule, so a policy that could
-		// have triggered the old alert always engages the new one.
-	}
-}
-
-// infraGroup is the group both halves of the infrastructure catalogue
-// render into; the split below is a function-length concession, not a
-// grouping decision, and the two halves must stay in one group.
+// infraGroup is the group the store and rate-limit alerts render into.
 const infraGroup = "repo-guardian.multi-replica"
 
-// infraSpecs are the queue, scheduler, store and rate-limit alerts.
+// infraSpecs are the store and rate-limit alerts.
 func infraSpecs() []Spec {
-	return append(queueSpecs(), runtimeSpecs()...)
-}
-
-// queueSpecs are the alerts over the durable queue.
-func queueSpecs() []Spec {
 	const group = infraGroup
 
 	return []Spec{
 		{
-			Name:        "RepoGuardianQueueDepthHigh",
-			Group:       group,
-			Expr:        `max(repo_guardian_queue_depth{queue="jobs"}) > 1000`,
-			For:         10 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "Job queue depth is above 1000",
-			Description: "Workers are not keeping up. Scale replicas or raise worker concurrency.",
-		},
-		{
-			Name:     "RepoGuardianReaperRequeues",
-			Group:    group,
-			Expr:     `rate(repo_guardian_queue_reaped_total[15m]) > 0.1`,
-			Window:   15 * time.Minute,
-			For:      15 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "Jobs are being reaped and requeued",
-			Description: "Workers are dying mid-job or exceeding JOB_ACK_TIMEOUT. Every reap " +
-				"duplicates work against an API budget that is probably already tight.",
-		},
-		{
-			Name:     "RepoGuardianQueueBackpressure",
-			Group:    group,
-			Expr:     `max(repo_guardian_queue_delayed_depth) > 100`,
-			For:      30 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "More than 100 jobs are parked in the delayed set",
-			Description: "Sustained rate-limit backpressure (IMPL-0022). Jobs are deferring rather " +
-				"than failing, which is correct, but the fleet is not converging.",
-		},
-		{
-			Name:  "RepoGuardianJobsExhausted",
-			Group: group,
-			// Summed, unlike the label-preserving firstOrIncrease
-			// alerts: this counter's labels identify a queue, not a
-			// tenant, so one alert for the fleet is what an operator
-			// wants. Same first-increment reasoning either way.
-			Expr: "sum(increase(repo_guardian_queue_attempts_exhausted_total[1h])) > 0\n" +
-				"or\n" +
-				"sum(repo_guardian_queue_attempts_exhausted_total " +
-				"unless repo_guardian_queue_attempts_exhausted_total offset 1h) > 0",
-			Window:      time.Hour,
-			For:         5 * time.Minute,
-			Severity:    SeverityWarning,
-			Summary:     "A job hit MAX_JOB_ATTEMPTS and was dropped",
-			Description: "The second disjunct catches the first-ever increment; see firstOrIncrease.",
-		},
-	}
-}
-
-// runtimeSpecs are the scheduler, store and rate-limit alerts.
-func runtimeSpecs() []Spec {
-	const group = infraGroup
-
-	return []Spec{
-		{
-			Name:     "RepoGuardianNoSchedulerLeader",
-			Group:    group,
-			Expr:     `max(repo_guardian_scheduler_is_leader{name="stale-sweep"}) == 0`,
-			For:      5 * time.Minute,
-			Severity: SeverityCritical,
-			Summary:  "No replica holds the stale-sweep leader lock",
-			Description: "Nothing is enqueuing stale repositories. Aggregate with max, never sum: " +
-				"during failover both replicas can briefly hold a series.",
-		},
-		{
-			Name:  "RepoGuardianStoreQueryErrors",
+			Name:  "RepoGuardianStoreErrors",
 			Group: group,
 			// Window widened from 5m to match `for` — INV-0012 finding E.
 			Expr: "sum(rate(repo_guardian_store_query_seconds_count{outcome=\"error\"}[10m]))\n" +
 				"/\n" +
-				"sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0.1",
+				"(sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0) > 0.1",
 			Window:      10 * time.Minute,
 			For:         10 * time.Minute,
 			Severity:    SeverityWarning,
@@ -463,36 +249,8 @@ func runtimeSpecs() []Spec {
 			For:      5 * time.Minute,
 			Severity: SeverityWarning,
 			Summary:  "GitHub API budget is nearly exhausted",
-			Description: "Fed solely by the sweep's per-installation sample. If that sampling is " +
-				"ever removed this series goes unfed and the alert silently stops working.",
-		},
-		{
-			Name:     "RepoGuardianRateLimitThrottling",
-			Group:    group,
-			Expr:     `sum(increase(repo_guardian_queue_delayed_total{reason="rate_limit"}[1h])) > 10`,
-			Window:   time.Hour,
-			For:      30 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "Jobs are being deferred for rate limiting",
-			Description: "The IMPL-0022 delayed-requeue path is active. Work is not being lost, " +
-				"but throughput is capped by the API budget.",
-		},
-		{
-			Name:  "RepoGuardianRepoAccessDenied",
-			Group: group,
-			// The reason selector is LOAD-BEARING. repos_parked_total
-			// also counts routine archived and fork parks, which happen
-			// on every normal onboarding sweep, so the same expression
-			// without the selector pages on healthy behaviour.
-			Expr:     firstOrIncrease(`repo_guardian_repos_parked_total{reason="access_denied"}`, "1h"),
-			Window:   time.Hour,
-			For:      15 * time.Minute,
-			Severity: SeverityWarning,
-			Summary:  "A repository was parked because the installation cannot read it",
-			Description: "The App lost access, or was never granted it. The repository is excluded " +
-				"from every compliance number until discovery sees it again (INV-0015).",
-			// Deliberately unconditional: an installation can lose read
-			// access at any time regardless of configuration.
+			Description: "Set by every evaluation from the response headers. The installation budget " +
+				"defers evaluations until the reset, so work waits rather than fails.",
 		},
 	}
 }
@@ -571,10 +329,10 @@ func temporalSpecs() []Spec {
 			For:      30 * time.Minute,
 			Severity: SeverityWarning,
 			Summary:  "Activities wait more than a minute (p99) for a worker slot",
-			Description: "Far above Temporal's generic 200ms on purpose: checks are GitHub " +
+			Description: "Far above Temporal's generic 200ms on purpose: evaluations are GitHub " +
 				"rate-limit bound and a policy rollout queues work by design. Minutes of " +
-				"sustained wait mean the fleet cannot keep up; add worker replicas (or KEDA " +
-				"maxReplicas) or WORKER_ACTIVITY_CONCURRENCY, within the GitHub budget.",
+				"sustained wait mean the fleet cannot keep up; add evaluator replicas (or KEDA " +
+				"maxReplicas) or EVALUATOR_CONCURRENCY, within the GitHub budget.",
 		},
 		{
 			Name:     "RepoGuardianTemporalStickyCacheEvictions",
@@ -585,7 +343,7 @@ func temporalSpecs() []Spec {
 			Severity: SeverityWarning,
 			Summary:  "Workers are force-evicting cached workflows",
 			Description: "More long-lived workflows are active than the sticky cache holds " +
-				"(one RepoWorkflow per repository), so evicted workflows replay their " +
+				"(one EvaluationWorkflow per repository), so evicted workflows replay their " +
 				"history on every task. Add worker replicas; each has its own cache.",
 		},
 		{
@@ -599,7 +357,7 @@ func temporalSpecs() []Spec {
 			Severity: SeverityWarning,
 			Summary:  "No worker has a free task slot",
 			Description: "Every worker's slots are in use, so new tasks queue. Add worker " +
-				"replicas, or raise WORKER_ACTIVITY_CONCURRENCY within the GitHub budget.",
+				"replicas, or raise EVALUATOR_CONCURRENCY within the GitHub budget.",
 		},
 		{
 			Name:  "RepoGuardianTemporalWorkflowTaskLatency",
@@ -613,6 +371,46 @@ func temporalSpecs() []Spec {
 			Description: "Temporal's recommended threshold. Workflow tasks are short, so waiting " +
 				"means workers are saturated, down, or their build is not the deployment's " +
 				"current version (check the worker's deployment readiness check).",
+		},
+		{
+			Name:  "RepoGuardianTemporalWorkflowTaskFailures",
+			Group: group,
+			Expr: `sum by (task_queue) ` +
+				`(rate(temporal_workflow_task_execution_failed[15m])) > 0`,
+			Window:   15 * time.Minute,
+			For:      15 * time.Minute,
+			Severity: SeverityWarning,
+			Summary:  "Workflow tasks are failing",
+			Description: "A failing workflow task retries forever and its workflow makes no " +
+				"progress. Almost always nondeterminism: a workflow change shipped without " +
+				"workflow.GetVersion. The worker log names the workflow id.",
+		},
+		{
+			Name:  "RepoGuardianTemporalNoWorkerPollers",
+			Group: group,
+			// A worker whose pollers all stopped still exports the gauge
+			// at zero; a queue with no worker at all exports nothing,
+			// which the backlog alerts above catch instead.
+			Expr: `max by (task_queue, poller_type) ` +
+				`(temporal_num_pollers{poller_type=~"workflow_task|activity_task"}) == 0`,
+			For:      10 * time.Minute,
+			Severity: SeverityCritical,
+			Summary:  "A worker has stopped polling its task queue",
+			Description: "The process is up but takes no tasks: usually lost connectivity to the " +
+				"frontend or a build that is not the deployment's current version.",
+		},
+		{
+			Name:  "RepoGuardianTemporalUnreachable",
+			Group: group,
+			Expr: "sum(rate(temporal_long_request_failure[10m]))\n" +
+				"/\n" +
+				"(sum(rate(temporal_long_request[10m])) > 0) > 0.5",
+			Window:   10 * time.Minute,
+			For:      10 * time.Minute,
+			Severity: SeverityCritical,
+			Summary:  "Most Temporal polls are failing",
+			Description: "Workers cannot reach the Temporal frontend: check the address, mTLS " +
+				"material and the frontend's own health. Nothing evaluates until it recovers.",
 		},
 	}
 }

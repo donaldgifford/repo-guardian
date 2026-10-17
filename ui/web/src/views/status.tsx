@@ -49,7 +49,7 @@ const dotClass: Record<StatusTone, string> = {
 export function StatusView() {
   const status = useStatus();
   const config = useUIConfig();
-  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", components: [], compliance: { percent: null, measured: false, history: [] }, operations: { checked_24h: 0, tracked: 0, rollout_state: "none" } };
+  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", topology: "all", components: [], apps: [], compliance: { percent: null, coverage: null, measured: false, history: [] }, operations: { evaluated_24h: 0, overdue: 0, tracked: 0, rollout_state: "none" } };
   const { headline, tone } = statusHeadline(s.state);
   return (
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
@@ -91,17 +91,22 @@ export function StatusView() {
         </Card>
         <Card title="Fleet compliance" className="md:col-span-2">
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
-            {s.compliance.measured ? formatPercent(s.compliance.percent) : "unmeasured"}
+            {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
           </div>
           <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="status-coverage">
+            coverage {formatPercent(s.compliance.coverage)}
           </p>
           <ComplianceTrend history={s.compliance.history} />
         </Card>
       </div>
 
       <OperationsStrip ops={s.operations} />
+
+      <Deployment topology={s.topology} apps={s.apps} />
 
       <footer className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
         <code className="font-mono">GET /api/v1/status · served from an in-process cache</code>
@@ -167,17 +172,18 @@ export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; 
   }
 }
 
-// OperationsStrip is three aggregate numbers: repositories checked in
-// the last 24h of those tracked, the newest policy's rollout and the
-// last compliance snapshot.
+// OperationsStrip is four aggregate numbers: repositories evaluated in
+// the last 24h of those tracked, those overdue, the newest policy's
+// rollout and the last compliance snapshot.
 function OperationsStrip({ ops }: { ops: Schemas["StatusOperations"] }) {
   const rollout = rolloutLabel(ops);
   return (
-    <Card className="grid grid-cols-1 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0" aria-label="Operations">
-      <OperationsCell label="Repositories checked in the last 24h">
-        {ops.checked_24h.toLocaleString()}
+    <Card className="grid grid-cols-1 divide-y divide-border md:grid-cols-4 md:divide-x md:divide-y-0" aria-label="Operations">
+      <OperationsCell label="Repositories evaluated in the last 24h">
+        {ops.evaluated_24h.toLocaleString()}
         <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
       </OperationsCell>
+      <OperationsCell label="Overdue evaluations">{ops.overdue.toLocaleString()}</OperationsCell>
       <OperationsCell label="Last policy rollout">{rollout.at ? <Time iso={rollout.at} style="relative" /> : rollout.text}</OperationsCell>
       <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
     </Card>
@@ -190,5 +196,32 @@ function OperationsCell({ label, children }: { label: string; children: ReactNod
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-[22px] font-semibold tabular-nums">{children}</div>
     </div>
+  );
+}
+
+const appLabels: Record<string, string> = { eval: "Evaluation App", remediate: "Remediation App" };
+
+// Deployment is the topology and each App's installations, by count.
+// The queues are components above (backlog_evaluation and
+// backlog_remediation).
+function Deployment({ topology, apps }: { topology: string; apps: Schemas["StatusApp"][] }) {
+  return (
+    <Card title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
+      {apps.length === 0 ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No App installation recorded yet.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {apps.map((a) => (
+            <li key={a.app} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5 text-[13px]" data-app={a.app}>
+              <span className="font-medium">{appLabels[a.app] ?? a.app}</span>
+              <span className="min-w-0 flex-1 text-muted-foreground">
+                {a.installations.toLocaleString()} installations · {a.repositories.toLocaleString()} repositories
+                {a.suspended > 0 ? ` · ${a.suspended.toLocaleString()} suspended` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

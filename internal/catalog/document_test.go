@@ -129,29 +129,46 @@ func TestParseDocument_Errors(t *testing.T) {
 }
 
 // TestParseDocument_WideMappingIsLinear is the regression for the
-// quadratic duplicate-key check in yaml.v3's Node.Decode: a file of
-// distinct keys at the size cap parses in well under a second.
+// quadratic duplicate-key check in yaml.v3's Node.Decode. It compares
+// growth, not wall-clock time, so a slow runner under -race cannot fail
+// it: quadrupling the keys costs ~4x when linear and ~16x when
+// quadratic.
 func TestParseDocument_WideMappingIsLinear(t *testing.T) {
 	t.Parallel()
+
+	small, large := parseWide(t, MaxBytes/4), parseWide(t, MaxBytes)
+
+	if ratio := float64(large) / float64(small); ratio > 10 {
+		t.Errorf("ParseDocument() of 4x the annotations took %.1fx as long (%v vs %v), want linear growth", ratio, large, small)
+	}
+}
+
+// parseWide parses a Component whose annotations fill size bytes and
+// returns the fastest of three runs.
+func parseWide(t *testing.T, size int) time.Duration {
+	t.Helper()
 
 	var b bytes.Buffer
 
 	b.WriteString("apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  annotations:\n")
 
-	for i := 0; b.Len() < MaxBytes-64; i++ {
+	for i := 0; b.Len() < size-64; i++ {
 		fmt.Fprintf(&b, "    k%d: v\n", i)
 	}
 
-	start := time.Now()
+	fastest := time.Duration(1<<63 - 1)
 
-	d, err := ParseDocument(b.Bytes())
-	if err != nil {
-		t.Fatalf("ParseDocument() err = %v", err)
+	for range 3 {
+		start := time.Now()
+
+		if _, err := ParseDocument(b.Bytes()); err != nil {
+			t.Fatalf("ParseDocument() err = %v", err)
+		}
+
+		fastest = min(fastest, time.Since(start))
 	}
 
-	if elapsed := time.Since(start); elapsed > 5*time.Second {
-		t.Errorf("ParseDocument() of %d annotations took %v", len(d.Entity.Metadata.Annotations), elapsed)
-	}
+	return fastest
 }
 
 func TestParseDocument_Refusals(t *testing.T) {

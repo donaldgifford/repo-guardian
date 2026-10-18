@@ -31,6 +31,7 @@ created: 2026-10-18
   - [Status page changelog](#status-page-changelog)
   - [CSV export](#csv-export)
   - [Remediation-gated panels](#remediation-gated-panels)
+  - [Remediations view](#remediations-view)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
@@ -48,8 +49,9 @@ there, removed every page and panel that read the findings model. This
 design brings the useful ones back on the controls model: a findings
 page filterable by control, an expandable org tree, the richer fleet
 panels, CSV export, and a changelog on the status page. It names the
-API each needs, marks what waits on remediation (IMPL-0030), and ships
-the INV-0023 repository-page fixes with the first phase.
+API each needs, marks what waits on remediation (IMPL-0030), adds the
+Remediations view, and ships the INV-0023 repository-page fixes in a
+small pull request ahead of the rest.
 
 The mockup is part of this design. `ui/design/repo-guardian-mockup.html`
 is updated in the same pull request to the controls line and to every
@@ -183,11 +185,11 @@ results and controls:
 | Banner | Outcome |
 |--------|---------|
 | Finding age distribution (DESIGN-0036 OQ8) | here, `Summary.finding_age` over `control_results.last_changed_at` |
-| PR throughput (OQ15) | here, Phase 7 (IMPL-0030) |
+| PR throughput (OQ15) | here, gated on IMPL-0030 |
 | "+N discovered this week" (OQ7) | stays out, as OQ7 (a) decided |
 | Repository rows under an org (OQ13) | here, superseding OQ13 (a) |
-| PR activity tab (OQ14) | here, Phase 7 |
-| `sort = pr_age` (OQ5) | here, Phase 7, as a `/results` sort |
+| PR activity tab (OQ14) | here, gated on IMPL-0030 |
+| `sort = pr_age` (OQ5) | here, as a `/results` sort (API in IMPL-0030) |
 | Status sparkline and operations strip (OQ10) | shipped in rc.10, carried onto the controls schema in rc.11 |
 
 **Not in the committed mockup at all.** The status changelog, the
@@ -201,9 +203,10 @@ controls line and every page here: Fleet (panels 1–8), Controls and
 control detail, the Orgs tree with its Parked and PR activity tabs, org
 detail, Findings with filters, sort, drawer and Re-evaluate,
 Repositories and the repository page (Controls / Evaluation log /
-Events, the `rule` tone, the name crumb, next due, the remediable hint),
-History, Policy layers, and the status page with deployment, operations
-and the changelog. Its in-page `api` mirrors `api/openapi.yaml` plus the
+Events, the `rule` tone, the name crumb, next due, the remediable hint,
+the remediation panel), Remediations (views, filters, hold sentences,
+drawer), History, Policy layers, and the status page with deployment,
+operations, the remediation backlog and the changelog. Its in-page `api` mirrors `api/openapi.yaml` plus the
 additions in [API / Interface Changes](#api--interface-changes), so a
 panel the mockup draws is a panel the API can back. A top-bar switch
 marked "mockup" previews the remediation-gated panels with a
@@ -216,11 +219,11 @@ findings-era endpoints or fields; IMPL-0029 removed or carried them:
 | DESIGN-0036 addition | Controls line |
 |----------------------|---------------|
 | `/compliance/history?aggregate=` (OQ6) | removed with `/findings`; the controls history is unaggregated again, so it comes back here as `aggregate=none\|fleet\|org\|control` |
-| `/findings?sort=pr_age` (OQ5) | `/results?sort=pr_age`, Phase 7 |
+| `/findings?sort=pr_age` (OQ5) | `/results?sort=pr_age`, IMPL-0030 |
 | `Summary.finding_age` (OQ8) | here, same name and buckets, over results |
 | `Status.compliance.history`, `Status.operations` (OQ10) | carried, shipped |
 | `OrgSummary.open_prs` (OQ14) | carried; reads 0 until IMPL-0030 |
-| PR throughput aggregate (OQ15) | `GET /remediations/activity`, Phase 7 |
+| PR throughput aggregate (OQ15) | `GET /remediations/activity`, IMPL-0030 |
 
 **DESIGN-0036 decisions this design supersedes**: OQ13 (an org row
 expands to repositories, not rules; the rules-in-org view stays on
@@ -228,6 +231,18 @@ expands to repositories, not rules; the rules-in-org view stays on
 `CHANGELOG.yaml` with a release gate), and OQ11's palette-only
 repository access, which IMPL-0029 already replaced with the
 `/repositories` page (OQ9 here asks whether the palette comes back).
+
+**DESIGN-0032 decision this design supersedes**: the D32 row "Findings
+view is removed; its filters move to the Remediations view". Findings
+and remediations answer different questions: a finding is a
+non-compliant result, whether or not anything is being done about it;
+a remediation is the pull request or API change repo-guardian makes.
+Most findings have no remediation (an evaluate-mode control, a rule
+that is not remediable, a deployment without the Remediation App), so
+folding findings into the Remediations view would hide them. Both
+pages exist: the Findings page over `/results`, and the Remediations
+view over DESIGN-0032's `/remediations` with the filters D32 gave it.
+Each links to the other's row.
 
 <!--docz:background:end-->
 
@@ -396,11 +411,68 @@ These render in the layout now and fill in when IMPL-0030 writes
   opened (`created_at`) vs closed (`closed_at`).
 - **Remediation column and Stale PR filter** (findings), **PR activity
   tab** and repository-row **Open PRs** (orgs).
+- **The Remediations view**, the **repository remediation panel** and
+  the status page's **remediation backlog** (next section).
 
 Until then each shows an empty state naming why ("Remediation is not
 enabled on this deployment"), decided from `Status.apps` (no
 `remediate` App) rather than from an empty result, so a deployment with
 remediation and nothing open reads "No open pull requests" instead.
+
+### Remediations view
+
+`/remediations` lists what repo-guardian is doing about findings: one
+row per `remediations` row, over DESIGN-0032's `GET /remediations`
+(IMPL-0030). The mockup draws it at `#/remediations`.
+
+- **Nav**: a Remediations entry under Findings, its count the
+  outstanding rows (reserved, open, recommended, failed) in the org
+  scope. Gated like every remediation panel: with no `remediate` App in
+  `Status.apps` the page is the "Remediation is not enabled" empty
+  state and the nav count is blank.
+- **KPIs**: Open PRs (with how many are stale at 30 days), outstanding
+  Recommendations, Held (with a count per hold reason), Failed applies.
+- **Views and filters**: segmented views All / Open PRs /
+  Recommendations / Held / Failed, then filter chips for kind, state,
+  org, control, hold and age (`older_than` days), each mapping 1:1 to a
+  `/remediations` query parameter and round-tripping through the URL.
+- **Columns**: Repository (name over org), Control, Kind
+  (`pull_request` or `api`), State (the schema's states; a pull request
+  links its number), Hold (badge plus the human sentence below), Age
+  (from `created_at`, with the stale badge on an open PR at 30 days),
+  Updated.
+- **Drawer** (`?open=<remediation id>`): state, the pull request and its
+  `repo-guardian/<control>` branch, hold with its sentence, age, the
+  proposal for a recommendation (the failing rules and what each
+  needs), the steps journal for a direct apply, and the result's
+  timeline; links to the finding and the repository.
+- **Export**: the current filter, through `lib/csv.ts`.
+
+**Hold reasons are sentences, not codes.** The UI maps each to what an
+operator does about it:
+
+| Hold | Shown as |
+|------|----------|
+| `pr_cap` | the repository is at `max_open_prs`; waits for a slot |
+| `foreign_branch` | a `repo-guardian/` branch exists that the bot did not create; rename or delete it to resume |
+| `stale_branch` | branch left from a closed PR; delete it to resume |
+| `conflict` | the PR branch conflicts with the default branch and could not be updated |
+| `permission` | the Remediation App lacks permission for this change |
+
+`remediations.hold` is `permission` only; the branch holds live on
+`control_results.hold` and are set before any pull request exists, so
+the Held view needs those results too. Whether `/remediations` returns
+them (as rows with no pull request) or the view reads them from
+`/results?hold=` is an IMPL-0030 question.
+
+**Repository remediation panel.** Each control card on the repository
+page shows its remediation under the rules: the state badge, pull
+request link and age, the hold sentence, the apply steps when there
+are any, and "details →" to the Remediations drawer.
+
+**Status page backlog.** The operations strip gains a Remediation
+backlog cell (outstanding remediations, aggregate only, so the privacy
+guard holds) when a Remediation App is installed.
 
 <!--docz:detailed-design:end-->
 
@@ -413,15 +485,17 @@ operation gets a case in `TestEndpoints_ValidateAgainstTheSpec`.
 
 | Change | Shape | Phase |
 |--------|-------|-------|
-| `GET /results` | query `status`, `control`, `rule`, `org`, `decision`, `sort` (`since_asc`, `since_desc`), `cursor`, `limit`; returns `ResultPage{items: [ResultRow], total, next_cursor}`. `ResultRow`: repository id/org/name, control id/version, decision, status, `failing_rules: [rule_id]`, `reason` (first failing rule's evidence `reason` or `evidence_kind`), `last_changed_at` | 2 |
-| `Repository.compliance` | `Posture` over the repository's assignments, on list and detail | 2 |
-| `Summary.parked_by_reason` | `[{reason, count}]` over visible orgs | 2 |
-| `Summary.finding_age` | `[{bucket, count}]`, the six fixed buckets | 2 |
-| `Summary.controls_failing` | count of controls with any non-compliant result | 2 |
-| `/compliance/history?aggregate=` | `none` (today's rows, default) \| `fleet` \| `org` \| `control`; sums per day in SQL with `floor_percent`, never averaged; DESIGN-0036 OQ6 on the controls schema | 2 |
-| `Summary.open_prs_by_age` | `[{bucket, count}]` | 7 (IMPL-0030) |
-| `GET /remediations/activity` | `days` (1–90, default 14) → `[{day, opened, closed}]` | 7 (IMPL-0030) |
-| `/results` `pr_stale`, `ResultRow.remediation` | remediation state, PR number/url, PR age | 7 (IMPL-0030) |
+| `GET /results` | query `status`, `control`, `rule`, `org`, `decision`, `sort` (`since_asc`, `since_desc`), `cursor`, `limit`; returns `ResultPage{items: [ResultRow], total, next_cursor}`. `ResultRow`: repository id/org/name, control id/version, decision, status, `failing_rules: [rule_id]`, `reason` (first failing rule's evidence `reason` or `evidence_kind`), `last_changed_at` || IMPL-0030 |
+| `Repository.compliance` | `Posture` over the repository's assignments, on list and detail || IMPL-0030 |
+| `Summary.parked_by_reason` | `[{reason, count}]` over visible orgs || IMPL-0030 |
+| `Summary.finding_age` | `[{bucket, count}]`, the six fixed buckets || IMPL-0030 |
+| `Summary.controls_failing` | count of controls with any non-compliant result || IMPL-0030 |
+| `/compliance/history?aggregate=` | `none` (today's rows, default) \| `fleet` \| `org` \| `control`; sums per day in SQL with `floor_percent`, never averaged; DESIGN-0036 OQ6 on the controls schema || IMPL-0030 |
+| `Summary.open_prs_by_age` | `[{bucket, count}]` | IMPL-0030 |
+| `GET /remediations/activity` | `days` (1–90, default 14) → `[{day, opened, closed}]` | IMPL-0030 |
+| `/results` `pr_stale`, `ResultRow.remediation` | remediation state, PR number/url, PR age | IMPL-0030 |
+| `GET /remediations` | DESIGN-0032's endpoint: `kind`, `state`, `org`, `control`, `hold`, `older_than_days`, `cursor`, `limit`; the Remediations view reads it as specified there | IMPL-0030 |
+| `Status.operations.remediation_backlog` | count of outstanding remediations | IMPL-0030 |
 
 `/results` is the API's first cross-repository row list over
 `control_results`; it reads through `rg_api_ro` like everything else and
@@ -476,20 +550,21 @@ migration. Decide from the plan output, not up front.
 UI and API ship together in rc releases from `v2` (Rule 6). The
 mockup is not a phase: it was updated and accepted with this design.
 Each phase builds its pages to the accepted mockup, and a page that has
-to differ from it changes the mockup in the same pull request. Suggested
-phases for the IMPL:
+to differ from it changes the mockup in the same pull request. The
+work splits three ways (decided 2026-10-18):
 
-1. **Fixes and foundations**: INV-0023 F1 (rule tone), F2 (crumb), F4
-   (remediable wording), F7.3 (status screenshot); restore `csv.ts` and
-   `RangeTabs`; Export on existing tables; the IMPL-0031 6.3 keyboard
-   pass on the current pages.
-2. **API**: the Phase 2 rows of the table above, with tests.
-3. **Findings page.**
-4. **Orgs tree.**
-5. **Fleet panels.**
-6. **Changelog**: `CHANGELOG.yaml` seeded with rc.9 to rc.11, the
-   `lint-ui` version check, the status card.
-7. **Remediation-gated panels**, after IMPL-0030.
+1. **The INV-0023 fixes**, a small pull request now (IMPL-0032 Phase 1):
+   F1 (rule tone), F2 (crumb), F4 (remediable wording), F7.3 (status
+   screenshot).
+2. **Every API addition in the table above, and persisting next due**,
+   in IMPL-0030 beside the remediation API they share the schema and
+   the EvaluationWorkflow version gate with.
+3. **The UI** in IMPL-0032 once IMPL-0030 merges: foundations (restore
+   `csv.ts` and `RangeTabs`, Export, the IMPL-0031 6.3 keyboard pass),
+   Findings page, Orgs tree, Fleet panels, the Remediations view and
+   the other remediation panels, and the changelog (`CHANGELOG.yaml`
+   seeded with rc.9 to rc.11, the `lint-ui` version check, the status
+   card).
 
 <!--docz:rollout:end-->
 
@@ -617,7 +692,7 @@ any implementation.
 <!--docz:references:start-->
 ## References
 
-- INV-0023 (the rc.11 fixes that ride with Phase 1)
+- INV-0023 (the rc.11 fixes, IMPL-0032 Phase 1)
 - DESIGN-0036 (design language, tone table, charts, OQ5–OQ15, OQ17)
 - DESIGN-0027 (read-only API, status page, privacy guard)
 - IMPL-0029 Phase 8 (the controls API and UI), IMPL-0031 (6.3)

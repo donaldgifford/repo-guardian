@@ -228,18 +228,19 @@ fixed, and F7 is known work without a home.
 
 | Finding | Fix | Where |
 |---------|-----|-------|
-| F1 | `rule` tone row + `RuleStatusBadge`, unit + e2e assertion | next UI PR (with DESIGN-0037 Phase 1) |
-| F2 | view-supplied item crumb label | next UI PR |
-| F3 | persist `next_due_at` from `RecordEvaluation` | IMPL-0030 or a small fix PR |
-| F4 | rename the rule column, hint on the card row | next UI PR |
+| F1 | `rule` tone row + `RuleStatusBadge`, unit + e2e assertion | IMPL-0032 Phase 1 (its own PR) |
+| F2 | view-supplied item crumb label | IMPL-0032 Phase 1 |
+| F3 | persist `next_due_at` from `RecordEvaluation` | IMPL-0030 Phase 2 |
+| F4 | rename the rule column, hint on the card row | IMPL-0032 Phase 1 |
 | F5 | `--new-bundle-format=false` in the README | this branch |
 | F6 | none, fixed | rc.11 |
 | F7.1 | read `STORE_DSN_<ROLE>` in the controls workers | IMPL-0030 Phase 1 |
-| F7.2 | prune `checks` in `ControlsSnapshotWorkflow` | IMPL-0030 |
-| F7.3 | re-render `status.png` | next UI PR |
+| F7.2 | prune `checks` in `ControlsSnapshotWorkflow` | IMPL-0030 Phase 6 |
+| F7.3 | re-render `status.png` | IMPL-0032 Phase 1 |
 
-F1, F2 and F4 belong in the first DESIGN-0037 implementation phase,
-which rewrites the repository page's neighbours anyway.
+F1, F2, F4 and F7.3 are UI-only and ship first, as IMPL-0032 Phase 1
+in its own pull request. F3, F7.1 and F7.2 are Go work and ride with
+IMPL-0030 (decided 2026-10-18).
 
 <!--docz:recommendation:end-->
 

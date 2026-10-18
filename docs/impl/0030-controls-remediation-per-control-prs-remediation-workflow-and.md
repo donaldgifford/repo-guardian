@@ -35,7 +35,7 @@ created: 2026-10-07
   - [Phase 6: Sweep, lifecycle maintenance and Remediation App discovery](#phase-6-sweep-lifecycle-maintenance-and-remediation-app-discovery)
     - [Tasks](#tasks-5)
     - [Success Criteria](#success-criteria-5)
-  - [Phase 7: Metrics, alerts, API and UI](#phase-7-metrics-alerts-api-and-ui)
+  - [Phase 7: Metrics, alerts and API](#phase-7-metrics-alerts-and-api)
     - [Tasks](#tasks-6)
     - [Success Criteria](#success-criteria-6)
   - [Phase 8: Cutover code and documentation](#phase-8-cutover-code-and-documentation)
@@ -64,6 +64,13 @@ created: 2026-10-07
   - [OQ11: Which remediation holds alert?](#oq11-which-remediation-holds-alert)
   - [OQ12: Where is v2.0.0 tagged?](#oq12-where-is-v200-tagged)
   - [OQ13: How many PRs?](#oq13-how-many-prs)
+  - [OQ14: The shape of aggregated history points](#oq14-the-shape-of-aggregated-history-points)
+  - [OQ15: What /results filters on: status or bucket](#oq15-what-results-filters-on-status-or-bucket)
+  - [OQ16: When /results computes total](#oq16-when-results-computes-total)
+  - [OQ17: How next due is persisted](#oq17-how-next-due-is-persisted)
+  - [OQ18: The control_results index](#oq18-the-control_results-index)
+  - [OQ19: last_evaluated_at once checks are pruned](#oq19-last_evaluated_at-once-checks-are-pruned)
+  - [OQ20: Where the Held list reads branch holds from](#oq20-where-the-held-list-reads-branch-holds-from)
 - [References](#references)
 <!--toc:end-->
 
@@ -73,8 +80,10 @@ Build the remediation half of the controls line and ship it as v2.0.0:
 per-control remediation PRs under a per-repository cap, run by a
 `RemediationWorkflow` per repository and control on the remediator
 role; API remediations under `apply = recommend | direct | workflow`;
-the remediation sweep and lifecycle maintenance; the metrics, alerts,
-API and UI that show it; and the homelab fresh install that replaces
+the remediation sweep and lifecycle maintenance; the metrics, alerts
+and API that show it, together with every API the controls UI
+(DESIGN-0037) reads; persisting next due and the two INV-0023 worker
+gaps; and the homelab fresh install that replaces
 the dev (v2 rc) and prod (v1) deployments with one v2 install.
 
 **Implements:** DESIGN-0032 (Remediation, API remediations, the
@@ -82,7 +91,9 @@ remediation tables, Failure semantics, the remediation rows of the
 Temporal mapping, Migration / Rollout Plan steps 2 to 4), the write
 side of DESIGN-0031 (`Remediate`, `ChangeSet`, `Writer`,
 `WorkflowApply`) and the remediation settings of DESIGN-0030
-(`max_open_prs`, `reopen_after`, `effective_mode`).
+(`max_open_prs`, `reopen_after`, `effective_mode`); DESIGN-0037 §API /
+Interface Changes; INV-0023 F3, F7.1 and F7.2. The UI that reads all
+of it is IMPL-0032.
 
 ## Scope
 
@@ -109,7 +120,14 @@ side of DESIGN-0031 (`Remediate`, `ChangeSet`, `Writer`,
 - The `remediation-sweep` schedule (sweep plus maintenance) and the
   `controls-discovery-remediate` schedule.
 - Remediation metrics, alerts, dashboard panels, the `/remediations`
-  endpoint, the remediation object, and the UI Remediations view.
+  endpoint and the remediation object.
+- DESIGN-0037's API: `GET /results`, `Repository.compliance`,
+  `Summary.parked_by_reason`/`finding_age`/`controls_failing`/`open_prs_by_age`,
+  `/compliance/history?aggregate=`, `/remediations/activity`, `pr_stale`
+  and `ResultRow.remediation`, the perf fixture, the spec description
+  fixes (moved from IMPL-0032, 2026-10-18).
+- Persisting `repositories.next_due_at` (INV-0023 F3), the per-role
+  store DSNs (F7.1) and pruning `checks` (F7.2).
 - The cutover code changes, the docs rewrite (`v2-migration.md` as the
   fresh-install runbook, the remediation parts of `v2-overview.md` and
   `v2-onboarding.md`, CLAUDE.md), the homelab fresh install, and the
@@ -130,6 +148,7 @@ side of DESIGN-0031 (`Remediate`, `ChangeSet`, `Writer`,
 - Deleting branches. repo-guardian never deletes a branch (D30);
   `rgctl prs close --delete-branch` stays an operator's opt-in.
 - Foreign-PR detection (D5).
+- Every UI change, the Remediations view included (IMPL-0032).
 - IMPL-0026 (Temporal credential reload, OpenBao certificates), which
   runs after IMPL-0028 on its own schedule.
 
@@ -142,7 +161,8 @@ evaluator-side pieces remediation depends on but that have no consumer
 before it. Phase 3 is the workflow shell and the GitHub fake the
 behaviour tests need. Phases 4 and 5 are the two write paths. Phase 6
 is the scheduled half, which needs both paths to exist. Phase 7 makes
-it visible. Phase 8 is the cutover code and the docs, written against
+it visible and adds the API the controls UI reads, so IMPL-0032 builds
+on a merged API. Phase 8 is the cutover code and the docs, written against
 the built behaviour. Phase 9 is human-run: the remediation rc and the
 homelab fresh install. Phase 10 is GA.
 
@@ -228,6 +248,14 @@ human required`.
   succeeds (reservation, claim, step, record, hold, expiry); every
   cross-writer operation fails (remediator writing `eval_generation` or
   `observed_head_sha`, deleting an `open` row, updating a step).
+- [ ] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
+  `cmd/repo-guardian/controls.go` parses `cfg.StoreDSN` for both halves,
+  so the evaluator and remediator connect as whatever `STORE_DSN` names
+  and the chart's `STORE_DSN_EVALUATOR`/`_REMEDIATOR` are mounted but
+  unread. Read the half's own DSN (`config` gains both, `all` falls back
+  to `STORE_DSN` only when its own is unset), and log the role it
+  connects as. Test: a remediator half refuses to start without a DSN
+  it can resolve, and a split render's evaluator gets only its own.
 
 #### Success Criteria
 
@@ -271,12 +299,32 @@ human required`.
   allowing a new run after completion. One activity per evaluation
   whatever the number of due controls (DESIGN-0032 A1).
 - [ ] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
-  `Record`; a deferred or discarded evaluation skips it.
+  `Record`; a deferred or discarded evaluation skips it. Behind one
+  `workflow.GetVersion(ctx, "remediation-v1", workflow.DefaultVersion, 1)`
+  that 2.9 shares.
 - [ ] 2.7 Tests: observation table (open with a new head, merged,
   user-closed, closed by us, a failed second page, a PR authored by
   someone else on a `repo-guardian/` branch, which is ignored);
   signal-with-start into a completing workflow, against the result of
   IMPL-0028's spike; a no-change evaluation starts nothing.
+- [ ] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
+  at time.Time)` with a sqlc query, plus an integration test that runs
+  as `rg_evaluator` (the grant, not the owner).
+- [ ] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
+  calls `scheduleNext` (recorded, failed, skipped). It sits behind the
+  same `workflow.GetVersion` change id as 2.6, so `EvaluationWorkflow`
+  gains one version marker and one recaptured history, not two. The
+  `DefaultVersion` branch keeps today's command order exactly.
+- [ ] 2.10 **Replay.**
+  - `TestReplay_CapturedHistories` still passes on
+    `evaluation_first_run.json`.
+  - Capture a second history on the new version with
+    `go test -tags integration -run TestIntegration_OneEvaluation
+    ./internal/activities -update-histories` and commit it beside the
+    old one. Do not overwrite the old history.
+- [ ] 2.11 **Parked repositories.** A park ends the workflow run, so
+  `ParkRepository` clears `next_due_at` and the card reads "— parked".
+  Integration test.
 
 #### Success Criteria
 
@@ -286,6 +334,9 @@ human required`.
   not a second execution.
 - Observation as `rg_evaluator` cannot write any remediator column
   (grant test).
+- After one evaluation, `/repositories/{id}` returns a `next_due_at`
+  inside the jitter window of `EVAL_INTERVAL`; a parked repository
+  returns none; both the old and the new evaluation history replay.
 
 ### Phase 3: RemediationWorkflow, activities and the GitHub fake
 
@@ -511,6 +562,15 @@ human required`.
   to evaluate, each with a PR or a recommendation outstanding; every
   artifact reaches its terminal state or blocked cleanup with no fresh
   failing result required.
+- [ ] 6.8 **Prune `checks` (INV-0023 F7.2).** `ControlsSnapshotWorkflow`
+  (`internal/workflows/controls_service.go`) ignores
+  `SnapshotInput.Retention` and its comment says the controls line keeps
+  no checks table, which is wrong. Add a `PruneControlsChecks(before)`
+  activity after the snapshot, behind a `GetVersion` (captured snapshot
+  histories must replay), deleting `checks` finished before
+  `now − CHECKS_RETENTION`, and fix the comment. Decide
+  `last_evaluated_at` under pruning per OQ19 first. Integration test as
+  the evaluator role.
 
 #### Success Criteria
 
@@ -519,7 +579,7 @@ human required`.
 - A crash between reservation and PR creation frees the slot within
   `REMEDIATION_RESERVATION_TTL` plus one sweep interval.
 
-### Phase 7: Metrics, alerts, API and UI
+### Phase 7: Metrics, alerts and API
 
 #### Tasks
 
@@ -546,18 +606,108 @@ human required`.
   events in `/repositories/{id}/events`; remediation backlog on
   `/summary` and `/status`. `apitest` with kin-openapi validation and
   `TestAPIQueries_AreScoped` extended.
-- [ ] 7.5 UI: the Remediations view (the Findings view's filters moved
-  here per D32), the remediation panel on the repository controls view
-  (state, PR link, hold with its human text, e.g. "branch left from a
-  closed PR; delete it to resume", direct-apply steps), and the status
-  page backlog.
+- 7.5 **Moved to IMPL-0032 Phase 6** (2026-10-18): the Remediations
+  view, the repository remediation panel and the status backlog are UI
+  work and live with the rest of DESIGN-0037's pages. DESIGN-0037
+  supersedes D32's "Findings view is removed": both views exist.
+
+The API the controls UI reads (DESIGN-0037 §API / Interface Changes),
+moved here from IMPL-0032 so it shares the schema, `openapi.yaml` and
+one PR with the remediation API. Each task is the full vertical slice:
+`api/openapi.yaml` → `make generate-api` →
+`queries_controls/api_*.sql` → `make generate-sql` →
+`postgres.APIReader` + `api.Reader` method → handler → a case in
+`TestEndpoints_ValidateAgainstTheSpec` (it fails on any operation
+without one) → `make generate-ui-api` → `make lint-api lint-sql`.
+Every new query lives in an `api_*.sql` file so
+`TestAPIQueries_AreScoped` lints its scope predicate.
+
+- [ ] 7.6 **`/compliance/history?aggregate=none|fleet|org|control`**
+  (default `none`, today's rows). New queries sum the ten bucket
+  columns of `compliance_snapshots` per UTC day (`snapshot_at::date`,
+  not the raw timestamp, so per-org snapshot times on one day
+  collapse) and per org or control, and compute `percent`/`coverage`
+  with `floor_percent` in SQL, never averaging. The response shape
+  follows OQ14. Store tests:
+  - the `fleet` series equals summing `none` with
+    `ControlPosture.Plus` on the same fixture;
+  - the `org` series agrees with `ControlCompliance` for the latest
+    day.
+- [ ] 7.7 **`GET /results`.**
+  - **Query** `api_results.sql` over `control_results` ⋈
+    `control_assignments` ⋈ `repositories` ⋈ `repository_policy_state`,
+    with the posture bucket computed by the same `CASE` as
+    `compliance.sql`. It filters `status` or `bucket` (OQ15),
+    `control`, `org`, `decision` (from `control_assignments`), and
+    `rule`: an `EXISTS` on `rule_results` with status `fail` or
+    `error`.
+  - **Order and paging:** sort `since_asc` (default) or `since_desc`
+    on `(last_changed_at, repository_id, control_id)`, with a keyset
+    cursor bound to the filter hash (`cursor.go`).
+  - **Rows:** each `ResultRow` carries repository id/org/name, control
+    id/version, decision, status, bucket, `failing_rules[]`, `reason`
+    (the first failing rule's evidence `reason`, else its
+    `evidence_kind`) and `last_changed_at`.
+  - **`total`:** computed per OQ16.
+  - **Tests:** integration tests for scope (two-org authz), keyset
+    paging with ties on `last_changed_at`, each filter, and `total`
+    matching the filter. A parity test proves that with no filters,
+    `total` for non-compliant equals `Summary.compliance.non_compliant`
+    on the fixture.
+- [ ] 7.8 **`Repository.compliance`** (`Posture` over the repository's
+  assignments, same bucket `CASE`) on `/repositories` and
+  `/repositories/{id}`, in one grouped query per page, not N+1.
+  Integration test: one repository with mixed buckets.
+- [ ] 7.9 **`Summary.parked_by_reason` and `Summary.controls_failing`**,
+  computed in Go in `GetSummary` from the `store.SummaryView` it
+  already reads (`Repositories` per park reason; `Compliance` rows
+  with `non_compliant > 0`, counted by distinct control). No new SQL.
+  `apitest` cases.
+- [ ] 7.10 **`Summary.finding_age`**: six fixed buckets (`<1d`, `1–7d`,
+  `7–30d`, `30–90d`, `90–180d`, `180d+`) of
+  `now() − last_changed_at` over results in the `non_compliant`
+  bucket, in `api_summary.sql` with the scope predicate. The bucket
+  sum equals `Summary.compliance.non_compliant` (test). The fixture
+  spans every boundary.
+- [ ] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
+  of open pull-request remediations by `created_at`).
+- [ ] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
+  `[{day, opened, closed}]` (opened by `created_at`, closed by `closed_at`, per UTC day, scoped).
+- [ ] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
+  PR number/url, age). `sort=pr_age` joins the `/results` sorts; `pr_stale` is open pull-request
+  remediations at least 30 days old.
+- [ ] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed
+  `rule_results` and 90 days of `compliance_snapshots` at fleet size,
+  add `/results` (each filter) and the history aggregates to the
+  measured set, and log `EXPLAIN (ANALYZE, BUFFERS)` for `/results`.
+  Record the numbers in this doc. If a sequential scan shows, add a
+  `results_index` controls migration (`control_results (control_id,
+  status, last_changed_at)`) numbered after Phase 1's, bump
+  `ControlsSchemaVersion` with it, and extend the controls dry-run
+  test.
+- [ ] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
+  rule statuses on rule-level events; `ParkReason` lists `suspended`.
+  Bump `info.version` (2.1.0, or with 7.4 if it already did) and document every addition in
+  `docs/usage/api.md`.
+- [ ] 7.16 **Held results (OQ20).** Expose the results held before a
+  pull request exists (`control_results.hold` in `pr_cap`,
+  `foreign_branch`, `stale_branch`, `conflict`) the way OQ20 decides, so
+  the Remediations view's Held list is complete.
 
 #### Success Criteria
 
 - `make lint-monitoring` and `make lint-alerts` pass with the new
   alerts rendering and promtool-valid.
-- Every remediation state and hold renders in the UI against API
-  fixtures.
+- `apitest` fixtures cover every remediation state and hold (the UI
+  renders them in IMPL-0032 Phase 6).
+- `make lint-api lint-sql` and `make generate-api generate-sql
+  generate-ui-api` leave no diff.
+- The parity tests pass: findings `total` =
+  `Summary.compliance.non_compliant`; `finding_age` sum = the same;
+  `aggregate=fleet` = summed `none`.
+- `TestEndpoints_ValidateAgainstTheSpec` covers `/results`,
+  `/remediations` and `/remediations/activity`, and
+  `TestAPIQueries_AreScoped` covers every new query.
 
 ### Phase 8: Cutover code and documentation
 
@@ -683,7 +833,14 @@ does not matter.
 | `internal/activities/remediate.go`, `remediate_api.go`, `maintenance.go` | the activities over `internal/remediation` |
 | `internal/github/ghfake/` (or IMPL-0028's fake) | stateful fake with merge and commit semantics |
 | `internal/metrics/`, `internal/monitoring/` | metrics, alerts, panels; `contrib/generated/` regenerated |
-| `internal/api/`, `api/openapi.yaml`, `ui/` | `/remediations`, remediation object, views |
+| `internal/api/`, `api/openapi.yaml`, `internal/api/gen/`, `ui/web/src/api/schema.gen.ts` | `/remediations`, remediation object, DESIGN-0037's additions, regenerated server and UI client |
+| `internal/store/postgres/queries_controls/api_results.sql`, `api_history.sql`, `api_summary.sql`, `api_repositories.sql`, `api_remediations.sql`; `controlsdb/*` | new scoped queries; sqlc |
+| `internal/store/postgres/apireader_controls.go`, `internal/store/api_views.go` | reader methods, view types |
+| `internal/store/postgres/api_perf_test.go`, `apiendpoints_integration_test.go` | perf seed and plans, parity, endpoint cases |
+| `internal/store/controls.go`, `queries_controls/*`, `internal/activities/evaluate.go` | `SetNextDue`, park clears it |
+| `internal/workflows/evaluation.go`, `testdata/histories/*` | `remediation-v1` gate (start-due + next due), new history beside the old |
+| `cmd/repo-guardian/controls.go`, `internal/config/` | per-role store DSN |
+| `internal/workflows/controls_service.go`, `internal/activities/` | `checks` prune |
 | `internal/config/` | `REMEDIATION_*`, `REMEDIATOR_*` |
 | `charts/repo-guardian/` | values, schema, PrometheusRule, README.md.gotmpl, tests |
 | `docs/operations/v2-migration.md`, `v2-overview.md`, `v2-onboarding.md`, `rgctl.md` | rewrites (Phase 8) |
@@ -698,7 +855,13 @@ does not matter.
   lifecycle maintenance, classification and direct API apply, in the
   Temporal time-skipping environment against the stateful fake.
 - Replay of `RemediationWorkflow` histories in CI.
-- `apitest` and kin-openapi validation for the API; UI fixture tests.
+- `apitest` and kin-openapi validation for the API; the DESIGN-0037
+  parity tests (findings `total`, `finding_age`, `aggregate=fleet`);
+  the two-org authz test on `/results` and `/remediations`.
+- Replay of the old and the new `EvaluationWorkflow` history.
+- Perf: `go test -tags 'integration perf' -run TestAPIPerf -v
+  ./internal/store/postgres/`, numbers and the `/results` plan recorded
+  under 7.14.
 - `make lint-monitoring`, `make lint-alerts`, helm-unittest for chart
   changes.
 - Phase 9's live checks are the homelab acceptance; each result is
@@ -722,6 +885,9 @@ does not matter.
   `EvaluationWorkflow`, the old engine deleted, and the API/UI base the
   remediation views extend.
 - **rgctl** (shipped, IMPL-0027) for Phase 9.
+- **DESIGN-0037** accepted (PR #221) for Phase 7's API additions.
+- **IMPL-0032** builds on this plan's API after it merges; its Phase 1
+  (the INV-0023 UI fixes) is independent and ships first.
 
 ## Open Questions
 
@@ -885,6 +1051,119 @@ does not matter.
   on a merge.
 - other:
 
+### OQ14: The shape of aggregated history points
+
+`HistoryPoint` requires `org`, `control_id` and `decision`. A fleet
+point has none of them, and a control point has no org.
+
+- (a) ✅ recommended: **loosen `HistoryPoint`**. `org`, `control_id` and
+  `decision` become optional, and the description states which are
+  present per `aggregate`. One schema and one hook; the only consumer
+  is our UI and spec 2.x is pre-release. It does relax a required
+  field, contrary to DESIGN-0037's "nothing changes shape", so record
+  it there.
+- (b) A separate `AggregatePoint` schema returned when `aggregate` is
+  not `none` (a `oneOf` on the response). Strictly additive, but the
+  generated client needs a discriminator, and the strict server's
+  `oneOf` response is awkward.
+- (c) A new endpoint `/compliance/trend?by=fleet|org|control` leaving
+  `/compliance/history` untouched. Additive and clean, but two history
+  endpoints to explain.
+- other:
+
+### OQ15: What /results filters on: status or bucket
+
+The nav badge and DESIGN-0037's "N of M" read
+`Summary.compliance.non_compliant`, which is the posture *bucket*.
+Raw `control_results.status = non_compliant` also includes stale
+results and rows under access-denied parks and suspended installs.
+
+- (a) ✅ recommended: **filter on `bucket`** (the ten posture buckets,
+  computed by the shared `CASE`). The Findings page asks for
+  `bucket=non_compliant`, and `ResultRow` carries both `status` and
+  `bucket`. The badge, `total`, `finding_age` and the page agree by
+  construction. DESIGN-0037's vocabulary is refined to "a finding is a
+  result in the non-compliant bucket".
+- (b) Filter on raw `status`. Simpler SQL, but the page shows stale and
+  parked results the fleet count does not, and the counts disagree.
+- (c) Both parameters. Flexible, but two ways to ask the same question.
+- other:
+
+### OQ16: When /results computes total
+
+- (a) ✅ recommended: **count on the first page only** (no cursor), in
+  the same read-only transaction. The client keeps it across "Load
+  more". One count per filter change, and the number is stable while
+  paging.
+- (b) Count on every page. Always fresh, but repeats the count for
+  each page.
+- (c) No exact total: show "N loaded" and use the Summary count only
+  when no filter is set. Cheapest, but filtered views lose "of M".
+- other:
+
+### OQ17: How next due is persisted
+
+`RecordEvaluation` runs before `scheduleNext` draws the jitter, and
+the failed and skipped paths never record.
+
+- (a) ✅ recommended: **a `SetNextDue` local activity after
+  `scheduleNext`** on every path, behind the `remediation-v1` change
+  id that 2.6 introduces (one marker for both).
+  One write per iteration, uniform across recorded, failed and skipped,
+  with no reordering of the existing commands.
+- (b) Draw the jitter before recording and pass `NextDue` in
+  `RecordEvaluationInput` (version-gated reorder). No extra activity,
+  but the failed and skipped paths still need their own write, and
+  the gate is more involved.
+- (c) Drop `next_due_at` from the API and the card. No workflow
+  change, but operators lose "when is this looked at next".
+- other:
+
+### OQ18: The control_results index
+
+- (a) ✅ recommended: **decide from task 7.14's plan output.** Add
+  `00005` only if `/results` shows a sequential scan at fleet size.
+  This follows DESIGN-0037's Data Model.
+- (b) Add the index up front. One less decision, but a schema
+  migration we may not need.
+- other:
+
+### OQ19: last_evaluated_at once checks are pruned
+
+`last_evaluated_at` is `max(checks.finished_at)` for the repository.
+Pruning `checks` past `CHECKS_RETENTION` (6.8) makes a repository idle
+longer than the retention read "never evaluated".
+
+- (a) ✅ recommended: **persist `repositories.last_checked_at` from
+  `RecordEvaluation`** (the evaluator gets `UPDATE (last_checked_at)`),
+  and the API reads it instead of the `checks` aggregate. One column
+  write per evaluation; the value survives any retention, and the API
+  query loses a join.
+- (b) Keep the newest successful check per repository when pruning.
+  No new write, but the prune query is more involved and the API still
+  aggregates.
+- (c) Accept "never" past the retention (90 days by default, longer
+  than `EVAL_INTERVAL` by far). Nothing to build, but a parked
+  repository reads "never" after three months.
+- other:
+
+### OQ20: Where the Held list reads branch holds from
+
+`remediations.hold` is `permission` only. `pr_cap`, `foreign_branch`,
+`stale_branch` and `conflict` sit on `control_results.hold`, often
+before any `remediations` row exists. The Remediations view's Held list
+(DESIGN-0037) needs both.
+
+- (a) ✅ recommended: **`/remediations?hold=` also returns held results
+  with no remediation row**, as rows with `kind = pull_request`, no id
+  and no pull request, so one query and one cursor back the view. The
+  `Remediation` schema documents the row shape.
+- (b) `/results?hold=` for the result holds, and the view merges the
+  two lists. Each endpoint stays pure, but the view pages two cursors.
+- (c) Show only `remediations.hold` in the view and branch holds on the
+  repository page. Simplest, but "what is stuck" needs two places.
+- other:
+
 ## References
 
 - DESIGN-0032: Evaluation and remediation workflows (Remediation, API
@@ -896,6 +1175,7 @@ does not matter.
   `effective_mode`, epochs).
 - DESIGN-0029: Controls and policies.
 - INV-0022: Controls designs against the code, GitHub and Temporal.
+- DESIGN-0037 (§API / Interface Changes), INV-0023 (F3, F7.1, F7.2), IMPL-0032 (the UI).
 - IMPL-0028: Controls foundations. IMPL-0029: Controls evaluation.
 - IMPL-0027 / DESIGN-0035: rgctl; `docs/operations/rgctl.md`.
 - IMPL-0013 (sticky comment pattern), IMPL-0020 A2 (env-indirection),

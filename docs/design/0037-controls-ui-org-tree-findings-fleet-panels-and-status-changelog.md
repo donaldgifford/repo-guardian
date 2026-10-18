@@ -33,7 +33,6 @@ created: 2026-10-18
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
-  - [Homelab: a catalog_info control](#homelab-a-catalog_info-control)
 - [Open Questions](#open-questions)
 - [References](#references)
 <!-- markdownlint-restore -->
@@ -57,9 +56,9 @@ the INV-0023 repository-page fixes with the first phase.
 <!--docz:goals:start-->
 ### Goals
 
-- A **findings page**: every (repository, control) result across the
-  visible fleet, filterable by control, status, org and decision,
-  keyset-paged, exportable as CSV.
+- A **findings page**: every non-compliant (repository, control) result
+  across the visible fleet, filterable by control, rule, org and
+  decision, keyset-paged, exportable as CSV.
 - An **orgs tree**: one grid of orgs that expand to their repositories,
   with compliant/non-compliant counts and shares per row, a parked tab,
   repository search, and a totals footer.
@@ -73,8 +72,6 @@ the INV-0023 repository-page fixes with the first phase.
 - The panels that need remediation data (open PRs by age, PR
   throughput, the remediation column, the stale-PR filter) are designed
   now and switched on by IMPL-0030.
-- The homelab policy gains a `catalog_info` control, so the new pages
-  have a control with field rules and parse evidence to show.
 
 <!--docz:goals:end-->
 
@@ -149,33 +146,37 @@ findings-era platform mockup) against the controls API:
 
 ### Vocabulary
 
-The controls line has no "finding" type: a repository has one
-*result* per assigned control (`control_results`: status, rule results,
-evidence, `last_changed_at`). The mockup's "Findings" page is that
-table across repositories. The UI calls the page **Findings** because
-that is the word operators look for; the API and the docs call the rows
-**results** (OQ1). A finding row never means a rule: rules are the
-detail inside a row.
+Two words, two meanings (OQ1):
+
+- A **result** is the outcome of one assigned control on one repository
+  (`control_results`: status, rule results, evidence,
+  `last_changed_at`), whatever its status.
+- A **finding** is a result that failed: status `non_compliant`.
+
+The API serves results (`GET /results`, any status, filterable); the
+Findings page lists findings, which is `/results?status=non_compliant`.
+Neither word means a rule: the failing rules are the detail inside a
+finding.
 
 ### Findings page
 
-Route `/findings`, nav entry under Business with a count badge
-(non-compliant results in the visible orgs, from `Summary.compliance`).
+Route `/findings`, nav entry under Business with a count badge (the
+findings in the visible orgs, `Summary.compliance.non_compliant`). The
+page always asks `/results` for `status=non_compliant`; there is no
+status filter, because a compliant row is not a finding.
 
 Filters, each mapping 1:1 to a `/results` query parameter and persisted
 in the URL search (the History page's numeric-search rule applies):
 
 | Filter | Parameter | Values |
 |--------|-----------|--------|
-| Status | `status` | `compliant`, `non_compliant`, `unknown`, `not_applicable`; default `non_compliant` |
 | Control | `control` | a control slug from `/controls` |
 | Rule | `rule` | enabled once a control is chosen; a rule id of that control, matched against rules whose status is `fail` or `error` |
 | Org | `org` | an org from `/orgs` |
 | Decision | `decision` | `baseline`, `replaced`, `org_added` |
 | Stale PR | `pr_stale` | IMPL-0030 |
 
-Columns: Repository (name, org beneath), Control (slug, version), Status
-(`StatusBadge`), Failing rules (rule ids with the first failing rule's
+Columns: Repository (name, org beneath), Control (slug, version), Failing rules (rule ids with the first failing rule's
 evidence headline from `describeEvidence`), Remediation (IMPL-0030;
 `—` until then), Since (`last_changed_at`, relative with absolute on
 hover). A row opens the repository page on its Controls tab, scrolled
@@ -274,7 +275,7 @@ defusing (a cell starting `=`, `+`, `-`, `@`, tab or CR gets a leading
 page exports the whole current filter by paging `/results` in the
 browser up to a cap of 10,000 rows, with a notice when the cap cuts it
 short (OQ6). Filenames carry the page, filter and date
-(`findings-non_compliant-renovate-2026-10-18.csv`).
+(`findings-renovate-2026-10-18.csv`).
 
 ### Remediation-gated panels
 
@@ -380,59 +381,6 @@ phases for the IMPL:
    `lint-ui` version check, the status card.
 7. **Remediation-gated panels**, after IMPL-0030.
 
-### Homelab: a catalog_info control
-
-The homelab policy root is the operator's (applied through the homelab
-repository, not from here). Adding a `catalog_info` control gives the
-new pages a control with field rules and parse evidence rather than
-only `file_missing`. For the homelab's personal account
-(`donaldgifford`, account type `user`):
-
-```hcl
-# catalogue/catalog_info.hcl
-control "catalog_info" {
-  version     = 1
-  type        = "catalog_info"
-  title       = "Backstage catalog entry"
-  description = "catalog-info.yaml is a Component with an owner and a system"
-  template    = "catalog-info"
-
-  rule "exists" {
-    remediate = true
-  }
-
-  rule "kind" {
-    title     = "The entity is a Component"
-    remediate = true
-  }
-
-  rule "owner-set" {
-    kind  = "field_set"
-    title = "spec.owner is set"
-    field = "spec.owner"
-  }
-
-  rule "system-set" {
-    kind  = "field_set"
-    title = "spec.system is set"
-    field = "spec.system"
-  }
-
-  rule "no-placeholders" {
-    kind  = "no_placeholders"
-    title = "No TODO placeholders remain"
-  }
-}
-```
-
-and `"catalog_info@1"` in `enterprise.controls`. Two differences from
-`examples/policy/full`: `owner-is-team` becomes `owner-set` because a
-personal account has no teams to name, and `custom_properties` is left
-out because it evaluates `not_applicable` (`user_account`) on a user
-account. Assignments stay `evaluate` until a Remediation App exists.
-This also covers part of IMPL-0029 9.8 (edit a `catalog-info.yaml`,
-see `catalog_info` re-evaluated).
-
 <!--docz:rollout:end-->
 
 <!--docz:open-questions:start-->
@@ -440,12 +388,17 @@ see `catalog_info` re-evaluated).
 
 **OQ1. What the page and the API call a row.**
 
-- (a) ✅ recommended: page **Findings**, API **`/results`** and
-  `ResultRow`; operators search for "findings", the schema has results.
+- (a) page **Findings**, API **`/results`** and `ResultRow`; operators
+  search for "findings", the schema has results.
 - (b) both **Results**; consistent, but loses the word people look for.
 - (c) both **Findings**; reintroduces a type name the controls line
   deleted on purpose.
-- other:
+- other: keep both words with distinct meanings: a result is any
+  control outcome, a finding is a result that failed.
+
+**Decision (2026-10-18):** other. `/results` serves results of any
+status; the Findings page lists findings (`status=non_compliant`) and
+has no status filter. See [Vocabulary](#vocabulary).
 
 **OQ2. Repository rows in the orgs tree.**
 
@@ -456,6 +409,8 @@ see `catalog_info` re-evaluated).
   payload.
 - other:
 
+**Decision (2026-10-18):** (a).
+
 **OQ3. A `total` on `/results`.**
 
 - (a) ✅ recommended: return `total` (a `count(*)` over the same
@@ -464,6 +419,8 @@ see `catalog_info` re-evaluated).
 - (b) no total, "Load more" only; cheaper, but the page cannot say how
   much is left.
 - other:
+
+**Decision (2026-10-18):** (a).
 
 **OQ4. The changelog's source.**
 
@@ -475,12 +432,16 @@ see `catalog_info` re-evaluated).
 - (c) a link to GitHub releases only; nothing to maintain or render.
 - other:
 
+**Decision (2026-10-18):** (a).
+
 **OQ5. Parked by reason chart.**
 
 - (a) ✅ recommended: a bar list, as DESIGN-0036 settled for every
   share chart.
 - (b) the mockup's donut; one exception to the chart rules.
 - other:
+
+**Decision (2026-10-18):** (a).
 
 **OQ6. Exporting the findings filter.**
 
@@ -491,6 +452,8 @@ see `catalog_info` re-evaluated).
 - (c) export the loaded rows only.
 - other:
 
+**Decision (2026-10-18):** (a).
+
 **OQ7. Remediation-gated panels before IMPL-0030.**
 
 - (a) ✅ recommended: render them with an empty state decided from
@@ -499,6 +462,8 @@ see `catalog_info` re-evaluated).
 - (b) hide them until a `remediate` App exists; a sparser page that
   changes shape on upgrade.
 - other:
+
+**Decision (2026-10-18):** (a).
 
 <!--docz:open-questions:end-->
 

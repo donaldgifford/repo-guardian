@@ -410,12 +410,19 @@ cosign verify \
 
 ```bash
 cosign verify-attestation --type slsaprovenance \
+  --new-bundle-format=false \
   --certificate-identity-regexp \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
   ghcr.io/donaldgifford/charts/repo-guardian:{{ template "chart.version" . }}
 ```
+
+`--new-bundle-format=false` is needed on cosign v3: it reads only the
+new-bundle referrers by default, and the SLSA generator writes the
+provenance to the legacy `.att` tag. Without the flag cosign reports a
+misleading certificate-identity mismatch against our own signature
+(INV-0023 F5).
 
 The provenance attestation records the build workflow path, source
 commit SHA, and builder image — useful for downstream policy

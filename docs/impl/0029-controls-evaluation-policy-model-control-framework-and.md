@@ -1883,10 +1883,17 @@ half-switched binary.
   next free rc), helm-unittest pins, both CHANGELOGs through git-cliff,
   `README.md.gotmpl` then `make helm-docs`.
   Done: merged `origin/v2` first (rc.9/rc.10 bumps; the deleted repository view stays deleted), so the next free rc is **rc.11**: `Chart.yaml` version and appVersion `2.0.0-rc.11`. Both CHANGELOGs got an `[2.0.0-rc.11]` section prepended with `git-cliff --unreleased --tag v2.0.0-rc.11 --prepend` (a full regeneration would have dropped the hand-written 1.x entries). README regenerated via `make helm-docs`; no helm-unittest pins the appVersion (only `build_id_test`'s explicit `image.tag`); helm-test 243 passed.
-- [ ] 9.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
+- [x] 9.6 PR to `v2` with `dont-release` (Rule 6); after merge, tag
   `v2.0.0-rc.N`, dispatch `ghcr.yml`, and verify assets, cosign
   signatures, SLSA provenance, and that `latest` did not move.
-  PR opened: #219 (`dont-release`). Tagging `v2.0.0-rc.11`, the `ghcr.yml` dispatch and the publish checks after merge: *deferred - human required*.
+  Done: #219 (`dont-release`) merged as `7ad928f`; signed tag
+  `v2.0.0-rc.11`; `ghcr.yml` run 39026522802 green. Image
+  `:2.0.0-rc.11` (`sha256:138c6b44…`), UI image `:2.0.0-rc.11`
+  (`sha256:3a949add…`) and chart `2.0.0-rc.11` each verify with cosign
+  and carry SLSA provenance from `generator_container_slsa3.yml@v2.1.0`
+  for `7ad928f`. `latest` is still 1.14.0 (`sha256:013eb6e6…`); the UI
+  image has no `latest`. The README's provenance command needs
+  `--new-bundle-format=false` on cosign v3 (INV-0023 F5).
 - [ ] 9.7 Homelab (OQ4): install the rc fresh into the dev namespace
   against a new database, Evaluation App only, every org in
   `enterprise.orgs`, every assignment `evaluate`; confirm both worker

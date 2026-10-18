@@ -11,6 +11,8 @@ Design docs, plans, and implementation docs can reference investigations by ID
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 ## All Investigations
 
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
 | INV-0001 | Tailscale Funnel for Webhook Testing | Concluded | 2026-03-14 | Donald Gifford | [0001-tailscale-funnel-for-webhook-testing.md](0001-tailscale-funnel-for-webhook-testing.md) |
@@ -33,6 +35,8 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0020 | KEDA worker autoscaling cannot authenticate to Temporal | Open | 2026-10-01 | Donald Gifford | [0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md](0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md) |
 | INV-0021 | Controls model assumptions A1 to A23 against the v2 code | Concluded | 2026-10-04 | Donald Gifford | [0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md](0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md) |
 | INV-0022 | Controls designs against the v2 code, GitHub and Temporal | Concluded | 2026-10-06 | Donald Gifford | [0022-controls-designs-against-the-v2-code-github-and-temporal.md](0022-controls-designs-against-the-v2-code-github-and-temporal.md) |
+| INV-0023 | rc.11 follow-ups: rule-status badges, repository page and release verification | Open | 2026-10-18 | Donald Gifford | [0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md](0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md) |
+<!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->

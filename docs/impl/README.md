@@ -64,5 +64,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0029 | Controls evaluation: policy model, control framework and evaluation workflow | In Progress | 2026-10-07 | Donald Gifford | [0029-controls-evaluation-policy-model-control-framework-and.md](0029-controls-evaluation-policy-model-control-framework-and.md) |
 | IMPL-0030 | Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install | Draft | 2026-10-07 | Donald Gifford | [0030-controls-remediation-per-control-prs-remediation-workflow-and.md](0030-controls-remediation-per-control-prs-remediation-workflow-and.md) |
 | IMPL-0031 | Frontend design refresh for the v2 UI | Draft | 2026-10-16 | Donald Gifford | [0031-frontend-design-refresh-for-the-v2-ui.md](0031-frontend-design-refresh-for-the-v2-ui.md) |
+| IMPL-0032 | Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes | Draft | 2026-10-18 | Donald Gifford | [0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11.md](0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11.md) |
 <!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

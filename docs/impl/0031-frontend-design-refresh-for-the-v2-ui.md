@@ -552,10 +552,12 @@ Public, outside the shell, aggregate-only, on today's `Status` schema.
   script and snapshots are in the tree and run locally; CI runs only
   the existing `make test-ui-e2e`, which skips the spec.
 - [ ] 6.3 Keyboard pass: every interactive element reachable by Tab in
-  reading order on the five pages (a Playwright spec that tabs through
-  Fleet and asserts the focus order of the header controls, pills,
-  rows and sidebar). — *deferred (2026-10-16): e2e work resumes after
-  the rc is cut and looked at.*
+  reading order on the current pages (a Playwright spec that tabs
+  through Fleet and asserts the focus order of the header controls,
+  pills, rows and sidebar). — *deferred (2026-10-16): e2e work resumes
+  after the rc. Retargeted 2026-10-17: after IMPL-0029 the pages are
+  Fleet, Controls, Policy, Orgs, Repositories, History, Access and
+  Status.*
 - [x] 6.4 `docs/usage/ui.md`: rewrite the walkthrough for the new pages
   (shell, palette, time zone, drawer deep links, status page) with
   screenshots captured from the e2e stack and stored under
@@ -592,6 +594,12 @@ New status fields are numbers, timestamps and enums only so
 `TestStatus_PrivacyGuard` passes unchanged. Every new `api_*` query
 carries the scope predicate (`TestAPIQueries_AreScoped`).
 
+*After IMPL-0029 (2026-10-17):* the controls API (spec 2.0.0) removed
+`/findings`, `/rules`, `/policy`, `/installations` and
+`/repositories/{id}/checks`. 7.1 to 7.3 shipped in rc.9 and rc.10 and
+were superseded with those endpoints. IMPL-0029 carried 7.4, 7.5 and
+7.7 forward onto the `controlsdb` layer.
+
 #### Tasks
 
 - [x] 7.1 `GET /compliance/history?aggregate=none|fleet|org` (default
@@ -605,19 +613,23 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   on the same fixture. UI: Fleet and org detail switch to
   `aggregate=fleet|org`, the `truncated` notice path stays for `none`;
   the rule sparklines un-hide using one `aggregate=fleet&kind&rule`
-  query per rule (OQ6).
+  query per rule (OQ6). — *superseded by IMPL-0029: shipped in rc.9
+  and rc.10, then removed with `/compliance/history`'s finding-based
+  series.*
 - [x] 7.2 `GET /findings?sort=default|pr_age`: `pr_age` orders by
   `evidence->'pr'->>'created_at'` ascending with nulls last, then the
   default key; the cursor (`cursor.go`) binds the sort into the filter
   hash so a cursor from one sort is rejected under another; `apitest`
   covers paging under `pr_age` across a page boundary. UI: the `sort =
-  pr_age` chip (default off), persisted as `?sort=`.
+  pr_age` chip (default off), persisted as `?sort=`. — *superseded by
+  IMPL-0029: removed with `/findings`.*
 - [x] 7.3 `Summary.finding_age[]` `{bucket, count}` over `non_compliant`
   findings' `status_since` in six buckets (`<1d`, `1-7d`, `7-30d`,
   `30-90d`, `90-180d`, `180d+`), computed in `api_summary.sql` with
   the scope predicate; `apitest` with a fixture spanning every bucket.
   UI: the Fleet Finding age distribution `DistBar` un-hides with the
-  `<p>% under 30d · healthy threshold` pill.
+  `<p>% under 30d · healthy threshold` pill. — *superseded by
+  IMPL-0029: removed with the findings model.*
 - [x] 7.4 `Status.compliance.history[]` (30 daily `{at, percent}` from
   `compliance_snapshots`, fleet-summed, percent floored) and
   `Status.operations{checked_24h, tracked, rollout_state,
@@ -630,18 +642,24 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   and operations strip un-hide. — *note: the guard records every string field, so the
   four new typed fields (three `date-time`s and the closed
   `rollout_state` enum `none|in_progress|complete`) were added to its
-  allowlist; no free-text field was added.*
+  allowlist; no free-text field was added. Carried forward by
+  IMPL-0029 on `controlsdb`, where `checked_24h` became
+  `evaluated_24h` and `overdue` joined the strip.*
 - [x] 7.5 `OrgSummary.open_prs` (count of findings with `remediation =
   pr_open` per org) in `api_rules.sql`/`api_orgs` queries behind
   `/orgs`; `apitest` parity with `/findings?org=&remediation=pr_open`
   totals on the fixture. UI: the Orgs `PR activity` heat tab un-hides. The tab shades a new Open PRs column (`info` tone);
-  `web/src/lib/flags.ts` is deleted with its last flag.
-- [ ] 7.6 `ui/e2e/seed.sql`: rows that exercise each addition (a PR
+  `web/src/lib/flags.ts` is deleted with its last flag. — *carried
+  forward by IMPL-0029: `APIOrgOpenPRs` now reads `controlsdb`; the
+  `/findings` parity check went with that endpoint.*
+- [x] 7.6 `ui/e2e/seed.sql`: rows that exercise each addition (a PR
   with an old `created_at`, findings across every age bucket, 30 days
   of snapshots for two orgs, a completed rollout); Playwright specs
   asserting each panel is now present and reads the seeded numbers. —
-  *deferred (2026-10-16): e2e work resumes after the rc is cut and
-  looked at; each 7.x task still lands its `apitest` and store cases.*
+  *superseded by IMPL-0029 (2026-10-17): IMPL-0029 rewrote the seed
+  and specs for the controls views, and three of the five additions
+  no longer exist. Any further e2e coverage of the status strip or
+  the Open PRs column belongs to the controls UI work.*
 - [x] 7.7 `docs/usage/api.md`: the five additions; `api/openapi.yaml`
   `info.version` bumped per the file's existing convention.
 
@@ -650,10 +668,11 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
 - `make lint-api`, `make lint-sql`, `make generate-api` /
   `make generate-ui-api` produce no diff after commit, `make test`
   passes including the new `apitest` and store cases, and
-  `TestStatus_PrivacyGuard` is unchanged. — *can't do as written (2026-10-16): the guard records
-  every string field, so 7.4's three `date-time` fields and the
-  `rollout_state` enum had to join its allowlist. No free-text field
-  was added. Awaiting a maintainer decision.*
+  `TestStatus_PrivacyGuard` passes with no free-text field added to
+  `Status`. — *reworded 2026-10-17: the guard records every string
+  field, so 7.4's three `date-time` fields and the `rollout_state`
+  enum joined its allowlist as typed entries. IMPL-0029 followed the
+  same pattern for `topology` and `apps[].app`.*
 - No panel in the UI is hidden any more; `grep -rn "hiddenUntil" ui/web/src`
   returns nothing.
 - `TestCompliance_ParityAcrossReportAPIAndSnapshot` still passes and
@@ -687,6 +706,10 @@ carries the scope predicate (`TestAPIQueries_AreScoped`).
   within tolerance.
 
 ## File Changes
+
+*This table and the Testing Plan describe the tree as of rc.10.
+IMPL-0029 later removed the queries, handlers and views behind 7.1 to
+7.3. See the Phase 7 note.*
 
 | File | Action | Description |
 | ---- | ------ | ----------- |

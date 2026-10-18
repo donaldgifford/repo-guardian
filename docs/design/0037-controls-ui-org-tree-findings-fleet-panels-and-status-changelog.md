@@ -51,6 +51,11 @@ panels, CSV export, and a changelog on the status page. It names the
 API each needs, marks what waits on remediation (IMPL-0030), and ships
 the INV-0023 repository-page fixes with the first phase.
 
+The mockup is part of this design. `ui/design/repo-guardian-mockup.html`
+is updated in the same pull request to the controls line and to every
+page below, and is accepted with the design: the implementation builds
+from an accepted mockup, it does not draw one (OQ10).
+
 <!--docz:overview:end-->
 
 ## Goals and Non-Goals
@@ -144,9 +149,11 @@ findings-era platform mockup) against the controls API:
 ### The mockup and DESIGN-0036
 
 `ui/design/repo-guardian-mockup.html` is the UI's reference (DESIGN-0036
-OQ17), but it is still the findings-era mockup: IMPL-0029 replaced the
-pages underneath it and did not touch it. It is out of step with rc.11
-itself, before anything here:
+OQ17), but until this design it was still the findings-era mockup:
+IMPL-0029 replaced the pages underneath it and did not touch it. This
+design's pull request redraws it; the tables below record what it
+showed, what rc.11 shows and what the redraw makes of each. Out of step
+with rc.11 itself, before anything here:
 
 | Mockup today | rc.11 / controls line |
 |--------------|-----------------------|
@@ -159,8 +166,9 @@ itself, before anything here:
 | History: per-org small multiples by rule | history by control and days |
 | Tone table knows finding statuses only | the same gap as INV-0023 F1 |
 
-**Already drawn, made real here.** The mockup already draws most of
-this design, on the findings model:
+**Already drawn, made real here.** The findings-era mockup already drew
+most of this design, on the findings model; the redraw moves each onto
+results and controls:
 
 | Mockup | This design |
 |--------|-------------|
@@ -187,6 +195,20 @@ compliance drivers map and the "Stale PR (>30d)" checkbox come from the
 platform mockup, a source DESIGN-0036 OQ17 chose not to commit. The
 changelog and the stale-PR filter are designed here; the drivers map
 stays a non-goal.
+
+**The redraw in this pull request.** The mockup now draws the
+controls line and every page here: Fleet (panels 1–8), Controls and
+control detail, the Orgs tree with its Parked and PR activity tabs, org
+detail, Findings with filters, sort, drawer and Re-evaluate,
+Repositories and the repository page (Controls / Evaluation log /
+Events, the `rule` tone, the name crumb, next due, the remediable hint),
+History, Policy layers, and the status page with deployment, operations
+and the changelog. Its in-page `api` mirrors `api/openapi.yaml` plus the
+additions in [API / Interface Changes](#api--interface-changes), so a
+panel the mockup draws is a panel the API can back. A top-bar switch
+marked "mockup" previews the remediation-gated panels with a
+Remediation App installed; it is not a product control. Export buttons
+download real CSV through the `lib/csv.ts` rules.
 
 **DESIGN-0036's API additions on the controls line.** All six were
 findings-era endpoints or fields; IMPL-0029 removed or carried them:
@@ -451,14 +473,12 @@ migration. Decide from the plan output, not up front.
 <!--docz:rollout:start-->
 ## Migration / Rollout Plan
 
-UI and API ship together in rc releases from `v2` (Rule 6). Suggested
+UI and API ship together in rc releases from `v2` (Rule 6). The
+mockup is not a phase: it was updated and accepted with this design.
+Each phase builds its pages to the accepted mockup, and a page that has
+to differ from it changes the mockup in the same pull request. Suggested
 phases for the IMPL:
 
-0. **Mockup**: bring `ui/design/repo-guardian-mockup.html` to rc.11
-   (the table under [The mockup and DESIGN-0036](#the-mockup-and-design-0036),
-   controls vocabulary, the rule tone row), then draw this design's
-   pages in it (OQ10). Each later phase keeps its page in step with the
-   mockup, as CLAUDE.md asks.
 1. **Fixes and foundations**: INV-0023 F1 (rule tone), F2 (crumb), F4
    (remediable wording), F7.3 (status screenshot); restore `csv.ts` and
    `RangeTabs`; Export on existing tables; the IMPL-0031 6.3 keyboard
@@ -564,6 +584,8 @@ has no status filter. See [Vocabulary](#vocabulary).
   build, but every row is a page load and the filter context is lost.
 - other:
 
+**Decision (2026-10-18):** (a).
+
 **OQ9. The ⌘K command palette.**
 
 - (a) ✅ recommended: bring it back (`ui/command.tsx` survived) over
@@ -572,16 +594,23 @@ has no status filter. See [Vocabulary](#vocabulary).
 - (b) leave it out; the `/repositories` search covers the need.
 - other:
 
+**Decision (2026-10-18):** (a).
+
 **OQ10. How the mockup catches up.**
 
 - (a) ✅ recommended: update the one mockup in place to the controls
-  line in Phase 0, then page by page; one reference, as DESIGN-0036
-  OQ17 chose.
+  line and this design's pages; one reference, as DESIGN-0036 OQ17
+  chose.
 - (b) a new controls mockup beside it, the findings-era one archived;
   a clean start, two files to explain.
 - (c) stop maintaining a mockup; the design docs and e2e screenshots
   are the reference.
 - other:
+
+**Decision (2026-10-18):** (a), with the mockup updated inside this
+design's pull request rather than in an IMPL phase: the mockup is what
+specifies the UI, so it is accepted together with the design, before
+any implementation.
 
 <!--docz:open-questions:end-->
 

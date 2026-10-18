@@ -21,9 +21,11 @@ created: 2026-10-18
   - [What rc.11 shows](#what-rc11-shows)
   - [What IMPL-0029 removed](#what-impl-0029-removed)
   - [Panel inventory](#panel-inventory)
+  - [The mockup and DESIGN-0036](#the-mockup-and-design-0036)
 - [Detailed Design](#detailed-design)
   - [Vocabulary](#vocabulary)
   - [Findings page](#findings-page)
+  - [Control detail](#control-detail)
   - [Orgs tree](#orgs-tree)
   - [Fleet panels](#fleet-panels)
   - [Status page changelog](#status-page-changelog)
@@ -63,7 +65,7 @@ the INV-0023 repository-page fixes with the first phase.
   with compliant/non-compliant counts and shares per row, a parked tab,
   repository search, and a totals footer.
 - **Fleet panels**: a range selector driving the compliance card, a KPI
-  strip with deltas, a non-compliant age distribution, worst controls,
+  strip with deltas, a finding age distribution, worst controls,
   parked by reason, and a compliance-by-control table with trend
   sparklines.
 - **CSV export** on every table card again.
@@ -127,17 +129,83 @@ findings-era platform mockup) against the controls API:
 | Orgs tree, org rows | `GET /orgs` (`OrgSummary`: tracked, parked, compliance, open_prs) | nothing |
 | Orgs tree, repository rows | `GET /repositories?org=` without posture | `Repository.compliance` |
 | Orgs parked tab | `GET /repositories?active=false` | nothing |
-| Compliance card + range | `GET /summary`, `GET /compliance/history?days=` | delta computed from history |
+| Compliance card + range | `GET /summary`, `GET /compliance/history?days=` (one row per day, org, control and decision) | `aggregate=fleet` on history |
 | KPI: failing controls, parked reasons | partial | `Summary.parked_by_reason`, controls with any non-compliant |
-| Non-compliant age distribution | `control_results.last_changed_at` exists, not exposed | `Summary.noncompliant_age` |
-| Worst controls (fleet) | `GET /controls` | delta from trend |
+| Finding age distribution | `control_results.last_changed_at` exists, not exposed | `Summary.finding_age` |
+| Worst controls (fleet) | `GET /controls` | delta from `aggregate=control` history |
 | Parked by reason | not exposed | `Summary.parked_by_reason` |
-| Compliance by control + trend | `GET /controls` without history | `ControlSummary.trend` |
+| Compliance by control + trend | `GET /controls`; history unaggregated | `aggregate=control` on history |
 | Orgs table with bars | `GET /orgs` | nothing |
 | Open PRs by age | `Summary.open_prs` count only | IMPL-0030 + `Summary.open_prs_by_age` |
 | PR throughput (14d) | nothing | IMPL-0030 + `GET /remediations/activity` |
 | Status changelog | nothing | a source (OQ4) |
 | Compliance drivers map | nothing | non-goal |
+
+### The mockup and DESIGN-0036
+
+`ui/design/repo-guardian-mockup.html` is the UI's reference (DESIGN-0036
+OQ17), but it is still the findings-era mockup: IMPL-0029 replaced the
+pages underneath it and did not touch it. It is out of step with rc.11
+itself, before anything here:
+
+| Mockup today | rc.11 / controls line |
+|--------------|-----------------------|
+| Rules and rule detail; rows are `(kind, name)` rules | Controls and control detail; rows are `slug@version` controls |
+| Finding statuses, reason codes (`file_missing`, `setting_mismatch`, …), remediation `pr_open`/`applied`/`foreign_pr`/`disabled`/`dry_run` | result buckets, rule statuses `pass`/`fail`/`error`, evidence kinds; remediation states arrive with IMPL-0030 |
+| One reconcile branch `repo-guardian/add-missing-files` per repository | per-control pull requests (IMPL-0030) |
+| Repository page: Findings, Recent checks, Repository (installation and rate limit), Timeline | Controls / Evaluation log / Events tabs, Repository card, Re-evaluate |
+| Status: `github api budget` component; sparkline and operations strip marked deferred | no budget component; sparkline, operations, deployment, apps, coverage, overdue shipped |
+| Policy: one rules table | policy layers (enterprise, catalogue, orgs) |
+| History: per-org small multiples by rule | history by control and days |
+| Tone table knows finding statuses only | the same gap as INV-0023 F1 |
+
+**Already drawn, made real here.** The mockup already draws most of
+this design, on the findings model:
+
+| Mockup | This design |
+|--------|-------------|
+| Orgs grouped grid: heat cells by share, Tracked/Failing/Parked chips, Compliance/Parked tabs, totals row, Export CSV | [Orgs tree](#orgs-tree); children become repositories (see below) |
+| Findings: filter chips with "+ filter", "N loaded of M", Export CSV, drawer with evidence, timeline and an "actions slot (IMPL-0029 re-evaluate)" | [Findings page](#findings-page) with the drawer; the actions slot becomes Re-evaluate |
+| Fleet: KPI strip with deltas, series pills, open PRs by age, worst rules, parked bar list, findings-by-status stacked bar, compliance by rule with sparklines, orgs (or N/A by reason when one org is scoped) | [Fleet panels](#fleet-panels) |
+| Rule detail: top reasons, oldest failures, "Findings for this rule" | [Control detail](#control-detail) |
+| Header org scope and 1d/7d/30d/90d range | kept; the range tabs come back |
+
+**The mockup's deferred banners**, and what happens to each:
+
+| Banner | Outcome |
+|--------|---------|
+| Finding age distribution (DESIGN-0036 OQ8) | here, `Summary.finding_age` over `control_results.last_changed_at` |
+| PR throughput (OQ15) | here, Phase 7 (IMPL-0030) |
+| "+N discovered this week" (OQ7) | stays out, as OQ7 (a) decided |
+| Repository rows under an org (OQ13) | here, superseding OQ13 (a) |
+| PR activity tab (OQ14) | here, Phase 7 |
+| `sort = pr_age` (OQ5) | here, Phase 7, as a `/results` sort |
+| Status sparkline and operations strip (OQ10) | shipped in rc.10, carried onto the controls schema in rc.11 |
+
+**Not in the committed mockup at all.** The status changelog, the
+compliance drivers map and the "Stale PR (>30d)" checkbox come from the
+platform mockup, a source DESIGN-0036 OQ17 chose not to commit. The
+changelog and the stale-PR filter are designed here; the drivers map
+stays a non-goal.
+
+**DESIGN-0036's API additions on the controls line.** All six were
+findings-era endpoints or fields; IMPL-0029 removed or carried them:
+
+| DESIGN-0036 addition | Controls line |
+|----------------------|---------------|
+| `/compliance/history?aggregate=` (OQ6) | removed with `/findings`; the controls history is unaggregated again, so it comes back here as `aggregate=none\|fleet\|org\|control` |
+| `/findings?sort=pr_age` (OQ5) | `/results?sort=pr_age`, Phase 7 |
+| `Summary.finding_age` (OQ8) | here, same name and buckets, over results |
+| `Status.compliance.history`, `Status.operations` (OQ10) | carried, shipped |
+| `OrgSummary.open_prs` (OQ14) | carried; reads 0 until IMPL-0030 |
+| PR throughput aggregate (OQ15) | `GET /remediations/activity`, Phase 7 |
+
+**DESIGN-0036 decisions this design supersedes**: OQ13 (an org row
+expands to repositories, not rules; the rules-in-org view stays on
+`/orgs/$org`), §Status page's "No changelog" (the source is now
+`CHANGELOG.yaml` with a release gate), and OQ11's palette-only
+repository access, which IMPL-0029 already replaced with the
+`/repositories` page (OQ9 here asks whether the palette comes back).
 
 <!--docz:background:end-->
 
@@ -179,13 +247,24 @@ in the URL search (the History page's numeric-search rule applies):
 Columns: Repository (name, org beneath), Control (slug, version), Failing rules (rule ids with the first failing rule's
 evidence headline from `describeEvidence`), Remediation (IMPL-0030;
 `—` until then), Since (`last_changed_at`, relative with absolute on
-hover). A row opens the repository page on its Controls tab, scrolled
-to that control (`/repositories/$id?tab=controls&control=<slug>`).
+hover). A row opens the **finding drawer** (OQ8), deep-linked as
+`?open=<repository_id>/<control>` per DESIGN-0036 OQ9: the control's
+rule table with each failing rule's evidence (text only), the control's
+events from `/repositories/{id}/events`, **Re-evaluate** (the mockup's
+actions slot, now the existing POST) and "Open repository →".
 
 Paging is keyset (`cursor`, `limit` 50) like `/repositories`, with a
 "Load more" button and "N of M" from a `total` the endpoint returns for
 the current filter (OQ3). Sort is `last_changed_at` ascending by
 default (oldest problems first), toggled to descending.
+
+### Control detail
+
+`/controls/$id` gains the mockup's rule-detail cards on results: **Top
+failing rules** (a bar list of the control's findings by failing rule)
+and **Oldest findings** (`/results?control=<slug>&sort=since_asc`,
+ten rows, opening the drawer), plus a "Findings for this control"
+button to `/findings?control=<slug>`.
 
 ### Orgs tree
 
@@ -223,22 +302,28 @@ Header gains a range selector (1d / 7d / 30d / 90d, restored
 1. **Compliance card**: KPI strip (Tracked repositories · Compliant %
    with delta in points over the range · Non-compliant results and the
    number of controls with any · Parked and the number of reasons ·
-   Snapshots and cadence), legend pills, and the fleet area chart from
-   `/compliance/history`. The delta is last point minus first point in
+   Snapshots and cadence), series pills (compliance %, findings,
+   not applicable, unknown) choosing what the area chart draws, and the
+   chart from `/compliance/history?aggregate=fleet`. The delta is last point minus first point in
    the range; fewer than two points renders no delta.
-2. **Non-compliant age distribution**: a segmented bar over
+2. **Finding age distribution**: a segmented bar over
    `<1d`, `1–7d`, `7–30d`, `30–90d`, `90–180d`, `180d+` of
    `now − last_changed_at` for non-compliant results, with a "N% under
    30d" pill. Buckets are fixed; they are not a tuning knob.
 3. **Worst controls**: the five lowest measured percentages from
-   `/controls`, each with its delta from `trend`, linking to the control.
+   `/controls`, each with its delta over the range from
+   `aggregate=control` history, linking to the control.
 4. **Parked by reason**: a bar list from `Summary.parked_by_reason`
    (bar lists, not donuts, per DESIGN-0036 §Charts; OQ5).
 5. **Compliance by control**: Control, type (`KindBadge`), Compliant,
-   Non-compliant, N/A, %, and a 30-point sparkline from
-   `ControlSummary.trend`.
-6. **Orgs**: the existing table with a meter per row.
-7. **Open PRs by age** and **PR throughput (14d)**: see
+   Non-compliant, N/A, %, and a sparkline over the range from
+   `aggregate=control` history.
+6. **Orgs**: the existing table with a meter per row; with one org in
+   scope it becomes **Exclusions by reason** from `OrgDetail.exclusions`
+   (the mockup's "Not applicable by reason").
+7. **Assignments**: rc.11's bucket card stays, as the controls form of
+   the mockup's "Findings by status" stacked bar.
+8. **Open PRs by age** and **PR throughput (14d)**: see
    [Remediation-gated panels](#remediation-gated-panels).
 
 Every table card carries Export.
@@ -309,9 +394,9 @@ operation gets a case in `TestEndpoints_ValidateAgainstTheSpec`.
 | `GET /results` | query `status`, `control`, `rule`, `org`, `decision`, `sort` (`since_asc`, `since_desc`), `cursor`, `limit`; returns `ResultPage{items: [ResultRow], total, next_cursor}`. `ResultRow`: repository id/org/name, control id/version, decision, status, `failing_rules: [rule_id]`, `reason` (first failing rule's evidence `reason` or `evidence_kind`), `last_changed_at` | 2 |
 | `Repository.compliance` | `Posture` over the repository's assignments, on list and detail | 2 |
 | `Summary.parked_by_reason` | `[{reason, count}]` over visible orgs | 2 |
-| `Summary.noncompliant_age` | `[{bucket, count}]`, the six fixed buckets | 2 |
+| `Summary.finding_age` | `[{bucket, count}]`, the six fixed buckets | 2 |
 | `Summary.controls_failing` | count of controls with any non-compliant result | 2 |
-| `ControlSummary.trend` | `[{at, percent}]`, daily, last 30 snapshots, nullable percent | 2 |
+| `/compliance/history?aggregate=` | `none` (today's rows, default) \| `fleet` \| `org` \| `control`; sums per day in SQL with `floor_percent`, never averaged; DESIGN-0036 OQ6 on the controls schema | 2 |
 | `Summary.open_prs_by_age` | `[{bucket, count}]` | 7 (IMPL-0030) |
 | `GET /remediations/activity` | `days` (1–90, default 14) → `[{day, opened, closed}]` | 7 (IMPL-0030) |
 | `/results` `pr_stale`, `ResultRow.remediation` | remediation state, PR number/url, PR age | 7 (IMPL-0030) |
@@ -369,6 +454,11 @@ migration. Decide from the plan output, not up front.
 UI and API ship together in rc releases from `v2` (Rule 6). Suggested
 phases for the IMPL:
 
+0. **Mockup**: bring `ui/design/repo-guardian-mockup.html` to rc.11
+   (the table under [The mockup and DESIGN-0036](#the-mockup-and-design-0036),
+   controls vocabulary, the rule tone row), then draw this design's
+   pages in it (OQ10). Each later phase keeps its page in step with the
+   mockup, as CLAUDE.md asks.
 1. **Fixes and foundations**: INV-0023 F1 (rule tone), F2 (crumb), F4
    (remediable wording), F7.3 (status screenshot); restore `csv.ts` and
    `RangeTabs`; Export on existing tables; the IMPL-0031 6.3 keyboard
@@ -465,13 +555,41 @@ has no status filter. See [Vocabulary](#vocabulary).
 
 **Decision (2026-10-18):** (a).
 
+**OQ8. Where a findings row goes.**
+
+- (a) ✅ recommended: the finding drawer, deep-linked with `?open=`,
+  as the mockup and DESIGN-0036 OQ9 drew it; triage stays on one page
+  with its filters, and Re-evaluate sits next to the evidence.
+- (b) navigate to the repository page's Controls tab; no drawer to
+  build, but every row is a page load and the filter context is lost.
+- other:
+
+**OQ9. The ⌘K command palette.**
+
+- (a) ✅ recommended: bring it back (`ui/command.tsx` survived) over
+  `/repositories?q=`, controls and orgs; the mockup draws it and the
+  fleet is too big to reach a repository by browsing.
+- (b) leave it out; the `/repositories` search covers the need.
+- other:
+
+**OQ10. How the mockup catches up.**
+
+- (a) ✅ recommended: update the one mockup in place to the controls
+  line in Phase 0, then page by page; one reference, as DESIGN-0036
+  OQ17 chose.
+- (b) a new controls mockup beside it, the findings-era one archived;
+  a clean start, two files to explain.
+- (c) stop maintaining a mockup; the design docs and e2e screenshots
+  are the reference.
+- other:
+
 <!--docz:open-questions:end-->
 
 <!--docz:references:start-->
 ## References
 
 - INV-0023 (the rc.11 fixes that ride with Phase 1)
-- DESIGN-0036 (design language, tone table, charts, OQ15)
+- DESIGN-0036 (design language, tone table, charts, OQ5–OQ15, OQ17)
 - DESIGN-0027 (read-only API, status page, privacy guard)
 - IMPL-0029 Phase 8 (the controls API and UI), IMPL-0031 (6.3)
 - IMPL-0030 (remediation, which feeds the gated panels)

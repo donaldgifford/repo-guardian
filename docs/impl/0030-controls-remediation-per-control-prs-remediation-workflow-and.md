@@ -777,7 +777,7 @@ Every new query lives in an `api_*.sql` file so
 - [x] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
   PR number/url, age). `sort=pr_age` joins the `/results` sorts; `pr_stale` is open pull-request
   remediations at least 30 days old.
-- [ ] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed
+- [x] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed
   `rule_results` and 90 days of `compliance_snapshots` at fleet size,
   add `/results` (each filter) and the history aggregates to the
   measured set, and log `EXPLAIN (ANALYZE, BUFFERS)` for `/results`.
@@ -786,6 +786,41 @@ Every new query lives in an `api_*.sql` file so
   status, last_changed_at)`) numbered after Phase 1's, bump
   `ControlsSchemaVersion` with it, and extend the controls dry-run
   test.
+  Done: the seed adds one rule result per result (200k, failing where
+  the result does) and 90 days of daily snapshots per org and control
+  (18k rows). The default `/results` EXPLAIN showed a sequential scan
+  over all 200k `control_results`, so `00008_results_index.sql` adds
+  `control_results_control_status_changed` (`ControlsSchemaVersion` 8;
+  the dry-run test asserts the index), and both results queries filter
+  `cr.status` directly when the bucket names a status, which is what
+  lets the planner use it: `bucket=non_compliant` went from 353ms to
+  127ms EXPLAIN ANALYZE (bitmap index scan, 28,571 rows). Measured at
+  20k repositories, 200 requests each, auth off (whole fleet):
+
+  | Endpoint | p50 | p99 |
+  | --- | --- | --- |
+  | `/results?limit=50` | 318.7ms | 342.1ms |
+  | `/results?bucket=non_compliant` | 129.7ms | 145.0ms |
+  | `/results?control=control-3` | 32.2ms | 35.9ms |
+  | `/results?rule=exists&bucket=non_compliant` | 514.1ms | 614.6ms |
+  | `/results?org=org-3` | 29.8ms | 44.5ms |
+  | `/results?decision=baseline` | 209.4ms | 226.4ms |
+  | `/results?sort=since_desc` | 320.9ms | 347.4ms |
+  | `/results?sort=pr_age` | 790.5ms | 1129.6ms |
+  | `/results?pr_stale=true` | 547.3ms | 565.8ms |
+  | `/compliance/history?days=90&aggregate=fleet` | 22.5ms | 37.9ms |
+  | `/compliance/history?days=90&aggregate=org` | 42.2ms | 55.1ms |
+  | `/compliance/history?days=90&aggregate=control` | 28.9ms | 41.1ms |
+  | `/summary` | 478.4ms | 492.1ms |
+  | `/orgs` (unchanged, IMPL-0029 7.4) | 199.2ms | 364.4ms |
+
+  Control, org and the history aggregates meet the 100ms target. The
+  whole-fleet shapes do not: every one computes the posture bucket over
+  the whole population, the first page also counts it (OQ16), and
+  `pr_age`/`pr_stale` add the latest-remediation lateral per row. A
+  scoped caller (one org) reads the 30–45ms shapes. Closing the
+  whole-fleet gap (a materialised bucket column, or dropping the
+  first-page total) is open, the same as `/orgs`.
 - [x] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
   rule statuses on rule-level events; `ParkReason` lists `suspended`.
   Bump `info.version` (2.1.0, or with 7.4 if it already did) and document every addition in

@@ -49,14 +49,17 @@ FROM (
       AND ($2::bool OR lower(r.org) = ANY ($3::text[]))
       AND ($4::text IS NULL OR lower(r.org) = lower($4::text))
       AND ($5::text IS NULL OR cr.control_id = $5::text)
-      AND ($6::text IS NULL OR ca.decision = $6::text)
-      AND ($7::text IS NULL
+      AND ($6::text IS NULL
+           OR $6::text NOT IN ('compliant', 'non_compliant', 'unknown', 'not_applicable')
+           OR cr.status = $6::text)
+      AND ($7::text IS NULL OR ca.decision = $7::text)
+      AND ($8::text IS NULL
            OR EXISTS (SELECT 1 FROM rule_results rr
                       WHERE (rr.repository_id, rr.control_id) = (cr.repository_id, cr.control_id)
-                        AND rr.rule_id = $7::text AND rr.status IN ('fail', 'error')))
-      AND ($8::bool IS NULL
-           OR $8::bool = coalesce(rem.kind = 'pull_request' AND rem.state = 'open'
-                                                   AND rem.created_at <= $9::timestamptz, false))
+                        AND rr.rule_id = $8::text AND rr.status IN ('fail', 'error')))
+      AND ($9::bool IS NULL
+           OR $9::bool = coalesce(rem.kind = 'pull_request' AND rem.state = 'open'
+                                                   AND rem.created_at <= $10::timestamptz, false))
 ) x
 LEFT JOIN LATERAL (
     SELECT array_agg(rr.rule_id ORDER BY rr.rule_id)::text[] AS failing,
@@ -64,7 +67,7 @@ LEFT JOIN LATERAL (
     FROM rule_results rr
     WHERE (rr.repository_id, rr.control_id) = (x.repository_id, x.control_id) AND rr.status IN ('fail', 'error')
 ) f ON true
-WHERE ($10::text IS NULL OR x.bucket = $10::text)
+WHERE ($6::text IS NULL OR x.bucket = $6::text)
   AND (NOT $11::bool
        OR ($12::bool AND (x.sort_at, x.repository_id, x.control_id)
                            < ($13::timestamptz, $14::bigint, $15::text))
@@ -83,11 +86,11 @@ type APIResultsParams struct {
 	ScopeOrgs         []string
 	Org               *string
 	ControlID         *string
+	Bucket            *string
 	Decision          *string
 	RuleID            *string
 	PrStale           *bool
 	StaleBefore       time.Time
-	Bucket            *string
 	HasAfter          bool
 	Descending        bool
 	AfterAt           time.Time
@@ -125,7 +128,10 @@ type APIResultsRow struct {
 // never appears. Every query carries the scope predicate;
 // TestAPIQueries_AreScoped enforces it. A result's remediation is its
 // control's latest one (IMPL-0030 7.13); pr_stale and sort=pr_age read
-// it only when it is an open pull request.
+// it only when it is an open pull request. A bucket named for a status
+// implies the recorded status (the CASE's other arms name no status), so
+// each query also filters cr.status directly: that is what lets
+// control_results_control_status_changed (00008) narrow the scan.
 // One page, keyed by (sort_at, repository_id, control_id): sort_at is
 // last_changed_at, or with @pr_age the open pull request's created_at
 // (oldest first) and a far-future sentinel for a result with none, so
@@ -140,11 +146,11 @@ func (q *Queries) APIResults(ctx context.Context, arg APIResultsParams) ([]APIRe
 		arg.ScopeOrgs,
 		arg.Org,
 		arg.ControlID,
+		arg.Bucket,
 		arg.Decision,
 		arg.RuleID,
 		arg.PrStale,
 		arg.StaleBefore,
-		arg.Bucket,
 		arg.HasAfter,
 		arg.Descending,
 		arg.AfterAt,
@@ -217,16 +223,19 @@ FROM (
       AND ($1::bool OR lower(r.org) = ANY ($2::text[]))
       AND ($3::text IS NULL OR lower(r.org) = lower($3::text))
       AND ($4::text IS NULL OR cr.control_id = $4::text)
-      AND ($5::text IS NULL OR ca.decision = $5::text)
-      AND ($6::text IS NULL
+      AND ($5::text IS NULL
+           OR $5::text NOT IN ('compliant', 'non_compliant', 'unknown', 'not_applicable')
+           OR cr.status = $5::text)
+      AND ($6::text IS NULL OR ca.decision = $6::text)
+      AND ($7::text IS NULL
            OR EXISTS (SELECT 1 FROM rule_results rr
                       WHERE (rr.repository_id, rr.control_id) = (cr.repository_id, cr.control_id)
-                        AND rr.rule_id = $6::text AND rr.status IN ('fail', 'error')))
-      AND ($7::bool IS NULL
-           OR $7::bool = coalesce(rem.kind = 'pull_request' AND rem.state = 'open'
-                                                   AND rem.created_at <= $8::timestamptz, false))
+                        AND rr.rule_id = $7::text AND rr.status IN ('fail', 'error')))
+      AND ($8::bool IS NULL
+           OR $8::bool = coalesce(rem.kind = 'pull_request' AND rem.state = 'open'
+                                                   AND rem.created_at <= $9::timestamptz, false))
 ) x
-WHERE $9::text IS NULL OR x.bucket = $9::text
+WHERE $5::text IS NULL OR x.bucket = $5::text
 `
 
 type APIResultsTotalParams struct {
@@ -234,11 +243,11 @@ type APIResultsTotalParams struct {
 	ScopeOrgs   []string
 	Org         *string
 	ControlID   *string
+	Bucket      *string
 	Decision    *string
 	RuleID      *string
 	PrStale     *bool
 	StaleBefore time.Time
-	Bucket      *string
 }
 
 // How many results APIResults' filters match, for the first page only
@@ -249,11 +258,11 @@ func (q *Queries) APIResultsTotal(ctx context.Context, arg APIResultsTotalParams
 		arg.ScopeOrgs,
 		arg.Org,
 		arg.ControlID,
+		arg.Bucket,
 		arg.Decision,
 		arg.RuleID,
 		arg.PrStale,
 		arg.StaleBefore,
-		arg.Bucket,
 	)
 	var total int32
 	err := row.Scan(&total)

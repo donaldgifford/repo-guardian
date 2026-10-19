@@ -7,7 +7,10 @@
 -- never appears. Every query carries the scope predicate;
 -- TestAPIQueries_AreScoped enforces it. A result's remediation is its
 -- control's latest one (IMPL-0030 7.13); pr_stale and sort=pr_age read
--- it only when it is an open pull request.
+-- it only when it is an open pull request. A bucket named for a status
+-- implies the recorded status (the CASE's other arms name no status), so
+-- each query also filters cr.status directly: that is what lets
+-- control_results_control_status_changed (00008) narrow the scan.
 
 -- name: APIResults :many
 -- One page, keyed by (sort_at, repository_id, control_id): sort_at is
@@ -54,6 +57,9 @@ FROM (
       AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
       AND (sqlc.narg(org)::text IS NULL OR lower(r.org) = lower(sqlc.narg(org)::text))
       AND (sqlc.narg(control_id)::text IS NULL OR cr.control_id = sqlc.narg(control_id)::text)
+      AND (sqlc.narg(bucket)::text IS NULL
+           OR sqlc.narg(bucket)::text NOT IN ('compliant', 'non_compliant', 'unknown', 'not_applicable')
+           OR cr.status = sqlc.narg(bucket)::text)
       AND (sqlc.narg(decision)::text IS NULL OR ca.decision = sqlc.narg(decision)::text)
       AND (sqlc.narg(rule_id)::text IS NULL
            OR EXISTS (SELECT 1 FROM rule_results rr
@@ -112,6 +118,9 @@ FROM (
       AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
       AND (sqlc.narg(org)::text IS NULL OR lower(r.org) = lower(sqlc.narg(org)::text))
       AND (sqlc.narg(control_id)::text IS NULL OR cr.control_id = sqlc.narg(control_id)::text)
+      AND (sqlc.narg(bucket)::text IS NULL
+           OR sqlc.narg(bucket)::text NOT IN ('compliant', 'non_compliant', 'unknown', 'not_applicable')
+           OR cr.status = sqlc.narg(bucket)::text)
       AND (sqlc.narg(decision)::text IS NULL OR ca.decision = sqlc.narg(decision)::text)
       AND (sqlc.narg(rule_id)::text IS NULL
            OR EXISTS (SELECT 1 FROM rule_results rr

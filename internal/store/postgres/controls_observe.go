@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -108,4 +109,19 @@ func (s *ControlsStore) DueRemediationsFor(ctx context.Context, repoID int64) ([
 	}
 
 	return out, nil
+}
+
+// SetNextDue writes repositories.next_due_at as rg_evaluator; a zero at
+// clears it.
+func (s *ControlsStore) SetNextDue(ctx context.Context, repoID int64, at time.Time) error {
+	var next *time.Time
+	if !at.IsZero() {
+		next = &at
+	}
+
+	if err := s.q.SetNextDue(ctx, controlsdb.SetNextDueParams{NextDueAt: next, ID: repoID}); err != nil {
+		return fmt.Errorf("set next due for %d: %w", repoID, err)
+	}
+
+	return nil
 }

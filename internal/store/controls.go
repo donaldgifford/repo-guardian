@@ -41,6 +41,9 @@ type Controls interface {
 	// and installation_removed clear its results; access_denied and
 	// unknown keep them, because access loss must never improve posture.
 	Park(ctx context.Context, repoID int64, reason string) error
+	// SetNextDue records when the repository's evaluation loop runs next;
+	// a zero at clears it (IMPL-0030 2.8).
+	SetNextDue(ctx context.Context, repoID int64, at time.Time) error
 	// ParkMissing parks removed every active repository the installation
 	// gave the Evaluation App that a complete listing did not see, and
 	// reports how many.

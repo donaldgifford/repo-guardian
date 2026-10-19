@@ -375,9 +375,11 @@ human required`.
   someone else on a `repo-guardian/` branch, which is ignored);
   signal-with-start into a completing workflow, against the result of
   IMPL-0028's spike; a no-change evaluation starts nothing.
-- [ ] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
+- [x] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
   at time.Time)` with a sqlc query, plus an integration test that runs
   as `rg_evaluator` (the grant, not the owner).
+  Done: `SetNextDue` (zero clears) on `store.Controls`;
+  `TestControlsStore_SetNextDue`.
 - [ ] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
   calls `scheduleNext` (recorded, failed, skipped). It sits behind the
   same `workflow.GetVersion` change id as 2.6, so `EvaluationWorkflow`

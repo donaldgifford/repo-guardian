@@ -93,3 +93,8 @@ FROM repositories r
 LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
 LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 WHERE r.id = @id;
+
+-- name: SetNextDue :exec
+-- The evaluation loop's next due time (IMPL-0030 2.8, INV-0023 F3); NULL
+-- clears it.
+UPDATE repositories SET next_due_at = sqlc.narg(next_due_at)::timestamptz WHERE id = @id;

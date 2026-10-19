@@ -621,3 +621,32 @@ func TestControlsStore_ChangeDetection(t *testing.T) {
 		t.Errorf("evaluated_sha codeowners %q, renovate %q; want sha3 and the unselected renovate's sha1 kept", codeownersSHA, renovateSHA)
 	}
 }
+
+// TestControlsStore_SetNextDue is IMPL-0030 2.8, run as rg_evaluator:
+// next_due_at is written and a zero time clears it.
+func TestControlsStore_SetNextDue(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	repo := discover(t, s, &fakeResolver{})
+	at := time.Date(2026, 10, 20, 9, 30, 0, 0, time.UTC)
+
+	if err := s.SetNextDue(t.Context(), repo.ID, at); err != nil {
+		t.Fatalf("SetNextDue: %v", err)
+	}
+
+	var got *time.Time
+	queryArgs(t, dsns.Owner, `SELECT next_due_at FROM repositories WHERE id = $1`, &got, repo.ID)
+
+	if got == nil || !got.Equal(at) {
+		t.Fatalf("next_due_at = %v, want %v", got, at)
+	}
+
+	if err := s.SetNextDue(t.Context(), repo.ID, time.Time{}); err != nil {
+		t.Fatalf("SetNextDue(zero): %v", err)
+	}
+
+	queryArgs(t, dsns.Owner, `SELECT next_due_at FROM repositories WHERE id = $1`, &got, repo.ID)
+
+	if got != nil {
+		t.Errorf("next_due_at = %v after a zero SetNextDue, want NULL", got)
+	}
+}

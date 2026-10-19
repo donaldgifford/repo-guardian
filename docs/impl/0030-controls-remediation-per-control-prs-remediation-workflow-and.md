@@ -288,7 +288,7 @@ human required`.
   beside `TestControlsChain_GrantsHoldAsEachRole`. Deleting an `open` row
   is not an error under RLS (the policy hides it), so it asserts zero
   rows affected.
-- [ ] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
+- [x] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
   `cmd/repo-guardian/controls.go` parses `cfg.StoreDSN` for both halves,
   so the evaluator and remediator connect as whatever `STORE_DSN` names
   and the chart's `STORE_DSN_EVALUATOR`/`_REMEDIATOR` are mounted but
@@ -296,6 +296,12 @@ human required`.
   to `STORE_DSN` only when its own is unset), and log the role it
   connects as. Test: a remediator half refuses to start without a DSN
   it can resolve, and a split render's evaluator gets only its own.
+  Done: `Config.WorkerStoreDSN` (own, else `STORE_DSN` — the fallback
+  also applies to a split role, since `store.controls` defaults off and
+  those pods carry only `STORE_DSN`); ingest refuses all three DSNs;
+  `openHalfPool` logs `dsn_env`/`db_user`. Chart: with `store.controls`
+  on, a split controls pod no longer gets `STORE_DSN` (only the migrate
+  Job keeps the owner's). `TestWorkerStoreDSN`, `controls_store_test.yaml`.
 
 #### Success Criteria
 

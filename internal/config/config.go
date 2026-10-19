@@ -52,6 +52,13 @@ type Config struct {
 	// roles.
 	StoreDSN string
 
+	// StoreDSNEvaluator and StoreDSNRemediator are STORE_DSN_EVALUATOR
+	// and STORE_DSN_REMEDIATOR, each controls half's own role
+	// (rg_evaluator, rg_remediator, or rg_all in all). Read through
+	// WorkerStoreDSN.
+	StoreDSNEvaluator  string
+	StoreDSNRemediator string
+
 	// TemporalAddress is TEMPORAL_ADDRESS. The temporal package reads the
 	// full client configuration; it is kept here so role validation can
 	// require it.
@@ -152,7 +159,9 @@ func parse() (*Config, error) {
 	cfg.GuardianConfigPath = os.Getenv("GUARDIAN_CONFIG")
 	cfg.TemporalAddress = os.Getenv("TEMPORAL_ADDRESS")
 
-	cfg.StoreDSN = os.Getenv("STORE_DSN")
+	cfg.StoreDSN = os.Getenv(envStoreDSN)
+	cfg.StoreDSNEvaluator = os.Getenv(envStoreDSNEvaluator)
+	cfg.StoreDSNRemediator = os.Getenv(envStoreDSNRemediator)
 
 	if err := loadDiscoveryConfig(cfg); err != nil {
 		return nil, err

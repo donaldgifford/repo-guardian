@@ -133,7 +133,11 @@ spec:
             - name: COMPLIANCE_SNAPSHOT_INTERVAL
               value: {{ $v.posture.snapshotInterval | quote }}
             {{- end }}
+            {{- /* A split controls worker reads only its own role's DSN
+            (IMPL-0030 1.12); all keeps STORE_DSN for the api's fallback. */}}
+            {{- if not (and $v.store.controls.enabled (ne $r.role "all")) }}
             {{- include "repo-guardian.storeDSNEnv" $ | nindent 12 }}
+            {{- end }}
             {{- include "repo-guardian.controlsDSNEnv" $r | nindent 12 }}
             {{- end }}
             {{- if include "repo-guardian.roleServesAPI" $r }}

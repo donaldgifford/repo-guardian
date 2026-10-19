@@ -134,6 +134,14 @@ tests:
           path: spec.template.spec.containers[0].env
           content: {name: RG_OWNER_PASSWORD}
           any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: POSTGRES_PASSWORD}
+          any: true
 
   - it: mounts only the remediator's DSN into the remediator, over cnpg
     template: templates/deployment.yaml

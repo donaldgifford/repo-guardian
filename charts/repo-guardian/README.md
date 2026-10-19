@@ -690,7 +690,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | store.controls | object | `{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}}` | The controls line's database roles (IMPL-0028 Phase 6, DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in baked mode a non-superuser owner, rg_owner, for the migrate Job. |
 | store.controls.all.existingSecret | string | `""` | External mode, `topology: all`: Secret holding rg_all's DSN. |
 | store.controls.all.existingSecretKey | string | `"STORE_DSN_ALL"` | Key inside existingSecret. |
-| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods, and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
+| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods (a split controls pod then gets no STORE_DSN), and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
 | store.controls.evaluator.existingSecret | string | `""` | External mode: Secret holding rg_evaluator's DSN. |
 | store.controls.evaluator.existingSecretKey | string | `"STORE_DSN_EVALUATOR"` | Key inside existingSecret. |
 | store.controls.remediator.existingSecret | string | `""` | External mode: Secret holding rg_remediator's DSN. |

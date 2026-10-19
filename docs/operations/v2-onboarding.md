@@ -224,8 +224,10 @@ never create them; the owner that runs the migrations holds no
 
 `store.controls.enabled` (default off) provisions the roles, mounts each
 role's DSN, and points the migrate Job at the owner. Turn it on only for
-an empty database. In this rc the workers still connect with
-`STORE_DSN`; the per-role DSNs below are mounted but not yet read.
+an empty database. Each controls worker connects with its own role's
+DSN and logs which variable it used (`dsn_env`, `db_user` on the
+"controls store" line); without `store.controls` it falls back to
+`STORE_DSN`.
 
 - **`baked`**: the chart creates the roles, plus a non-superuser owner,
   `rg_owner`, that the migrate Job connects as (the image's
@@ -256,7 +258,8 @@ GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
 
 Each DSN is mounted only into the pods of the role that uses it:
 `STORE_DSN_EVALUATOR` into the evaluator, `STORE_DSN_REMEDIATOR` into
-the remediator.
+the remediator. A split evaluator or remediator then gets no `STORE_DSN`
+at all; only the migrate Job keeps the owner's credentials.
 
 ### 4. The two GitHub Apps
 

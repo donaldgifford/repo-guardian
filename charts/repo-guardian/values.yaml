@@ -564,8 +564,9 @@ store:
   # baked mode a non-superuser owner, rg_owner, for the migrate Job.
   controls:
     # -- Provision the roles, mount STORE_DSN_EVALUATOR /
-    # STORE_DSN_REMEDIATOR into the controls roles' pods, and point the
-    # migrate Job at the controls chain as the owner. Off until
+    # STORE_DSN_REMEDIATOR into the controls roles' pods (a split
+    # controls pod then gets no STORE_DSN), and point the migrate Job at
+    # the controls chain as the owner. Off until
     # IMPL-0029's switch-over; enable it only against an empty database.
     enabled: false
     evaluator:

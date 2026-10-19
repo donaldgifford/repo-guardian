@@ -199,8 +199,9 @@ func bringUpRoles(
 	logAppPermissions(logger, roles)
 	metrics.SetDeploymentInfo(topologyOf(roles), temporal.BuildID())
 
-	for _, half := range controlsHalves(cfg, roles, tcfg) {
-		stop, halfChecks, err := startControlsWorker(ctx, cfg, tc, tcfg, half, logger)
+	halves := controlsHalves(cfg, roles, tcfg)
+	for i := range halves {
+		stop, halfChecks, err := startControlsWorker(ctx, cfg, tc, tcfg, &halves[i], logger)
 		if err != nil {
 			if up.stopWorker != nil {
 				up.stopWorker()

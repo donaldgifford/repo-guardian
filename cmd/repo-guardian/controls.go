@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,6 +27,7 @@ import (
 // worker deployment, its task queue, and what it registers.
 type controlsHalf struct {
 	name      string
+	role      config.Role
 	app       string
 	taskQueue string
 	sizing    config.WorkerSizing
@@ -39,14 +41,14 @@ func controlsHalves(cfg *config.Config, roles config.Role, tcfg *temporal.Config
 
 	if cfg.RunsControls(roles, config.RoleEvaluator) {
 		halves = append(halves, controlsHalf{
-			name: cmdEvaluator, app: workflows.AppEval, taskQueue: tcfg.EvalTaskQueue, sizing: cfg.Evaluator,
+			name: cmdEvaluator, role: config.RoleEvaluator, app: workflows.AppEval, taskQueue: tcfg.EvalTaskQueue, sizing: cfg.Evaluator,
 			register: workflows.RegisterEvaluator,
 		})
 	}
 
 	if cfg.RunsControls(roles, config.RoleRemediator) {
 		halves = append(halves, controlsHalf{
-			name: cmdRemediator, app: workflows.AppRemediate, taskQueue: tcfg.RemediateTaskQueue, sizing: cfg.Remediator,
+			name: cmdRemediator, role: config.RoleRemediator, app: workflows.AppRemediate, taskQueue: tcfg.RemediateTaskQueue, sizing: cfg.Remediator,
 			register: workflows.RegisterRemediator,
 		})
 	}
@@ -65,7 +67,7 @@ const remediatorPoolHeadroom = 4
 // the remediator defaults its pool to concurrency +
 // remediatorPoolHeadroom and refuses one smaller than its concurrency,
 // which would starve claims of their journal writes.
-func halfSizing(half controlsHalf) (concurrency int, pool int32, err error) {
+func halfSizing(half *controlsHalf) (concurrency int, pool int32, err error) {
 	concurrency, pool = temporal.DefaultActivityConcurrency, half.sizing.DBPoolSize
 	if half.sizing.Concurrency > 0 {
 		concurrency = half.sizing.Concurrency
@@ -88,29 +90,25 @@ func halfSizing(half controlsHalf) (concurrency int, pool int32, err error) {
 	}
 }
 
-// startControlsWorker starts one controls half's Temporal worker on its
-// own task queue, registering only that half's workflows and
-// activities, then promotes its build in the background. It returns the
-// function that stops the worker and closes its pool, and its readiness
-// checks.
-func startControlsWorker(
-	ctx context.Context,
-	cfg *config.Config,
-	tc client.Client,
-	tcfg *temporal.Config,
-	half controlsHalf,
-	logger *slog.Logger,
-) (func(), []readinessCheck, error) {
-	logger = logger.With("worker", half.name)
-
-	pcfg, err := pgxpool.ParseConfig(cfg.StoreDSN)
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s: parse STORE_DSN: %w", half.name, err)
+// openHalfPool opens the half's Postgres pool with its own role's DSN
+// (IMPL-0030 1.12) and checks the controls schema. It returns the pool
+// and the half's activity concurrency.
+func openHalfPool(ctx context.Context, cfg *config.Config, half *controlsHalf, logger *slog.Logger) (*pgxpool.Pool, int, error) {
+	dsn, dsnEnv := cfg.WorkerStoreDSN(half.role)
+	if dsn == "" {
+		return nil, 0, fmt.Errorf("%s: no store DSN: set STORE_DSN_%s or STORE_DSN", half.name, strings.ToUpper(half.name))
 	}
+
+	pcfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, 0, fmt.Errorf("%s: parse %s: %w", half.name, dsnEnv, err)
+	}
+
+	logger.Info("controls store", "dsn_env", dsnEnv, "db_user", pcfg.ConnConfig.User)
 
 	concurrency, poolSize, err := halfSizing(half)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 
 	if poolSize > 0 {
@@ -121,13 +119,36 @@ func startControlsWorker(
 
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: open store: %w", half.name, err)
+		return nil, 0, fmt.Errorf("%s: open store: %w", half.name, err)
 	}
 
 	if err := pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion); err != nil {
 		pool.Close()
 
-		return nil, nil, fmt.Errorf("%s: %w", half.name, err)
+		return nil, 0, fmt.Errorf("%s: %w", half.name, err)
+	}
+
+	return pool, concurrency, nil
+}
+
+// startControlsWorker starts one controls half's Temporal worker on its
+// own task queue, registering only that half's workflows and
+// activities, then promotes its build in the background. It returns the
+// function that stops the worker and closes its pool, and its readiness
+// checks.
+func startControlsWorker(
+	ctx context.Context,
+	cfg *config.Config,
+	tc client.Client,
+	tcfg *temporal.Config,
+	half *controlsHalf,
+	logger *slog.Logger,
+) (func(), []readinessCheck, error) {
+	logger = logger.With("worker", half.name)
+
+	pool, concurrency, err := openHalfPool(ctx, cfg, half, logger)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	wc := temporal.WorkerConfigFromEnv(tcfg)

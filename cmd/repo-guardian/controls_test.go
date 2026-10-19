@@ -100,7 +100,7 @@ func TestHalfSizing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, got, err := halfSizing(tt.half)
+			_, got, err := halfSizing(&tt.half)
 			if (err != nil) != tt.wantErr || got != tt.want {
 				t.Errorf("halfSizing(%s) pool = %d, %v; want %d, error %v", tt.half.name, got, err, tt.want, tt.wantErr)
 			}

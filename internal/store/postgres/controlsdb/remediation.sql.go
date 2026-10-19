@@ -259,6 +259,86 @@ func (q *Queries) LockPolicyStateForSlot(ctx context.Context, repositoryID int64
 	return max_open_prs, err
 }
 
+const lockResultForRun = `-- name: LockResultForRun :one
+SELECT cr.assignment_epoch, ca.epoch AS current_epoch, ca.state AS assignment_state
+FROM control_results cr
+JOIN control_assignments ca ON ca.repository_id = cr.repository_id AND ca.control_id = cr.control_id
+WHERE cr.repository_id = $1 AND cr.control_id = $2
+FOR UPDATE OF cr
+`
+
+type LockResultForRunParams struct {
+	RepositoryID int64
+	ControlID    string
+}
+
+type LockResultForRunRow struct {
+	AssignmentEpoch int64
+	CurrentEpoch    int64
+	AssignmentState string
+}
+
+// The record step's fence: the remediator holds no UPDATE on
+// control_assignments, so it locks the result row (which withdrawal
+// deletes) and compares epochs under that lock.
+func (q *Queries) LockResultForRun(ctx context.Context, arg LockResultForRunParams) (LockResultForRunRow, error) {
+	row := q.db.QueryRow(ctx, lockResultForRun, arg.RepositoryID, arg.ControlID)
+	var i LockResultForRunRow
+	err := row.Scan(&i.AssignmentEpoch, &i.CurrentEpoch, &i.AssignmentState)
+	return i, err
+}
+
+const recordRemediationRun = `-- name: RecordRemediationRun :execrows
+UPDATE remediations
+SET remediated_generation = GREATEST(remediated_generation, $1::bigint),
+    intent_revision       = $2,
+    acknowledged_head_sha = CASE
+        WHEN observed_head_sha IS NOT DISTINCT FROM $3::text THEN $3::text
+        ELSE acknowledged_head_sha END,
+    hold                  = NULL,
+    last_run_at           = now()
+WHERE operation_key = $4
+`
+
+type RecordRemediationRunParams struct {
+	Generation     int64
+	IntentRevision string
+	ProcessedHead  *string
+	OperationKey   string
+}
+
+// acknowledged_head_sha is a compare-and-set: a head the evaluator
+// observed after the run started stays unacknowledged, so it is due.
+func (q *Queries) RecordRemediationRun(ctx context.Context, arg RecordRemediationRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordRemediationRun,
+		arg.Generation,
+		arg.IntentRevision,
+		arg.ProcessedHead,
+		arg.OperationKey,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const recordResultRun = `-- name: RecordResultRun :exec
+UPDATE control_results
+SET remediated_generation = GREATEST(remediated_generation, $1::bigint), hold = NULL, hold_since = NULL
+WHERE repository_id = $2 AND control_id = $3
+`
+
+type RecordResultRunParams struct {
+	Generation   int64
+	RepositoryID int64
+	ControlID    string
+}
+
+func (q *Queries) RecordResultRun(ctx context.Context, arg RecordResultRunParams) error {
+	_, err := q.db.Exec(ctx, recordResultRun, arg.Generation, arg.RepositoryID, arg.ControlID)
+	return err
+}
+
 const remediationByOperationKey = `-- name: RemediationByOperationKey :one
 SELECT id, repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision, base_sha, branch, expected_head, reserved_until, pr_number, pr_url, observed_head_sha, observed_at, acknowledged_head_sha, proposal, remediated_generation, closed_generation, next_eligible_at, hold, created_at, last_run_at, closed_at, close_reason FROM remediations WHERE operation_key = $1
 `

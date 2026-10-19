@@ -9,16 +9,25 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres"
+	"github.com/donaldgifford/repo-guardian/internal/store/postgres/pgtest"
 )
 
-// remediationStores returns the evaluator store (for discovery) and a
-// RemediationStore connected as rg_remediator, plus a discovered
-// repository whose cap is three open pull requests.
-func remediationStores(t *testing.T) (*postgres.RemediationStore, int64) {
+// remediationFixture is a discovered repository (cap three open pull
+// requests, codeowners assigned) with both application stores.
+type remediationFixture struct {
+	eval   *postgres.ControlsStore
+	r      *postgres.RemediationStore
+	dsns   pgtest.ControlsDSNs
+	repoID int64
+}
+
+func newRemediationFixture(t *testing.T) *remediationFixture {
 	t.Helper()
 
 	s, dsns := evaluatorStore(t)
@@ -30,7 +39,17 @@ func remediationStores(t *testing.T) (*postgres.RemediationStore, int64) {
 	}
 	t.Cleanup(pool.Close)
 
-	return postgres.NewRemediationStore(pool), repo.ID
+	return &remediationFixture{eval: s, r: postgres.NewRemediationStore(pool), dsns: dsns, repoID: repo.ID}
+}
+
+// remediationStores is newRemediationFixture for tests that need only
+// the remediator.
+func remediationStores(t *testing.T) (*postgres.RemediationStore, int64) {
+	t.Helper()
+
+	f := newRemediationFixture(t)
+
+	return f.r, f.repoID
 }
 
 func reserve(t *testing.T, r *postgres.RemediationStore, repoID int64, control, key string) (*store.Remediation, error) {
@@ -125,5 +144,83 @@ func TestRemediationStore_ClaimOperation(t *testing.T) {
 	got, err := r.LatestRemediation(t.Context(), repoID, "codeowners")
 	if err != nil || got.State != store.StateOpen || got.PRNumber != 7 {
 		t.Fatalf("LatestRemediation = %+v, %v; want open #7", got, err)
+	}
+}
+
+// TestRemediationStore_RecordRun is IMPL-0030 1.6: the record writes
+// remediated_generation on both rows, acknowledges the processed head
+// only while it is still the observed one, clears hold, is idempotent,
+// and discards a run whose epoch moved.
+func TestRemediationStore_RecordRun(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	row, err := f.r.ReserveSlot(ctx, &store.SlotRequest{
+		RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "op-1", Intent: "i1", Generation: 1, TTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, `UPDATE remediations SET observed_head_sha = 'h1', hold = 'permission'`)
+	run(t, f.dsns.Owner, `UPDATE control_results SET hold = 'conflict', hold_since = now()`)
+
+	rec := &store.RunRecord{
+		Org: "acme", RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "op-1",
+		Generation: 1, IntentRevision: "i2", ProcessedHead: "h1",
+	}
+
+	for range 2 {
+		if ok, err := f.r.RecordRun(ctx, rec); err != nil || !ok {
+			t.Fatalf("RecordRun = %v, %v; want recorded", ok, err)
+		}
+	}
+
+	got, err := f.r.LatestRemediation(ctx, f.repoID, "codeowners")
+	if err != nil || got.ID != row.ID || got.AcknowledgedHeadSHA != "h1" || got.IntentRevision != "i2" || got.RemediatedGeneration != 1 || got.Hold != "" {
+		t.Fatalf("after RecordRun = %+v, %v; want acknowledged h1, intent i2, generation 1, no hold", got, err)
+	}
+
+	var hold *string
+	queryArgs(t, f.dsns.Owner, `SELECT hold FROM control_results WHERE repository_id = $1`, &hold, f.repoID)
+
+	if hold != nil {
+		t.Errorf("control_results.hold = %q, want NULL", *hold)
+	}
+
+	// A head observed after the run started stays unacknowledged.
+	run(t, f.dsns.Owner, `UPDATE remediations SET observed_head_sha = 'h2'`)
+
+	if ok, err := f.r.RecordRun(ctx, rec); err != nil || !ok {
+		t.Fatalf("RecordRun = %v, %v", ok, err)
+	}
+
+	if got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners"); got.AcknowledgedHeadSHA != "h1" {
+		t.Errorf("acknowledged_head_sha = %q after a newer observed head, want h1", got.AcknowledgedHeadSHA)
+	}
+
+	discarded := metrics.ResultsDiscardedTotal.WithLabelValues("acme", "stale_epoch")
+	before := testutil.ToFloat64(discarded)
+
+	stale := *rec
+	stale.Epoch, stale.Generation = epoch+100, 9
+
+	if ok, err := f.r.RecordRun(ctx, &stale); err != nil || ok {
+		t.Fatalf("RecordRun(stale epoch) = %v, %v; want discarded", ok, err)
+	}
+
+	if d := testutil.ToFloat64(discarded) - before; d != 1 {
+		t.Errorf("results_discarded_total{stale_epoch} moved %v, want 1", d)
+	}
+
+	if got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners"); got.RemediatedGeneration != 1 {
+		t.Errorf("remediated_generation = %d after a discarded run, want 1", got.RemediatedGeneration)
 	}
 }

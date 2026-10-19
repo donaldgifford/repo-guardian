@@ -62,6 +62,25 @@ type Remediations interface {
 	Steps(ctx context.Context, remediationID int64) ([]RemediationStep, error)
 	// AppendEvent records one remediation event.
 	AppendEvent(ctx context.Context, remediationID int64, kind string, detail json.RawMessage) error
+	// RecordRun writes what a finished run did (record-is-narrow). It
+	// reports false when the assignment epoch moved and the run was
+	// discarded. Call it after ClaimOperation returns: it updates the
+	// claimed row from its own connection.
+	RecordRun(ctx context.Context, run *RunRecord) (bool, error)
+}
+
+// RunRecord is a finished remediation run. Generation is the
+// eval_generation read at run start and ProcessedHead the pull request
+// head the run acted on (empty for an API control).
+type RunRecord struct {
+	Org            string
+	RepositoryID   int64
+	ControlID      string
+	Epoch          int64
+	OperationKey   string
+	Generation     int64
+	IntentRevision string
+	ProcessedHead  string
 }
 
 // ClaimedOperation is a remediation row held by ClaimOperation.

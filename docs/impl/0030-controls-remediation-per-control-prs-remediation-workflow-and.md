@@ -236,12 +236,17 @@ human required`.
   `ClaimedOperation`. A retried reservation returns its own row before
   the cap check. Pinned by `TestRemediationStore_ReserveSlot` and
   `TestRemediationStore_ClaimOperation`.
-- [ ] 1.6 `RecordRun` (record-is-narrow): `remediated_generation` to
+- [x] 1.6 `RecordRun` (record-is-narrow): `remediated_generation` to
   the generation read at run start, `acknowledged_head_sha` by
   compare-and-set against the head processed, `intent_revision`,
   `last_run_at`, `hold = NULL`; discarded and counted in
   `results_discarded_total{reason="stale_epoch"}` when the assignment
   epoch moved. Idempotent on `operation_key`.
+  Done: the remediator has no UPDATE on `control_assignments`, so the
+  fence locks the `control_results` row `FOR UPDATE` (withdrawal deletes
+  it) and compares both epochs under that lock; `remediated_generation`
+  is `GREATEST`, so a repeat is a no-op. Call it after `ClaimOperation`
+  returns. `TestRemediationStore_RecordRun`.
 - [ ] 1.7 `SetHold(ctx, repo, control, epoch, hold)` writing
   `control_results.hold`/`hold_since`, and the `remediations.hold =
   'permission'` path for blocked cleanup when the result row is gone.

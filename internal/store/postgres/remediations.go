@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
 )
@@ -306,4 +307,64 @@ func intOf(v *int32) int {
 	}
 
 	return int(*v)
+}
+
+// RecordRun writes a finished run in one transaction, fenced on the
+// assignment epoch: remediated_generation (never lowered), the intent
+// revision, acknowledged_head_sha by compare-and-set and hold cleared.
+// A moved epoch or a withdrawn result discards the run and counts it in
+// results_discarded_total{reason="stale_epoch"}. Repeating a record is a
+// no-op, so a retried activity is safe.
+func (s *RemediationStore) RecordRun(ctx context.Context, run *store.RunRecord) (bool, error) {
+	recorded := false
+
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+
+		fence, err := q.LockResultForRun(ctx, controlsdb.LockResultForRunParams{RepositoryID: run.RepositoryID, ControlID: run.ControlID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+
+		if err != nil {
+			return fmt.Errorf("lock result: %w", err)
+		}
+
+		if fence.CurrentEpoch != run.Epoch || fence.AssignmentEpoch != run.Epoch || fence.AssignmentState != "active" {
+			return nil
+		}
+
+		if err := q.RecordResultRun(ctx, controlsdb.RecordResultRunParams{
+			Generation: run.Generation, RepositoryID: run.RepositoryID, ControlID: run.ControlID,
+		}); err != nil {
+			return fmt.Errorf("record result: %w", err)
+		}
+
+		n, err := q.RecordRemediationRun(ctx, controlsdb.RecordRemediationRunParams{
+			Generation:     run.Generation,
+			IntentRevision: run.IntentRevision,
+			ProcessedHead:  nullText(run.ProcessedHead),
+			OperationKey:   run.OperationKey,
+		})
+		if err != nil {
+			return fmt.Errorf("record remediation: %w", err)
+		}
+
+		if n == 0 {
+			return fmt.Errorf("operation %s: %w", run.OperationKey, store.ErrRemediationNotFound)
+		}
+
+		recorded = true
+
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("record run: %w", err)
+	}
+
+	if !recorded {
+		metrics.ResultsDiscardedTotal.WithLabelValues(run.Org, reasonStaleEpoch).Inc()
+	}
+
+	return recorded, nil
 }

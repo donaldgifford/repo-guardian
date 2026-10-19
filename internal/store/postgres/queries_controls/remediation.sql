@@ -71,3 +71,31 @@ SELECT * FROM remediation_steps WHERE remediation_id = @remediation_id ORDER BY 
 
 -- name: AppendRemediationEvent :exec
 INSERT INTO remediation_events (remediation_id, kind, detail, occurred_at) VALUES (@remediation_id, @kind, @detail, now());
+
+-- name: LockResultForRun :one
+-- The record step's fence: the remediator holds no UPDATE on
+-- control_assignments, so it locks the result row (which withdrawal
+-- deletes) and compares epochs under that lock.
+SELECT cr.assignment_epoch, ca.epoch AS current_epoch, ca.state AS assignment_state
+FROM control_results cr
+JOIN control_assignments ca ON ca.repository_id = cr.repository_id AND ca.control_id = cr.control_id
+WHERE cr.repository_id = @repository_id AND cr.control_id = @control_id
+FOR UPDATE OF cr;
+
+-- name: RecordResultRun :exec
+UPDATE control_results
+SET remediated_generation = GREATEST(remediated_generation, @generation::bigint), hold = NULL, hold_since = NULL
+WHERE repository_id = @repository_id AND control_id = @control_id;
+
+-- name: RecordRemediationRun :execrows
+-- acknowledged_head_sha is a compare-and-set: a head the evaluator
+-- observed after the run started stays unacknowledged, so it is due.
+UPDATE remediations
+SET remediated_generation = GREATEST(remediated_generation, @generation::bigint),
+    intent_revision       = @intent_revision,
+    acknowledged_head_sha = CASE
+        WHEN observed_head_sha IS NOT DISTINCT FROM sqlc.narg(processed_head)::text THEN sqlc.narg(processed_head)::text
+        ELSE acknowledged_head_sha END,
+    hold                  = NULL,
+    last_run_at           = now()
+WHERE operation_key = @operation_key;

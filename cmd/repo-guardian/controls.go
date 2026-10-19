@@ -166,7 +166,7 @@ func startControlsWorker(
 	case workflows.AppEval:
 		eval, err = registerEvaluation(cfg, tc, tcfg, w, pool, logger)
 	case workflows.AppRemediate:
-		err = registerRemediation(cfg, w, pool, logger)
+		err = registerRemediation(ctx, cfg, w, pool, logger)
 	}
 
 	if err != nil {
@@ -257,8 +257,10 @@ func registerEvaluation(
 
 // registerRemediation registers the remediator's activities on w
 // (IMPL-0030 task 3.2) as the Remediation App. Only this half registers
-// them; the evaluator half never reaches the Writer.
-func registerRemediation(cfg *config.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger) error {
+// them; the evaluator half never reaches the Writer. It resolves the
+// App's bot user once (task 3.7) and refuses to start without it: every
+// authorship check matches by that id.
+func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger) error {
 	creds := cfg.Credentials(config.AppRemediate)
 
 	app, err := ghclient.NewClient(creds.AppID, creds.PrivateKeyPath, logger, cfg.RateLimitThreshold)
@@ -266,8 +268,13 @@ func registerRemediation(cfg *config.Config, w worker.Registry, pool *pgxpool.Po
 		return fmt.Errorf("remediation app client: %w", err)
 	}
 
-	activities.NewRemediator(pgstore.NewRemediationStore(pool), activities.NewGitHubRemediationClients(app), ghclient.BotIdentity{}, logger).
-		Register(w)
+	bot, err := app.ResolveBotIdentity(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve the remediation app's bot user: %w", err)
+	}
+
+	logger.Info("remediation app bot user", "login", bot.Login, "id", bot.ID)
+	activities.NewRemediator(pgstore.NewRemediationStore(pool), activities.NewGitHubRemediationClients(app), bot, logger).Register(w)
 
 	return nil
 }

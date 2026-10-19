@@ -462,7 +462,7 @@ human required`.
   → stop with `hold = 'permission'` or let resolution's
   `effective_mode` override take it; then outcomes. A secondary-limit
   403 is a throttle before it is a permission failure.
-- [ ] 3.7 Remediator bot identity: resolve the Remediation App's bot
+- [x] 3.7 Remediator bot identity: resolve the Remediation App's bot
   user id at remediator startup (`GET /app` for the slug, then
   `GET /users/<slug>[bot]` for the id and `type = Bot`), cache it, and
   fail startup when it cannot be resolved. Reuse IMPL-0028's resolver

@@ -22,7 +22,9 @@ import (
 // remediableStore answers every RemediationTarget with one remediable
 // assignment; the store's own behaviour is pinned by the postgres
 // integration tests.
-type remediableStore struct{}
+type remediableStore struct {
+	activities.RemediationStore // the no-op remediation reads nothing else
+}
 
 func (remediableStore) RemediationTarget(context.Context, int64, string) (*store.RemediationTarget, error) {
 	return &store.RemediationTarget{
@@ -79,7 +81,7 @@ func TestIntegration_OneRemediation(t *testing.T) {
 	}
 
 	activities.NewBudget(srv.Client, workflows.AppRemediate, queue, 0.10).Register(w)
-	activities.NewRemediator(remediableStore{}, fakeClients{repo: repo, actor: bot}, ghclient.BotIdentity{ID: bot.ID, Login: bot.Login}, quiet).Register(w)
+	activities.NewRemediator(remediableStore{}, nil, fakeClients{repo: repo, actor: bot}, ghclient.BotIdentity{ID: bot.ID, Login: bot.Login}, quiet).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)

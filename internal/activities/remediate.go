@@ -2,6 +2,7 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -39,12 +40,35 @@ func (e *holdError) Error() string {
 
 func (e *holdError) Unwrap() error { return e.cause }
 
+// deferError ends a run with a deferral that is not a throttle: an
+// expected-head mismatch, or an update-branch GitHub accepted but has not
+// applied (IMPL-0030 4.6, 4.11). The next attempt re-pins the head.
+type deferError struct{ reason string }
+
+func (e *deferError) Error() string { return "remediation deferred: " + e.reason }
+
 // RemediationStore is what the remediation activities read and write
-// (IMPL-0030 Phase 3); *postgres.RemediationStore satisfies it, as
+// (IMPL-0030 Phases 3 and 4); *postgres.RemediationStore satisfies it, as
 // rg_remediator.
 type RemediationStore interface {
 	RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*store.RemediationTarget, error)
 	SetHold(ctx context.Context, repositoryID int64, controlID string, epoch int64, hold string) (bool, error)
+	LatestRemediation(ctx context.Context, repositoryID int64, controlID string) (*store.Remediation, error)
+	ReserveSlot(ctx context.Context, in *store.SlotRequest) (*store.Remediation, error)
+	ClaimOperation(ctx context.Context, operationKey string, fn func(ctx context.Context, op store.ClaimedOperation) error) error
+	AppendStep(ctx context.Context, step *store.RemediationStep) (int, error)
+	Steps(ctx context.Context, remediationID int64) ([]store.RemediationStep, error)
+	AppendEvent(ctx context.Context, remediationID int64, kind string, detail json.RawMessage) error
+	RecordRun(ctx context.Context, run *store.RunRecord) (bool, error)
+	TouchLastRemediation(ctx context.Context, repositoryID int64) error
+}
+
+// RemediationPolicy is the loaded controls policy as the remediator
+// needs it; *policy.Snapshot satisfies it.
+type RemediationPolicy interface {
+	Control(id control.ID) control.Control
+	Definition(id control.ID) (control.Definition, bool)
+	Revision(id control.ID) string
 }
 
 // RemediationClients opens a repository as the Remediation App.
@@ -69,18 +93,42 @@ type remediationAct func(ctx context.Context, run *remediationRun) error
 // Remediate and ReadRemediationState, as the Remediation App.
 type Remediator struct {
 	store   RemediationStore
+	policy  RemediationPolicy
 	clients RemediationClients
 	bot     ghclient.BotIdentity
 	logger  *slog.Logger
+	now     func() time.Time
 
 	// act does one run's work; nil is the no-op remediation.
 	act remediationAct
 }
 
-// NewRemediator returns the remediation activities over st as the
-// Remediation App, whose bot identity was resolved at startup.
-func NewRemediator(st RemediationStore, clients RemediationClients, bot ghclient.BotIdentity, logger *slog.Logger) *Remediator {
-	return &Remediator{store: st, clients: clients, bot: bot, logger: logger}
+// NewRemediator returns the remediation activities over st and the
+// loaded policy as the Remediation App, whose bot identity was resolved
+// at startup.
+func NewRemediator(
+	st RemediationStore, pol RemediationPolicy, clients RemediationClients, bot ghclient.BotIdentity, logger *slog.Logger,
+) *Remediator {
+	r := &Remediator{store: st, policy: pol, clients: clients, bot: bot, logger: logger, now: time.Now}
+	r.act = r.dispatch
+
+	return r
+}
+
+// dispatch runs the control's remediation: a file control by pull
+// request (IMPL-0030 Phase 4); an API control is Phase 5's. A control
+// whose loaded revision is not the assignment's waits for the rollout
+// to re-resolve it.
+func (r *Remediator) dispatch(ctx context.Context, run *remediationRun) error {
+	if run.control == nil {
+		return nil
+	}
+
+	if _, api := run.control.(control.APIType); api || run.def.Apply != "" {
+		return nil
+	}
+
+	return r.pullRequest(ctx, run)
 }
 
 // Register registers the remediation activities on the remediator
@@ -97,6 +145,12 @@ type remediationRun struct {
 	target *store.RemediationTarget
 	repo   RemediationRepo
 	store  RemediationStore
+	log    *slog.Logger
+
+	// control and def are the assigned control at the assignment's
+	// revision; nil when the loaded policy has another revision.
+	control control.Control
+	def     control.Definition
 }
 
 // remediates reports whether t is a target a run acts on: an active
@@ -130,20 +184,30 @@ func (r *Remediator) Remediate(ctx context.Context, in *workflows.RemediateInput
 	}
 
 	runCtx, usage := ghclient.WithUsage(ctx)
-	err = r.run(runCtx, in, t)
+	err = r.run(runCtx, log, in, t)
 	out.Calls, out.Rate = usage.Calls(), toRate(usage.Rate())
 	activity.RecordHeartbeat(ctx, "done")
 
 	return r.classify(ctx, log, in, t, out, err)
 }
 
-func (r *Remediator) run(ctx context.Context, in *workflows.RemediateInput, t *store.RemediationTarget) error {
+func (r *Remediator) run(ctx context.Context, log *slog.Logger, in *workflows.RemediateInput, t *store.RemediationTarget) error {
 	repo, err := r.clients.Repo(ctx, t.InstallationID, t.Org, t.Name)
 	if err != nil {
 		return err
 	}
 
-	return r.act(ctx, &remediationRun{in: in, target: t, repo: repo, store: r.store})
+	run := &remediationRun{in: in, target: t, repo: repo, store: r.store, log: log}
+
+	if r.policy != nil {
+		id := control.ID{Slug: in.Control, Version: t.ControlVersion}
+		if c := r.policy.Control(id); c != nil && r.policy.Revision(id) == t.Revision {
+			run.control = c
+			run.def, _ = r.policy.Definition(id)
+		}
+	}
+
+	return r.act(ctx, run)
 }
 
 // classify turns a run's error into a disposition, in order (IMPL-0030
@@ -153,14 +217,22 @@ func (r *Remediator) run(ctx context.Context, in *workflows.RemediateInput, t *s
 func (r *Remediator) classify(
 	ctx context.Context, log *slog.Logger, in *workflows.RemediateInput, t *store.RemediationTarget, out *workflows.RemediateResult, err error,
 ) (*workflows.RemediateResult, error) {
-	var held *holdError
+	var (
+		held     *holdError
+		deferred *deferError
+	)
 
 	switch thr, throttled := ghclient.AsThrottled(err); {
 	case err == nil:
 		return out, nil
 	case throttled:
-		out.Kind, out.Until = workflows.RemediationDeferred, deferUntil(time.Now(), thr.ResetAt, in.Deferrals)
+		out.Kind, out.Until = workflows.RemediationDeferred, deferUntil(r.now(), thr.ResetAt, in.Deferrals)
 		log.Info("rate limit throttled; deferring remediation", "reset_at", thr.ResetAt, "due", out.Until, "deferrals", in.Deferrals)
+
+		return out, nil
+	case errors.As(err, &deferred):
+		out.Kind, out.Until = workflows.RemediationDeferred, deferUntil(r.now(), time.Time{}, in.Deferrals)
+		log.Info("deferring remediation", "reason", deferred.reason, "due", out.Until, "deferrals", in.Deferrals)
 
 		return out, nil
 	case ghclient.IsAccessDenied(err):

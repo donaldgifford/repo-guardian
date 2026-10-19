@@ -24,10 +24,11 @@ import (
 // fakeRemediationStore answers RemediationTarget from targets in turn
 // (the last one repeats) and records holds.
 type fakeRemediationStore struct {
-	mu      sync.Mutex
-	targets []*store.RemediationTarget
-	reads   int
-	holds   []string
+	RemediationStore // anything not overridden panics
+	mu               sync.Mutex
+	targets          []*store.RemediationTarget
+	reads            int
+	holds            []string
 }
 
 func (f *fakeRemediationStore) RemediationTarget(context.Context, int64, string) (*store.RemediationTarget, error) {
@@ -92,7 +93,7 @@ func runRemediate(t *testing.T, st *fakeRemediationStore, act remediationAct) (*
 
 	var suite testsuite.WorkflowTestSuite
 
-	r := NewRemediator(st, &fakeRemediationClients{}, ghclient.BotIdentity{}, slog.New(slog.DiscardHandler))
+	r := NewRemediator(st, nil, &fakeRemediationClients{}, ghclient.BotIdentity{}, slog.New(slog.DiscardHandler))
 	r.act = act
 
 	env := suite.NewTestActivityEnvironment()

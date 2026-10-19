@@ -261,6 +261,11 @@ func registerEvaluation(
 // App's bot user once (task 3.7) and refuses to start without it: every
 // authorship check matches by that id.
 func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger) error {
+	snap, err := policy.Load(cfg.GuardianConfigPath, builtin.Registry(), logger)
+	if err != nil {
+		return fmt.Errorf("load policy: %w", err)
+	}
+
 	creds := cfg.Credentials(config.AppRemediate)
 
 	app, err := ghclient.NewClient(creds.AppID, creds.PrivateKeyPath, logger, cfg.RateLimitThreshold)
@@ -274,7 +279,7 @@ func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Regis
 	}
 
 	logger.Info("remediation app bot user", "login", bot.Login, "id", bot.ID)
-	activities.NewRemediator(pgstore.NewRemediationStore(pool), activities.NewGitHubRemediationClients(app), bot, logger).Register(w)
+	activities.NewRemediator(pgstore.NewRemediationStore(pool), snap, activities.NewGitHubRemediationClients(app), bot, logger).Register(w)
 
 	return nil
 }

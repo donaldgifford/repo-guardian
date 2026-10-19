@@ -27,7 +27,7 @@ func TestRegister_RemediationActivitiesOnlyOnTheRemediator(t *testing.T) {
 	remediation := []string{workflows.ReadRemediationStateActivity, workflows.RemediateActivity}
 
 	var rem nameRegistry
-	NewRemediator(nil, nil, ghclient.BotIdentity{}, slog.New(slog.DiscardHandler)).Register(&rem)
+	NewRemediator(nil, nil, nil, ghclient.BotIdentity{}, slog.New(slog.DiscardHandler)).Register(&rem)
 
 	if got := slices.Sorted(slices.Values(rem.names)); !slices.Equal(got, remediation) {
 		t.Errorf("Remediator registers %v, want %v", got, remediation)

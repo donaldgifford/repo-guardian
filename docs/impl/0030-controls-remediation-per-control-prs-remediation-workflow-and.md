@@ -492,50 +492,50 @@ human required`.
 
 #### Tasks
 
-- [ ] 4.1 Re-read: assignment, result and latest remediation; stop
+- [x] 4.1 Re-read: assignment, result and latest remediation; stop
   unless `needs_remediation` (the `remediation_due` predicate for this
   one row).
-- [ ] 4.2 Find: `GetRef("repo-guardian/<slug>")` and the open PR on it.
+- [x] 4.2 Find: `GetRef("repo-guardian/<slug>")` and the open PR on it.
   Tracked means a `remediations` row with this branch and a PR number.
-- [ ] 4.3 Untracked branch: adopt only when an open PR on it is
+- [x] 4.3 Untracked branch: adopt only when an open PR on it is
   authored by the Remediation App's bot user id with type `Bot` and
   head repository id equal to this repository's. Otherwise hold
   `stale_branch` when the head equals the journaled bot head of a
   `closed_by_user` row, else `foreign_branch`. Commit author text is
   never consulted.
-- [ ] 4.4 No branch: `ReserveSlot`; `ErrPRCap` holds `pr_cap`. Write the
+- [x] 4.4 No branch: `ReserveSlot`; `ErrPRCap` holds `pr_cap`. Write the
   intent (`base_sha` = pinned default-branch head, `branch`,
   `expected_head`, `intent_revision`, `assignment_epoch`) before any
   external step.
-- [ ] 4.5 Tracked PR: verify the head descends from the last journaled
+- [x] 4.5 Tracked PR: verify the head descends from the last journaled
   bot commit (`ListCommits` or compare); otherwise hold `conflict`,
   upsert the sticky comment (OQ9), never force-push. When the default
   branch was renamed, `UpdatePullRequestBase` first.
-- [ ] 4.6 Behind main: `UpdateBranch` with `expected_head_sha` = the
+- [x] 4.6 Behind main: `UpdateBranch` with `expected_head_sha` = the
   observed head. `422` merge conflict → hold `conflict` with the
   comment; `422` head moved → defer; any other `422` → error; `202` →
   defer, and the next run re-pins the head the merge produced.
   Journal `pr_rebased`.
-- [ ] 4.7 Fresh `Evaluate` at the pinned default-branch head through the
+- [x] 4.7 Fresh `Evaluate` at the pinned default-branch head through the
   Remediation App's `Reader` (D22: never stored status).
-- [ ] 4.8 Call the type's `Remediate` (built in IMPL-0029, per its
+- [x] 4.8 Call the type's `Remediate` (built in IMPL-0029, per its
   OQ2) and `control.ValidateChangeSet` on the result, then the
   self-check (evaluate the changed content; refuse when a `Fixed` rule
   does not pass or a passing rule regresses). A change set with nothing
   in `Fixed` is recorded as a recommendation-style no-op on the PR row
   and not retried until the generation moves (DESIGN-0031 D14).
-- [ ] 4.9 Obsolete bot edits: for each path the journal shows the bot
+- [x] 4.9 Obsolete bot edits: for each path the journal shows the bot
   wrote that the current change set no longer owns, revert it only
   where the current blob equals the journaled `blob_sha`; a human's
   edit to the same path is left alone. Reverts join the same commit.
-- [ ] 4.10 Compliant at the fresh read with an open PR: close it as
+- [x] 4.10 Compliant at the fresh read with an open PR: close it as
   `closed_compliant` (sticky comment, `ClosePullRequest`), never delete
   the branch. Drift found by the fresh read keeps it open.
-- [ ] 4.11 New branch: `CreateRef` at `base_sha`, journal
+- [x] 4.11 New branch: `CreateRef` at `base_sha`, journal
   `branch_created`. Commit: `Writer.Commit(branch, expected_head,
   changes, message)`; journal `committed` with every path and its blob
   SHA; `ErrExpectedHeadMismatch` → defer and re-pin.
-- [ ] 4.12 PR: `CreatePullRequest`, or on `422` "already exists" list
+- [x] 4.12 PR: `CreatePullRequest`, or on `422` "already exists" list
   by head and adopt the open one authored by the App; otherwise
   `UpdatePullRequest` with the re-rendered title and body. Labels via
   the PR template. Journal `pr_created`/`pr_updated`; the reserved row
@@ -545,10 +545,10 @@ human required`.
   (`template.PRVars` with `.Control`, `.Fixed`, `.Manual`, `.Notes`),
   defaults per OQ10; bodies over 65000 characters truncated with the
   existing marker.
-- [ ] 4.14 Recovery: a PR create that failed after the commit is
+- [x] 4.14 Recovery: a PR create that failed after the commit is
   completed by the next attempt, which finds the branch at exactly the
   journaled `committed_sha` under the same `operation_key`.
-- [ ] 4.15 Record (`RecordRun`), then `last_remediation_at`, then the
+- [x] 4.15 Record (`RecordRun`), then `last_remediation_at`, then the
   workflow's loop check (3.1).
 - [ ] 4.16 Behaviour tests, one per DESIGN-0032 Testing Strategy bullet
   under "Remediation workflow": onboarding opens the PR; a no-change

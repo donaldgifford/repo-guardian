@@ -178,13 +178,18 @@ human required`.
 
 #### Tasks
 
-- [ ] 1.1 Confirm where the remediation DDL lives (OQ1). If IMPL-0029
+- [x] 1.1 Confirm where the remediation DDL lives (OQ1). If IMPL-0029
   already shipped `remediations`, `remediation_steps`,
   `remediation_events`, both views and the remediator grants in
   `00003_controls_results`, diff them against DESIGN-0032 §Data Model
   and fix drift there; otherwise add them as the OQ1 answer says. The
   DDL is DESIGN-0032's verbatim: the three `CHECK`s on `kind`/`state`,
   `remediations_one_open`, `remediations_slots`, `UNIQUE (remediation_id, seq)`.
+  **Done:** IMPL-0029 shipped every table, both views, the RLS policies
+  and the grant matrix in `00003`. One drift: `remediation_maintenance`
+  did not withdraw on an `effective_mode = 'evaluate'` downgrade (1.3).
+  rc databases have applied `00003`, so the fix is the additive
+  `00005_remediation.sql` (`ControlsSchemaVersion` 5), not an edit.
 - [ ] 1.2 `remediation_due` view: the DESIGN-0032 predicate over
   `repository_policy_state`, `control_assignments` (active, matching
   epoch, `effective_mode = 'remediate'`), `control_results` (status

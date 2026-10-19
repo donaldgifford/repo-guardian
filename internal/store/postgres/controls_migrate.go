@@ -33,10 +33,10 @@ const controlsDir = "migrations_controls"
 const ControlsVersionTable = "goose_controls_version"
 
 // ControlsSchemaVersion is the controls chain version this binary was
-// built for: 00001_core (IMPL-0028) and IMPL-0029's 00002 to 00004.
-// Roles pass it to RequireControlsSchema so a pod never serves against
-// an older schema.
-const ControlsSchemaVersion = 4
+// built for: 00001_core (IMPL-0028), IMPL-0029's 00002 to 00004 and
+// IMPL-0030's 00005_remediation. Roles pass it to RequireControlsSchema
+// so a pod never serves against an older schema.
+const ControlsSchemaVersion = 5
 
 // OpenDB opens a database/sql handle over pgx for goose. The caller
 // owns the returned handle and must close it.

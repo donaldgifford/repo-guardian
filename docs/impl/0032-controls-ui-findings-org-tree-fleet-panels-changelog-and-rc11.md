@@ -186,7 +186,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Tone table (INV-0023 F1).** In `ui/web/src/lib/format.ts`,
+- [x] 1.1 **Tone table (INV-0023 F1).** In `ui/web/src/lib/format.ts`,
   add `rule` (`pass` ok, `fail` bad, `error` bad, `unknown` warn,
   `not_applicable` mute), `bucket` and `decision` to `ToneField`. Move
   `BucketBadge`'s `bucketTones` and `DecisionBadge` in

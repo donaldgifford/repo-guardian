@@ -1,11 +1,17 @@
 import { humanize, toneFor } from "../lib/format";
 import { Badge } from "./ui/badge";
 
-// The five badges every view uses, each reading the tone table so no
+// The badges every view uses, each reading the tone table so no
 // view carries a colour of its own (DESIGN-0036 §Badges).
 
 export function StatusBadge({ status }: { status: string }) {
   return <Badge tone={toneFor("status", status)}>{status === "not_applicable" ? "n/a" : humanize(status)}</Badge>;
+}
+
+// RuleStatusBadge is a rule result's status (pass, fail, error, unknown,
+// not_applicable), toned by the `rule` row, not the control `status` row.
+export function RuleStatusBadge({ status }: { status: string }) {
+  return <Badge tone={toneFor("rule", status)}>{status === "not_applicable" ? "n/a" : humanize(status)}</Badge>;
 }
 
 // RemediationBadge renders "—" for `none` inside a table, where a badge

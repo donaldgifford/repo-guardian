@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { KindBadge, ReasonBadge, RemediationBadge, StateBadge, StatusBadge } from "./badges";
+import { KindBadge, ReasonBadge, RemediationBadge, RuleStatusBadge, StateBadge, StatusBadge } from "./badges";
 
 // A tone is visible in the markup as the --tone variable it sets, or as
 // the border for outline.
@@ -20,6 +20,22 @@ describe("StatusBadge", () => {
     ["quarantined", "muted-foreground", "quarantined"],
   ])("%s → %s, labelled %p", (status, tone, label) => {
     const html = renderToStaticMarkup(<StatusBadge status={status} />);
+    expect(toneOf(html)).toBe(tone);
+    expect(html).toContain(`>${label}<`);
+  });
+});
+
+describe("RuleStatusBadge", () => {
+  // INV-0023 F1: a failing rule must read bad, not the mute that the
+  // control status row gave it.
+  test.each([
+    ["pass", "ok", "pass"],
+    ["fail", "bad", "fail"],
+    ["error", "bad", "error"],
+    ["unknown", "warn", "unknown"],
+    ["not_applicable", "muted-foreground", "n/a"],
+  ])("%s → %s, labelled %p", (status, tone, label) => {
+    const html = renderToStaticMarkup(<RuleStatusBadge status={status} />);
     expect(toneOf(html)).toBe(tone);
     expect(html).toContain(`>${label}<`);
   });

@@ -231,6 +231,53 @@ type RepositoryControl struct {
 	Remediation *RemediationView
 }
 
+// ResultRow is one recorded control result in /results: a finding when
+// its Bucket is non_compliant.
+type ResultRow struct {
+	RepositoryID   int64
+	Org            string
+	Repository     string
+	ControlID      string
+	ControlVersion int
+	Decision       string
+	Status         string
+	Bucket         string
+	// FailingRules are the rules that fail or error, by rule id; Reason
+	// is the first one's evidence reason, else its evidence_kind.
+	FailingRules  []string
+	Reason        string
+	LastChangedAt time.Time
+}
+
+// ResultKey orders /results for paging.
+type ResultKey struct {
+	At           time.Time
+	RepositoryID int64
+	ControlID    string
+}
+
+// ResultFilter selects results. Zero fields do not filter.
+type ResultFilter struct {
+	// Bucket is a posture bucket, as ControlCompliance computes it.
+	Bucket    string
+	ControlID string
+	Org       string
+	Decision  string
+	// RuleID keeps results where this rule fails or errors.
+	RuleID string
+	// Descending sorts newest change first.
+	Descending bool
+	After      *ResultKey
+	Limit      int
+}
+
+// ResultPage is one page of results; Total is counted on the first
+// page only.
+type ResultPage struct {
+	Page[ResultRow]
+	Total *int
+}
+
 // RemediationView is one remediation as the API shows it: a
 // remediations row, or a result held before a pull request exists (ID
 // zero, State empty, Kind pull_request, CreatedAt its hold_since).

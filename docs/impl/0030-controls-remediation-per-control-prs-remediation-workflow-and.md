@@ -732,7 +732,7 @@ Every new query lives in an `api_*.sql` file so
     `ControlPosture.Plus` on the same fixture;
   - the `org` series agrees with `ControlCompliance` for the latest
     day.
-- [ ] 7.7 **`GET /results`.**
+- [x] 7.7 **`GET /results`.**
   - **Query** `api_results.sql` over `control_results` ⋈
     `control_assignments` ⋈ `repositories` ⋈ `repository_policy_state`,
     with the posture bucket computed by the same `CASE` as

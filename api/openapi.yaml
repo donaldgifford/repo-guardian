@@ -387,6 +387,68 @@ paths:
                 $ref: "#/components/schemas/Problem"
         default:
           $ref: "#/components/responses/Error"
+  /results:
+    get:
+      operationId: listResults
+      summary: Recorded control results over the visible orgs, filtered; findings are bucket=non_compliant.
+      description: |
+        The population and the bucket are the compliance query's:
+        managed repositories plus those parked for access loss, so
+        `bucket=non_compliant`'s total equals the summary's
+        `non_compliant`. A pending assignment has no result and never
+        appears. `total` is counted on the first page only (no cursor).
+      tags: [fleet]
+      parameters:
+        - name: bucket
+          in: query
+          description: Only this posture bucket.
+          schema:
+            $ref: "#/components/schemas/Bucket"
+        - name: control
+          in: query
+          description: Only this control slug.
+          schema:
+            $ref: "#/components/schemas/ControlSlug"
+        - name: rule
+          in: query
+          description: Only results where this rule fails or errors.
+          schema:
+            type: string
+            maxLength: 100
+        - name: org
+          in: query
+          description: Only this org, case-insensitive.
+          schema:
+            type: string
+        - name: decision
+          in: query
+          description: "Only this assignment decision. Open enum: baseline, replaced, org_added, excluded."
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: By last change, oldest first (since_asc) or newest first (since_desc).
+          schema:
+            type: string
+            enum: [since_asc, since_desc]
+            default: since_asc
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
   /remediations:
     get:
       operationId: listRemediations
@@ -1335,6 +1397,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RepositoryControl"
+    Bucket:
+      description: "Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded."
+      type: string
+      examples: [non_compliant]
+    ResultRow:
+      description: One recorded control result.
+      type: object
+      required: [repository_id, org, repository, control_id, control_version, decision, status, bucket, failing_rules,
+        last_changed_at]
+      properties:
+        repository_id:
+          type: integer
+          format: int64
+        org:
+          type: string
+        repository:
+          description: The repository name.
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        control_version:
+          type: integer
+          minimum: 1
+        decision:
+          description: "Open enum: baseline, replaced, org_added, excluded."
+          type: string
+        status:
+          description: "Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable."
+          type: string
+        bucket:
+          $ref: "#/components/schemas/Bucket"
+        failing_rules:
+          description: The rules that fail or error, by rule id.
+          type: array
+          items:
+            type: string
+        reason:
+          description: The first failing rule's evidence reason, else its evidence_kind; absent when no rule fails.
+          type: string
+        last_changed_at:
+          type: string
+          format: date-time
+    ResultPage:
+      description: A page of results.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResultRow"
+        total:
+          description: How many results the filters match; on the first page only.
+          type: integer
+          minimum: 0
+        next_cursor:
+          $ref: "#/components/schemas/Cursor"
     RemediationState:
       description: |
         Open enum. A pull request: reserved, open, merged,

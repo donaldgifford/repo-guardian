@@ -243,6 +243,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recorded control results over the visible orgs, filtered; findings are bucket=non_compliant.
+         * @description The population and the bucket are the compliance query's:
+         *     managed repositories plus those parked for access loss, so
+         *     `bucket=non_compliant`'s total equals the summary's
+         *     `non_compliant`. A pending assignment has no result and never
+         *     appears. `total` is counted on the first page only (no cursor).
+         */
+        get: operations["listResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/remediations": {
         parameters: {
             query?: never;
@@ -762,6 +786,39 @@ export interface components {
         /** @description A repository's assignments. */
         RepositoryControlList: {
             items: components["schemas"]["RepositoryControl"][];
+        };
+        /**
+         * @description Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded.
+         * @example non_compliant
+         */
+        Bucket: string;
+        /** @description One recorded control result. */
+        ResultRow: {
+            /** Format: int64 */
+            repository_id: number;
+            org: string;
+            /** @description The repository name. */
+            repository: string;
+            control_id: components["schemas"]["ControlSlug"];
+            control_version: number;
+            /** @description Open enum: baseline, replaced, org_added, excluded. */
+            decision: string;
+            /** @description Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. */
+            status: string;
+            bucket: components["schemas"]["Bucket"];
+            /** @description The rules that fail or error, by rule id. */
+            failing_rules: string[];
+            /** @description The first failing rule's evidence reason, else its evidence_kind; absent when no rule fails. */
+            reason?: string;
+            /** Format: date-time */
+            last_changed_at: string;
+        };
+        /** @description A page of results. */
+        ResultPage: {
+            items: components["schemas"]["ResultRow"][];
+            /** @description How many results the filters match; on the first page only. */
+            total?: number;
+            next_cursor?: components["schemas"]["Cursor"];
         };
         /**
          * @description Open enum. A pull request: reserved, open, merged,
@@ -1386,6 +1443,47 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    listResults: {
+        parameters: {
+            query?: {
+                /** @description Only this posture bucket. */
+                bucket?: components["schemas"]["Bucket"];
+                /** @description Only this control slug. */
+                control?: components["schemas"]["ControlSlug"];
+                /** @description Only results where this rule fails or errors. */
+                rule?: string;
+                /** @description Only this org, case-insensitive. */
+                org?: string;
+                /** @description Only this assignment decision. Open enum: baseline, replaced, org_added, excluded. */
+                decision?: string;
+                /** @description By last change, oldest first (since_asc) or newest first (since_desc). */
+                sort?: "since_asc" | "since_desc";
+                /** @description The next_cursor of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };

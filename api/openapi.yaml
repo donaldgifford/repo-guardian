@@ -449,6 +449,38 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/Error"
+  /remediations/activity:
+    get:
+      operationId: getRemediationActivity
+      summary: Pull request throughput per UTC day over the visible orgs.
+      description: |
+        repo-guardian pull requests opened (by when they were opened) and
+        closed (by when they were closed, merged or not) on each UTC day
+        of the last `days` days, today included. Every day is present,
+        oldest first; a day with neither is zeros.
+      tags: [remediations]
+      parameters:
+        - name: days
+          in: query
+          description: How many days, today included.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 14
+      responses:
+        "200":
+          description: One entry per day.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemediationActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /remediations:
     get:
       operationId: listRemediations
@@ -1155,6 +1187,28 @@ components:
         policy_version:
           description: The active policy version; absent before one is activated.
           type: string
+    RemediationActivity:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityDay"
+    ActivityDay:
+      description: One UTC day of repo-guardian pull request throughput.
+      type: object
+      required: [day, opened, closed]
+      properties:
+        day:
+          type: string
+          format: date
+        opened:
+          type: integer
+          minimum: 0
+        closed:
+          type: integer
+          minimum: 0
     AgeCount:
       description: How many fall in one age bucket.
       type: object

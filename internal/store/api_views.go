@@ -345,6 +345,13 @@ type RemediationKey struct {
 	ID           int64
 }
 
+// ActivityDay is one UTC day of repo-guardian pull request throughput.
+type ActivityDay struct {
+	Day    time.Time
+	Opened int
+	Closed int
+}
+
 // RemediationFilter selects remediations. Zero fields do not filter.
 type RemediationFilter struct {
 	Kind      string

@@ -132,6 +132,7 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 		{"/repositories/{id}/evaluate", http.MethodPost, e.repoPath("acme-web/b", "/evaluate"), http.StatusNotImplemented},
 		{"/results", http.MethodGet, "/results?bucket=non_compliant", http.StatusOK},
 		{"/remediations", http.MethodGet, "/remediations?hold=conflict&hold=permission", http.StatusOK},
+		{"/remediations/activity", http.MethodGet, "/remediations/activity?days=30", http.StatusOK},
 		{"/compliance/history", http.MethodGet, "/compliance/history?days=7", http.StatusOK},
 		{"/status", http.MethodGet, "/status", http.StatusOK},
 		{"/openapi.yaml", http.MethodGet, "/openapi.yaml", http.StatusOK},

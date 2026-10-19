@@ -201,3 +201,39 @@ func TestEndpoints_RemediationsPageHeldAndTrackedRows(t *testing.T) {
 		t.Errorf("walked %v, want the held result on c and the remediation on widgets", seen)
 	}
 }
+
+// TestEndpoints_RemediationActivity is IMPL-0030 7.12: every day in the
+// window, PRs counted on the UTC day they opened and closed, a direct
+// apply never, and another org's PRs invisible to a team.
+func TestEndpoints_RemediationActivity(t *testing.T) {
+	t.Parallel()
+
+	e := newEndpoints(t)
+	seedRemediations(t, e)
+	run(t, e.f.dsns.Owner, `UPDATE remediations SET created_at = now() - interval '3 days', closed_at = now() - interval '1 day'
+		WHERE operation_key = 'op-old'`)
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	day := func(back int) string { return today.AddDate(0, 0, -back).Format(time.DateOnly) }
+
+	got := decodeAs[gen.RemediationActivity](t, e.get(t, "/remediations/activity", "platform")).Items
+	if len(got) != 14 || got[0].Day.String() != day(13) || got[13].Day.String() != day(0) {
+		t.Fatalf("activity = %+v, want the 14 days ending today, oldest first", got)
+	}
+
+	want := map[string][2]int{day(0): {1, 0}, day(1): {0, 1}, day(3): {1, 0}}
+	for _, d := range got {
+		if w := want[d.Day.String()]; d.Opened != w[0] || d.Closed != w[1] {
+			t.Errorf("activity %s = opened %d closed %d, want %v", d.Day, d.Opened, d.Closed, w)
+		}
+	}
+
+	team := decodeAs[gen.RemediationActivity](t, e.get(t, "/remediations/activity?days=4", "team-web")).Items
+	if len(team) != 4 || team[3].Opened != 1 || team[0].Opened != 0 || team[2].Closed != 0 {
+		t.Errorf("team-web activity = %+v, want only acme-web's open PR", team)
+	}
+
+	if r := e.get(t, "/remediations/activity?days=91", "platform"); r.Status != http.StatusBadRequest {
+		t.Errorf("days=91 = %d, want 400", r.Status)
+	}
+}

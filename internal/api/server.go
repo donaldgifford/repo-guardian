@@ -32,6 +32,7 @@ type Reader interface {
 	RepositoryEvents(ctx context.Context, scope store.APIScope, id int64, after *store.EventKey, limit int) (store.Page[store.Event], error)
 	RepositoryControls(ctx context.Context, scope store.APIScope, id int64) ([]store.RepositoryControl, error)
 	Remediations(ctx context.Context, scope store.APIScope, f *store.RemediationFilter) (store.Page[store.RemediationView], error)
+	RemediationActivity(ctx context.Context, scope store.APIScope, days int) ([]store.ActivityDay, error)
 	Results(ctx context.Context, scope store.APIScope, f *store.ResultFilter) (store.ResultPage, error)
 	Summary(ctx context.Context, scope store.APIScope, now time.Time) (*store.SummaryView, error)
 	Controls(ctx context.Context, scope store.APIScope, controlID string) (*store.ControlsView, error)

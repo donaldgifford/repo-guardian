@@ -174,3 +174,31 @@ func withSteps(ctx context.Context, q *controlsdb.Queries, scope store.APIScope,
 
 	return nil
 }
+
+// RemediationActivity returns pull requests opened and closed per UTC day
+// over the last days days, today included, every day present, oldest
+// first.
+func (r *APIReader) RemediationActivity(ctx context.Context, scope store.APIScope, days int) (out []store.ActivityDay, err error) {
+	defer func(start time.Time) { observeQuery("api_remediation_activity", start, err) }(time.Now())
+
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
+		rows, err := q.APIRemediationActivity(ctx, controlsdb.APIRemediationActivityParams{
+			ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), DayCount: int32(days), //nolint:gosec // days is bounded 1-90 by the handler
+		})
+		if err != nil {
+			return err
+		}
+
+		out = make([]store.ActivityDay, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, store.ActivityDay{Day: row.Day.Time, Opened: int(row.Opened), Closed: int(row.Closed)})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("remediation activity: %w", err)
+	}
+
+	return out, nil
+}

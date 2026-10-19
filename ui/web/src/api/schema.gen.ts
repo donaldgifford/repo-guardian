@@ -267,6 +267,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/remediations/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pull request throughput per UTC day over the visible orgs.
+         * @description repo-guardian pull requests opened (by when they were opened) and
+         *     closed (by when they were closed, merged or not) on each UTC day
+         *     of the last `days` days, today included. Every day is present,
+         *     oldest first; a day with neither is zeros.
+         */
+        get: operations["getRemediationActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/remediations": {
         parameters: {
             query?: never;
@@ -651,6 +674,16 @@ export interface components {
             last_evaluated_at?: string;
             /** @description The active policy version; absent before one is activated. */
             policy_version?: string;
+        };
+        RemediationActivity: {
+            items: components["schemas"]["ActivityDay"][];
+        };
+        /** @description One UTC day of repo-guardian pull request throughput. */
+        ActivityDay: {
+            /** Format: date */
+            day: string;
+            opened: number;
+            closed: number;
         };
         /** @description How many fall in one age bucket. */
         AgeCount: {
@@ -1514,6 +1547,32 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
+        };
+    };
+    getRemediationActivity: {
+        parameters: {
+            query?: {
+                /** @description How many days, today included. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per day. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemediationActivity"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listRemediations: {

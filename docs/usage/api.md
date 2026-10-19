@@ -136,6 +136,7 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | `/repositories/{id}/evaluations`, `/repositories/{id}/events` | the evaluation log; result changes, repository events and remediation events |
 | `/results` | recorded control results across repositories by `bucket`, `control`, `rule` (failing or erroring), `org` and `decision`, sorted by last change (`since_asc`, `since_desc`), each with its failing rules and reason; `total` on the first page. A finding is a result in the `non_compliant` bucket, so `?bucket=non_compliant`'s total is the summary's count |
 | `/remediations` | remediations newest first, by `kind`, `state`, `org`, `control`, `hold` (repeatable) and `older_than_days`, each with its proposal and step journal; a branch `hold` also lists the results held before a pull request exists (below) |
+| `/remediations/activity` | pull request throughput: repo-guardian pull requests opened and closed on each UTC day of the last `days` (1–90, default 14), today included, every day present |
 | `POST /repositories/{id}/evaluate` | asks for an evaluation now (below) |
 | `/compliance/history` | each UTC day's last snapshot per org, control and lineage, by `control`, `org` and `days` (1–365, default 30) |
 | `/policies` | the active policy as the caller may see it: its version and rollout, each visible org's layer, the catalogue entries those reference, and the enterprise layer for callers who see every org |

@@ -4,10 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
+
+	openapitypes "github.com/oapi-codegen/runtime/types"
 
 	"github.com/donaldgifford/repo-guardian/internal/api/gen"
 	"github.com/donaldgifford/repo-guardian/internal/store"
+)
+
+// Pull request throughput window, in days (DESIGN-0037 § API).
+const (
+	defaultActivityDays = 14
+	maxActivityDays     = 90
 )
 
 // remediationFilters is what a remediations cursor is bound to.
@@ -89,6 +98,38 @@ func (s *server) ListRemediations(ctx context.Context, req gen.ListRemediationsR
 	}, filters)
 
 	return out, err
+}
+
+// GetRemediationActivity returns pull requests opened and closed per UTC
+// day over the visible orgs (IMPL-0030 7.12).
+func (s *server) GetRemediationActivity(
+	ctx context.Context, req gen.GetRemediationActivityRequestObject,
+) (gen.GetRemediationActivityResponseObject, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	days := defaultActivityDays
+	if req.Params.Days != nil {
+		days = *req.Params.Days
+	}
+
+	if days < 1 || days > maxActivityDays {
+		return nil, statusError(http.StatusBadRequest, "days must be from 1 to 90")
+	}
+
+	rows, err := s.opts.Reader.RemediationActivity(ctx, p.Visible, days)
+	if err != nil {
+		return nil, err
+	}
+
+	out := gen.GetRemediationActivity200JSONResponse{Items: make([]gen.ActivityDay, 0, len(rows))}
+	for _, r := range rows {
+		out.Items = append(out.Items, gen.ActivityDay{Day: openapitypes.Date{Time: r.Day}, Opened: r.Opened, Closed: r.Closed})
+	}
+
+	return out, nil
 }
 
 func remediationOut(r *store.RemediationView) (gen.Remediation, error) {

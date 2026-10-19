@@ -772,7 +772,7 @@ Every new query lives in an `api_*.sql` file so
   spans every boundary.
 - [x] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
   of open pull-request remediations by `created_at`).
-- [ ] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
+- [x] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
   `[{day, opened, closed}]` (opened by `created_at`, closed by `closed_at`, per UTC day, scoped).
 - [ ] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
   PR number/url, age). `sort=pr_age` joins the `/results` sorts; `pr_stale` is open pull-request

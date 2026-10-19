@@ -80,3 +80,24 @@ FROM remediations m
 JOIN repositories r ON r.id = m.repository_id
 WHERE m.state IN ('reserved', 'open', 'recommended', 'failed')
   AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]));
+
+-- name: APIRemediationActivity :many
+-- PR throughput (DESIGN-0037 OQ15, IMPL-0030 7.12): repo-guardian pull
+-- requests opened (by created_at) and closed (by closed_at, merged or
+-- not) per UTC day over the last day_count days, today included, every day
+-- present, oldest first.
+WITH prs AS MATERIALIZED (
+    SELECT m.created_at, m.closed_at
+    FROM remediations m
+    JOIN repositories r ON r.id = m.repository_id
+    WHERE m.kind = 'pull_request'
+      AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+), calendar AS (
+    SELECT (now() AT TIME ZONE 'UTC')::date - n AS day
+    FROM generate_series(0, sqlc.arg(day_count)::int - 1) AS n
+)
+SELECT d.day::date AS day,
+       (SELECT count(*) FROM prs WHERE (prs.created_at AT TIME ZONE 'UTC')::date = d.day)::int AS opened,
+       (SELECT count(*) FROM prs WHERE (prs.closed_at AT TIME ZONE 'UTC')::date = d.day)::int AS closed
+FROM calendar d
+ORDER BY d.day;

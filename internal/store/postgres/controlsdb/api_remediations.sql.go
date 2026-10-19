@@ -9,7 +9,63 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const aPIRemediationActivity = `-- name: APIRemediationActivity :many
+WITH prs AS MATERIALIZED (
+    SELECT m.created_at, m.closed_at
+    FROM remediations m
+    JOIN repositories r ON r.id = m.repository_id
+    WHERE m.kind = 'pull_request'
+      AND ($1::bool OR lower(r.org) = ANY ($2::text[]))
+), calendar AS (
+    SELECT (now() AT TIME ZONE 'UTC')::date - n AS day
+    FROM generate_series(0, $3::int - 1) AS n
+)
+SELECT d.day::date AS day,
+       (SELECT count(*) FROM prs WHERE (prs.created_at AT TIME ZONE 'UTC')::date = d.day)::int AS opened,
+       (SELECT count(*) FROM prs WHERE (prs.closed_at AT TIME ZONE 'UTC')::date = d.day)::int AS closed
+FROM calendar d
+ORDER BY d.day
+`
+
+type APIRemediationActivityParams struct {
+	ScopeAll  bool
+	ScopeOrgs []string
+	DayCount  int32
+}
+
+type APIRemediationActivityRow struct {
+	Day    pgtype.Date
+	Opened int32
+	Closed int32
+}
+
+// PR throughput (DESIGN-0037 OQ15, IMPL-0030 7.12): repo-guardian pull
+// requests opened (by created_at) and closed (by closed_at, merged or
+// not) per UTC day over the last day_count days, today included, every day
+// present, oldest first.
+func (q *Queries) APIRemediationActivity(ctx context.Context, arg APIRemediationActivityParams) ([]APIRemediationActivityRow, error) {
+	rows, err := q.db.Query(ctx, aPIRemediationActivity, arg.ScopeAll, arg.ScopeOrgs, arg.DayCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIRemediationActivityRow
+	for rows.Next() {
+		var i APIRemediationActivityRow
+		if err := rows.Scan(&i.Day, &i.Opened, &i.Closed); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const aPIRemediationBacklog = `-- name: APIRemediationBacklog :one
 SELECT count(*)::int AS backlog

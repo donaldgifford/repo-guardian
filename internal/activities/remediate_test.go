@@ -216,3 +216,80 @@ func TestRemediate_ActsOnlyInRemediateMode(t *testing.T) {
 		}
 	}
 }
+
+// claimOnce models ClaimOperation's row lock: the first attempt holds
+// it until release; a concurrent attempt gets ErrOperationHeld.
+type claimOnce struct {
+	mu      sync.Mutex
+	held    bool
+	acted   int
+	release chan struct{}
+}
+
+func (c *claimOnce) act(context.Context, *remediationRun) error {
+	c.mu.Lock()
+	if c.held {
+		c.mu.Unlock()
+
+		return store.ErrOperationHeld
+	}
+
+	c.held = true
+	c.acted++
+	c.mu.Unlock()
+
+	<-c.release
+
+	return nil
+}
+
+// TestRemediate_OverlappingAttemptsActOnce is IMPL-0030 3.10: a retried
+// attempt that overlaps one still running (its StartToClose passed, the
+// worker did not die) finds the operation claimed and returns busy; the
+// remediation acts once.
+func TestRemediate_OverlappingAttemptsActOnce(t *testing.T) {
+	t.Parallel()
+
+	claim := &claimOnce{release: make(chan struct{})}
+	st := &fakeRemediationStore{targets: []*store.RemediationTarget{remediable()}}
+
+	type outcome struct {
+		res *workflows.RemediateResult
+		err error
+	}
+
+	first := make(chan outcome, 1)
+
+	go func() {
+		res, err := runRemediate(t, st, claim.act)
+		first <- outcome{res, err}
+	}()
+
+	// Wait for the first attempt to hold the claim.
+	for {
+		claim.mu.Lock()
+		held := claim.held
+		claim.mu.Unlock()
+
+		if held {
+			break
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+	second, err := runRemediate(t, st, claim.act)
+	if err != nil || second.Kind != workflows.RemediationBusy {
+		t.Fatalf("overlapping attempt = %+v, %v; want busy", second, err)
+	}
+
+	close(claim.release)
+
+	if got := <-first; got.err != nil || got.res.Kind != workflows.RemediationDone {
+		t.Errorf("first attempt = %+v, %v; want done", got.res, got.err)
+	}
+
+	if claim.acted != 1 {
+		t.Errorf("acted %d times, want once", claim.acted)
+	}
+}

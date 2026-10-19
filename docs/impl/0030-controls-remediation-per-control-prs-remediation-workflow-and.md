@@ -477,7 +477,7 @@ human required`.
 - [x] 3.9 Replay: capture a `RemediationWorkflow` history from the
   first behaviour test and add it to `internal/workflows/testdata`
   with a replay test, as today's capture does for `EvaluationWorkflow`.
-- [ ] 3.10 Tests (time-skipping environment): a signal during a run
+- [x] 3.10 Tests (time-skipping environment): a signal during a run
   produces one extra loop, not a second run; overlapping attempts of
   one activity act once; a throttle defers without recording.
 

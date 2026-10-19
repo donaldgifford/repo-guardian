@@ -241,3 +241,23 @@ func TestRemediationWorkflow_ContinuesAsNewAfterMaxLoops(t *testing.T) {
 		t.Errorf("runs = %d, want %d", len(f.runs), maxRemediationLoops)
 	}
 }
+
+// TestRemediationWorkflow_BusyAttemptSettles is IMPL-0030 3.10 at the
+// workflow: an attempt that found the operation claimed by an
+// overlapping one returns busy, and the run settles on the state read
+// instead of acting again.
+func TestRemediationWorkflow_BusyAttemptSettles(t *testing.T) {
+	t.Parallel()
+
+	f := &remediationFakes{script: func(int) *RemediateResult { return &RemediateResult{Kind: RemediationBusy} }}
+	env := newRemediationEnv(t, f)
+	env.ExecuteWorkflow(RemediationWorkflowName, remediationInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatalf("workflow error: %v", err)
+	}
+
+	if len(f.runs) != 1 || f.reads != 1 {
+		t.Errorf("runs %d, reads %d; want one busy loop, then settle", len(f.runs), f.reads)
+	}
+}

@@ -67,7 +67,24 @@ type Remediations interface {
 	// discarded. Call it after ClaimOperation returns: it updates the
 	// claimed row from its own connection.
 	RecordRun(ctx context.Context, run *RunRecord) (bool, error)
+	// SetHold records why a control cannot be remediated (one of the
+	// Hold* values, or empty to clear it) on its result, fenced on the
+	// epoch. When the result is gone, HoldPermission lands on the
+	// control's newest remediation (blocked cleanup) and any other hold
+	// is dropped. It reports whether a row took the hold. Like RecordRun,
+	// call it outside ClaimOperation; inside, set Remediation.Hold.
+	SetHold(ctx context.Context, repositoryID int64, controlID string, epoch int64, hold string) (bool, error)
 }
+
+// The holds a control result can carry (DESIGN-0032 § Data model); a
+// remediation row carries only HoldPermission.
+const (
+	HoldPRCap         = "pr_cap"
+	HoldForeignBranch = "foreign_branch"
+	HoldStaleBranch   = "stale_branch"
+	HoldConflict      = "conflict"
+	HoldPermission    = "permission"
+)
 
 // RunRecord is a finished remediation run. Generation is the
 // eval_generation read at run start and ProcessedHead the pull request

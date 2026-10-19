@@ -247,9 +247,12 @@ human required`.
   it) and compares both epochs under that lock; `remediated_generation`
   is `GREATEST`, so a repeat is a no-op. Call it after `ClaimOperation`
   returns. `TestRemediationStore_RecordRun`.
-- [ ] 1.7 `SetHold(ctx, repo, control, epoch, hold)` writing
+- [x] 1.7 `SetHold(ctx, repo, control, epoch, hold)` writing
   `control_results.hold`/`hold_since`, and the `remediations.hold =
   'permission'` path for blocked cleanup when the result row is gone.
+  Done: `hold_since` keeps the start of an unchanged hold; a stale epoch
+  writes nothing; with the result gone only `permission` lands, on the
+  newest remediation. `TestRemediationStore_SetHold`.
 - [ ] 1.8 `DueRemediations(ctx, batch)` and
   `MaintenanceCandidates(ctx, batch)` over the two views;
   `ExpireReservations(ctx, now)` returning the count for

@@ -377,6 +377,22 @@ func (q *Queries) RemediationByOperationKey(ctx context.Context, operationKey st
 	return i, err
 }
 
+const resultExists = `-- name: ResultExists :one
+SELECT EXISTS (SELECT 1 FROM control_results WHERE repository_id = $1 AND control_id = $2)
+`
+
+type ResultExistsParams struct {
+	RepositoryID int64
+	ControlID    string
+}
+
+func (q *Queries) ResultExists(ctx context.Context, arg ResultExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, resultExists, arg.RepositoryID, arg.ControlID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const setRemediationIntent = `-- name: SetRemediationIntent :exec
 UPDATE remediations SET intent_revision = $1, last_run_at = now() WHERE id = $2
 `
@@ -389,6 +405,61 @@ type SetRemediationIntentParams struct {
 func (q *Queries) SetRemediationIntent(ctx context.Context, arg SetRemediationIntentParams) error {
 	_, err := q.db.Exec(ctx, setRemediationIntent, arg.IntentRevision, arg.ID)
 	return err
+}
+
+const setRemediationPermissionHold = `-- name: SetRemediationPermissionHold :execrows
+UPDATE remediations SET hold = 'permission'
+WHERE id = (
+    SELECT r.id FROM remediations r
+    WHERE r.repository_id = $1 AND r.control_id = $2
+    ORDER BY r.id DESC LIMIT 1
+)
+`
+
+type SetRemediationPermissionHoldParams struct {
+	RepositoryID int64
+	ControlID    string
+}
+
+// Blocked cleanup after the result row is gone: the hold lands on the
+// control's newest remediation.
+func (q *Queries) SetRemediationPermissionHold(ctx context.Context, arg SetRemediationPermissionHoldParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setRemediationPermissionHold, arg.RepositoryID, arg.ControlID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setResultHold = `-- name: SetResultHold :execrows
+UPDATE control_results
+SET hold       = $1::text,
+    hold_since = CASE
+        WHEN $1::text IS NULL THEN NULL
+        WHEN hold IS NOT DISTINCT FROM $1::text THEN hold_since
+        ELSE now() END
+WHERE repository_id = $2 AND control_id = $3 AND assignment_epoch = $4
+`
+
+type SetResultHoldParams struct {
+	Hold            *string
+	RepositoryID    int64
+	ControlID       string
+	AssignmentEpoch int64
+}
+
+// hold_since keeps the moment the current hold began.
+func (q *Queries) SetResultHold(ctx context.Context, arg SetResultHoldParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setResultHold,
+		arg.Hold,
+		arg.RepositoryID,
+		arg.ControlID,
+		arg.AssignmentEpoch,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateRemediation = `-- name: UpdateRemediation :exec

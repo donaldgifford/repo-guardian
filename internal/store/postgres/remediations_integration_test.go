@@ -224,3 +224,72 @@ func TestRemediationStore_RecordRun(t *testing.T) {
 		t.Errorf("remediated_generation = %d after a discarded run, want 1", got.RemediatedGeneration)
 	}
 }
+
+// TestRemediationStore_SetHold is IMPL-0030 1.7: a hold lands on the
+// result under its epoch and keeps hold_since while unchanged, a stale
+// epoch writes nothing, and once the result is gone only a permission
+// hold lands, on the newest remediation.
+func TestRemediationStore_SetHold(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	set := func(e int64, hold string) bool {
+		t.Helper()
+
+		ok, err := f.r.SetHold(ctx, f.repoID, "codeowners", e, hold)
+		if err != nil {
+			t.Fatalf("SetHold(%d, %q): %v", e, hold, err)
+		}
+
+		return ok
+	}
+
+	since := func() *time.Time {
+		var ts *time.Time
+		queryArgs(t, f.dsns.Owner, `SELECT hold_since FROM control_results WHERE repository_id = $1`, &ts, f.repoID)
+
+		return ts
+	}
+
+	if !set(epoch, store.HoldPRCap) || since() == nil {
+		t.Fatal("SetHold(pr_cap) did not land on the result")
+	}
+
+	first := since()
+	if !set(epoch, store.HoldPRCap) || !since().Equal(*first) {
+		t.Errorf("repeated hold moved hold_since from %v to %v", first, since())
+	}
+
+	if set(epoch+100, store.HoldConflict) {
+		t.Error("SetHold(stale epoch) = true, want false")
+	}
+
+	if !set(epoch, "") || since() != nil {
+		t.Error("SetHold(\"\") did not clear the hold")
+	}
+
+	if _, err := reserve(t, f.r, f.repoID, "codeowners", "op-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, `DELETE FROM control_results`)
+
+	if set(epoch, store.HoldConflict) {
+		t.Error("SetHold(conflict) with no result = true, want false")
+	}
+
+	if !set(epoch, store.HoldPermission) {
+		t.Fatal("SetHold(permission) with no result = false, want the remediation held")
+	}
+
+	if got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners"); got.Hold != store.HoldPermission {
+		t.Errorf("remediations.hold = %q, want permission", got.Hold)
+	}
+}

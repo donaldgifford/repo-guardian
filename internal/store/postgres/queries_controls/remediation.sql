@@ -99,3 +99,26 @@ SET remediated_generation = GREATEST(remediated_generation, @generation::bigint)
     hold                  = NULL,
     last_run_at           = now()
 WHERE operation_key = @operation_key;
+
+-- name: SetResultHold :execrows
+-- hold_since keeps the moment the current hold began.
+UPDATE control_results
+SET hold       = sqlc.narg(hold)::text,
+    hold_since = CASE
+        WHEN sqlc.narg(hold)::text IS NULL THEN NULL
+        WHEN hold IS NOT DISTINCT FROM sqlc.narg(hold)::text THEN hold_since
+        ELSE now() END
+WHERE repository_id = @repository_id AND control_id = @control_id AND assignment_epoch = @assignment_epoch;
+
+-- name: SetRemediationPermissionHold :execrows
+-- Blocked cleanup after the result row is gone: the hold lands on the
+-- control's newest remediation.
+UPDATE remediations SET hold = 'permission'
+WHERE id = (
+    SELECT r.id FROM remediations r
+    WHERE r.repository_id = @repository_id AND r.control_id = @control_id
+    ORDER BY r.id DESC LIMIT 1
+);
+
+-- name: ResultExists :one
+SELECT EXISTS (SELECT 1 FROM control_results WHERE repository_id = @repository_id AND control_id = @control_id);

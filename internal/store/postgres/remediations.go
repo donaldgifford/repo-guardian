@@ -368,3 +368,49 @@ func (s *RemediationStore) RecordRun(ctx context.Context, run *store.RunRecord) 
 
 	return recorded, nil
 }
+
+// SetHold writes control_results.hold/hold_since under the epoch, or
+// remediations.hold = 'permission' when the result row is gone.
+func (s *RemediationStore) SetHold(ctx context.Context, repositoryID int64, controlID string, epoch int64, hold string) (bool, error) {
+	var held bool
+
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+
+		n, err := q.SetResultHold(ctx, controlsdb.SetResultHoldParams{
+			Hold: nullText(hold), RepositoryID: repositoryID, ControlID: controlID, AssignmentEpoch: epoch,
+		})
+		if err != nil {
+			return fmt.Errorf("result hold: %w", err)
+		}
+
+		if n > 0 || hold != store.HoldPermission {
+			held = n > 0
+			return nil
+		}
+
+		exists, err := q.ResultExists(ctx, controlsdb.ResultExistsParams{RepositoryID: repositoryID, ControlID: controlID})
+		if err != nil {
+			return fmt.Errorf("read result: %w", err)
+		}
+
+		if exists {
+			// A newer epoch's result: this run's hold is stale.
+			return nil
+		}
+
+		n, err = q.SetRemediationPermissionHold(ctx, controlsdb.SetRemediationPermissionHoldParams{RepositoryID: repositoryID, ControlID: controlID})
+		if err != nil {
+			return fmt.Errorf("remediation hold: %w", err)
+		}
+
+		held = n > 0
+
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("set hold: %w", err)
+	}
+
+	return held, nil
+}

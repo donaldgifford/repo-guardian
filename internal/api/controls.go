@@ -71,8 +71,42 @@ func (s *server) GetSummary(ctx context.Context, _ gen.GetSummaryRequestObject) 
 	return gen.GetSummary200JSONResponse{
 		Tracked: tracked, Parked: parked, Compliance: postureOut(&total), OpenPrs: view.OpenPRs,
 		Evaluated24h: view.Evaluated, LastEvaluatedAt: view.LastEvaluatedAt, PolicyVersion: optStr(view.PolicyVersion),
-		RemediationBacklog: view.RemediationBacklog,
+		RemediationBacklog: view.RemediationBacklog, ParkedByReason: parkedByReason(view.Repositories),
+		ControlsFailing: controlsFailing(view.Compliance),
 	}, nil
+}
+
+// parkedByReason counts parked repositories per park reason, ordered by
+// reason (IMPL-0030 7.9).
+func parkedByReason(counts []store.OrgRepositoryCount) []gen.ReasonCount {
+	by := map[store.ParkReason]int{}
+
+	for _, c := range counts {
+		if !c.Active {
+			by[c.ParkReason] += c.Count
+		}
+	}
+
+	out := make([]gen.ReasonCount, 0, len(by))
+	for _, reason := range slices.Sorted(maps.Keys(by)) {
+		out = append(out, gen.ReasonCount{Reason: string(reason), Count: by[reason]})
+	}
+
+	return out
+}
+
+// controlsFailing counts the distinct controls with any result in the
+// non-compliant bucket, across lineages and orgs (IMPL-0030 7.9).
+func controlsFailing(rows []store.ControlPosture) int {
+	failing := map[string]bool{}
+
+	for i := range rows {
+		if rows[i].NonCompliant > 0 {
+			failing[rows[i].ControlID] = true
+		}
+	}
+
+	return len(failing)
 }
 
 // catalogueEntry is a control's title and type, from its newest version

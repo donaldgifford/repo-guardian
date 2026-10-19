@@ -759,7 +759,7 @@ Every new query lives in an `api_*.sql` file so
   assignments, same bucket `CASE`) on `/repositories` and
   `/repositories/{id}`, in one grouped query per page, not N+1.
   Integration test: one repository with mixed buckets.
-- [ ] 7.9 **`Summary.parked_by_reason` and `Summary.controls_failing`**,
+- [x] 7.9 **`Summary.parked_by_reason` and `Summary.controls_failing`**,
   computed in Go in `GetSummary` from the `store.SummaryView` it
   already reads (`Repositories` per park reason; `Compliance` rows
   with `non_compliant > 0`, counted by distinct control). No new SQL.

@@ -128,7 +128,7 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | --- | --- |
 | `/status` | public service status (below) |
 | `/me` | the caller, and the orgs it may see |
-| `/summary` | tracked and parked repositories, the fleet posture, open PRs, the remediation backlog (reserved, open, recommended or failed), repositories evaluated in the last 24 hours and the active policy version |
+| `/summary` | tracked and parked repositories (and parked by reason), the fleet posture, how many controls have a failing result, open PRs, the remediation backlog (reserved, open, recommended or failed), repositories evaluated in the last 24 hours and the active policy version |
 | `/controls`, `/controls/{id}` | each assigned control's posture (`?org=` narrows it); one control by org and lineage, with the versions and revisions each org carries |
 | `/orgs`, `/orgs/{org}` | posture and `open_prs` per org; one org's baseline against what it added (percent and coverage each), its controls, its five worst and its exclusions |
 | `/repositories`, `/repositories/{id}` | repositories filtered by `org`, `active`, `park_reason`, `policy_state`, `q`, each with the posture over its own assignments (`compliance`); one repository with its last evaluation, policy state and whether each App can reach it |

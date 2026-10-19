@@ -1100,8 +1100,17 @@ components:
     Summary:
       description: Fleet totals over the visible orgs.
       type: object
-      required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog]
+      required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog, parked_by_reason, controls_failing]
       properties:
+        parked_by_reason:
+          description: Parked repositories by park reason, ordered by reason; a reason with none is absent.
+          type: array
+          items:
+            $ref: "#/components/schemas/ReasonCount"
+        controls_failing:
+          description: Controls with at least one result in the non-compliant bucket.
+          type: integer
+          minimum: 0
         remediation_backlog:
           description: Outstanding remediations (reserved, open, recommended or failed) in the visible orgs.
           type: integer
@@ -1128,6 +1137,16 @@ components:
         policy_version:
           description: The active policy version; absent before one is activated.
           type: string
+    ReasonCount:
+      description: How many repositories were parked for one reason.
+      type: object
+      required: [reason, count]
+      properties:
+        reason:
+          $ref: "#/components/schemas/ParkReason"
+        count:
+          type: integer
+          minimum: 0
     ControlSummary:
       description: One control's fleet compliance.
       type: object

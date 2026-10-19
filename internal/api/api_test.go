@@ -302,3 +302,49 @@ func TestAuthDisabled_GrantsEveryOrg(t *testing.T) {
 		t.Errorf("me = %+v, want the anonymous all-orgs principal", me)
 	}
 }
+
+// summaryReader answers Summary with a fixed view.
+type summaryReader struct {
+	*orgReader
+
+	view store.SummaryView
+}
+
+func (r *summaryReader) Summary(context.Context, store.APIScope, time.Time) (*store.SummaryView, error) {
+	return &r.view, nil
+}
+
+// TestSummary_ParkedByReasonAndControlsFailing is IMPL-0030 7.9: both
+// computed from the view /summary already reads, validated against the
+// spec by apitest.
+func TestSummary_ParkedByReasonAndControlsFailing(t *testing.T) {
+	t.Parallel()
+
+	r := &summaryReader{orgReader: twoOrgs(), view: store.SummaryView{
+		Repositories: []store.OrgRepositoryCount{
+			{Org: "acme-web", Active: true, Count: 5},
+			{Org: "acme-web", ParkReason: store.ParkArchived, Count: 2},
+			{Org: "acme-pay", ParkReason: store.ParkArchived, Count: 1},
+			{Org: "acme-pay", ParkReason: store.ParkAccessDenied, Count: 3},
+		},
+		Compliance: []store.ControlPosture{
+			{Org: "acme-web", ControlID: "codeowners", Decision: "baseline", NonCompliant: 2, Assigned: 2},
+			{Org: "acme-pay", ControlID: "codeowners", Decision: "baseline", NonCompliant: 1, Assigned: 1},
+			{Org: "acme-pay", ControlID: "labels", Decision: "org_added", Compliant: 4, Assigned: 4},
+			{Org: "acme-pay", ControlID: "branch-ruleset", Decision: "baseline", NonCompliant: 1, Assigned: 1},
+		},
+	}}
+
+	h := newHarness(t, func(o *api.Options) { o.Reader = r })
+
+	s := decode[gen.Summary](t, h.client.Get("/summary", h.issuer.Valid(t, "platform")))
+
+	want := []gen.ReasonCount{{Reason: "access_denied", Count: 3}, {Reason: "archived", Count: 3}}
+	if !slices.Equal(s.ParkedByReason, want) || s.Parked != 6 {
+		t.Errorf("parked_by_reason = %+v (parked %d), want %+v", s.ParkedByReason, s.Parked, want)
+	}
+
+	if s.ControlsFailing != 2 {
+		t.Errorf("controls_failing = %d, want codeowners and branch-ruleset", s.ControlsFailing)
+	}
+}

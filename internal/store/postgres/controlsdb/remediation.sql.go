@@ -176,18 +176,33 @@ func (q *Queries) DueRemediationsForRepository(ctx context.Context, repositoryID
 	return items, nil
 }
 
-const expireReservations = `-- name: ExpireReservations :execrows
-DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < $1::timestamptz
+const expireReservations = `-- name: ExpireReservations :many
+DELETE FROM remediations m
+WHERE m.state = 'reserved' AND m.reserved_until < $1::timestamptz
+RETURNING (SELECT r.org FROM repositories r WHERE r.id = m.repository_id)::text AS org
 `
 
 // The remediator's one DELETE (RLS remediations_expire): a reservation
-// whose run never opened its pull request frees the slot.
-func (q *Queries) ExpireReservations(ctx context.Context, now time.Time) (int64, error) {
-	result, err := q.db.Exec(ctx, expireReservations, now)
+// whose run never opened its pull request frees the slot. One org per
+// freed reservation, for remediation_reservations_expired_total.
+func (q *Queries) ExpireReservations(ctx context.Context, now time.Time) ([]string, error) {
+	rows, err := q.db.Query(ctx, expireReservations, now)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var org string
+		if err := rows.Scan(&org); err != nil {
+			return nil, err
+		}
+		items = append(items, org)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertAPIRemediation = `-- name: InsertAPIRemediation :exec
@@ -445,6 +460,66 @@ func (q *Queries) MaintenanceCandidates(ctx context.Context, batch int32) ([]Mai
 	return items, nil
 }
 
+const maintenanceTarget = `-- name: MaintenanceTarget :one
+SELECT m.id, m.repository_id, m.control_id, m.kind, m.state, m.operation_key, m.assignment_epoch,
+       COALESCE(m.pr_number, 0)::int AS pr_number,
+       r.org, r.name,
+       COALESCE(acc.installation_id, 0)::bigint AS installation_id,
+       (acc.installation_id IS NOT NULL AND i.suspended_at IS NULL)::bool AS remediable,
+       COALESCE(CASE WHEN cr.status = 'compliant' THEN cr.last_changed_at END,
+                ca.resolved_at, ps.resolved_at, m.last_run_at)::timestamptz AS observed_at
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+LEFT JOIN control_assignments ca ON (ca.repository_id, ca.control_id) = (m.repository_id, m.control_id)
+LEFT JOIN repository_policy_state ps ON ps.repository_id = m.repository_id
+LEFT JOIN control_results cr ON (cr.repository_id, cr.control_id) = (m.repository_id, m.control_id)
+LEFT JOIN app_repository_access acc ON acc.repository_id = m.repository_id AND acc.app = 'remediate'
+LEFT JOIN app_installations i ON i.app = 'remediate' AND i.installation_id = acc.installation_id
+WHERE m.id = $1
+`
+
+type MaintenanceTargetRow struct {
+	ID              int64
+	RepositoryID    int64
+	ControlID       string
+	Kind            string
+	State           string
+	OperationKey    string
+	AssignmentEpoch int64
+	PrNumber        int32
+	Org             string
+	Name            string
+	InstallationID  int64
+	Remediable      bool
+	ObservedAt      time.Time
+}
+
+// One maintenance candidate as the cleanup needs it (IMPL-0030 6.2,
+// 6.3): the row, the repository and the Remediation App's reach, and
+// when the reason for the cleanup was observed: the result turning
+// compliant, else the assignment's (or the repository's) last
+// resolution, which is when a withdrawal, exclusion or downgrade landed.
+func (q *Queries) MaintenanceTarget(ctx context.Context, id int64) (MaintenanceTargetRow, error) {
+	row := q.db.QueryRow(ctx, maintenanceTarget, id)
+	var i MaintenanceTargetRow
+	err := row.Scan(
+		&i.ID,
+		&i.RepositoryID,
+		&i.ControlID,
+		&i.Kind,
+		&i.State,
+		&i.OperationKey,
+		&i.AssignmentEpoch,
+		&i.PrNumber,
+		&i.Org,
+		&i.Name,
+		&i.InstallationID,
+		&i.Remediable,
+		&i.ObservedAt,
+	)
+	return i, err
+}
+
 const observeClosedPR = `-- name: ObserveClosedPR :execrows
 WITH v AS (SELECT $2::timestamptz AS closed_at)
 UPDATE remediations r SET
@@ -514,6 +589,48 @@ func (q *Queries) ObserveOpenPR(ctx context.Context, arg ObserveOpenPRParams) (b
 	return moved, err
 }
 
+const pruneRemediateInstallations = `-- name: PruneRemediateInstallations :many
+WITH gone AS (
+    DELETE FROM app_installations
+    WHERE app = 'remediate' AND NOT (installation_id = ANY ($1::bigint[]))
+    RETURNING installation_id
+)
+SELECT COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id, r.org, r.name
+FROM app_repository_access a
+JOIN repositories r ON r.id = a.repository_id
+WHERE a.app = 'remediate' AND a.installation_id IN (SELECT installation_id FROM gone)
+ORDER BY r.id
+`
+
+type PruneRemediateInstallationsRow struct {
+	ProviderRepoID int64
+	Org            string
+	Name           string
+}
+
+// Deletes the Remediation App's installations a complete listing no
+// longer has (their access rows cascade) and returns the repositories
+// that lost access.
+func (q *Queries) PruneRemediateInstallations(ctx context.Context, seen []int64) ([]PruneRemediateInstallationsRow, error) {
+	rows, err := q.db.Query(ctx, pruneRemediateInstallations, seen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PruneRemediateInstallationsRow
+	for rows.Next() {
+		var i PruneRemediateInstallationsRow
+		if err := rows.Scan(&i.ProviderRepoID, &i.Org, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordRemediationRun = `-- name: RecordRemediationRun :execrows
 UPDATE remediations
 SET remediated_generation = GREATEST(remediated_generation, $1::bigint),
@@ -563,6 +680,60 @@ type RecordResultRunParams struct {
 func (q *Queries) RecordResultRun(ctx context.Context, arg RecordResultRunParams) error {
 	_, err := q.db.Exec(ctx, recordResultRun, arg.Generation, arg.RepositoryID, arg.ControlID)
 	return err
+}
+
+const refreshRemediateAccess = `-- name: RefreshRemediateAccess :many
+WITH wanted AS (
+    SELECT id FROM repositories WHERE provider_repo_id = ANY ($1::bigint[])
+), removed AS (
+    DELETE FROM app_repository_access a
+    WHERE a.app = 'remediate' AND a.installation_id = $2
+      AND a.repository_id NOT IN (SELECT id FROM wanted)
+    RETURNING a.repository_id
+), added AS (
+    INSERT INTO app_repository_access (repository_id, app, installation_id, seen_at)
+    SELECT id, 'remediate', $2, now() FROM wanted
+    ON CONFLICT (repository_id, app) DO UPDATE SET installation_id = EXCLUDED.installation_id, seen_at = EXCLUDED.seen_at
+    RETURNING repository_id, (xmax = 0) AS inserted
+)
+SELECT COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id, r.org, r.name FROM repositories r
+WHERE r.id IN (SELECT repository_id FROM removed UNION SELECT repository_id FROM added WHERE inserted)
+ORDER BY r.id
+`
+
+type RefreshRemediateAccessParams struct {
+	ProviderRepoIds []int64
+	InstallationID  int64
+}
+
+type RefreshRemediateAccessRow struct {
+	ProviderRepoID int64
+	Org            string
+	Name           string
+}
+
+// Sets one installation's access rows to exactly the known repositories
+// its listing names and returns the repositories whose access appeared
+// or went (IMPL-0030 6.4). An unknown repository is the evaluator's to
+// discover first.
+func (q *Queries) RefreshRemediateAccess(ctx context.Context, arg RefreshRemediateAccessParams) ([]RefreshRemediateAccessRow, error) {
+	rows, err := q.db.Query(ctx, refreshRemediateAccess, arg.ProviderRepoIds, arg.InstallationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RefreshRemediateAccessRow
+	for rows.Next() {
+		var i RefreshRemediateAccessRow
+		if err := rows.Scan(&i.ProviderRepoID, &i.Org, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const remediationByOperationKey = `-- name: RemediationByOperationKey :one
@@ -870,6 +1041,36 @@ func (q *Queries) UpdateRemediation(ctx context.Context, arg UpdateRemediationPa
 		arg.ClosedAt,
 		arg.CloseReason,
 		arg.ID,
+	)
+	return err
+}
+
+const upsertRemediateInstallation = `-- name: UpsertRemediateInstallation :exec
+INSERT INTO app_installations (app, installation_id, account_login, account_type, repository_selection, seen_at)
+VALUES ('remediate', $1, $2, $3, $4, now())
+ON CONFLICT (app, installation_id) DO UPDATE SET
+    account_login = EXCLUDED.account_login,
+    account_type = EXCLUDED.account_type,
+    repository_selection = EXCLUDED.repository_selection,
+    seen_at = EXCLUDED.seen_at
+`
+
+type UpsertRemediateInstallationParams struct {
+	InstallationID      int64
+	AccountLogin        string
+	AccountType         string
+	RepositorySelection string
+}
+
+// The Remediation App's discovery refreshes its own installation rows
+// (RLS app_installations_remediate). Suspension is left to the
+// lifecycle events, which the listing does not carry.
+func (q *Queries) UpsertRemediateInstallation(ctx context.Context, arg UpsertRemediateInstallationParams) error {
+	_, err := q.db.Exec(ctx, upsertRemediateInstallation,
+		arg.InstallationID,
+		arg.AccountLogin,
+		arg.AccountType,
+		arg.RepositorySelection,
 	)
 	return err
 }

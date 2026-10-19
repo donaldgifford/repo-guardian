@@ -167,7 +167,7 @@ func startControlsWorker(
 	case workflows.AppEval:
 		eval, err = registerEvaluation(cfg, tc, tcfg, w, pool, logger)
 	case workflows.AppRemediate:
-		err = registerRemediation(ctx, cfg, w, pool, logger)
+		err = registerRemediation(ctx, cfg, tc, tcfg, w, pool, logger)
 	}
 
 	if err != nil {
@@ -182,13 +182,11 @@ func startControlsWorker(
 		return nil, nil, fmt.Errorf("%s: start temporal worker: %w", half.name, err)
 	}
 
-	if eval != nil {
-		if err := eval.start(ctx, cfg, tc, wc.TaskQueue, logger); err != nil {
-			w.Stop()
-			pool.Close()
+	if err := startServices(ctx, cfg, tc, wc.TaskQueue, half, eval, logger); err != nil {
+		w.Stop()
+		pool.Close()
 
-			return nil, nil, fmt.Errorf("%s: %w", half.name, err)
-		}
+		return nil, nil, fmt.Errorf("%s: %w", half.name, err)
 	}
 
 	logger.Info("temporal worker started",
@@ -261,7 +259,9 @@ func registerEvaluation(
 // them; the evaluator half never reaches the Writer. It resolves the
 // App's bot user once (task 3.7) and refuses to start without it: every
 // authorship check matches by that id.
-func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger) error {
+func registerRemediation(
+	ctx context.Context, cfg *config.Config, tc client.Client, tcfg *temporal.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger,
+) error {
 	snap, err := policy.Load(cfg.GuardianConfigPath, builtin.Registry(), logger)
 	if err != nil {
 		return fmt.Errorf("load policy: %w", err)
@@ -283,9 +283,16 @@ func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Regis
 	logger.Info("Remediation App permissions required", "app", config.AppRemediate,
 		"permissions", permissionStrings(remediationPermissions(snap)))
 
-	activities.NewRemediator(&activities.RemediatorConfig{
-		Store: pgstore.NewRemediationStore(pool), Policy: snap, Types: builtin.Registry(),
-		Clients: activities.NewGitHubRemediationClients(app), Bot: bot, Logger: logger,
+	st := pgstore.NewRemediationStore(pool)
+	rem := activities.NewRemediator(&activities.RemediatorConfig{
+		Store: st, Policy: snap, Types: builtin.Registry(),
+		Clients: activities.NewGitHubRemediationClients(app), Bot: bot, Logger: logger, ReservationTTL: cfg.Remediation.ReservationTTL,
+	})
+	rem.Register(w)
+
+	activities.NewRemediationServices(&activities.RemediationServicesConfig{
+		Remediator: rem, Store: st, GitHub: app, Temporal: tc,
+		RemediateQueue: tcfg.RemediateTaskQueue, EvalQueue: tcfg.EvalTaskQueue, Logger: logger,
 	}).Register(w)
 
 	return nil
@@ -318,6 +325,24 @@ func remediationPermissions(snap *policy.Snapshot) []control.Permission {
 	}
 
 	return control.RemediationPermissions(resources, writesWorkflow)
+}
+
+// startServices reconciles the half's Schedules once its worker runs:
+// the evaluator's also start the rollout of the activated policy.
+func startServices(
+	ctx context.Context, cfg *config.Config, tc client.Client, taskQueue string, half *controlsHalf, eval *evaluation, logger *slog.Logger,
+) error {
+	if eval != nil {
+		return eval.start(ctx, cfg, tc, taskQueue, logger)
+	}
+
+	if half.role != config.RoleRemediator {
+		return nil
+	}
+
+	svc := &serviceStarter{cfg: cfg, client: tc, taskQueue: taskQueue, logger: logger}
+
+	return svc.ensureSchedules(ctx, config.RoleRemediator)
 }
 
 // start reconciles the evaluator's Schedules and starts the rollout of

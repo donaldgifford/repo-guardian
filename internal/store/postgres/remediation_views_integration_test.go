@@ -164,7 +164,10 @@ func TestRemediationMaintenance_Actions(t *testing.T) {
 		}},
 		{name: "reservation live", setup: []string{remediationRow("pull_request", "reserved", nil)}},
 		{name: "assignment withdrawn", want: "withdraw", setup: []string{open, `UPDATE control_assignments SET state = 'excluded'`}},
-		{name: "repository unmanaged", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'excluded'`}},
+		{name: "repository excluded", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'excluded'`}},
+		{name: "repository parked", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'parked'`}},
+		{name: "org removed", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'unmanaged'`}},
+		{name: "assignment deleted", want: "withdraw", setup: []string{open, `DELETE FROM control_assignments`}},
 		{name: "downgraded to evaluate", want: "withdraw", setup: []string{
 			open, `UPDATE control_assignments SET effective_mode = 'evaluate', mode_reason = 'remediation_app_suspended'`,
 		}},

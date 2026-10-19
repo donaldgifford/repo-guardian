@@ -108,6 +108,8 @@ type Remediator struct {
 	logger  *slog.Logger
 	now     func() time.Time
 
+	reservationTTL time.Duration
+
 	// act does one run's work; nil is the no-op remediation.
 	act remediationAct
 }
@@ -121,6 +123,9 @@ type RemediatorConfig struct {
 	// Bot is the Remediation App's bot user, resolved at startup.
 	Bot    ghclient.BotIdentity
 	Logger *slog.Logger
+	// ReservationTTL is REMEDIATION_RESERVATION_TTL; zero is
+	// DefaultReservationTTL.
+	ReservationTTL time.Duration
 }
 
 // NewRemediator returns the remediation activities as the Remediation
@@ -128,7 +133,12 @@ type RemediatorConfig struct {
 func NewRemediator(cfg *RemediatorConfig) *Remediator {
 	r := &Remediator{
 		store: cfg.Store, policy: cfg.Policy, types: cfg.Types, clients: cfg.Clients, bot: cfg.Bot, logger: cfg.Logger, now: time.Now,
+		reservationTTL: cfg.ReservationTTL,
 	}
+	if r.reservationTTL <= 0 {
+		r.reservationTTL = DefaultReservationTTL
+	}
+
 	r.act = r.dispatch
 
 	return r

@@ -111,7 +111,14 @@ func TestRemediationStore_ClaimOperation(t *testing.T) {
 	}
 
 	err = r.ClaimOperation(t.Context(), "op-1", func(ctx context.Context, op store.ClaimedOperation) error {
-		if err := r.ClaimOperation(ctx, "op-1", func(context.Context, store.ClaimedOperation) error { return nil }); !errors.Is(err, store.ErrOperationHeld) {
+		if err := r.ClaimOperation(
+			ctx,
+			"op-1",
+			func(context.Context, store.ClaimedOperation) error { return nil },
+		); !errors.Is(
+			err,
+			store.ErrOperationHeld,
+		) {
 			t.Errorf("nested ClaimOperation = %v, want ErrOperationHeld", err)
 		}
 
@@ -135,7 +142,14 @@ func TestRemediationStore_ClaimOperation(t *testing.T) {
 		t.Fatalf("ClaimOperation: %v", err)
 	}
 
-	if err := r.ClaimOperation(t.Context(), "missing", func(context.Context, store.ClaimedOperation) error { return nil }); !errors.Is(err, store.ErrRemediationNotFound) {
+	if err := r.ClaimOperation(
+		t.Context(),
+		"missing",
+		func(context.Context, store.ClaimedOperation) error { return nil },
+	); !errors.Is(
+		err,
+		store.ErrRemediationNotFound,
+	) {
 		t.Fatalf("ClaimOperation(missing) = %v, want ErrRemediationNotFound", err)
 	}
 
@@ -187,7 +201,8 @@ func TestRemediationStore_RecordRun(t *testing.T) {
 	}
 
 	got, err := f.r.LatestRemediation(ctx, f.repoID, "codeowners")
-	if err != nil || got.ID != row.ID || got.AcknowledgedHeadSHA != "h1" || got.IntentRevision != "i2" || got.RemediatedGeneration != 1 || got.Hold != "" {
+	if err != nil || got.ID != row.ID || got.AcknowledgedHeadSHA != "h1" || got.IntentRevision != "i2" || got.RemediatedGeneration != 1 ||
+		got.Hold != "" {
 		t.Fatalf("after RecordRun = %+v, %v; want acknowledged h1, intent i2, generation 1, no hold", got, err)
 	}
 
@@ -332,8 +347,8 @@ func TestRemediationStore_DueAndMaintenance(t *testing.T) {
 		t.Fatalf("MaintenanceCandidates = %+v, %v; want one expire", m, err)
 	}
 
-	if n, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || n != 1 {
-		t.Fatalf("ExpireReservations = %d, %v; want 1", n, err)
+	if orgs, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || len(orgs) != 1 || orgs[0] != "acme" {
+		t.Fatalf("ExpireReservations = %v, %v; want one in acme", orgs, err)
 	}
 
 	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 1 {
@@ -363,7 +378,10 @@ func TestRemediationStore_CrossWriterDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := f.r.AppendStep(ctx, &store.RemediationStep{RemediationID: row.ID, OperationKey: "op-1", Kind: "committed", Status: "done"}); err != nil {
+	if _, err := f.r.AppendStep(
+		ctx,
+		&store.RemediationStep{RemediationID: row.ID, OperationKey: "op-1", Kind: "committed", Status: "done"},
+	); err != nil {
 		t.Fatal(err)
 	}
 
@@ -394,8 +412,8 @@ func TestRemediationStore_CrossWriterDenied(t *testing.T) {
 		t.Errorf("DELETE an open row as rg_remediator = %v rows, %v; want 0 rows", tag.RowsAffected(), err)
 	}
 
-	if n, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || n != 0 {
-		t.Errorf("ExpireReservations over an open row = %d, %v; want 0", n, err)
+	if orgs, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || len(orgs) != 0 {
+		t.Errorf("ExpireReservations over an open row = %v, %v; want none", orgs, err)
 	}
 }
 
@@ -645,5 +663,63 @@ func TestRemediationStore_APIRemediation(t *testing.T) {
 
 	if got, err := f.r.InsertAPIRemediation(ctx, direct); err != nil || got.State != store.StateFailed {
 		t.Fatalf("direct after supersede = %+v, %v; want a failed (resumable) row", got, err)
+	}
+}
+
+// TestRemediationStore_RemediateDiscovery is IMPL-0030 6.4's store side,
+// as rg_remediator: the Remediation App's discovery writes its own
+// installation and access rows and reports the repositories whose access
+// changed, and pruning a vanished installation reports its repositories.
+func TestRemediationStore_RemediateDiscovery(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	inst := &store.AppInstallation{InstallationID: 77, AccountLogin: "acme", AccountType: "organization", RepositorySelection: "selected"}
+
+	changed, err := f.r.RefreshRemediateAccess(ctx, inst, []int64{101, 999})
+	if err != nil || len(changed) != 1 || changed[0].ProviderRepoID != 101 || changed[0].Name != "api" {
+		t.Fatalf("first refresh = %+v, %v; want acme/api gained access (999 is unknown)", changed, err)
+	}
+
+	if got, _ := f.r.RemediationTarget(ctx, f.repoID, "codeowners"); got == nil || !got.Remediable || got.InstallationID != 77 {
+		t.Fatalf("RemediationTarget = %+v; want remediable through installation 77", got)
+	}
+
+	if changed, err := f.r.RefreshRemediateAccess(ctx, inst, []int64{101}); err != nil || len(changed) != 0 {
+		t.Errorf("unchanged refresh = %+v, %v; want nothing changed", changed, err)
+	}
+
+	if changed, err := f.r.PruneRemediateInstallations(ctx, nil); err != nil || len(changed) != 1 || changed[0].ProviderRepoID != 101 {
+		t.Fatalf("prune = %+v, %v; want acme/api lost access", changed, err)
+	}
+
+	if got, _ := f.r.RemediationTarget(ctx, f.repoID, "codeowners"); got.Remediable {
+		t.Error("still remediable after its installation was pruned")
+	}
+
+	if err := f.r.RecordServiceRun(ctx, &store.ServiceRun{
+		Kind: store.ServiceRunRemediationDiscovery, Success: true, StartedAt: time.Now(), FinishedAt: time.Now(),
+	}); err != nil {
+		t.Errorf("RecordServiceRun as rg_remediator = %v", err)
+	}
+}
+
+// TestRemediationStore_MaintenanceTarget reads a candidate with the
+// repository, reach and the observed time of its cause.
+func TestRemediationStore_MaintenanceTarget(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+
+	row, err := reserve(t, f.r, f.repoID, "codeowners", "op-mt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := f.r.MaintenanceTarget(ctx, row.ID)
+	if err != nil || got.Org != "acme" || got.Name != "api" || got.OperationKey != "op-mt" || got.ObservedAt.IsZero() {
+		t.Fatalf("MaintenanceTarget = %+v, %v", got, err)
+	}
+
+	if _, err := f.r.MaintenanceTarget(ctx, row.ID+1000); !errors.Is(err, store.ErrRemediationNotFound) {
+		t.Errorf("MaintenanceTarget of a missing row = %v, want ErrRemediationNotFound", err)
 	}
 }

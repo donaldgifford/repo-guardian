@@ -224,6 +224,23 @@ var (
 		Buckets: []float64{60, 300, 900, 3600, 4 * 3600, 12 * 3600, 24 * 3600, 36 * 3600, 48 * 3600, 7 * 24 * 3600},
 	}, []string{labelOrg})
 
+	// RemediationReservationsExpiredTotal counts pull-request slot
+	// reservations lifecycle maintenance freed because their run never
+	// opened its PR (IMPL-0030 6.2).
+	RemediationReservationsExpiredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_reservations_expired_total",
+		Help: "Total remediation slot reservations expired by lifecycle maintenance.",
+	}, []string{labelOrg})
+
+	// RemediationCleanupLatencySeconds is the time from an observed
+	// withdrawal or compliance to the write that closed the remediation
+	// (IMPL-0030 6.3).
+	RemediationCleanupLatencySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_remediation_cleanup_latency_seconds",
+		Help:    "Time from an observed withdrawal or compliance to the closing write.",
+		Buckets: []float64{60, 300, 900, 3600, 2 * 3600, 6 * 3600, 12 * 3600, 24 * 3600, 48 * 3600, 7 * 24 * 3600},
+	}, []string{labelOrg})
+
 	// StorePoolWaitSeconds is how long a store call waited for a pool
 	// connection. Postgres is shared capacity, so pool wait is where
 	// evaluation and remediation load meet.

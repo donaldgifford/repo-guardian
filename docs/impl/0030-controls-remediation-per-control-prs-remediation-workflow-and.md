@@ -622,37 +622,37 @@ human required`.
 
 #### Tasks
 
-- [ ] 6.1 `remediation-sweep` schedule (hourly, `repo-guardian-remediate`),
+- [x] 6.1 `remediation-sweep` schedule (hourly, `repo-guardian-remediate`),
   ensured only by remediator pods: `DueRemediations(REMEDIATION_SWEEP_BATCH)`
   → signal-with-start at priority 4; one `service_runs` row per run.
-- [ ] 6.2 Maintenance in the same schedule:
+- [x] 6.2 Maintenance in the same schedule:
   `MaintenanceCandidates(REMEDIATION_MAINTENANCE_BATCH)` dispatching
   `expire` (`ExpireReservations`, metric), `withdraw` (close the PR
   with a comment as `closed_withdrawn`, or end the recommendation as
   `withdrawn`), `supersede`, and `close_compliant` (a fresh read in the
   same activity; close only when it agrees). A refused write holds
   `permission` and is shown as blocked cleanup.
-- [ ] 6.3 `remediation_cleanup_latency_seconds` from the observed
+- [x] 6.3 `remediation_cleanup_latency_seconds` from the observed
   withdrawal or compliance time to the closing write.
-- [ ] 6.4 `controls-discovery-remediate` schedule: lists the
+- [x] 6.4 `controls-discovery-remediate` schedule: lists the
   Remediation App's installations and repositories and refreshes the
   `app = 'remediate'` rows of `app_installations` and
   `app_repository_access` under the row-level policy; a change
   re-resolves the affected repositories (IMPL-0029's resolution
   trigger).
-- [ ] 6.5 Role partitioning test: an evaluator pod never ensures
+- [x] 6.5 Role partitioning test: an evaluator pod never ensures
   `remediation-sweep` or `controls-discovery-remediate`; a remediator
   never ensures the evaluation schedules.
-- [ ] 6.6 Config: `REMEDIATION_RESERVATION_TTL` (default `1h`),
+- [x] 6.6 Config: `REMEDIATION_RESERVATION_TTL` (default `1h`),
   `REMEDIATION_SWEEP_BATCH`, `REMEDIATION_MAINTENANCE_BATCH`,
   `REMEDIATOR_CONCURRENCY`, `REMEDIATOR_DB_POOL_SIZE`, with
   validation tests and chart values.
-- [ ] 6.7 Tests (DESIGN-0032 "Lifecycle maintenance"): withdraw a
+- [x] 6.7 Tests (DESIGN-0032 "Lifecycle maintenance"): withdraw a
   control, exclude and park its repository, remove its org, switch it
   to evaluate, each with a PR or a recommendation outstanding; every
   artifact reaches its terminal state or blocked cleanup with no fresh
   failing result required.
-- [ ] 6.8 **Prune `checks` (INV-0023 F7.2).** `ControlsSnapshotWorkflow`
+- [x] 6.8 **Prune `checks` (INV-0023 F7.2).** `ControlsSnapshotWorkflow`
   (`internal/workflows/controls_service.go`) ignores
   `SnapshotInput.Retention` and its comment says the controls line keeps
   no checks table, which is wrong. Add a `PruneControlsChecks(before)`
@@ -661,7 +661,7 @@ human required`.
   `now − CHECKS_RETENTION`, and fix the comment. Lands with 6.9, so no
   repository reads "never evaluated" after a prune. Integration test as
   the evaluator role.
-- [ ] 6.9 **`last_checked_at` (OQ19).** `RecordEvaluation` writes
+- [x] 6.9 **`last_checked_at` (OQ19).** `RecordEvaluation` writes
   `repositories.last_checked_at` (the controls migration grants
   `rg_evaluator` `UPDATE (last_checked_at)`), and the API's
   `last_evaluated_at` reads that column in place of

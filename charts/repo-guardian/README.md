@@ -667,7 +667,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
-| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"maintenanceBatch":200,"replicas":1,"reservationTTL":"1h","resources":{},"sweepBatch":500}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
 | remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
 | remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means concurrency + 4; the remediator refuses to start with fewer connections than `concurrency`, since every running remediation holds one for its row lock. |
 | remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
@@ -677,8 +677,11 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | remediator.keda.minReplicas | int | `0` | Floor. 0 is allowed: promotion does not depend on a running remediator (DESIGN-0032 D28). |
 | remediator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
 | remediator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| remediator.maintenanceBatch | int | `200` | Lifecycle candidates (expire, withdraw, supersede, close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH). |
 | remediator.replicas | int | `1` | Replica count (split only). Ignored when `remediator.keda.enabled`. |
+| remediator.reservationTTL | string | `"1h"` | How long a reserved pull-request slot waits for its PR before the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL). |
 | remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| remediator.sweepBatch | int | `500` | Due remediations one hourly `remediation-sweep` starts (REMEDIATION_SWEEP_BATCH). |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |

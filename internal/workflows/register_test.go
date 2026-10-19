@@ -42,7 +42,7 @@ func TestRegister_EachRoleRegistersOnlyItsSet(t *testing.T) {
 		{
 			name:     "remediator",
 			register: func(r *recordingRegistry) { RegisterRemediator(r) },
-			want:     []string{InstallationWorkflowName, RemediationWorkflowName},
+			want:     []string{InstallationWorkflowName, RemediationDiscoveryWorkflowName, RemediationSweepWorkflowName, RemediationWorkflowName},
 		},
 	} {
 		var r recordingRegistry

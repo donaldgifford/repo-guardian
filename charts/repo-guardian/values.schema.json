@@ -321,6 +321,18 @@
           "type": "integer",
           "minimum": 0
         },
+        "reservationTTL": {
+          "type": "string",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        },
+        "sweepBatch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maintenanceBatch": {
+          "type": "integer",
+          "minimum": 1
+        },
         "resources": {
           "type": "object"
         },

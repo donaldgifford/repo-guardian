@@ -527,12 +527,92 @@ func (s *RemediationStore) MaintenanceCandidates(ctx context.Context, batch int)
 }
 
 // ExpireReservations deletes expired reservations, the remediator's only
-// DELETE (RLS allows state = 'reserved' and nothing else).
-func (s *RemediationStore) ExpireReservations(ctx context.Context, now time.Time) (int, error) {
-	n, err := s.q.ExpireReservations(ctx, now)
+// DELETE, and returns the org of each one freed.
+func (s *RemediationStore) ExpireReservations(ctx context.Context, now time.Time) ([]string, error) {
+	orgs, err := s.q.ExpireReservations(ctx, now)
 	if err != nil {
-		return 0, fmt.Errorf("expire reservations: %w", err)
+		return nil, fmt.Errorf("expire reservations: %w", err)
 	}
 
-	return int(n), nil
+	return orgs, nil
+}
+
+// MaintenanceTarget reads one maintenance candidate.
+func (s *RemediationStore) MaintenanceTarget(ctx context.Context, remediationID int64) (*store.MaintenanceTarget, error) {
+	row, err := s.q.MaintenanceTarget(ctx, remediationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, store.ErrRemediationNotFound
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("maintenance target %d: %w", remediationID, err)
+	}
+
+	return &store.MaintenanceTarget{
+		RemediationID: row.ID, RepositoryID: row.RepositoryID, ControlID: row.ControlID, Kind: row.Kind, State: row.State,
+		OperationKey: row.OperationKey, AssignmentEpoch: row.AssignmentEpoch, PRNumber: int(row.PrNumber), Org: row.Org, Name: row.Name,
+		InstallationID: row.InstallationID, Remediable: row.Remediable, ObservedAt: row.ObservedAt,
+	}, nil
+}
+
+// RefreshRemediateAccess upserts the installation and refreshes its
+// access rows in one transaction.
+func (s *RemediationStore) RefreshRemediateAccess(
+	ctx context.Context, inst *store.AppInstallation, providerRepoIDs []int64,
+) ([]store.AccessChange, error) {
+	var out []store.AccessChange
+
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+
+		if err := q.UpsertRemediateInstallation(ctx, controlsdb.UpsertRemediateInstallationParams{
+			InstallationID: inst.InstallationID, AccountLogin: inst.AccountLogin, AccountType: inst.AccountType,
+			RepositorySelection: inst.RepositorySelection,
+		}); err != nil {
+			return fmt.Errorf("upsert installation: %w", err)
+		}
+
+		rows, err := q.RefreshRemediateAccess(ctx, controlsdb.RefreshRemediateAccessParams{
+			ProviderRepoIds: providerRepoIDs, InstallationID: inst.InstallationID,
+		})
+		if err != nil {
+			return fmt.Errorf("refresh access: %w", err)
+		}
+
+		for _, r := range rows {
+			out = append(out, store.AccessChange{ProviderRepoID: r.ProviderRepoID, Org: r.Org, Name: r.Name})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("refresh remediation installation %d: %w", inst.InstallationID, err)
+	}
+
+	return out, nil
+}
+
+// PruneRemediateInstallations deletes the installations a complete
+// listing did not see.
+func (s *RemediationStore) PruneRemediateInstallations(ctx context.Context, seen []int64) ([]store.AccessChange, error) {
+	if seen == nil {
+		seen = []int64{}
+	}
+
+	rows, err := s.q.PruneRemediateInstallations(ctx, seen)
+	if err != nil {
+		return nil, fmt.Errorf("prune remediation installations: %w", err)
+	}
+
+	out := make([]store.AccessChange, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.AccessChange{ProviderRepoID: r.ProviderRepoID, Org: r.Org, Name: r.Name})
+	}
+
+	return out, nil
+}
+
+// RecordServiceRun writes a service_runs row as the remediator.
+func (s *RemediationStore) RecordServiceRun(ctx context.Context, run *store.ServiceRun) error {
+	return recordServiceRun(ctx, s.q, run)
 }

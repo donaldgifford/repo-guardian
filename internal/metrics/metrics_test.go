@@ -131,6 +131,8 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_prs_created_total",
 		"repo_guardian_prs_updated_total",
 		"repo_guardian_rate_limit_remaining",
+		"repo_guardian_remediation_cleanup_latency_seconds",
+		"repo_guardian_remediation_reservations_expired_total",
 		"repo_guardian_repo_discovered_total",
 		"repo_guardian_repos_checked_total",
 		"repo_guardian_repos_parked_total",

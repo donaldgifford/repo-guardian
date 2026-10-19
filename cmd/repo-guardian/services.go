@@ -16,9 +16,10 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
-// serviceStarter brings up the evaluator's service workflows at startup
-// (IMPL-0025 Phase 13, IMPL-0029 task 7.1). Every evaluator pod runs it:
-// each step is idempotent, and Temporal rejects the duplicate starts.
+// serviceStarter brings up a controls role's service workflows at
+// startup (IMPL-0025 Phase 13, IMPL-0029 task 7.1, IMPL-0030 Phase 6).
+// Every pod of the role runs it: each step is idempotent, and Temporal
+// rejects the duplicate starts.
 type serviceStarter struct {
 	cfg       *config.Config
 	client    client.Client
@@ -49,36 +50,54 @@ func (s *serviceStarter) ensureSchedules(ctx context.Context, role config.Role) 
 
 // schedules returns the Schedules role owns: those to ensure and those
 // to remove. The evaluator owns controls-discovery (removed when
-// DISCOVERY_ENABLED=false) and controls-snapshot; the remediator's sweep
-// and maintenance arrive with IMPL-0030.
+// DISCOVERY_ENABLED=false) and controls-snapshot; the remediator owns
+// remediation-sweep and controls-discovery-remediate (IMPL-0030 6.1,
+// 6.4), the latter under the same DISCOVERY_ENABLED gate.
 func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedule, remove []string) {
-	var discovery, snapshot struct{ id, workflow string }
+	var discovery temporal.Schedule
 
 	switch role {
 	case config.RoleEvaluator:
-		discovery.id, discovery.workflow = workflows.ControlsDiscoveryScheduleID, workflows.ControlsDiscoveryWorkflowName
-		snapshot.id, snapshot.workflow = workflows.ControlsSnapshotScheduleID, workflows.ControlsSnapshotWorkflowName
+		discovery = temporal.Schedule{
+			ID: workflows.ControlsDiscoveryScheduleID, Workflow: workflows.ControlsDiscoveryWorkflowName,
+			Args: []any{&workflows.DiscoveryInput{}},
+		}
+		ensure = append(ensure, s.schedule(&temporal.Schedule{
+			ID: workflows.ControlsSnapshotScheduleID, Every: s.cfg.ComplianceSnapshotInterval, Workflow: workflows.ControlsSnapshotWorkflowName,
+			Args: []any{&workflows.SnapshotInput{Retention: s.cfg.ChecksRetention}},
+		}))
+	case config.RoleRemediator:
+		discovery = temporal.Schedule{ID: workflows.RemediationDiscoveryScheduleID, Workflow: workflows.RemediationDiscoveryWorkflowName}
+		ensure = append(ensure, s.schedule(&temporal.Schedule{
+			ID: workflows.RemediationSweepScheduleID, Every: remediationSweepInterval, Workflow: workflows.RemediationSweepWorkflowName,
+			Args: []any{&workflows.RemediationSweepInput{
+				SweepBatch: s.cfg.Remediation.SweepBatch, MaintenanceBatch: s.cfg.Remediation.MaintenanceBatch,
+			}},
+		}))
 	default:
 		return nil, nil
 	}
 
-	if s.cfg.DiscoveryEnabled {
-		ensure = append(ensure, &temporal.Schedule{
-			ID: discovery.id, Every: s.cfg.DiscoveryInterval, Workflow: discovery.workflow,
-			Args: []any{&workflows.DiscoveryInput{}}, TaskQueue: s.taskQueue,
-			Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
-		})
-	} else {
-		remove = append(remove, discovery.id)
+	if !s.cfg.DiscoveryEnabled {
+		return ensure, []string{discovery.ID}
 	}
 
-	ensure = append(ensure, &temporal.Schedule{
-		ID: snapshot.id, Every: s.cfg.ComplianceSnapshotInterval, Workflow: snapshot.workflow,
-		Args: []any{&workflows.SnapshotInput{Retention: s.cfg.ChecksRetention}}, TaskQueue: s.taskQueue,
-		Priority: workflows.TaskPriority(workflows.PrioritySchedule, 0),
-	})
+	discovery.Every = s.cfg.DiscoveryInterval
 
-	return ensure, remove
+	return append([]*temporal.Schedule{s.schedule(&discovery)}, ensure...), nil
+}
+
+// remediationSweepInterval is the remediation-sweep cadence (IMPL-0030
+// 6.1): a withdrawn control's PR closes, and an expired reservation's
+// slot frees, within one interval.
+const remediationSweepInterval = time.Hour
+
+// schedule puts sc on the role's queue at the schedule priority.
+func (s *serviceStarter) schedule(sc *temporal.Schedule) *temporal.Schedule {
+	sc.TaskQueue = s.taskQueue
+	sc.Priority = workflows.TaskPriority(workflows.PrioritySchedule, 0)
+
+	return sc
 }
 
 // startOnce starts a workflow; one already running is success.

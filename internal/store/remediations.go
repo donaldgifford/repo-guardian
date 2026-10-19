@@ -81,8 +81,23 @@ type Remediations interface {
 	// remediation_maintenance, the durable rows with a lifecycle action.
 	MaintenanceCandidates(ctx context.Context, batch int) ([]MaintenanceCandidate, error)
 	// ExpireReservations deletes the reservations past reserved_until at
-	// now and returns how many it freed.
-	ExpireReservations(ctx context.Context, now time.Time) (int, error)
+	// now and returns the org of each one it freed.
+	ExpireReservations(ctx context.Context, now time.Time) ([]string, error)
+	// MaintenanceTarget reads one remediation row as lifecycle
+	// maintenance needs it; ErrRemediationNotFound when it is gone.
+	MaintenanceTarget(ctx context.Context, remediationID int64) (*MaintenanceTarget, error)
+	// RefreshRemediateAccess upserts one Remediation App installation and
+	// sets its access rows to exactly the known repositories in
+	// providerRepoIDs, returning the repositories whose access appeared
+	// or went (IMPL-0030 6.4).
+	RefreshRemediateAccess(ctx context.Context, inst *AppInstallation, providerRepoIDs []int64) ([]AccessChange, error)
+	// PruneRemediateInstallations deletes the Remediation App
+	// installations a complete listing did not see and returns the
+	// repositories that lost access.
+	PruneRemediateInstallations(ctx context.Context, seen []int64) ([]AccessChange, error)
+	// RecordServiceRun writes a service_runs row (sweep, maintenance,
+	// remediation_discovery).
+	RecordServiceRun(ctx context.Context, run *ServiceRun) error
 	// RemediationTarget reads one control on one repository as a
 	// remediation run and its epoch fence see it; nil when the control is
 	// not assigned (withdrawn) or the repository is unknown.
@@ -218,6 +233,33 @@ type SlotRequest struct {
 	ExpectedHead string
 	// TTL bounds the reservation; maintenance expires it after.
 	TTL time.Duration
+}
+
+// MaintenanceTarget is one maintenance candidate's row, repository and
+// the Remediation App's reach.
+type MaintenanceTarget struct {
+	RemediationID   int64
+	RepositoryID    int64
+	ControlID       string
+	Kind            string
+	State           string
+	OperationKey    string
+	AssignmentEpoch int64
+	PRNumber        int
+	Org             string
+	Name            string
+	InstallationID  int64
+	Remediable      bool
+	// ObservedAt is when the reason for the cleanup was observed, the
+	// start of remediation_cleanup_latency_seconds.
+	ObservedAt time.Time
+}
+
+// AccessChange is a repository whose Remediation App access changed.
+type AccessChange struct {
+	ProviderRepoID int64
+	Org            string
+	Name           string
 }
 
 // APIRemediation is a new API remediation row.

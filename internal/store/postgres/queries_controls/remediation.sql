@@ -149,10 +149,13 @@ SELECT remediation_id, repository_id, control_id, kind, state, action::text AS a
 ORDER BY remediation_id
 LIMIT @batch;
 
--- name: ExpireReservations :execrows
+-- name: ExpireReservations :many
 -- The remediator's one DELETE (RLS remediations_expire): a reservation
--- whose run never opened its pull request frees the slot.
-DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < @now::timestamptz;
+-- whose run never opened its pull request frees the slot. One org per
+-- freed reservation, for remediation_reservations_expired_total.
+DELETE FROM remediations m
+WHERE m.state = 'reserved' AND m.reserved_until < @now::timestamptz
+RETURNING (SELECT r.org FROM repositories r WHERE r.id = m.repository_id)::text AS org;
 
 -- name: TrackedPullRequests :many
 -- The evaluator's observation set (DESIGN-0032 D24): open remediation
@@ -228,3 +231,74 @@ WHERE r.id = @repository_id;
 -- name: TouchLastRemediation :exec
 -- The one column the remediator may update on repository_policy_state.
 UPDATE repository_policy_state SET last_remediation_at = now() WHERE repository_id = @repository_id;
+
+-- name: MaintenanceTarget :one
+-- One maintenance candidate as the cleanup needs it (IMPL-0030 6.2,
+-- 6.3): the row, the repository and the Remediation App's reach, and
+-- when the reason for the cleanup was observed: the result turning
+-- compliant, else the assignment's (or the repository's) last
+-- resolution, which is when a withdrawal, exclusion or downgrade landed.
+SELECT m.id, m.repository_id, m.control_id, m.kind, m.state, m.operation_key, m.assignment_epoch,
+       COALESCE(m.pr_number, 0)::int AS pr_number,
+       r.org, r.name,
+       COALESCE(acc.installation_id, 0)::bigint AS installation_id,
+       (acc.installation_id IS NOT NULL AND i.suspended_at IS NULL)::bool AS remediable,
+       COALESCE(CASE WHEN cr.status = 'compliant' THEN cr.last_changed_at END,
+                ca.resolved_at, ps.resolved_at, m.last_run_at)::timestamptz AS observed_at
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+LEFT JOIN control_assignments ca ON (ca.repository_id, ca.control_id) = (m.repository_id, m.control_id)
+LEFT JOIN repository_policy_state ps ON ps.repository_id = m.repository_id
+LEFT JOIN control_results cr ON (cr.repository_id, cr.control_id) = (m.repository_id, m.control_id)
+LEFT JOIN app_repository_access acc ON acc.repository_id = m.repository_id AND acc.app = 'remediate'
+LEFT JOIN app_installations i ON i.app = 'remediate' AND i.installation_id = acc.installation_id
+WHERE m.id = @id;
+
+-- name: UpsertRemediateInstallation :exec
+-- The Remediation App's discovery refreshes its own installation rows
+-- (RLS app_installations_remediate). Suspension is left to the
+-- lifecycle events, which the listing does not carry.
+INSERT INTO app_installations (app, installation_id, account_login, account_type, repository_selection, seen_at)
+VALUES ('remediate', @installation_id, @account_login, @account_type, @repository_selection, now())
+ON CONFLICT (app, installation_id) DO UPDATE SET
+    account_login = EXCLUDED.account_login,
+    account_type = EXCLUDED.account_type,
+    repository_selection = EXCLUDED.repository_selection,
+    seen_at = EXCLUDED.seen_at;
+
+-- name: RefreshRemediateAccess :many
+-- Sets one installation's access rows to exactly the known repositories
+-- its listing names and returns the repositories whose access appeared
+-- or went (IMPL-0030 6.4). An unknown repository is the evaluator's to
+-- discover first.
+WITH wanted AS (
+    SELECT id FROM repositories WHERE provider_repo_id = ANY (@provider_repo_ids::bigint[])
+), removed AS (
+    DELETE FROM app_repository_access a
+    WHERE a.app = 'remediate' AND a.installation_id = @installation_id
+      AND a.repository_id NOT IN (SELECT id FROM wanted)
+    RETURNING a.repository_id
+), added AS (
+    INSERT INTO app_repository_access (repository_id, app, installation_id, seen_at)
+    SELECT id, 'remediate', @installation_id, now() FROM wanted
+    ON CONFLICT (repository_id, app) DO UPDATE SET installation_id = EXCLUDED.installation_id, seen_at = EXCLUDED.seen_at
+    RETURNING repository_id, (xmax = 0) AS inserted
+)
+SELECT COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id, r.org, r.name FROM repositories r
+WHERE r.id IN (SELECT repository_id FROM removed UNION SELECT repository_id FROM added WHERE inserted)
+ORDER BY r.id;
+
+-- name: PruneRemediateInstallations :many
+-- Deletes the Remediation App's installations a complete listing no
+-- longer has (their access rows cascade) and returns the repositories
+-- that lost access.
+WITH gone AS (
+    DELETE FROM app_installations
+    WHERE app = 'remediate' AND NOT (installation_id = ANY (@seen::bigint[]))
+    RETURNING installation_id
+)
+SELECT COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id, r.org, r.name
+FROM app_repository_access a
+JOIN repositories r ON r.id = a.repository_id
+WHERE a.app = 'remediate' AND a.installation_id IN (SELECT installation_id FROM gone)
+ORDER BY r.id;

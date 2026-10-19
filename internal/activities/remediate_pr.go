@@ -34,12 +34,17 @@ const (
 // remediation PR, edited in place (IMPL-0030 OQ9).
 const StickyMarker = "<!-- repo-guardian:control:v1 -->"
 
-// ReservationTTL bounds a pull-request slot reservation that never
-// opened its PR; maintenance expires it after.
-const ReservationTTL = time.Hour
+// DefaultReservationTTL bounds a pull-request slot reservation that
+// never opened its PR when RemediatorConfig.ReservationTTL is zero;
+// maintenance expires it after.
+const DefaultReservationTTL = time.Hour
 
 // prOpen is GitHub's state of an open pull request.
 const prOpen = "open"
+
+// closeCompliantReason is the close_reason of an artifact main no longer
+// needs.
+const closeCompliantReason = "compliant"
 
 // branchName is the remediation branch of a control (DESIGN-0032 D4).
 func branchName(slug string) string { return workflows.RemediationBranchPrefix + slug }
@@ -146,7 +151,7 @@ func (p *prRun) open(ctx context.Context) error {
 
 	rem, err := p.store.ReserveSlot(ctx, &store.SlotRequest{
 		RepositoryID: p.in.RepositoryID, ControlID: p.in.Control, Epoch: t.Epoch, OperationKey: p.in.OperationKey,
-		Intent: t.IntentRevision, Generation: t.Generation, TTL: ReservationTTL,
+		Intent: t.IntentRevision, Generation: t.Generation, TTL: p.r.reservationTTL,
 		BaseSHA: p.mainSHA, Branch: p.branch, ExpectedHead: p.mainSHA,
 	})
 	if errors.Is(err, store.ErrPRCap) {
@@ -355,7 +360,7 @@ func (p *prRun) adopt(ctx context.Context, pr *control.PullRequest) error {
 
 	rem, err := p.store.ReserveSlot(ctx, &store.SlotRequest{
 		RepositoryID: p.in.RepositoryID, ControlID: p.in.Control, Epoch: t.Epoch, OperationKey: p.in.OperationKey,
-		Intent: t.IntentRevision, Generation: t.Generation, TTL: ReservationTTL,
+		Intent: t.IntentRevision, Generation: t.Generation, TTL: p.r.reservationTTL,
 		BaseSHA: p.mainSHA, Branch: p.branch, ExpectedHead: pr.HeadSHA,
 	})
 	if errors.Is(err, store.ErrPRCap) {
@@ -521,7 +526,7 @@ func (p *prRun) closeCompliant(ctx context.Context, op store.ClaimedOperation, r
 	p.journal(ctx, row.ID, &store.RemediationStep{Kind: stepPRClosed, PRNumber: number})
 
 	now := p.r.now()
-	row.State, row.ClosedAt, row.CloseReason = store.StateClosedCompliant, &now, "compliant"
+	row.State, row.ClosedAt, row.CloseReason = store.StateClosedCompliant, &now, closeCompliantReason
 
 	if err := op.Update(ctx, row); err != nil {
 		return fmt.Errorf("mark closed: %w", err)

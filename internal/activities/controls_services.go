@@ -28,6 +28,7 @@ type ControlsServiceStore interface {
 	ActiveRepositories(ctx context.Context, afterID int64, limit int) ([]store.RepositoryRef, error)
 	CompletePolicyRollout(ctx context.Context, version string) error
 	InsertComplianceSnapshot(ctx context.Context, at time.Time) (int, error)
+	PruneChecks(ctx context.Context, before time.Time) (int64, error)
 }
 
 // ControlsServicesConfig configures the evaluator's service activities.
@@ -71,6 +72,7 @@ func (s *ControlsServices) Register(r Registry) {
 		workflows.ControlsSignalAllActivity:         s.SignalAll,
 		workflows.ControlsCompleteRolloutActivity:   s.CompleteRollout,
 		workflows.ControlsSnapshotActivity:          s.Snapshot,
+		workflows.ControlsPruneChecksActivity:       s.PruneChecks,
 	} {
 		r.RegisterActivityWithOptions(fn, activity.RegisterOptions{Name: name})
 	}
@@ -283,6 +285,17 @@ func (s *ControlsServices) Snapshot(ctx context.Context, at time.Time) (int, err
 	n, err := s.cfg.Store.InsertComplianceSnapshot(ctx, at)
 	if err != nil {
 		return 0, fmt.Errorf("snapshot: %w", err)
+	}
+
+	return n, nil
+}
+
+// PruneChecks deletes the checks that finished before before, after the
+// snapshot (IMPL-0030 6.8).
+func (s *ControlsServices) PruneChecks(ctx context.Context, before time.Time) (int64, error) {
+	n, err := s.cfg.Store.PruneChecks(ctx, before)
+	if err != nil {
+		return 0, err
 	}
 
 	return n, nil

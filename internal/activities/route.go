@@ -24,6 +24,10 @@ const selectionAll = "all"
 const (
 	eventInstallation             = "installation"
 	eventInstallationRepositories = "installation_repositories"
+
+	// actionAdded is the installation_repositories action the remediator's
+	// discovery stamps on an access change it hands to the evaluator.
+	actionAdded = "added"
 )
 
 // Router is the RouteWebhook activity (DESIGN-0026 § Ingest and webhook

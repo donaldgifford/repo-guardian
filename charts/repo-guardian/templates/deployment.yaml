@@ -126,12 +126,25 @@ spec:
               value: {{ $v.policyRolloutWindow | quote }}
             - name: CHECKS_RETENTION
               value: {{ $v.checksRetention | quote }}
+            - name: COMPLIANCE_SNAPSHOT_INTERVAL
+              value: {{ $v.posture.snapshotInterval | quote }}
+            {{- end }}
+            {{- /* The remediator's sweep, maintenance and discovery
+            schedules (IMPL-0030 Phase 6); in all only when its App is set. */}}
+            {{- if include "repo-guardian.roleHasRemediateKey" $r }}
+            - name: REMEDIATION_RESERVATION_TTL
+              value: {{ $v.remediator.reservationTTL | quote }}
+            - name: REMEDIATION_SWEEP_BATCH
+              value: {{ $v.remediator.sweepBatch | quote }}
+            - name: REMEDIATION_MAINTENANCE_BATCH
+              value: {{ $v.remediator.maintenanceBatch | quote }}
+            {{- end }}
+            {{- /* Each controls role's discovery schedule shares the gate. */}}
+            {{- if or (include "repo-guardian.roleHasEvalKey" $r) (include "repo-guardian.roleHasRemediateKey" $r) }}
             - name: DISCOVERY_ENABLED
               value: {{ $v.discovery.enabled | quote }}
             - name: DISCOVERY_INTERVAL
               value: {{ $v.discovery.interval | quote }}
-            - name: COMPLIANCE_SNAPSHOT_INTERVAL
-              value: {{ $v.posture.snapshotInterval | quote }}
             {{- end }}
             {{- /* A split controls worker reads only its own role's DSN
             (IMPL-0030 1.12); all keeps STORE_DSN for the api's fallback. */}}

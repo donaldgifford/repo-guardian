@@ -123,19 +123,37 @@ func ControlsRolloutWorkflow(ctx workflow.Context, in *ControlsRolloutInput) err
 }
 
 // ControlsSnapshotWorkflow writes the controls compliance snapshot from
-// the live compliance query and records the run (IMPL-0029 task 5.8).
-// The controls line keeps no checks table, so in.Retention prunes
-// nothing; the input is the rc's so both Schedules share one shape.
-func ControlsSnapshotWorkflow(ctx workflow.Context, _ *SnapshotInput) error {
+// the live compliance query, prunes the checks that finished longer ago
+// than in.Retention (CHECKS_RETENTION, INV-0023 F7.2) and records the
+// run (IMPL-0029 task 5.8). A repository's last evaluation lives in
+// repositories.last_checked_at, so a prune never makes one read as
+// never evaluated.
+func ControlsSnapshotWorkflow(ctx workflow.Context, in *SnapshotInput) error {
 	started := workflow.Now(ctx)
+	actx := serviceOptions(ctx, PrioritySchedule)
 
 	var rows int
-	if err := workflow.ExecuteActivity(serviceOptions(ctx, PrioritySchedule), ControlsSnapshotActivity, started).Get(ctx, &rows); err != nil {
+	if err := workflow.ExecuteActivity(actx, ControlsSnapshotActivity, started).Get(ctx, &rows); err != nil {
 		return err
 	}
 
-	return recordRun(ctx, ServiceSnapshot, true, started, map[string]any{"rows": rows})
+	detail := map[string]any{"rows": rows}
+
+	// Snapshot runs captured before the prune existed replay without it.
+	if workflow.GetVersion(ctx, pruneChecksChange, workflow.DefaultVersion, 1) == 1 && in != nil && in.Retention > 0 {
+		var pruned int64
+		if err := workflow.ExecuteActivity(actx, ControlsPruneChecksActivity, started.Add(-in.Retention)).Get(ctx, &pruned); err != nil {
+			return err
+		}
+
+		detail["pruned"] = pruned
+	}
+
+	return recordRun(ctx, ServiceSnapshot, true, started, detail)
 }
+
+// pruneChecksChange is the GetVersion change id of the snapshot's prune.
+const pruneChecksChange = "prune-controls-checks"
 
 // controlsPages runs a paged activity to its last page and sums the
 // counts.

@@ -81,7 +81,7 @@ func (p *prRun) settle(ctx context.Context, open *store.Remediation, prop *propo
 	case open == nil:
 		return false, nil
 	case nothing:
-		if err := p.closeAPI(ctx, open, store.StateResolved, "compliant"); err != nil {
+		if err := p.closeAPI(ctx, open, store.StateResolved, closeCompliantReason); err != nil {
 			return true, err
 		}
 

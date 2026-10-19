@@ -214,6 +214,15 @@ remediator:
   # connections than `concurrency`, since every running remediation
   # holds one for its row lock.
   dbPoolSize: 0
+  # -- How long a reserved pull-request slot waits for its PR before
+  # the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL).
+  reservationTTL: 1h
+  # -- Due remediations one hourly `remediation-sweep` starts
+  # (REMEDIATION_SWEEP_BATCH).
+  sweepBatch: 500
+  # -- Lifecycle candidates (expire, withdraw, supersede,
+  # close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH).
+  maintenanceBatch: 200
   # -- Resources; empty falls back to `resources`.
   resources: {}
   # -- KEDA autoscaling on this role's queue backlog (split only).

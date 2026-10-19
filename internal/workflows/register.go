@@ -16,7 +16,8 @@ type registration struct {
 // rate budget, so both run InstallationWorkflow. The evaluator also
 // routes both Apps' webhook deliveries and runs the evaluation loop and
 // its service workflows (IMPL-0029 task 7.1); the remediator runs the
-// remediation loop (IMPL-0030 task 3.2), which nothing else registers.
+// remediation loop (IMPL-0030 task 3.2) and its sweep and discovery
+// schedules (Phase 6), which nothing else registers.
 var (
 	evaluatorSet = []registration{
 		{InstallationWorkflow, InstallationWorkflowName},
@@ -29,6 +30,8 @@ var (
 	remediatorSet = []registration{
 		{InstallationWorkflow, InstallationWorkflowName},
 		{RemediationWorkflow, RemediationWorkflowName},
+		{RemediationSweepWorkflow, RemediationSweepWorkflowName},
+		{RemediationDiscoveryWorkflow, RemediationDiscoveryWorkflowName},
 	}
 )
 

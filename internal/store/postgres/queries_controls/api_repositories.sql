@@ -6,16 +6,15 @@
 -- evaluable: the Evaluation App can reach the repository; remediable:
 -- the Remediation App can and its installation is not suspended. Both
 -- read app_repository_access, whose read policy is PUBLIC so the api's
--- read-only role sees every row. last_evaluated_at is the newest
--- successful evaluation (repositories.last_checked_at is rc-only and
--- never written on the controls line); the epoch stands for "never".
+-- read-only role sees every row. last_evaluated_at is
+-- repositories.last_checked_at, which RecordEvaluation stamps and the
+-- checks prune never touches (IMPL-0030 6.9); the epoch stands for
+-- "never".
 
 -- name: APIRepositories :many
 SELECT r.id, r.org, r.name, r.provider_repo_id, r.active, r.park_reason, r.parked_at,
        r.discovered_at, r.next_due_at,
-       coalesce((SELECT max(c.finished_at) FROM checks c WHERE c.repository_id = r.id AND c.outcome = 'success'),
-                'epoch'::timestamptz)::timestamptz
-         AS last_evaluated_at,
+       coalesce(r.last_checked_at, 'epoch'::timestamptz)::timestamptz AS last_evaluated_at,
        ps.state AS policy_state, ps.reason AS policy_reason,
        EXISTS (SELECT 1 FROM app_repository_access a WHERE a.repository_id = r.id AND a.app = 'eval') AS evaluable,
        EXISTS (SELECT 1 FROM app_repository_access a
@@ -37,9 +36,7 @@ LIMIT @page_limit;
 -- name: APIRepository :one
 SELECT r.id, r.org, r.name, r.provider_repo_id, r.active, r.park_reason, r.parked_at,
        r.discovered_at, r.next_due_at,
-       coalesce((SELECT max(c.finished_at) FROM checks c WHERE c.repository_id = r.id AND c.outcome = 'success'),
-                'epoch'::timestamptz)::timestamptz
-         AS last_evaluated_at,
+       coalesce(r.last_checked_at, 'epoch'::timestamptz)::timestamptz AS last_evaluated_at,
        ps.state AS policy_state, ps.reason AS policy_reason,
        EXISTS (SELECT 1 FROM app_repository_access a WHERE a.repository_id = r.id AND a.app = 'eval') AS evaluable,
        EXISTS (SELECT 1 FROM app_repository_access a

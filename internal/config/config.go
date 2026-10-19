@@ -26,6 +26,10 @@ type Config struct {
 	Evaluator  WorkerSizing
 	Remediator WorkerSizing
 
+	// Remediation is the remediator's lifecycle knobs (REMEDIATION_*,
+	// IMPL-0030 6.6).
+	Remediation RemediationConfig
+
 	// GitHubHost is the GitHub host every v2 repository and installation
 	// record is keyed under (DESIGN-0025 OQ7). Defaults to github.com.
 	GitHubHost string
@@ -153,6 +157,10 @@ func parse() (*Config, error) {
 	}
 
 	if cfg.Remediator, err = parseWorkerSizing("REMEDIATOR"); err != nil {
+		return nil, err
+	}
+
+	if cfg.Remediation, err = parseRemediationConfig(); err != nil {
 		return nil, err
 	}
 

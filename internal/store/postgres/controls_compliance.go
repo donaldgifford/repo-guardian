@@ -141,3 +141,15 @@ func numericPtr(n pgtype.Numeric) (*float64, error) {
 
 	return &f.Float64, nil
 }
+
+// PruneChecks deletes the finished checks older than before and returns
+// how many it deleted (INV-0023 F7.2). A repository's last evaluation is
+// repositories.last_checked_at, which the prune leaves alone.
+func (s *ControlsStore) PruneChecks(ctx context.Context, before time.Time) (int64, error) {
+	n, err := s.q.PruneChecks(ctx, before)
+	if err != nil {
+		return 0, fmt.Errorf("prune checks: %w", err)
+	}
+
+	return n, nil
+}

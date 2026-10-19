@@ -346,10 +346,42 @@ they never start discovery.
 | `installation` | `created`, `deleted`, `suspend`, `unsuspend` | re-resolves the installation's repositories, since the effective mode depends on it |
 | `installation_repositories` | `added`, `removed` | re-resolves the named repositories |
 
-The Remediation App's own access records are written by the remediator
-from IMPL-0030. Until then every assignment's effective mode is
-`evaluate`, with reason `remediation_app_no_access`, whatever the
-policy asks for.
+The remediator writes the Remediation App's own access records. Its
+`controls-discovery-remediate` Schedule (every `discovery.interval`,
+off with `discovery.enabled: false`) lists the App's installations and
+repositories, sets the `app = 'remediate'` rows to exactly what it saw,
+and hands every repository whose access changed to the evaluator to
+re-resolve. A failed listing prunes nothing. Until the App can reach a
+repository, its assignments' effective mode is `evaluate`, with reason
+`remediation_app_no_access`, whatever the policy asks for.
+
+#### Remediator schedules
+
+Only remediator pods ensure these (an evaluator never does, and a
+remediator never ensures the evaluation schedules):
+
+| Schedule | Cadence | What it does |
+| --- | --- | --- |
+| `remediation-sweep` | hourly | lifecycle maintenance, then starts up to `remediator.sweepBatch` due remediations at priority 4 |
+| `controls-discovery-remediate` | `discovery.interval` | refreshes the Remediation App's access rows (above) |
+
+Maintenance handles up to `remediator.maintenanceBatch` rows per sweep.
+It frees reservations older than `remediator.reservationTTL`, closes a
+withdrawn control's pull request as `closed_withdrawn` (with a comment;
+the branch is kept) and ends its recommendation as `withdrawn`,
+supersedes a recommendation whose intent moved, and closes a PR or
+resolves a recommendation as compliant only when a fresh read of the
+default branch agrees. A write the App is refused holds `permission` on
+the row: blocked cleanup, retried every sweep. A withdrawn control's PR
+therefore closes within one sweep with no evaluation running, and a
+crashed reservation frees its slot within `reservationTTL` plus one
+sweep.
+
+| Value | Variable | Default |
+| --- | --- | --- |
+| `remediator.reservationTTL` | `REMEDIATION_RESERVATION_TTL` | `1h` |
+| `remediator.sweepBatch` | `REMEDIATION_SWEEP_BATCH` | `500` |
+| `remediator.maintenanceBatch` | `REMEDIATION_MAINTENANCE_BATCH` | `200` |
 
 #### Registering and installing
 

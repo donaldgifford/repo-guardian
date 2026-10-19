@@ -28,6 +28,11 @@ const (
 	ControlsDiscoveryWorkflowName = "ControlsDiscoveryWorkflow"
 	ControlsRolloutWorkflowName   = "ControlsRolloutWorkflow"
 	ControlsSnapshotWorkflowName  = "ControlsSnapshotWorkflow"
+
+	// RemediationSweepWorkflowName and RemediationDiscoveryWorkflowName
+	// are the remediator's service workflows (IMPL-0030 Phase 6).
+	RemediationSweepWorkflowName     = "RemediationSweepWorkflow"
+	RemediationDiscoveryWorkflowName = "RemediationDiscoveryWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -51,6 +56,14 @@ const (
 	RemediateActivity            = "Remediate"
 	ReadRemediationStateActivity = "ReadRemediationState"
 
+	// The remediator's service activities (IMPL-0030 Phase 6).
+	RemediationMaintainActivity           = "RemediationMaintain"
+	RemediationSweepActivity              = "RemediationSweep"
+	RemediationListInstallationsActivity  = "RemediationListInstallations"
+	RemediationRefreshAccessActivity      = "RemediationRefreshAccess"
+	RemediationPruneInstallationsActivity = "RemediationPruneInstallations"
+	RemediationResolveAccessActivity      = "RemediationResolveAccess"
+
 	// The controls evaluation activities (IMPL-0029 Phase 5).
 	EvaluateActivity                  = "Evaluate"
 	RecordEvaluationActivity          = "RecordEvaluation"
@@ -62,6 +75,7 @@ const (
 	ControlsResolveAllActivity        = "ControlsResolveAll"
 	ControlsSignalAllActivity         = "ControlsSignalAll"
 	ControlsSnapshotActivity          = "ControlsSnapshot"
+	ControlsPruneChecksActivity       = "PruneControlsChecks"
 	ControlsCompleteRolloutActivity   = "ControlsCompleteRollout"
 	ControlsRecordServiceRunActivity  = "ControlsRecordServiceRun"
 )
@@ -88,6 +102,11 @@ const (
 	// bootstrap ensures.
 	ControlsDiscoveryScheduleID = "controls-discovery"
 	ControlsSnapshotScheduleID  = "controls-snapshot"
+
+	// RemediationSweepScheduleID and RemediationDiscoveryScheduleID are
+	// the remediator's Schedules, ensured only by remediator pods.
+	RemediationSweepScheduleID     = "remediation-sweep"
+	RemediationDiscoveryScheduleID = "controls-discovery-remediate"
 )
 
 // Signal names accepted by EvaluationWorkflow.

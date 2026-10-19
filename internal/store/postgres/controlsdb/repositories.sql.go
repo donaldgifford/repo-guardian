@@ -333,7 +333,7 @@ func (q *Queries) ListOrgRepositories(ctx context.Context, arg ListOrgRepositori
 }
 
 const parkRepository = `-- name: ParkRepository :execrows
-UPDATE repositories SET active = false, park_reason = $1, parked_at = now()
+UPDATE repositories SET active = false, park_reason = $1, parked_at = now(), next_due_at = NULL
 WHERE id = $2 AND (active OR park_reason IS DISTINCT FROM $1)
 `
 

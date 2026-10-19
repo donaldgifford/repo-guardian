@@ -120,6 +120,8 @@ func (*fakeEvalStore) RecordEvaluation(context.Context, string) (store.RecordOut
 
 func (*fakeEvalStore) Park(context.Context, int64, string) error { return nil }
 
+func (*fakeEvalStore) SetNextDue(context.Context, int64, time.Time) error { return nil }
+
 func (s *fakeEvalStore) TrackedPullRequests(context.Context, int64) ([]store.TrackedPR, error) {
 	return s.tracked, nil
 }

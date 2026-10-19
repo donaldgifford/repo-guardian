@@ -31,6 +31,7 @@ type EvalStore interface {
 	Park(ctx context.Context, repoID int64, reason string) error
 	TrackedPullRequests(ctx context.Context, repoID int64) ([]store.TrackedPR, error)
 	ObservePullRequests(ctx context.Context, obs []store.PRObservation) error
+	SetNextDue(ctx context.Context, repoID int64, at time.Time) error
 }
 
 // EvalPolicy is the loaded controls policy. *policy.Snapshot satisfies
@@ -614,9 +615,20 @@ func (e *Evaluator) ParkRepository(ctx context.Context, in *workflows.ParkReposi
 	return nil
 }
 
+// SetNextDue persists the evaluation loop's next due time; the workflow
+// runs it as a local activity after every schedule (IMPL-0030 2.9).
+func (e *Evaluator) SetNextDue(ctx context.Context, in *workflows.SetNextDueInput) error {
+	if err := e.store.SetNextDue(ctx, in.RepositoryID, in.At); err != nil {
+		return fmt.Errorf("set next due: %w", err)
+	}
+
+	return nil
+}
+
 // Register registers the evaluator activities under their workflows
 // package names, on the evaluation worker only.
 func (e *Evaluator) Register(r Registry) {
+	r.RegisterActivityWithOptions(e.SetNextDue, activity.RegisterOptions{Name: workflows.SetNextDueActivity})
 	r.RegisterActivityWithOptions(e.Evaluate, activity.RegisterOptions{Name: workflows.EvaluateActivity})
 	r.RegisterActivityWithOptions(e.RecordEvaluation, activity.RegisterOptions{Name: workflows.RecordEvaluationActivity})
 	r.RegisterActivityWithOptions(e.ParkRepository, activity.RegisterOptions{Name: workflows.ParkRepositoryActivity})

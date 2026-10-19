@@ -153,6 +153,7 @@ func startEvaluatorWorker(t *testing.T, ts *temporaltest.Server, st *postgres.Co
 	}).Register(w)
 	activities.NewEvaluator(st, snap, activities.NewGitHubEvalClients(factory{gh}), quiet).Register(w)
 	activities.NewBudget(ts.Client, workflows.AppEval, queue, 0.10).Register(w)
+	activities.NewRemediationStarter(ts.Client, "repo-guardian-remediate", st).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)
@@ -170,8 +171,12 @@ func startEvaluatorWorker(t *testing.T, ts *temporaltest.Server, st *postgres.Co
 
 // TestIntegration_OneEvaluation is IMPL-0029 task 5.12: discovery →
 // resolution → evaluation → recorded results for a fixture org, then the
-// repository is lost and the EvaluationWorkflow parks and ends. Its
-// history is the replay suite's evaluation_first_run.
+// repository is lost and the EvaluationWorkflow parks and ends. Since
+// IMPL-0030 2.9 the run persists next due inside EVAL_INTERVAL's jitter
+// window and the park clears it (2.11). Its history is the replay
+// suite's evaluation_remediation_v1; evaluation_first_run is the
+// pre-remediation-v1 history, kept so a run begun before the upgrade
+// still replays.
 func TestIntegration_OneEvaluation(t *testing.T) {
 	ctx := t.Context()
 	dsns := pgtest.ControlsDB(t)
@@ -244,6 +249,16 @@ func TestIntegration_OneEvaluation(t *testing.T) {
 		t.Errorf("rate_limit_remaining = %v, want the 4321 the fixture reported", got)
 	}
 
+	var nextDue *time.Time
+
+	eventually(t, time.Minute, func() bool {
+		return owner.QueryRow(ctx, `SELECT next_due_at FROM repositories WHERE id = $1`, repoID).Scan(&nextDue) == nil && nextDue != nil
+	})
+
+	if until := time.Until(*nextDue); until < 21*time.Hour || until > 27*time.Hour {
+		t.Errorf("next_due_at is %v away, want inside 24h ±10%%", until)
+	}
+
 	lost.Store(true)
 
 	if err := ts.Client.SignalWorkflow(ctx, evalID, "", workflows.RecheckSignal,
@@ -260,5 +275,9 @@ func TestIntegration_OneEvaluation(t *testing.T) {
 		t.Errorf("repository active = %v (%v), want parked after the Evaluation App lost it", active, err)
 	}
 
-	captureHistory(t, ts, evalID, "", "evaluation_first_run")
+	if err := owner.QueryRow(ctx, `SELECT next_due_at FROM repositories WHERE id = $1`, repoID).Scan(&nextDue); err != nil || nextDue != nil {
+		t.Errorf("next_due_at = %v (%v) after the park, want NULL", nextDue, err)
+	}
+
+	captureHistory(t, ts, evalID, "", "evaluation_remediation_v1")
 }

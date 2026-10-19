@@ -18,6 +18,11 @@ const (
 	storeTimeout    = 30 * time.Second
 	storeRetryFirst = time.Second
 	storeRetryMax   = time.Minute
+
+	// The evaluation's remediation hooks (IMPL-0030 2.6, 2.9) are best
+	// effort: the sweep and the next evaluation catch what they miss, so
+	// they never hold the loop.
+	hookMaxAttempts = 5
 )
 
 // TaskPriority is the priority every repo-guardian workflow start and
@@ -58,5 +63,34 @@ func storeOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {
 			MaximumAttempts:    0, // unlimited
 		},
 		Priority: p,
+	})
+}
+
+// hookOptions runs StartDueRemediations: bounded, because a failure is
+// logged and caught by the next evaluation or the remediation sweep.
+func hookOptions(ctx workflow.Context, p temporal.Priority) workflow.Context {
+	return workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: storeTimeout,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    storeRetryFirst,
+			BackoffCoefficient: 2,
+			MaximumInterval:    storeRetryMax,
+			MaximumAttempts:    hookMaxAttempts,
+		},
+		Priority: p,
+	})
+}
+
+// localHookOptions runs SetNextDue as a local activity (OQ17): one row
+// write, bounded like the other hooks.
+func localHookOptions(ctx workflow.Context) workflow.Context {
+	return workflow.WithLocalActivityOptions(ctx, workflow.LocalActivityOptions{
+		ScheduleToCloseTimeout: storeTimeout,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    storeRetryFirst,
+			BackoffCoefficient: 2,
+			MaximumInterval:    storeRetryMax,
+			MaximumAttempts:    hookMaxAttempts,
+		},
 	})
 }

@@ -366,10 +366,14 @@ human required`.
   kept for the sweep), reading `ControlsStore.DueRemediationsFor`.
   `RemediateSignal` is now `"recheck"` (nothing ever sent `"remediate"`).
   `TestStartDueRemediations`.
-- [ ] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
+- [x] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
   `Record`; a deferred or discarded evaluation skips it. Behind one
   `workflow.GetVersion(ctx, "remediation-v1", workflow.DefaultVersion, 1)`
   that 2.9 shares.
+  Done: `remediationChange` is read once per run in `newEvalLoop`;
+  version 1 runs `StartDueRemediations` after a record that recorded
+  something (or was already final) with bounded retries (`hookOptions`),
+  so a failure is logged and never holds the loop.
 - [ ] 2.7 Tests: observation table (open with a new head, merged,
   user-closed, closed by us, a failed second page, a PR authored by
   someone else on a `repo-guardian/` branch, which is ignored);
@@ -380,21 +384,30 @@ human required`.
   as `rg_evaluator` (the grant, not the owner).
   Done: `SetNextDue` (zero clears) on `store.Controls`;
   `TestControlsStore_SetNextDue`.
-- [ ] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
+- [x] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
   calls `scheduleNext` (recorded, failed, skipped). It sits behind the
   same `workflow.GetVersion` change id as 2.6, so `EvaluationWorkflow`
   gains one version marker and one recaptured history, not two. The
   `DefaultVersion` branch keeps today's command order exactly.
-- [ ] 2.10 **Replay.**
+  Done: `scheduleNext` runs the `SetNextDue` local activity
+  (`Evaluator.SetNextDue`, by registered name) on version 1, so every
+  path that schedules writes it. `TestEvaluationWorkflow_RemediationHooks`.
+- [x] 2.10 **Replay.**
   - `TestReplay_CapturedHistories` still passes on
     `evaluation_first_run.json`.
   - Capture a second history on the new version with
     `go test -tags integration -run TestIntegration_OneEvaluation
     ./internal/activities -update-histories` and commit it beside the
     old one. Do not overwrite the old history.
-- [ ] 2.11 **Parked repositories.** A park ends the workflow run, so
+  Done: `TestIntegration_OneEvaluation` now captures
+  `evaluation_remediation_v1.json` (version marker, the start activity,
+  the local activity) and asserts next due and its clearing; both
+  histories replay.
+- [x] 2.11 **Parked repositories.** A park ends the workflow run, so
   `ParkRepository` clears `next_due_at` and the card reads "— parked".
   Integration test.
+  Done: the `ParkRepository` query sets `next_due_at = NULL`;
+  `TestIntegration_OneEvaluation` asserts it after the park.
 
 #### Success Criteria
 

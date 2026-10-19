@@ -14,6 +14,13 @@ import (
 // new after this many evaluations even if the SDK has not suggested it.
 const maxIterationsPerRun = 100
 
+// remediationChange is the one version marker IMPL-0030 adds to
+// EvaluationWorkflow: version 1 starts the due remediations after a
+// record (2.6) and persists next due after every schedule (2.9). The
+// DefaultVersion branch keeps IMPL-0029's command order exactly, so a run
+// begun before the upgrade replays unchanged.
+const remediationChange = "remediation-v1"
+
 // EvaluationWorkflow is the per-repository controls evaluation loop
 // (DESIGN-0032 § Evaluation), on the evaluation queue as the Evaluation
 // App: wait for the jittered timer or a signal, evaluate the selected
@@ -49,15 +56,19 @@ type evalLoop struct {
 	state    EvaluationWorkflowInput
 	priority Priority
 
+	// remediation is remediationChange at version 1, read once per run.
+	remediation bool
+
 	recheck, policy workflow.ReceiveChannel
 }
 
 func newEvalLoop(ctx workflow.Context, in *EvaluationWorkflowInput) *evalLoop {
 	return &evalLoop{
-		ctx:     ctx,
-		state:   *in,
-		recheck: workflow.GetSignalChannel(ctx, RecheckSignal),
-		policy:  workflow.GetSignalChannel(ctx, PolicyChangedSignal),
+		ctx:         ctx,
+		state:       *in,
+		remediation: workflow.GetVersion(ctx, remediationChange, workflow.DefaultVersion, 1) == 1,
+		recheck:     workflow.GetSignalChannel(ctx, RecheckSignal),
+		policy:      workflow.GetSignalChannel(ctx, PolicyChangedSignal),
 	}
 }
 
@@ -346,15 +357,32 @@ func (e *evalLoop) report(lease string, res *EvaluateResult) {
 }
 
 func (e *evalLoop) record(key string) error {
+	var rec RecordEvaluationResult
+
 	err := workflow.ExecuteActivity(storeOptions(e.ctx, e.taskPriority()), RecordEvaluationActivity,
-		&RecordEvaluationInput{CheckKey: key}).Get(e.ctx, nil)
+		&RecordEvaluationInput{CheckKey: key}).Get(e.ctx, &rec)
 	if err != nil {
 		return err
+	}
+
+	if e.remediation && (rec.AlreadyFinal || rec.Recorded > 0) {
+		e.startDueRemediations(key)
 	}
 
 	e.scheduleNext()
 
 	return nil
+}
+
+// startDueRemediations hands the repository's due controls to one
+// activity (DESIGN-0032 A1). A discarded evaluation never gets here; a
+// failure is logged, and the next evaluation or the sweep starts them.
+func (e *evalLoop) startDueRemediations(key string) {
+	err := workflow.ExecuteActivity(hookOptions(e.ctx, TaskPriority(PrioritySchedule, e.state.InstallationID)), StartDueRemediationsActivity,
+		&StartDueRemediationsInput{RepositoryID: e.state.RepositoryID, InstallationID: e.state.InstallationID}).Get(e.ctx, nil)
+	if err != nil {
+		workflow.GetLogger(e.ctx).Warn("starting due remediations failed", "check_key", key, "error", err)
+	}
 }
 
 // park parks the repository on access loss; an already parked
@@ -376,4 +404,19 @@ func (e *evalLoop) scheduleNext() {
 
 	interval := float64(e.state.Interval) * (0.9 + 0.2*e.random())
 	e.state.NextDue = workflow.Now(e.ctx).Add(time.Duration(interval))
+
+	if e.remediation {
+		e.persistNextDue()
+	}
+}
+
+// persistNextDue writes NextDue to repositories.next_due_at through the
+// SetNextDue local activity (OQ17, INV-0023 F3). Best effort: the API
+// shows a stale time until the next schedule rather than block the loop.
+func (e *evalLoop) persistNextDue() {
+	err := workflow.ExecuteLocalActivity(localHookOptions(e.ctx), SetNextDueActivity,
+		&SetNextDueInput{RepositoryID: e.state.RepositoryID, At: e.state.NextDue}).Get(e.ctx, nil)
+	if err != nil {
+		workflow.GetLogger(e.ctx).Warn("persisting next due failed", "next_due", e.state.NextDue, "error", err)
+	}
 }

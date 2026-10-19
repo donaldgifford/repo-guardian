@@ -27,6 +27,11 @@ type evalFakes struct {
 	records []RecordEvaluationInput
 	parks   []ParkRepositoryInput
 	acquire []AcquireInput
+	starts  []StartDueRemediationsInput
+	nextDue []SetNextDueInput
+
+	// recorded answers RecordEvaluation; nil means one control recorded.
+	recorded *RecordEvaluationResult
 
 	// script answers the nth Evaluate call; nil means Checked.
 	script func(n int, in *EvaluateInput) *EvaluateResult
@@ -58,7 +63,29 @@ func (f *evalFakes) RecordEvaluation(_ context.Context, in *RecordEvaluationInpu
 
 	f.records = append(f.records, *in)
 
-	return &RecordEvaluationResult{}, nil
+	if f.recorded != nil {
+		return f.recorded, nil
+	}
+
+	return &RecordEvaluationResult{Recorded: 1}, nil
+}
+
+func (f *evalFakes) StartDueRemediations(_ context.Context, in *StartDueRemediationsInput) (*StartDueRemediationsResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.starts = append(f.starts, *in)
+
+	return &StartDueRemediationsResult{}, nil
+}
+
+func (f *evalFakes) SetNextDue(_ context.Context, in *SetNextDueInput) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.nextDue = append(f.nextDue, *in)
+
+	return nil
 }
 
 func (f *evalFakes) ParkRepository(_ context.Context, in *ParkRepositoryInput) error {
@@ -92,6 +119,8 @@ func newEvalEnv(t *testing.T, f *evalFakes) *testsuite.TestWorkflowEnvironment {
 	env.RegisterActivityWithOptions(f.RecordEvaluation, activity.RegisterOptions{Name: RecordEvaluationActivity})
 	env.RegisterActivityWithOptions(f.ParkRepository, activity.RegisterOptions{Name: ParkRepositoryActivity})
 	env.RegisterActivityWithOptions(f.AcquireBudget, activity.RegisterOptions{Name: AcquireBudgetActivity})
+	env.RegisterActivityWithOptions(f.StartDueRemediations, activity.RegisterOptions{Name: StartDueRemediationsActivity})
+	env.RegisterActivityWithOptions(f.SetNextDue, activity.RegisterOptions{Name: SetNextDueActivity})
 	env.OnSignalExternalWorkflow(mock.Anything, InstallationWorkflowID(AppEval, 7), "", ReportSignal, mock.Anything).Return(nil).Maybe()
 	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: EvaluationWorkflowID(testRepoID)})
 
@@ -420,5 +449,60 @@ func TestEvaluationWorkflow_PREventObservesOnly(t *testing.T) {
 	)
 	if got.Trigger != TriggerPush || observeOnly(got) {
 		t.Errorf("coalesce(pr_event, push) = %+v, want the push's trigger and a real evaluation", got)
+	}
+}
+
+// TestEvaluationWorkflow_RemediationHooks is IMPL-0030 2.6 and 2.9: a
+// recorded evaluation starts the due remediations once, every schedule
+// (recorded, failed, skipped) persists next due inside the jitter
+// window, and a fully discarded evaluation starts nothing.
+func TestEvaluationWorkflow_RemediationHooks(t *testing.T) {
+	t.Parallel()
+
+	f := &evalFakes{script: func(n int, _ *EvaluateInput) *EvaluateResult {
+		switch n {
+		case 0:
+			return &EvaluateResult{Kind: CheckChecked}
+		case 1:
+			return &EvaluateResult{Kind: CheckSkipped}
+		default:
+			return &EvaluateResult{Kind: CheckParked, ParkReason: ParkAccessDenied}
+		}
+	}}
+	env := newEvalEnv(t, f)
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(f.starts) != 1 || f.starts[0].RepositoryID != testRepoID || f.starts[0].InstallationID != 7 {
+		t.Errorf("starts = %+v, want one for the recorded evaluation", f.starts)
+	}
+
+	if len(f.nextDue) != 2 {
+		t.Fatalf("next due writes = %+v, want one per schedule (recorded, skipped)", f.nextDue)
+	}
+
+	for _, nd := range f.nextDue {
+		if nd.RepositoryID != testRepoID || nd.At.IsZero() {
+			t.Errorf("next due = %+v, want a time for repository %d", nd, testRepoID)
+		}
+	}
+
+	if gap := f.nextDue[1].At.Sub(f.nextDue[0].At); gap < testInterval*9/10 || gap > testInterval*11/10 {
+		t.Errorf("next due moved %v between schedules, want within ±10%% of %v", gap, testInterval)
+	}
+
+	discarded := &evalFakes{script: parkEvalAfter(1), recorded: &RecordEvaluationResult{Discarded: 1}}
+	env = newEvalEnv(t, discarded)
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(discarded.starts) != 0 || len(discarded.nextDue) != 1 {
+		t.Errorf("discarded: starts %d, next due %d; want 0 and 1", len(discarded.starts), len(discarded.nextDue))
 	}
 }

@@ -474,7 +474,7 @@ human required`.
   existing branch, PR authorship by user id and head repository id,
   fork PRs, and a request log so tests can assert no branch delete was
   ever called.
-- [ ] 3.9 Replay: capture a `RemediationWorkflow` history from the
+- [x] 3.9 Replay: capture a `RemediationWorkflow` history from the
   first behaviour test and add it to `internal/workflows/testdata`
   with a replay test, as today's capture does for `EvaluationWorkflow`.
 - [ ] 3.10 Tests (time-skipping environment): a signal during a run

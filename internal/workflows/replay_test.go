@@ -8,7 +8,7 @@ import (
 )
 
 // The replay suite (IMPL-0025 OQ13) replays captured histories against
-// the current workflow code. RepoWorkflow runs for months, so a change
+// the current workflow code. EvaluationWorkflow runs for months, so a change
 // that alters the commands an old history recorded breaks every running
 // execution at its next workflow task. This catches that in CI instead:
 // a non-deterministic edit fails here. Guard real changes with
@@ -17,7 +17,7 @@ import (
 // Histories live in testdata/histories. Capture from the integration
 // suite with:
 //
-//	go test -tags integration -run TestIntegration_OneCheck ./internal/activities -update-histories
+//	go test -tags integration -run 'TestIntegration_OneEvaluation|TestIntegration_OneRemediation' ./internal/activities -update-histories
 //
 // and add homelab histories with `temporal workflow show --output json`.
 func TestReplay_CapturedHistories(t *testing.T) {

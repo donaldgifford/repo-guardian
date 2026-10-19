@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Schemas } from "../api/client";
 import { describeEvidence } from "../lib/evidence";
-import { formatPercent, humanize, type Tone } from "../lib/format";
+import { formatPercent, humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
 import { DistBar } from "./charts";
 import { Badge } from "./ui/badge";
@@ -34,24 +34,14 @@ export function PostureBar({ posture, label }: { posture: Posture; label: string
   return <DistBar segments={postureSegments(posture)} aria-label={label} />;
 }
 
-const bucketTones: Record<string, Tone> = {
-  compliant: "ok",
-  non_compliant: "bad",
-  pending: "info",
-  stale: "warn",
-  unmeasurable_access_denied: "warn",
-  unmeasurable_suspended: "warn",
-  unmeasurable_conflict: "warn",
-};
-
 // BucketBadge is an assignment's posture bucket; the enum is open, so a
 // bucket the table does not know is mute.
 export function BucketBadge({ bucket }: { bucket: string }) {
-  return <Badge tone={bucketTones[bucket] ?? "mute"}>{humanize(bucket)}</Badge>;
+  return <Badge tone={toneFor("bucket", bucket)}>{humanize(bucket)}</Badge>;
 }
 
 export function DecisionBadge({ decision }: { decision: string }) {
-  return <Badge tone="outline">{humanize(decision)}</Badge>;
+  return <Badge tone={toneFor("decision", decision)}>{humanize(decision)}</Badge>;
 }
 
 // EvidenceText is a rule result's evidence as text, never markup.

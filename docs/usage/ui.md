@@ -72,7 +72,8 @@ Every signed-in page shares one frame (DESIGN-0036):
   (`localStorage` key `rg.tz`), never sent to the server.
 - **Account menu.** The avatar names you and holds **Sign out**.
 - **Breadcrumbs** above every page title, ending at the control, org or
-  repository you are on.
+  repository you are on. A repository reads `org/name` (`…` for the
+  moment it is loading), never its numeric id.
 
 ## Views
 
@@ -89,6 +90,11 @@ Every signed-in page shares one frame (DESIGN-0036):
 Compliance and coverage show **no data** when there is nothing to
 measure, never 100%. Evidence is text: its kind, then its fields as
 `key: value` lines.
+
+On a repository, **Remediable rule** says whether a rule can be fixed
+by remediation at all; the facts card's **remediable** says whether the
+Remediation App can reach this repository. A `no` there carries the
+hint "Remediation App has no access to this repository".
 
 **Re-evaluate** asks for the repository to be evaluated now. It is
 hidden for a parked repository, and disappears for the session once the

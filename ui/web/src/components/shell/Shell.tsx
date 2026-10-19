@@ -5,7 +5,7 @@ import { useMe } from "../../api/queries";
 import { hasNoAccess } from "../../lib/viewmodel";
 import { AccessView } from "../../views/access";
 import { Loading } from "../common";
-import { Breadcrumbs } from "../page/Breadcrumbs";
+import { Breadcrumbs, CrumbLabelProvider } from "../page/Breadcrumbs";
 import { MobileSidebar, Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -30,8 +30,10 @@ export function Shell() {
         <MobileSidebar open={menuOpen} onOpenChange={setMenuOpen} />
         <main className="min-w-0 flex-1 overflow-y-auto px-[18px] py-4">
           <div className="mx-auto max-w-[1400px] space-y-5">
-            <Breadcrumbs />
-            <Outlet />
+            <CrumbLabelProvider>
+              <Breadcrumbs />
+              <Outlet />
+            </CrumbLabelProvider>
           </div>
         </main>
       </div>

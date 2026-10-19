@@ -1,2 +1,2 @@
-export { BreadcrumbList, Breadcrumbs, type Crumb, crumbsFor } from "./Breadcrumbs";
+export { BreadcrumbList, Breadcrumbs, type Crumb, CrumbLabelProvider, crumbsFor, type ItemLabel, useCrumbLabel } from "./Breadcrumbs";
 export { PageHeader } from "./PageHeader";

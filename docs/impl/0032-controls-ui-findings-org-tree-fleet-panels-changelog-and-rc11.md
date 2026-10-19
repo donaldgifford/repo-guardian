@@ -186,34 +186,34 @@ status screenshot. UI-only, no new API, branched from `v2` now.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Tone table (INV-0023 F1).** In `ui/web/src/lib/format.ts`,
+- [x] 1.1 **Tone table (INV-0023 F1).** In `ui/web/src/lib/format.ts`,
   add `rule` (`pass` ok, `fail` bad, `error` bad, `unknown` warn,
   `not_applicable` mute), `bucket` and `decision` to `ToneField`. Move
   `BucketBadge`'s `bucketTones` and `DecisionBadge` in
   `components/posture.tsx` onto `toneFor`, and add `RuleStatusBadge`.
   Extend `format.test.ts` with every rule value, including a failing
   rule rendering `bad`.
-- [ ] 1.2 **Repository page rule badges.** The repository page's
+- [x] 1.2 **Repository page rule badges.** The repository page's
   `ruleColumns` (`views/repositories.tsx`) and the Events tab use
   `RuleStatusBadge` when `rule_id` is set and `StatusBadge` otherwise.
-- [ ] 1.3 **Breadcrumb label (INV-0023 F2).** Add a breadcrumb label
+- [x] 1.3 **Breadcrumb label (INV-0023 F2).** Add a breadcrumb label
   context in `components/page/Breadcrumbs.tsx` that a view sets, and
   have the repository view set `org/name` from `useRepository`. The
   crumb falls back to the param while loading, or reads `…` for
   numeric params. Unit test: the crumb reads `acme/widgets`, never `1`.
-- [ ] 1.4 **Remediable wording (INV-0023 F4).** Rename the rule column
+- [x] 1.4 **Remediable wording (INV-0023 F4).** Rename the rule column
   `Remediates` to `Remediable rule`. Under `remediable no`, the facts
   card adds the hint "Remediation App has no access to this
   repository", as the mockup draws it.
-- [ ] 1.5 **Status screenshot (INV-0023 F7.3).** Re-render the visual
+- [x] 1.5 **Status screenshot (INV-0023 F7.3).** Re-render the visual
   snapshots in the pinned Playwright image
   (`make test-ui-e2e-update-snapshots`), then copy
   `ui/e2e/__screenshots__/status.png` to `docs/usage/img/ui/status.png`.
-- [ ] 1.6 **e2e tone assertion.** One Playwright assertion in
+- [x] 1.6 **e2e tone assertion.** One Playwright assertion in
   `ui/e2e/ui.spec.ts` that a seeded failing rule's badge carries the
   `bad` tone class, and one that the repository crumb reads `org/name`.
   Break `toneFor`'s `rule` row once, confirm the spec fails, restore.
-- [ ] 1.7 **Ship.** Open the PR into `v2` with `dont-release`; record in
+- [x] 1.7 **Ship.** Open the PR into `v2` with `dont-release` (#222); record in
   INV-0023 which findings it closes (F1, F2, F4, F7.3). Then, after merge,
   tag `v2.0.0-rc.12` (chart `2.0.0-rc.12`, appVersion bumped by hand)
   and dispatch `ghcr.yml` with the tag (OQ7; the tag and dispatch are

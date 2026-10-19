@@ -239,7 +239,7 @@ fixed, and F7 is known work without a home.
 | F7.3 | re-render `status.png` | IMPL-0032 Phase 1 |
 
 F1, F2, F4 and F7.3 are UI-only and ship first, as IMPL-0032 Phase 1
-in its own pull request. F3, F7.1 and F7.2 are Go work and ride with
+in its own pull request (#222, which fixes all four). F3, F7.1 and F7.2 are Go work and ride with
 IMPL-0030 (decided 2026-10-18).
 
 <!--docz:recommendation:end-->

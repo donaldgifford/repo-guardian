@@ -3,8 +3,9 @@ import { useState } from "react";
 
 import type { Schemas } from "../api/client";
 import { useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { StatusBadge } from "../components/badges";
+import { RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
+import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
 import { Time } from "../components/time";
@@ -131,6 +132,8 @@ export function RepositoryView() {
   const repoId = Number(id);
   const detail = useRepository(repoId);
   const config = useUIConfig();
+  const named = detail.data?.repository;
+  useCrumbLabel(id, named ? `${named.org}/${named.name}` : undefined);
   if (!detail.data) {
     return <Loading />;
   }
@@ -194,7 +197,18 @@ function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
     { key: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
     ...(r.policy_reason ? [{ key: "policy reason", value: r.policy_reason }] : []),
     { key: "evaluable", value: r.evaluable ? "yes" : "no" },
-    { key: "remediable", value: r.remediable ? "yes" : "no" },
+    {
+      key: "remediable",
+      // INV-0023 F4: "no" here is about App access, while a rule's
+      // "Remediable rule" is about the rule, so say which one this is.
+      value: r.remediable ? (
+        "yes"
+      ) : (
+        <span>
+          no<span className="block text-xs text-muted-foreground">Remediation App has no access to this repository</span>
+        </span>
+      ),
+    },
     { key: "discovered", value: <Time iso={r.discovered_at} style="date" /> },
     { key: "next due", value: r.next_due_at ? <Time iso={r.next_due_at} style="relative" /> : "—" },
   ];
@@ -246,9 +260,9 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
 
 const ruleColumns: Column<Schemas["RuleResult"]>[] = [
   { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
-  { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+  { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
   { key: "evidence", header: "Evidence", cell: (r) => <EvidenceText evidence={r.evidence} /> },
-  { key: "remediate", header: "Remediates", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
+  { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
 ];
 
 function outcomeTone(outcome: string): "ok" | "bad" | "mute" {
@@ -295,11 +309,18 @@ const eventColumns: Column<Schemas["Event"]>[] = [
     cell: (e) =>
       e.to_status || e.from_status ? (
         <span className="inline-flex items-center gap-1.5">
-          {e.from_status ? <StatusBadge status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→{e.to_status ? <StatusBadge status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
+          {e.from_status ? <EventStatus event={e} status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→
+          {e.to_status ? <EventStatus event={e} status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
         </span>
       ) : null,
   },
 ];
+
+// EventStatus tones a rule-level event (one with a rule_id) by the rule
+// row and a control-level event by the control status row.
+function EventStatus({ event, status }: { event: Schemas["Event"]; status: string }) {
+  return event.rule_id ? <RuleStatusBadge status={status} /> : <StatusBadge status={status} />;
+}
 
 function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);

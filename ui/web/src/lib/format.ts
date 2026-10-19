@@ -72,11 +72,23 @@ export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
 
 // ToneField names a column of the DESIGN-0036 tone table. For `reason`
 // the value is the finding's *status*: a reason is warn under
-// non_compliant and mute otherwise.
-export type ToneField = "status" | "remediation" | "reason" | "state" | "kind";
+// non_compliant and mute otherwise. `status` is a control's status and
+// `rule` a rule result's (INV-0023 F1: rule statuses once fell through
+// `status` to mute, so a failing rule read grey).
+export type ToneField = "status" | "rule" | "bucket" | "decision" | "remediation" | "reason" | "state" | "kind";
 
-const tones: Record<Exclude<ToneField, "reason" | "kind">, Record<string, Tone>> = {
+const tones: Record<Exclude<ToneField, "reason" | "kind" | "decision">, Record<string, Tone>> = {
   status: { compliant: "ok", non_compliant: "bad", not_applicable: "mute", unknown: "warn" },
+  rule: { pass: "ok", fail: "bad", error: "bad", unknown: "warn", not_applicable: "mute" },
+  bucket: {
+    compliant: "ok",
+    non_compliant: "bad",
+    pending: "info",
+    stale: "warn",
+    unmeasurable_access_denied: "warn",
+    unmeasurable_suspended: "warn",
+    unmeasurable_conflict: "warn",
+  },
   remediation: { pr_open: "info", applied: "ok", foreign_pr: "warn", disabled: "mute", dry_run: "mute", none: "mute" },
   state: { operational: "ok", degraded: "warn" },
 };
@@ -87,6 +99,7 @@ const tones: Record<Exclude<ToneField, "reason" | "kind">, Record<string, Tone>>
 export function toneFor(field: ToneField, value: string): Tone {
   switch (field) {
     case "kind":
+    case "decision":
       return "outline";
     case "reason":
       return value === "non_compliant" ? "warn" : "mute";

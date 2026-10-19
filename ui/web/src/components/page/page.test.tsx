@@ -19,10 +19,25 @@ describe("crumbsFor", () => {
     ["section", { routeId: "/app/controls" }, ["Repo Guardian", "Controls"]],
     ["item", { routeId: "/app/orgs/$org", params: { org: "acme" } }, ["Repo Guardian", "Orgs", "acme"]],
     ["item without its param", { routeId: "/app/controls/$id", params: {} }, ["Repo Guardian", "Controls"]],
+    ["numeric item while loading", { routeId: "/app/repositories/$id", params: { id: "1" } }, ["Repo Guardian", "Repositories", "…"]],
     ["unknown route", { routeId: "/nope" }, ["Repo Guardian"]],
     ["no match", undefined, ["Repo Guardian"]],
   ])("%s", (_name, match, want) => {
     expect(crumbsFor(match).map((c) => c.label)).toEqual(want);
+  });
+});
+
+describe("crumbsFor with a view label (INV-0023 F2)", () => {
+  const match = { routeId: "/app/repositories/$id", params: { id: "1" } };
+
+  test("reads the label, never the id", () => {
+    const labels = crumbsFor(match, { param: "1", label: "acme/widgets" }).map((c) => c.label);
+    expect(labels).toEqual(["Repo Guardian", "Repositories", "acme/widgets"]);
+    expect(labels).not.toContain("1");
+  });
+
+  test("ignores a label left from another item", () => {
+    expect(crumbsFor(match, { param: "2", label: "acme/gadgets" }).at(-1)?.label).toBe("…");
   });
 });
 

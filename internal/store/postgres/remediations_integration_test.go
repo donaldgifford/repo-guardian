@@ -440,3 +440,88 @@ func TestRemediationStore_ConcurrentReservations(t *testing.T) {
 		t.Errorf("concurrent ReserveSlot = %d reserved, %d capped; want 3 and %d", reserved, capped, n-3)
 	}
 }
+
+// TestControlsStore_ObservePullRequests is IMPL-0030 2.2, run as
+// rg_evaluator: an open PR's head is observed and evented only when it
+// moves; a user close sets closed_by_user with closed_generation and
+// next_eligible_at = closed_at + reopen_after; a row no longer open is
+// never reclassified.
+func TestControlsStore_ObservePullRequests(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	row, err := reserve(t, f.r, f.repoID, "codeowners", "op-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, `UPDATE remediations SET state = 'open', pr_number = 7`)
+
+	tracked, err := f.eval.TrackedPullRequests(ctx, f.repoID)
+	if err != nil || len(tracked) != 1 || tracked[0].PRNumber != 7 || tracked[0].RemediationID != row.ID {
+		t.Fatalf("TrackedPullRequests = %+v, %v; want #7", tracked, err)
+	}
+
+	events := func() int {
+		var n int
+		queryArgs(t, f.dsns.Owner, `SELECT count(*)::int FROM remediation_events WHERE kind = 'observed'`, &n)
+
+		return n
+	}
+
+	open := store.PRObservation{RemediationID: row.ID, PRNumber: 7, State: store.PRObservedOpen, HeadSHA: "h1"}
+	for range 2 {
+		if err := f.eval.ObservePullRequests(ctx, []store.PRObservation{open}); err != nil {
+			t.Fatalf("ObservePullRequests(open): %v", err)
+		}
+	}
+
+	if got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners"); got.ObservedHeadSHA != "h1" || got.ObservedAt == nil || events() != 1 {
+		t.Errorf("after two opens: head %q, observed_at %v, %d events; want h1, set, 1", got.ObservedHeadSHA, got.ObservedAt, events())
+	}
+
+	closedAt := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if err := f.eval.ObservePullRequests(ctx, []store.PRObservation{{
+		RemediationID: row.ID, PRNumber: 7, State: store.PRObservedClosed, ClosedAt: closedAt,
+	}}); err != nil {
+		t.Fatalf("ObservePullRequests(closed): %v", err)
+	}
+
+	got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners")
+	if got.State != store.StateClosedByUser || got.ClosedGeneration == nil || *got.ClosedGeneration != 1 ||
+		got.NextEligibleAt == nil || !got.NextEligibleAt.Equal(closedAt.Add(336*time.Hour)) {
+		t.Fatalf("after close = %+v; want closed_by_user, closed_generation 1, next_eligible_at closed_at + 14d", got)
+	}
+
+	// A merge seen after the close does not reclassify the terminal row.
+	if err := f.eval.ObservePullRequests(ctx, []store.PRObservation{{
+		RemediationID: row.ID, PRNumber: 7, State: store.PRObservedMerged, ClosedAt: closedAt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, _ := f.r.LatestRemediation(ctx, f.repoID, "codeowners"); got.State != store.StateClosedByUser || events() != 2 {
+		t.Errorf("merge after close: state %q, %d events; want closed_by_user, 2", got.State, events())
+	}
+
+	// rg_evaluator holds none of the remediator's columns.
+	for _, sql := range []string{
+		`UPDATE remediations SET acknowledged_head_sha = 'x'`,
+		`UPDATE remediations SET remediated_generation = 9`,
+		`UPDATE remediations SET intent_revision = 'x'`,
+		`UPDATE remediations SET hold = 'permission'`,
+		`UPDATE control_results SET remediated_generation = 9`,
+		`INSERT INTO remediation_steps (remediation_id, operation_key, seq, kind, status, occurred_at) VALUES (1, 'x', 9, 'committed', 'done', now())`,
+	} {
+		if err := exec(t, f.dsns.Evaluator, sql); err == nil {
+			t.Errorf("%s as rg_evaluator: allowed, want permission denied", sql)
+		}
+	}
+}

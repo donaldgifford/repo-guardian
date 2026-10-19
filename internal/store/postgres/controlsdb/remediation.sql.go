@@ -370,6 +370,75 @@ func (q *Queries) MaintenanceCandidates(ctx context.Context, batch int32) ([]Mai
 	return items, nil
 }
 
+const observeClosedPR = `-- name: ObserveClosedPR :execrows
+WITH v AS (SELECT $2::timestamptz AS closed_at)
+UPDATE remediations r SET
+    state             = 'closed_by_user',
+    closed_at         = v.closed_at,
+    observed_at       = now(),
+    closed_generation = COALESCE(
+        (SELECT cr.eval_generation FROM control_results cr
+         WHERE cr.repository_id = r.repository_id AND cr.control_id = r.control_id),
+        r.remediated_generation),
+    next_eligible_at  = v.closed_at + ps.reopen_after
+FROM repository_policy_state ps, v
+WHERE ps.repository_id = r.repository_id AND r.id = $1 AND r.state = 'open'
+`
+
+type ObserveClosedPRParams struct {
+	ID       int64
+	ClosedAt time.Time
+}
+
+// Closed unmerged by a user: hold the slot's control until a newer
+// generation or reopen_after passes (closed_generation, next_eligible_at).
+func (q *Queries) ObserveClosedPR(ctx context.Context, arg ObserveClosedPRParams) (int64, error) {
+	result, err := q.db.Exec(ctx, observeClosedPR, arg.ID, arg.ClosedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const observeMergedPR = `-- name: ObserveMergedPR :execrows
+UPDATE remediations SET state = 'merged', closed_at = $1::timestamptz, observed_at = now()
+WHERE id = $2 AND state = 'open'
+`
+
+type ObserveMergedPRParams struct {
+	ClosedAt time.Time
+	ID       int64
+}
+
+func (q *Queries) ObserveMergedPR(ctx context.Context, arg ObserveMergedPRParams) (int64, error) {
+	result, err := q.db.Exec(ctx, observeMergedPR, arg.ClosedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const observeOpenPR = `-- name: ObserveOpenPR :one
+UPDATE remediations r SET observed_head_sha = $1, observed_at = now()
+FROM (SELECT q.id, q.observed_head_sha AS prev FROM remediations q WHERE q.id = $2) p
+WHERE r.id = p.id AND r.state = 'open'
+RETURNING (p.prev IS DISTINCT FROM $1::text)::bool AS moved
+`
+
+type ObserveOpenPRParams struct {
+	HeadSha *string
+	ID      int64
+}
+
+// The FROM subquery reads the row as it was, so moved says whether the
+// head changed since the last observation.
+func (q *Queries) ObserveOpenPR(ctx context.Context, arg ObserveOpenPRParams) (bool, error) {
+	row := q.db.QueryRow(ctx, observeOpenPR, arg.HeadSha, arg.ID)
+	var moved bool
+	err := row.Scan(&moved)
+	return moved, err
+}
+
 const recordRemediationRun = `-- name: RecordRemediationRun :execrows
 UPDATE remediations
 SET remediated_generation = GREATEST(remediated_generation, $1::bigint),
@@ -542,6 +611,40 @@ func (q *Queries) SetResultHold(ctx context.Context, arg SetResultHoldParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const trackedPullRequests = `-- name: TrackedPullRequests :many
+SELECT id, control_id, pr_number::int AS pr_number FROM remediations
+WHERE repository_id = $1 AND kind = 'pull_request' AND state = 'open' AND pr_number IS NOT NULL
+ORDER BY id
+`
+
+type TrackedPullRequestsRow struct {
+	ID        int64
+	ControlID string
+	PrNumber  int32
+}
+
+// The evaluator's observation set (DESIGN-0032 D24): open remediation
+// pull requests, matched by number.
+func (q *Queries) TrackedPullRequests(ctx context.Context, repositoryID int64) ([]TrackedPullRequestsRow, error) {
+	rows, err := q.db.Query(ctx, trackedPullRequests, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TrackedPullRequestsRow
+	for rows.Next() {
+		var i TrackedPullRequestsRow
+		if err := rows.Scan(&i.ID, &i.ControlID, &i.PrNumber); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateRemediation = `-- name: UpdateRemediation :exec

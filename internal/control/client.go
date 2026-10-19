@@ -237,6 +237,7 @@ type PullRequest struct {
 	AuthorLogin string
 	AuthorType  string // User | Bot
 	CreatedAt   time.Time
+	ClosedAt    time.Time // zero while open
 }
 
 // Commit is one entry of ListCommits. AuthorID is 0 when the git author

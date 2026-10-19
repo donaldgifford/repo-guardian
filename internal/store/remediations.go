@@ -205,3 +205,29 @@ type RemediationStep struct {
 	Error         string
 	OccurredAt    time.Time
 }
+
+// TrackedPR is an open remediation pull request the evaluator observes.
+type TrackedPR struct {
+	RemediationID int64
+	ControlID     string
+	PRNumber      int
+}
+
+// The states an observation reports.
+const (
+	PRObservedOpen   = "open"
+	PRObservedMerged = "merged"
+	PRObservedClosed = "closed"
+)
+
+// PRObservation is what the Evaluation App saw of one tracked pull
+// request: still open at HeadSHA, merged, or closed unmerged (by a user:
+// the remediator's own closes leave the row terminal, so it is never
+// tracked).
+type PRObservation struct {
+	RemediationID int64
+	PRNumber      int
+	State         string
+	HeadSHA       string
+	ClosedAt      time.Time
+}

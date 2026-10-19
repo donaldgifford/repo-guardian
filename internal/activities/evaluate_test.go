@@ -98,8 +98,10 @@ func (p fakePolicy) Revision(id control.ID) string {
 
 // fakeEvalStore serves one target and records the stage.
 type fakeEvalStore struct {
-	target *store.EvaluationTarget
-	staged *store.EvaluationStage
+	target   *store.EvaluationTarget
+	staged   *store.EvaluationStage
+	tracked  []store.TrackedPR
+	observed []store.PRObservation
 }
 
 func (s *fakeEvalStore) EvaluationTarget(context.Context, int64) (*store.EvaluationTarget, error) {
@@ -118,11 +120,22 @@ func (*fakeEvalStore) RecordEvaluation(context.Context, string) (store.RecordOut
 
 func (*fakeEvalStore) Park(context.Context, int64, string) error { return nil }
 
+func (s *fakeEvalStore) TrackedPullRequests(context.Context, int64) ([]store.TrackedPR, error) {
+	return s.tracked, nil
+}
+
+func (s *fakeEvalStore) ObservePullRequests(_ context.Context, obs []store.PRObservation) error {
+	s.observed = append(s.observed, obs...)
+
+	return nil
+}
+
 // fakeEvalRepo is one repository at testSHA.
 type fakeEvalRepo struct {
-	headErr error
-	sha     string
-	files   *controltest.FakeRepo
+	headErr  error
+	sha      string
+	files    *controltest.FakeRepo
+	observer control.PRObserver
 }
 
 func (r *fakeEvalRepo) Repo(context.Context, int64, string, string) (EvalRepo, error) { return r, nil }
@@ -132,6 +145,8 @@ func (r *fakeEvalRepo) Head(context.Context) (branch, sha string, err error) {
 }
 
 func (r *fakeEvalRepo) Reader(string) control.Reader { return r.files }
+
+func (r *fakeEvalRepo) Observer() control.PRObserver { return r.observer }
 
 func assignment(name string, state policy.AssignmentState) store.AssignedControl {
 	return store.AssignedControl{

@@ -56,6 +56,11 @@ const (
 	ControlsRecordServiceRunActivity  = "ControlsRecordServiceRun"
 )
 
+// RemediationBranchPrefix starts every remediation pull request's head
+// branch. Observation lists by it and ingest routes pull_request events
+// by it; matching a tracked PR is by number, never by branch alone.
+const RemediationBranchPrefix = "repo-guardian/"
+
 // RemediateSignal asks a RemediationWorkflow to run, or to loop once
 // more when it already is (DESIGN-0032 D6).
 const RemediateSignal = "remediate"

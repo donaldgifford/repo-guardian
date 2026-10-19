@@ -29,6 +29,8 @@ type EvalStore interface {
 	StageEvaluation(ctx context.Context, st *store.EvaluationStage) error
 	RecordEvaluation(ctx context.Context, checkKey string) (store.RecordOutcome, error)
 	Park(ctx context.Context, repoID int64, reason string) error
+	TrackedPullRequests(ctx context.Context, repoID int64) ([]store.TrackedPR, error)
+	ObservePullRequests(ctx context.Context, obs []store.PRObservation) error
 }
 
 // EvalPolicy is the loaded controls policy. *policy.Snapshot satisfies
@@ -48,6 +50,8 @@ type EvalRepo interface {
 	Head(ctx context.Context) (branch, sha string, err error)
 	// Reader returns a Reader with file reads pinned to sha.
 	Reader(sha string) control.Reader
+	// Observer reads the repository's pull requests (DESIGN-0032 D24).
+	Observer() control.PRObserver
 }
 
 // EvalClients opens repositories with the Evaluation App's installation
@@ -161,6 +165,8 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 		return &out.EvaluateResult, nil
 	}
 
+	e.observe(evalCtx, log, in.RepositoryID, repo)
+
 	if err := e.store.StageEvaluation(ctx, &store.EvaluationStage{
 		CheckKey: in.CheckKey, RepositoryID: in.RepositoryID, Trigger: in.Trigger,
 		PolicyVersion: e.policy.Version(), StartedAt: started, Controls: out.staged,
@@ -171,6 +177,28 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 	log.Info("evaluation staged", "controls", len(out.staged), "calls", out.Calls)
 
 	return &out.EvaluateResult, nil
+}
+
+// observe reads and records the repository's tracked remediation pull
+// requests (DESIGN-0032 D24). It is best effort: a failure leaves the
+// previous observation in place for the next evaluation to refresh, and
+// never fails or defers the evaluation it rides on.
+func (e *Evaluator) observe(ctx context.Context, log *slog.Logger, repoID int64, repo EvalRepo) {
+	tracked, err := e.store.TrackedPullRequests(ctx, repoID)
+	if err != nil {
+		log.Warn("pull request observation failed", "error", err)
+
+		return
+	}
+
+	obs, err := observePRs(ctx, repo.Observer(), tracked)
+	if err == nil {
+		err = e.store.ObservePullRequests(ctx, obs)
+	}
+
+	if err != nil {
+		log.Warn("pull request observation failed", "tracked", len(tracked), "error", err)
+	}
 }
 
 // evaluation is the activity result plus what run staged.

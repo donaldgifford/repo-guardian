@@ -137,3 +137,38 @@ LIMIT @batch;
 -- The remediator's one DELETE (RLS remediations_expire): a reservation
 -- whose run never opened its pull request frees the slot.
 DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < @now::timestamptz;
+
+-- name: TrackedPullRequests :many
+-- The evaluator's observation set (DESIGN-0032 D24): open remediation
+-- pull requests, matched by number.
+SELECT id, control_id, pr_number::int AS pr_number FROM remediations
+WHERE repository_id = @repository_id AND kind = 'pull_request' AND state = 'open' AND pr_number IS NOT NULL
+ORDER BY id;
+
+-- name: ObserveOpenPR :one
+-- The FROM subquery reads the row as it was, so moved says whether the
+-- head changed since the last observation.
+UPDATE remediations r SET observed_head_sha = @head_sha, observed_at = now()
+FROM (SELECT q.id, q.observed_head_sha AS prev FROM remediations q WHERE q.id = @id) p
+WHERE r.id = p.id AND r.state = 'open'
+RETURNING (p.prev IS DISTINCT FROM @head_sha::text)::bool AS moved;
+
+-- name: ObserveMergedPR :execrows
+UPDATE remediations SET state = 'merged', closed_at = @closed_at::timestamptz, observed_at = now()
+WHERE id = @id AND state = 'open';
+
+-- name: ObserveClosedPR :execrows
+-- Closed unmerged by a user: hold the slot's control until a newer
+-- generation or reopen_after passes (closed_generation, next_eligible_at).
+WITH v AS (SELECT @closed_at::timestamptz AS closed_at)
+UPDATE remediations r SET
+    state             = 'closed_by_user',
+    closed_at         = v.closed_at,
+    observed_at       = now(),
+    closed_generation = COALESCE(
+        (SELECT cr.eval_generation FROM control_results cr
+         WHERE cr.repository_id = r.repository_id AND cr.control_id = r.control_id),
+        r.remediated_generation),
+    next_eligible_at  = v.closed_at + ps.reopen_after
+FROM repository_policy_state ps, v
+WHERE ps.repository_id = r.repository_id AND r.id = @id AND r.state = 'open';

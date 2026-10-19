@@ -28,6 +28,8 @@ func (*fakeEvalRepo) Head(context.Context) (branch, sha string, err error) {
 
 func (r *fakeEvalRepo) Reader(string) control.Reader { return r.files }
 
+func (*fakeEvalRepo) Observer() control.PRObserver { return nil }
+
 // writeEvalPolicy writes a policy root assigning codeowners@1 to acme.
 func writeEvalPolicy(t *testing.T) string {
 	t.Helper()

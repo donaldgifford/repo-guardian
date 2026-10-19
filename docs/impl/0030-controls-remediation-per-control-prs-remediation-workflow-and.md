@@ -315,13 +315,13 @@ human required`.
 
 #### Tasks
 
-- [ ] 2.1 PR observation in the evaluate activity, through the
+- [x] 2.1 PR observation in the evaluate activity, through the
   Evaluation App's `PRObserver`: `ListPullRequests("repo-guardian/")`
   (paginated to completion; a failed page is an observation error, not
   an empty list) plus `GetPullRequest` for each tracked PR not in the
   open list. Matching is by `remediations.pr_number`, never by branch
   name alone.
-- [ ] 2.2 Observation writes, as `rg_evaluator` and only the columns it
+- [x] 2.2 Observation writes, as `rg_evaluator` and only the columns it
   holds: `observed_head_sha` and `observed_at` on every open tracked PR;
   `state = 'merged'` with `closed_at`; `state = 'closed_by_user'` with
   `closed_generation = eval_generation` and `next_eligible_at =
@@ -329,6 +329,15 @@ human required`.
   `remediation_events` row `observed` with the detail. A PR closed by
   the Remediation App is not reclassified (its row is already
   terminal).
+  Done (2.1 + 2.2): `activities.observePRs` lists once and reads each
+  tracked PR missing from the list; nothing is called when nothing is
+  tracked. `ControlsStore.TrackedPullRequests`/`ObservePullRequests`
+  guard every write on `state = 'open'`, event state changes and moved
+  heads only, and observation is best effort (a failure logs and never
+  fails the evaluation). `control.PullRequest` gained `ClosedAt`, and
+  `Merged` reads `merged_at` too (the list endpoint omits `merged`).
+  `TestControlsStore_ObservePullRequests` (as `rg_evaluator`, with the
+  remediator-column denials).
 - [ ] 2.3 `pr_event` trigger: a `pull_request` webhook on a
   `repo-guardian/` head signals the evaluation with trigger `pr_event`,
   which runs observation only and touches no evaluation column

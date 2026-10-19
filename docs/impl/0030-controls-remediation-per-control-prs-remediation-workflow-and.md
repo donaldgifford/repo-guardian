@@ -456,7 +456,7 @@ human required`.
   and returns `ErrStaleEpoch` when any changed. Called immediately
   before every external write in Phases 4 and 5; a lint-style test
   walks the write call sites and fails if one is not preceded by it.
-- [ ] 3.6 Classification in the run, in order: `github.AsThrottled`
+- [x] 3.6 Classification in the run, in order: `github.AsThrottled`
   (either App) → defer through the controls line's deferral path (a workflow
   timer, never a sleep in an activity); access loss
   → stop with `hold = 'permission'` or let resolution's

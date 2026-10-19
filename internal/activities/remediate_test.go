@@ -2,10 +2,16 @@ package activities
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
+	"slices"
 	"sync"
 	"testing"
+	"time"
 
+	gh "github.com/google/go-github/v68/github"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 
@@ -126,5 +132,87 @@ func TestRemediate_OperationHeldExitsCleanly(t *testing.T) {
 
 	if res.Start != (workflows.RemediationState{Generation: 5, IntentRevision: "i5"}) {
 		t.Errorf("start state = %+v, want the target's", res.Start)
+	}
+}
+
+// TestRemediate_Classification is IMPL-0030 3.6, in order: a throttle
+// defers without recording (a secondary-limit 403 is a throttle first),
+// access loss holds permission, then the run's own outcomes.
+func TestRemediate_Classification(t *testing.T) {
+	t.Parallel()
+
+	forbidden := &gh.ErrorResponse{Response: &http.Response{StatusCode: http.StatusForbidden}}
+
+	for _, tt := range []struct {
+		name  string
+		err   error
+		kind  workflows.RemediationKind
+		holds []string
+	}{
+		{name: "done", kind: workflows.RemediationDone},
+		{name: "throttle", err: fmt.Errorf("commit: %w", &ghclient.ThrottledError{ResetAt: time.Now().Add(time.Hour)}), kind: workflows.RemediationDeferred},
+		{
+			name: "secondary limit 403",
+			err:  fmt.Errorf("commit: %w", &gh.AbuseRateLimitError{Response: &http.Response{StatusCode: http.StatusForbidden}}),
+			kind: workflows.RemediationDeferred,
+		},
+		{name: "access loss", err: fmt.Errorf("commit: %w", forbidden), kind: workflows.RemediationHeld, holds: []string{store.HoldPermission}},
+		{name: "stale epoch", err: ErrStaleEpoch, kind: workflows.RemediationStale},
+		{name: "hold", err: &holdError{hold: store.HoldForeignBranch}, kind: workflows.RemediationHeld, holds: []string{store.HoldForeignBranch}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			st := &fakeRemediationStore{targets: []*store.RemediationTarget{remediable()}}
+
+			res, err := runRemediate(t, st, func(context.Context, *remediationRun) error { return tt.err })
+			if err != nil {
+				t.Fatalf("Remediate = %v, want a result", err)
+			}
+
+			if res.Kind != tt.kind || !slices.Equal(st.holds, tt.holds) {
+				t.Errorf("Remediate = %s, holds %v; want %s, %v", res.Kind, st.holds, tt.kind, tt.holds)
+			}
+
+			if (res.Kind == workflows.RemediationDeferred) != !res.Until.IsZero() {
+				t.Errorf("Until = %v for %s", res.Until, res.Kind)
+			}
+		})
+	}
+}
+
+// TestRemediate_OperationalErrorRetries: anything unclassified is an
+// error, which the retry policy retries.
+func TestRemediate_OperationalErrorRetries(t *testing.T) {
+	t.Parallel()
+
+	st := &fakeRemediationStore{targets: []*store.RemediationTarget{remediable()}}
+
+	if _, err := runRemediate(t, st, func(context.Context, *remediationRun) error { return errors.New("boom") }); err == nil {
+		t.Fatal("Remediate = nil, want the error for the retry policy")
+	}
+}
+
+// TestRemediate_ActsOnlyInRemediateMode: a target the run must not touch
+// completes with nothing done.
+func TestRemediate_ActsOnlyInRemediateMode(t *testing.T) {
+	t.Parallel()
+
+	for name, change := range map[string]func(*store.RemediationTarget){
+		"evaluate mode": func(t *store.RemediationTarget) { t.EffectiveMode = "evaluate" },
+		"excluded":      func(t *store.RemediationTarget) { t.State = "excluded" },
+		"parked":        func(t *store.RemediationTarget) { t.Active = false },
+		"unreachable":   func(t *store.RemediationTarget) { t.Remediable = false },
+	} {
+		target := remediable()
+		change(target)
+
+		acted := false
+		st := &fakeRemediationStore{targets: []*store.RemediationTarget{target}}
+
+		res, err := runRemediate(t, st, func(context.Context, *remediationRun) error { acted = true; return nil })
+		if err != nil || acted || res.Kind != workflows.RemediationDone {
+			t.Errorf("%s: Remediate = %+v, %v, acted %v; want done without acting", name, res, err, acted)
+		}
 	}
 }

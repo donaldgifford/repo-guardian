@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
 // remediationRow inserts the control's latest remediation in state, with
@@ -179,4 +182,32 @@ func TestRemediationMaintenance_Actions(t *testing.T) {
 	}
 
 	runViewTable(t, f.dsns.Owner, cases, `SELECT action FROM remediation_maintenance`)
+}
+
+// TestControlsStore_OpenRemediationPRs is IMPL-0030 7.1's
+// remediation_prs_open read: open pull-request remediations per org,
+// control and age bucket; closed ones and recommendations do not count.
+func TestControlsStore_OpenRemediationPRs(t *testing.T) {
+	f := newRemediationFixture(t)
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(t.Context(), "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, remediationRow("pull_request", "merged", nil))
+	run(t, f.dsns.Owner, remediationRow("pull_request", "open", nil))
+	run(t, f.dsns.Owner, `UPDATE remediations SET created_at = now() - interval '40 days' WHERE state = 'open'`)
+
+	got, err := f.eval.OpenRemediationPRs(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []store.OpenPRAge{{Org: "acme", ControlID: "codeowners", AgeBucket: "30d+", Open: 1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("OpenRemediationPRs = %+v, want %+v", got, want)
+	}
 }

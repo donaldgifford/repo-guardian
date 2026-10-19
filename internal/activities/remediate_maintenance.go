@@ -227,7 +227,14 @@ func (m *maintenanceRun) end(ctx context.Context, state, reason, outcome string)
 
 	m.event(ctx, m.mt.RemediationID, state, "{}")
 
-	if outcome != maintSuperseded {
+	switch state {
+	case store.StateSuperseded:
+		m.count(resultSuperseded)
+	case store.StateWithdrawn:
+		m.count(resultWithdrawn)
+		m.observe()
+	default:
+		m.count(resultClosedCompliant)
 		m.observe()
 	}
 
@@ -294,6 +301,7 @@ func (m *maintenanceRun) closePR(ctx context.Context) (string, error) {
 	}
 
 	m.event(ctx, m.mt.RemediationID, store.StateClosedWithdrawn, "{}")
+	m.count(resultWithdrawn)
 	m.observe()
 
 	return maintClosed, nil
@@ -356,6 +364,7 @@ func (m *maintenanceRun) closeCompliant(ctx context.Context) (string, error) {
 		return m.refused(ctx, err)
 	}
 
+	m.count(resultClosedCompliant)
 	m.observe()
 
 	return maintClosed, nil
@@ -403,6 +412,8 @@ func (m *maintenanceRun) refused(ctx context.Context, err error) (string, error)
 // block holds permission on the row: blocked cleanup, shown as such
 // until the Remediation App's access returns.
 func (m *maintenanceRun) block(ctx context.Context) (string, error) {
+	held := false
+
 	err := m.claim(ctx, m.mt.OperationKey, func(ctx context.Context, op store.ClaimedOperation) error {
 		row := op.Remediation()
 		if row.Hold == store.HoldPermission {
@@ -410,6 +421,7 @@ func (m *maintenanceRun) block(ctx context.Context) (string, error) {
 		}
 
 		row.Hold = store.HoldPermission
+		held = true
 
 		return op.Update(ctx, &row)
 	})
@@ -417,9 +429,18 @@ func (m *maintenanceRun) block(ctx context.Context) (string, error) {
 		return maintSkipped, err
 	}
 
-	m.log.Info("cleanup blocked: the remediation app cannot reach the repository")
+	// Counted once, when the hold is taken; every later sweep retries it.
+	if held {
+		m.log.Info("cleanup blocked: the remediation app cannot reach the repository")
+		metrics.RemediationBlockedTotal.WithLabelValues(m.mt.Org, store.HoldPermission).Inc()
+	}
 
 	return maintBlocked, nil
+}
+
+// count records a lifecycle close in remediation_runs_total.
+func (m *maintenanceRun) count(result string) {
+	metrics.RemediationRunsTotal.WithLabelValues(m.mt.Org, m.mt.ControlID, result).Inc()
 }
 
 // observe records remediation_cleanup_latency_seconds from the observed

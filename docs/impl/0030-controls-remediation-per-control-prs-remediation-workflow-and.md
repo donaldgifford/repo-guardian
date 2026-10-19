@@ -682,7 +682,7 @@ human required`.
 
 #### Tasks
 
-- [ ] 7.1 Metrics in `internal/metrics`: `remediation_runs_total{org,control,result}`,
+- [x] 7.1 Metrics in `internal/metrics`: `remediation_runs_total{org,control,result}`,
   `remediation_prs_open{org,control,age_bucket}` (leader-published from
   the store, queried with `max by`), `remediation_blocked_total{org,reason}`,
   `remediation_reservations_expired_total{org}`,

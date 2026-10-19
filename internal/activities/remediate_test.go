@@ -12,11 +12,14 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v68/github"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
@@ -292,5 +295,49 @@ func TestRemediate_OverlappingAttemptsActOnce(t *testing.T) {
 
 	if claim.acted != 1 {
 		t.Errorf("acted %d times, want once", claim.acted)
+	}
+}
+
+// TestRemediate_CountsRuns is IMPL-0030 7.1: a run lands in
+// remediation_runs_total by its result and a hold in
+// remediation_blocked_total by its reason, labelled by org and control
+// only.
+func TestRemediate_CountsRuns(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		act    remediationAct
+		metric *prometheus.CounterVec
+		labels []string
+	}{
+		{
+			name:   "opened",
+			act:    func(_ context.Context, run *remediationRun) error { run.outcome(resultOpened); return nil },
+			metric: metrics.RemediationRunsTotal, labels: []string{"acme", "codeowners", resultOpened},
+		},
+		{
+			name:   "noop",
+			act:    func(context.Context, *remediationRun) error { return nil },
+			metric: metrics.RemediationRunsTotal, labels: []string{"acme", "codeowners", resultNoop},
+		},
+		{
+			name:   "error",
+			act:    func(context.Context, *remediationRun) error { return errors.New("boom") },
+			metric: metrics.RemediationRunsTotal, labels: []string{"acme", "codeowners", resultError},
+		},
+		{
+			name:   "held",
+			act:    func(context.Context, *remediationRun) error { return &holdError{hold: store.HoldForeignBranch} },
+			metric: metrics.RemediationBlockedTotal, labels: []string{"acme", store.HoldForeignBranch},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			before := testutil.ToFloat64(tt.metric.WithLabelValues(tt.labels...))
+
+			_, _ = runRemediate(t, &fakeRemediationStore{targets: []*store.RemediationTarget{remediable()}}, tt.act)
+
+			if got := testutil.ToFloat64(tt.metric.WithLabelValues(tt.labels...)) - before; got != 1 {
+				t.Errorf("%v rose by %v, want 1", tt.labels, got)
+			}
+		})
 	}
 }

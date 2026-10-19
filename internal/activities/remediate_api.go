@@ -118,6 +118,7 @@ func (p *prRun) startAPI(ctx context.Context, prop *proposal, direct bool) error
 
 	if !direct {
 		p.event(ctx, row.ID, store.StateRecommended, "{}")
+		p.outcome(resultOpened)
 
 		return p.record(ctx, row.OperationKey, "")
 	}
@@ -139,6 +140,12 @@ func (p *prRun) closeAPI(ctx context.Context, row *store.Remediation, state, rea
 	}
 
 	p.event(ctx, row.ID, state, "{}")
+
+	if state == store.StateSuperseded {
+		p.outcome(resultSuperseded)
+	} else {
+		p.outcome(resultClosedCompliant)
+	}
 
 	return nil
 }
@@ -224,6 +231,7 @@ func (p *prRun) apply(ctx context.Context, row *store.Remediation, prop *proposa
 
 	if finished {
 		p.event(ctx, row.ID, store.StateApplied, "{}")
+		p.outcome(resultApplied)
 	}
 
 	return p.record(ctx, row.OperationKey, "")

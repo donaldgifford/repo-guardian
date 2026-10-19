@@ -273,3 +273,53 @@ func (q *Queries) InsertComplianceSnapshot(ctx context.Context, arg InsertCompli
 	)
 	return err
 }
+
+const openRemediationPRs = `-- name: OpenRemediationPRs :many
+SELECT r.org, m.control_id,
+       (CASE
+          WHEN now() - m.created_at < interval '1 day'   THEN '<1d'
+          WHEN now() - m.created_at < interval '7 days'  THEN '1-7d'
+          WHEN now() - m.created_at < interval '30 days' THEN '7-30d'
+          ELSE '30d+'
+        END)::text AS age_bucket,
+       count(*)::int AS open
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+WHERE m.kind = 'pull_request' AND m.state = 'open'
+GROUP BY r.org, m.control_id, age_bucket
+ORDER BY r.org, m.control_id, age_bucket
+`
+
+type OpenRemediationPRsRow struct {
+	Org       string
+	ControlID string
+	AgeBucket string
+	Open      int32
+}
+
+// remediation_prs_open (IMPL-0030 7.1): open remediation pull requests
+// per org, control and age bucket, for every api replica to publish.
+func (q *Queries) OpenRemediationPRs(ctx context.Context) ([]OpenRemediationPRsRow, error) {
+	rows, err := q.db.Query(ctx, openRemediationPRs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OpenRemediationPRsRow
+	for rows.Next() {
+		var i OpenRemediationPRsRow
+		if err := rows.Scan(
+			&i.Org,
+			&i.ControlID,
+			&i.AgeBucket,
+			&i.Open,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
@@ -199,7 +200,29 @@ type remediationRun struct {
 	// revision; nil when the loaded policy has another revision.
 	control control.Control
 	def     control.Definition
+
+	// result is the run's remediation_runs_total result so far; empty is
+	// noop.
+	result string
 }
+
+// The remediation_runs_total results (DESIGN-0032 § Metrics).
+const (
+	resultReserved        = "reserved"
+	resultOpened          = "opened"
+	resultUpdated         = "updated"
+	resultNoop            = "noop"
+	resultClosedCompliant = "closed_compliant"
+	resultWithdrawn       = "withdrawn"
+	resultSuperseded      = "superseded"
+	resultApplied         = "applied"
+	resultDeferred        = "deferred"
+	resultError           = "error"
+)
+
+// outcome records what the run did; a later step overrides an earlier
+// one (a reservation that opens its PR is opened).
+func (run *remediationRun) outcome(result string) { run.result = result }
 
 // assignmentActive is the state of an assignment that is in force;
 // modeRemediate is the effective mode a run acts in.
@@ -239,17 +262,42 @@ func (r *Remediator) Remediate(ctx context.Context, in *workflows.RemediateInput
 	}
 
 	runCtx, usage := ghclient.WithUsage(ctx)
-	err = r.run(runCtx, log, in, t)
+	result, err := r.run(runCtx, log, in, t)
 	out.Calls, out.Rate = usage.Calls(), toRate(usage.Rate())
 	activity.RecordHeartbeat(ctx, "done")
 
-	return r.classify(ctx, log, in, t, out, err)
+	res, err := r.classify(ctx, log, in, t, out, err)
+	countRun(t.Org, in.Control, result, res, err)
+
+	return res, err
 }
 
-func (r *Remediator) run(ctx context.Context, log *slog.Logger, in *workflows.RemediateInput, t *store.RemediationTarget) error {
+// countRun counts the run in remediation_runs_total, and a hold in
+// remediation_blocked_total. A moved assignment or a held operation did
+// nothing and is not counted.
+func countRun(org, controlID, result string, res *workflows.RemediateResult, err error) {
+	switch {
+	case err != nil:
+		result = resultError
+	case res.Kind == workflows.RemediationDeferred:
+		result = resultDeferred
+	case res.Kind == workflows.RemediationHeld:
+		metrics.RemediationBlockedTotal.WithLabelValues(org, res.Hold).Inc()
+
+		return
+	case res.Kind != workflows.RemediationDone:
+		return
+	case result == "":
+		result = resultNoop
+	}
+
+	metrics.RemediationRunsTotal.WithLabelValues(org, controlID, result).Inc()
+}
+
+func (r *Remediator) run(ctx context.Context, log *slog.Logger, in *workflows.RemediateInput, t *store.RemediationTarget) (string, error) {
 	repo, err := r.clients.Repo(ctx, t.InstallationID, t.Org, t.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	run := &remediationRun{in: in, target: t, repo: repo, store: r.store, log: log}
@@ -262,7 +310,9 @@ func (r *Remediator) run(ctx context.Context, log *slog.Logger, in *workflows.Re
 		}
 	}
 
-	return r.act(ctx, run)
+	err = r.act(ctx, run)
+
+	return run.result, err
 }
 
 // classify turns a run's error into a disposition, in order (IMPL-0030

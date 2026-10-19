@@ -103,3 +103,20 @@ INSERT INTO compliance_snapshots (
     @org, @control_id, @decision, @snapshot_at, @compliant, @non_compliant, @pending, @stale, @unmeasurable_access_denied,
     @unmeasurable_suspended, @unmeasurable_conflict, @not_applicable, @unknown, @excluded, @assigned, @percent, @coverage
 );
+
+-- name: OpenRemediationPRs :many
+-- remediation_prs_open (IMPL-0030 7.1): open remediation pull requests
+-- per org, control and age bucket, for every api replica to publish.
+SELECT r.org, m.control_id,
+       (CASE
+          WHEN now() - m.created_at < interval '1 day'   THEN '<1d'
+          WHEN now() - m.created_at < interval '7 days'  THEN '1-7d'
+          WHEN now() - m.created_at < interval '30 days' THEN '7-30d'
+          ELSE '30d+'
+        END)::text AS age_bucket,
+       count(*)::int AS open
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+WHERE m.kind = 'pull_request' AND m.state = 'open'
+GROUP BY r.org, m.control_id, age_bucket
+ORDER BY r.org, m.control_id, age_bucket;

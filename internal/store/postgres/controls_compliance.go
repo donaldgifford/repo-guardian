@@ -153,3 +153,19 @@ func (s *ControlsStore) PruneChecks(ctx context.Context, before time.Time) (int6
 
 	return n, nil
 }
+
+// OpenRemediationPRs counts open remediation pull requests per org,
+// control and age bucket (IMPL-0030 7.1).
+func (s *ControlsStore) OpenRemediationPRs(ctx context.Context) ([]store.OpenPRAge, error) {
+	rows, err := s.q.OpenRemediationPRs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open remediation prs: %w", err)
+	}
+
+	out := make([]store.OpenPRAge, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.OpenPRAge{Org: r.Org, ControlID: r.ControlID, AgeBucket: r.AgeBucket, Open: int(r.Open)})
+	}
+
+	return out, nil
+}

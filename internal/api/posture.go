@@ -24,14 +24,16 @@ const (
 	bucketUnknown       = "unknown"
 )
 
-// PostureReader is the controls compliance query (IMPL-0029 task 4.7).
+// PostureReader is the controls compliance query (IMPL-0029 task 4.7)
+// and the open remediation pull requests (IMPL-0030 7.1).
 // *postgres.ControlsStore satisfies it.
 type PostureReader interface {
 	ControlCompliance(ctx context.Context, orgs []string, lineage string) ([]store.ControlPosture, error)
+	OpenRemediationPRs(ctx context.Context) ([]store.OpenPRAge, error)
 }
 
 // PostureExporter publishes controls_status and controls_coverage from
-// the compliance query. Every api replica runs one (IMPL-0029 OQ8): they
+// the compliance query, and remediation_prs_open. Every api replica runs one (IMPL-0029 OQ8): they
 // read the same rows, so dashboards collapse replicas with max by.
 type PostureExporter struct {
 	reader PostureReader
@@ -123,6 +125,23 @@ func (p *PostureExporter) Export(ctx context.Context) error {
 		}
 
 		metrics.ControlsCoverage.WithLabelValues(k.org, k.control).Set(float64(s.Assigned))
+	}
+
+	return p.exportPRs(ctx)
+}
+
+// exportPRs republishes remediation_prs_open the same way: read first,
+// and keep the previous values on a read error.
+func (p *PostureExporter) exportPRs(ctx context.Context) error {
+	prs, err := p.reader.OpenRemediationPRs(ctx)
+	if err != nil {
+		return fmt.Errorf("read open remediation pull requests: %w", err)
+	}
+
+	metrics.RemediationPRsOpen.Reset()
+
+	for _, r := range prs {
+		metrics.RemediationPRsOpen.WithLabelValues(r.Org, r.ControlID, r.AgeBucket).Set(float64(r.Open))
 	}
 
 	return nil

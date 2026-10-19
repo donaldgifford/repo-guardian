@@ -162,6 +162,8 @@ func (p *prRun) open(ctx context.Context) error {
 		return fmt.Errorf("reserve slot: %w", err)
 	}
 
+	p.outcome(resultReserved)
+
 	return p.progress(ctx, rem, prop)
 }
 
@@ -296,6 +298,8 @@ func (p *prRun) openPR(ctx context.Context, op store.ClaimedOperation, row *stor
 	if err := op.Update(ctx, row); err != nil {
 		return fmt.Errorf("mark open: %w", err)
 	}
+
+	p.outcome(resultOpened)
 
 	return nil
 }
@@ -533,6 +537,7 @@ func (p *prRun) closeCompliant(ctx context.Context, op store.ClaimedOperation, r
 	}
 
 	p.event(ctx, row.ID, store.StateClosedCompliant, "{}")
+	p.outcome(resultClosedCompliant)
 
 	return nil
 }
@@ -579,6 +584,7 @@ func (p *prRun) commitDelta(
 	}
 
 	p.journal(ctx, row.ID, &store.RemediationStep{Kind: stepPRUpdated, PRNumber: pr.Number, CommittedSHA: sha})
+	p.outcome(resultUpdated)
 
 	return nil
 }

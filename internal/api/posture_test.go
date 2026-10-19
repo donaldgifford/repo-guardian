@@ -17,6 +17,7 @@ import (
 type fakePosture struct {
 	rows []store.ControlPosture
 	err  error
+	prs  []store.OpenPRAge
 
 	sawSeries int
 }
@@ -25,6 +26,10 @@ func (f *fakePosture) ControlCompliance(context.Context, []string, string) ([]st
 	f.sawSeries = testutil.CollectAndCount(metrics.ControlsStatus)
 
 	return f.rows, f.err
+}
+
+func (f *fakePosture) OpenRemediationPRs(context.Context) ([]store.OpenPRAge, error) {
+	return f.prs, nil
 }
 
 // posture is one codeowners row of org.
@@ -122,5 +127,27 @@ func TestPostureExporter_NotConfiguredPublishesNothing(t *testing.T) {
 
 	if n := testutil.CollectAndCount(metrics.ControlsStatus) + testutil.CollectAndCount(metrics.ControlsCoverage); n != 0 {
 		t.Errorf("series published without a reader = %d, want 0", n)
+	}
+}
+
+// TestPostureExporter_PublishesOpenPRs is IMPL-0030 7.1:
+// remediation_prs_open per org, control and age bucket, with no
+// repository or pull request label.
+func TestPostureExporter_PublishesOpenPRs(t *testing.T) {
+	r := &fakePosture{prs: []store.OpenPRAge{
+		{Org: "acme", ControlID: "codeowners", AgeBucket: "<1d", Open: 2},
+		{Org: "acme", ControlID: "codeowners", AgeBucket: "30d+", Open: 1},
+	}}
+
+	if err := NewPostureExporter(r, slog.New(slog.DiscardHandler)).Export(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := testutil.ToFloat64(metrics.RemediationPRsOpen.WithLabelValues("acme", "codeowners", "30d+")); got != 1 {
+		t.Errorf("remediation_prs_open{age_bucket=30d+} = %v, want 1", got)
+	}
+
+	if n := testutil.CollectAndCount(metrics.RemediationPRsOpen); n != 2 {
+		t.Errorf("remediation_prs_open has %d series, want 2", n)
 	}
 }

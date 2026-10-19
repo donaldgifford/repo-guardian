@@ -119,6 +119,11 @@ type ResolutionChange struct {
 	Changed []string
 	// Withdrawn holds every control whose result was cleared.
 	Withdrawn []string
+	// Blocked holds the mode reason of every new or changed assignment
+	// the Remediation App's reach downgraded to evaluate
+	// (remediation_app_no_access, remediation_app_suspended), counted as
+	// remediation_blocked_total once the resolution commits.
+	Blocked []string
 }
 
 // RepositoryRef is one active repository as the rollout pages it.
@@ -247,4 +252,13 @@ type Exclusion struct {
 	State      string
 	Reason     string
 	ExcludedBy string
+}
+
+// OpenPRAge is one remediation_prs_open series: open remediation pull
+// requests of one control in one org and age bucket.
+type OpenPRAge struct {
+	Org       string
+	ControlID string
+	AgeBucket string
+	Open      int
 }

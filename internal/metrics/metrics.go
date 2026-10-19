@@ -19,6 +19,8 @@ const (
 	labelProperty       = "property"
 	labelApp            = "app"
 	labelControl        = "control"
+	labelResult         = "result"
+	labelAgeBucket      = "age_bucket"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -223,6 +225,33 @@ var (
 		Help:    "Age of the previous evaluated_at when a control is re-evaluated.",
 		Buckets: []float64{60, 300, 900, 3600, 4 * 3600, 12 * 3600, 24 * 3600, 36 * 3600, 48 * 3600, 7 * 24 * 3600},
 	}, []string{labelOrg})
+
+	// RemediationRunsTotal counts remediation outcomes (DESIGN-0032 §
+	// Metrics): reserved, opened, updated, noop, closed_compliant,
+	// withdrawn, superseded, applied, deferred or error. Lifecycle
+	// maintenance's closes count here too.
+	RemediationRunsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_runs_total",
+		Help: "Total remediation runs and lifecycle closes, by result.",
+	}, []string{labelOrg, labelControl, labelResult})
+
+	// RemediationPRsOpen is the open remediation pull requests per
+	// control and age bucket (<1d, 1-7d, 7-30d, 30d+), published from the
+	// store by every api replica; query with max by.
+	RemediationPRsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_remediation_prs_open",
+		Help: "Open remediation pull requests per control and age bucket (api-exported; query with max by).",
+	}, []string{labelOrg, labelControl, labelAgeBucket})
+
+	// RemediationBlockedTotal counts remediations blocked, by reason:
+	// a hold (foreign_branch, stale_branch, conflict, pr_cap, permission)
+	// or an assignment resolution downgraded because the Remediation App
+	// cannot reach the repository (remediation_app_no_access,
+	// remediation_app_suspended).
+	RemediationBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_blocked_total",
+		Help: "Total remediations blocked, by reason.",
+	}, []string{labelOrg, labelReason})
 
 	// RemediationReservationsExpiredTotal counts pull-request slot
 	// reservations lifecycle maintenance freed because their run never

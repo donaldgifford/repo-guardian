@@ -209,7 +209,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   snapshots in the pinned Playwright image
   (`make test-ui-e2e-update-snapshots`), then copy
   `ui/e2e/__screenshots__/status.png` to `docs/usage/img/ui/status.png`.
-- [ ] 1.6 **e2e tone assertion.** One Playwright assertion in
+- [x] 1.6 **e2e tone assertion.** One Playwright assertion in
   `ui/e2e/ui.spec.ts` that a seeded failing rule's badge carries the
   `bad` tone class, and one that the repository crumb reads `org/name`.
   Break `toneFor`'s `rule` row once, confirm the spec fails, restore.

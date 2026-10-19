@@ -467,7 +467,7 @@ human required`.
   `GET /users/<slug>[bot]` for the id and `type = Bot`), cache it, and
   fail startup when it cannot be resolved. Reuse IMPL-0028's resolver
   if it built one.
-- [ ] 3.8 GitHub fake for remediation (`internal/github/ghfake` or the
+- [x] 3.8 GitHub fake for remediation (`internal/github/ghfake` or the
   package IMPL-0028 created): stateful repositories with real
   three-way merge for update-branch, `createCommitOnBranch`
   `expectedHeadOid` and push semantics, ref create that fails on an

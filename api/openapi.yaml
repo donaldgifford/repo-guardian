@@ -1212,6 +1212,7 @@ components:
           description: The active policy version; absent before one is activated.
           type: string
     RemediationActivity:
+      description: Daily repo-guardian pull request throughput, oldest day first, one entry per UTC day.
       type: object
       required: [items]
       properties:

@@ -690,6 +690,7 @@ export interface components {
             /** @description The active policy version; absent before one is activated. */
             policy_version?: string;
         };
+        /** @description Daily repo-guardian pull request throughput, oldest day first, one entry per UTC day. */
         RemediationActivity: {
             items: components["schemas"]["ActivityDay"][];
         };

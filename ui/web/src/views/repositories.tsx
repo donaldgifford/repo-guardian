@@ -5,6 +5,7 @@ import type { Schemas } from "../api/client";
 import { useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
 import { RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
+import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
 import { Time } from "../components/time";
@@ -131,6 +132,8 @@ export function RepositoryView() {
   const repoId = Number(id);
   const detail = useRepository(repoId);
   const config = useUIConfig();
+  const named = detail.data?.repository;
+  useCrumbLabel(id, named ? `${named.org}/${named.name}` : undefined);
   if (!detail.data) {
     return <Loading />;
   }

@@ -72,7 +72,8 @@ Every signed-in page shares one frame (DESIGN-0036):
   (`localStorage` key `rg.tz`), never sent to the server.
 - **Account menu.** The avatar names you and holds **Sign out**.
 - **Breadcrumbs** above every page title, ending at the control, org or
-  repository you are on.
+  repository you are on. A repository reads `org/name` (`…` for the
+  moment it is loading), never its numeric id.
 
 ## Views
 

@@ -852,13 +852,55 @@ Every new query lives in an `api_*.sql` file so
 
 #### Tasks
 
-- [ ] 8.1 Confirm `TestPRIdentity_IsFrozen` is gone: IMPL-0029 task 7.2
+- [x] 8.1 Confirm `TestPRIdentity_IsFrozen` is gone: IMPL-0029 task 7.2
   retires it with `internal/checker` and `internal/reconciler`. This
   plan only checks that `tools/rgctl` (on `main`) still carries the v1
   literals it needs for cutover steps 3 and 6.
-- [ ] 8.2 Parity-test retirement table: list every remaining parity
+  Done: no Go file on this branch names it (IMPL-0029 7.2 deleted both
+  copies). `tools/rgctl/internal/prs/identity.go` on `main` keeps
+  `DefaultPrefix` (`repo-guardian/`), the three v1 branch names and the
+  reconcile-log marker as literals, which is all steps 3 (`rgctl prs
+  list`) and 6 (`rgctl prs close`) match on. Its comment still says the
+  literals are "frozen by TestPRIdentity_IsFrozen there"; that is
+  stale but lives on `main`, outside this branch.
+- [x] 8.2 Parity-test retirement table: list every remaining parity
   scenario and the Phase 4/5/6 test that replaces it; retire only
   scenarios with a named replacement (DESIGN-0032 Migration).
+  Done: IMPL-0029 7.2 deleted both parity suites after recording a fate
+  for each of their 103 scenarios, so none remain to run. The rows it
+  left "returning with IMPL-0030" now name their replacement, or stay
+  retired with the reason. Test names are in `internal/activities`
+  unless prefixed.
+
+  | Scenario | Replacement or reason |
+  |---|---|
+  | `TestBaseDrift_ExistingPR_BranchUpdatedBeforeSync` | `TestPullRequest_MainChangesTheSameFile` + write `TestUpdateBranch` |
+  | `TestBaseDrift_NoExistingPR_BranchNotUpdated` | `TestPullRequest_OnboardingOpensThePR` (a new branch is cut from main; nothing to update) |
+  | `TestBaseDrift_UpdateError_ReconcileContinues` | `TestRemediate_OperationalErrorRetries` |
+  | `TestCheckRepoPolicy_OpenPRsByRule_PopulatedWithActionableRules` | api `TestPostureExporter_PublishesOpenPRs` (`remediation_prs_open{org,control,age_bucket}`) |
+  | `TestCheckRepo_MissingFiles_ExistingPR` | `TestPullRequest_NoChangeDoesNothing` |
+  | `TestCheckRepo_MissingFiles_ThirdPartyPR` | `TestPullRequest_SpoofedAuthorAndForkRefused`; the `foreign_pr` suppression itself stays retired (`search_terms` dropped) |
+  | `TestForeignPRForRule_CustomTitleDoesNotSelfSuppress` | `TestPullRequest_SpoofedAuthorAndForkRefused` (identity is bot user id plus branch, never the title) |
+  | `TestConvergence_Sweep1_OpensPR` | `TestPullRequest_OnboardingOpensThePR` |
+  | `TestConvergence_Sweep2_OrphanCleanupAndBodyRefresh` | `TestPullRequest_RetiredPathRevertedHumanEditKept` (the retired path is reverted and the title and body re-rendered in the same update) |
+  | `TestConvergence_Sweep3_AutoClosesPR_Default` | `TestPullRequest_CompliantCloseOnlyAfterAFreshRead` + `TestMaintain_CloseCompliantOnlyOnAFreshRead` |
+  | `TestConvergence_RenovateFirst_HandDeletedDependabot_AutoCloses` | `TestPullRequest_CompliantCloseOnlyAfterAFreshRead` |
+  | `TestConvergence_RenovateFirst_IdempotentReSweep_ZeroMutations` | `TestPullRequest_NoChangeDoesNothing` + `TestRemediate_OverlappingAttemptsActOnce` |
+  | `TestConvergence_GenuineOrphanIsStillDeleted` | `TestPullRequest_RetiredPathRevertedHumanEditKept` |
+  | `TestConvergence_RepairScopedToRuleTarget` | `TestPullRequest_RetiredPathRevertedHumanEditKept` (only the control's own retired paths are reverted) |
+  | `TestConvergence_RepairsBranchThatDeletedADefaultBranchFile` | `TestPullRequest_RetiredPathRevertedHumanEditKept` |
+  | `TestConvergence_GetContentsOnBranchError_FailsSafe` | `TestRemediate_OperationalErrorRetries` |
+  | `TestConvergence_Sweep3_AutoCloseDisabled_LeavesPROpen` | retired: v1 behaviour, no replacement — `auto_close_pr` is gone; a compliant close is always on, after a fresh read |
+  | `TestConvergence_OrphanCleanupDisabled_NoDeletion` | retired: v1 behaviour, no replacement — `orphan_cleanup` is gone; files are reverted, never deleted |
+  | `TestConvergence_DeleteFileError_IncrementsCounter_Continues` | retired: v1 behaviour, no replacement — the controls Writer deletes no file outside a commit, and `pr_orphan_left_total` is gone |
+  | `TestConvergence_Bundle_AddAndRemove_RendersBothSections` | retired: v1 behaviour, no replacement — one pull request per control, so there is no bundle |
+  | `TestConvergence_RenovateFirst_BothVariantsDeleted` | retired: v1 behaviour, no replacement — `dependency_updates` owns the renovate-or-dependabot choice as one control |
+  | `TestConvergence_RenovateFirst_RemovesDependabot` | retired: as above |
+  | `TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot` | retired: as above; there are no `when` gates |
+  | `TestConvergence_RepairDoesNotFightAnActionableAbsentRule` | retired: v1 behaviour, no replacement — no absent mode (DESIGN-0031 D6) |
+  | `TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote` | retired: v1 behaviour, no replacement — one control owns a path (`ValidateChangeSet`, load-time ownership warning), so two never write one file |
+  | `TestPRRefresh_UnchangedText_SkipsPatch` | `TestPullRequest_NoChangeDoesNothing` (no commit, no `UpdatePullRequest`) |
+  | `TestPRRefresh_CRLFBodyFromWebUI_SkipsPatch` | retired: v1 behaviour, no replacement — the body is re-rendered only on a commit, never compared with what GitHub holds |
 - [ ] 8.3 Rewrite `docs/operations/v2-migration.md` as the fresh-install
   cutover: DESIGN-0032's six steps, rgctl at steps 3 and 6 once per App
   (per OQ6), a fresh database and Temporal namespace, rollback as the

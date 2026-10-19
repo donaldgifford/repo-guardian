@@ -100,6 +100,8 @@ func TestRemediationDue_TruthTable(t *testing.T) {
 
 	cases := []viewCase{
 		{name: "first evaluation 1 > 0", want: "codeowners"},
+		// 00006: no remediation row is due on its generation alone.
+		{name: "no remediation, generation acknowledged", setup: []string{caught}},
 		{name: "repository excluded", setup: []string{`UPDATE repository_policy_state SET state = 'excluded'`}},
 		{name: "repository parked", setup: []string{`UPDATE repository_policy_state SET state = 'parked'`}},
 		{name: "assignment excluded", setup: []string{`UPDATE control_assignments SET state = 'excluded'`}},

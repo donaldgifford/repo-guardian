@@ -258,6 +258,20 @@ func (w *Writer) UpsertPRComment(ctx context.Context, number int, marker, body s
 	return w.client.UpsertPRComment(ctx, w.owner, w.repo, number, marker, body)
 }
 
+// AddPRLabels adds labels through the issues endpoint, which creates a
+// label the repository lacks.
+func (w *Writer) AddPRLabels(ctx context.Context, number int, labels []string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	if _, _, err := w.rest().Issues.AddLabelsToIssue(ctx, w.owner, w.repo, number, labels); err != nil {
+		return fmt.Errorf("add labels to %s/%s#%d: %w", w.owner, w.repo, number, err)
+	}
+
+	return nil
+}
+
 // UpdateRepository writes the non-nil fields of settings. A
 // security_and_analysis feature is written as its status.
 func (w *Writer) UpdateRepository(ctx context.Context, s control.RepositorySettings) error { //nolint:gocritic // control.Writer's signature

@@ -109,6 +109,10 @@ type Writer interface {
 	// marker, or creates one.
 	UpsertPRComment(ctx context.Context, number int, marker, body string) error
 
+	// AddPRLabels adds labels to PR number, creating any the repository
+	// lacks; an empty list is a no-op.
+	AddPRLabels(ctx context.Context, number int, labels []string) error
+
 	// UpdateRepository writes the non-nil fields of settings.
 	UpdateRepository(ctx context.Context, settings RepositorySettings) error
 

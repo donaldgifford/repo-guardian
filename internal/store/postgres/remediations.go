@@ -68,6 +68,9 @@ func (s *RemediationStore) ReserveSlot(ctx context.Context, in *store.SlotReques
 			AssignmentEpoch:      in.Epoch,
 			OperationKey:         in.OperationKey,
 			IntentRevision:       in.Intent,
+			BaseSha:              nullText(in.BaseSHA),
+			Branch:               nullText(in.Branch),
+			ExpectedHead:         nullText(in.ExpectedHead),
 			TtlSeconds:           in.TTL.Seconds(),
 			RemediatedGeneration: in.Generation,
 		}); err != nil {
@@ -175,7 +178,20 @@ func (s *RemediationStore) RemediationTarget(ctx context.Context, repositoryID i
 		Status:         row.Status,
 		Hold:           row.Hold,
 		ObservedHead:   row.ObservedHeadSha,
+		ProviderRepoID: row.ProviderRepoID,
+		ControlVersion: int(row.ControlVersion),
+		AccountType:    row.AccountType,
+		Due:            row.Due,
 	}, nil
+}
+
+// TouchLastRemediation stamps repository_policy_state.last_remediation_at.
+func (s *RemediationStore) TouchLastRemediation(ctx context.Context, repositoryID int64) error {
+	if err := s.q.TouchLastRemediation(ctx, repositoryID); err != nil {
+		return fmt.Errorf("touch last remediation: %w", err)
+	}
+
+	return nil
 }
 
 // AppendStep journals one step on its own connection, so it commits even
@@ -371,6 +387,14 @@ func (s *RemediationStore) RecordRun(ctx context.Context, run *store.RunRecord) 
 			Generation: run.Generation, RepositoryID: run.RepositoryID, ControlID: run.ControlID,
 		}); err != nil {
 			return fmt.Errorf("record result: %w", err)
+		}
+
+		// A run that opened nothing (compliant, or nothing to fix) has no
+		// remediation row; it acknowledges the generation on the result.
+		if run.OperationKey == "" {
+			recorded = true
+
+			return nil
 		}
 
 		n, err := q.RecordRemediationRun(ctx, controlsdb.RecordRemediationRunParams{

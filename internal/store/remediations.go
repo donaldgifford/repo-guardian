@@ -87,6 +87,9 @@ type Remediations interface {
 	// remediation run and its epoch fence see it; nil when the control is
 	// not assigned (withdrawn) or the repository is unknown.
 	RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*RemediationTarget, error)
+	// TouchLastRemediation stamps the repository's last_remediation_at
+	// after a recorded run (IMPL-0030 4.15).
+	TouchLastRemediation(ctx context.Context, repositoryID int64) error
 }
 
 // RemediationTarget is one control on one repository as the remediator
@@ -117,6 +120,16 @@ type RemediationTarget struct {
 
 	// ObservedHead is the newest remediation's observed head, if any.
 	ObservedHead string
+
+	// ProviderRepoID is GitHub's repository id, which an adopted pull
+	// request's head repository must equal.
+	ProviderRepoID int64
+	ControlVersion int
+	// AccountType is the Remediation App installation's account type.
+	AccountType string
+	// Due is the remediation_due predicate for this one row (IMPL-0030
+	// 4.1).
+	Due bool
 }
 
 // DueRemediation is one remediation_due row.
@@ -157,7 +170,9 @@ const (
 
 // RunRecord is a finished remediation run. Generation is the
 // eval_generation read at run start and ProcessedHead the pull request
-// head the run acted on (empty for an API control).
+// head the run acted on (empty for an API control). An empty
+// OperationKey records a run that opened nothing: it acknowledges the
+// generation on the result alone.
 type RunRecord struct {
 	Org            string
 	RepositoryID   int64
@@ -189,6 +204,11 @@ type SlotRequest struct {
 	Intent       string
 	// Generation is the control's eval_generation the run started from.
 	Generation int64
+	// The run's intent, committed with the reservation before any
+	// external step (IMPL-0030 4.4).
+	BaseSHA      string
+	Branch       string
+	ExpectedHead string
 	// TTL bounds the reservation; maintenance expires it after.
 	TTL time.Duration
 }

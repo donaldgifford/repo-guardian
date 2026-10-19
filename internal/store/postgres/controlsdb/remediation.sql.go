@@ -193,10 +193,11 @@ func (q *Queries) ExpireReservations(ctx context.Context, now time.Time) (int64,
 const insertReservation = `-- name: InsertReservation :one
 INSERT INTO remediations (
     repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
-    reserved_until, remediated_generation, created_at, last_run_at)
+    base_sha, branch, expected_head, reserved_until, remediated_generation, created_at, last_run_at)
 VALUES (
     $1, $2, $3, $4, 'pull_request', 'reserved', $5,
-    now() + make_interval(secs => $6::float8), $7, now(), now())
+    $6, $7, $8,
+    now() + make_interval(secs => $9::float8), $10, now(), now())
 ON CONFLICT (operation_key) DO NOTHING
 RETURNING id
 `
@@ -207,10 +208,16 @@ type InsertReservationParams struct {
 	AssignmentEpoch      int64
 	OperationKey         string
 	IntentRevision       string
+	BaseSha              *string
+	Branch               *string
+	ExpectedHead         *string
 	TtlSeconds           float64
 	RemediatedGeneration int64
 }
 
+// The run's intent (base_sha, branch, expected_head) is written with the
+// reservation, so it is committed before any external step (IMPL-0030
+// 4.4).
 func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationParams) (int64, error) {
 	row := q.db.QueryRow(ctx, insertReservation,
 		arg.RepositoryID,
@@ -218,6 +225,9 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.AssignmentEpoch,
 		arg.OperationKey,
 		arg.IntentRevision,
+		arg.BaseSha,
+		arg.Branch,
+		arg.ExpectedHead,
 		arg.TtlSeconds,
 		arg.RemediatedGeneration,
 	)
@@ -556,10 +566,11 @@ func (q *Queries) RemediationByOperationKey(ctx context.Context, operationKey st
 }
 
 const remediationTarget = `-- name: RemediationTarget :one
-SELECT r.org, r.name, r.active,
-       a.epoch, a.state, a.effective_mode, a.revision,
+SELECT r.org, r.name, r.active, COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id,
+       a.epoch, a.state, a.effective_mode, a.revision, a.control_version,
        COALESCE(acc.installation_id, 0)::bigint AS installation_id,
        (acc.installation_id IS NOT NULL AND i.suspended_at IS NULL)::bool AS remediable,
+       COALESCE(i.account_type, '')::text AS account_type,
        (cr.repository_id IS NOT NULL)::bool AS has_result,
        COALESCE(cr.assignment_epoch, 0)::bigint AS result_epoch,
        COALESCE(cr.eval_generation, 0)::bigint AS eval_generation,
@@ -568,7 +579,9 @@ SELECT r.org, r.name, r.active,
        COALESCE(cr.hold, '')::text AS hold,
        COALESCE((SELECT m.observed_head_sha FROM remediations m
                  WHERE m.repository_id = r.id AND m.control_id = a.control_id
-                 ORDER BY m.id DESC LIMIT 1), '')::text AS observed_head_sha
+                 ORDER BY m.id DESC LIMIT 1), '')::text AS observed_head_sha,
+       EXISTS (SELECT 1 FROM remediation_due d
+               WHERE d.repository_id = r.id AND d.control_id = a.control_id)::bool AS due
 FROM repositories r
 JOIN control_assignments a ON a.repository_id = r.id AND a.control_id = $1
 LEFT JOIN app_repository_access acc ON acc.repository_id = r.id AND acc.app = 'remediate'
@@ -586,12 +599,15 @@ type RemediationTargetRow struct {
 	Org             string
 	Name            string
 	Active          bool
+	ProviderRepoID  int64
 	Epoch           int64
 	State           string
 	EffectiveMode   string
 	Revision        string
+	ControlVersion  int32
 	InstallationID  int64
 	Remediable      bool
+	AccountType     string
 	HasResult       bool
 	ResultEpoch     int64
 	EvalGeneration  int64
@@ -599,13 +615,15 @@ type RemediationTargetRow struct {
 	Status          string
 	Hold            string
 	ObservedHeadSha string
+	Due             bool
 }
 
 // What a remediation run reads before acting and what its epoch fence
-// re-reads before every write (IMPL-0030 3.5): the assignment, whether
-// the Remediation App can reach the repository, the evaluator's result
-// and the newest remediation's observed head. No assignment row means
-// the control was withdrawn.
+// re-reads before every write (IMPL-0030 3.5, 4.1): the assignment,
+// whether the Remediation App can reach the repository, the evaluator's
+// result, the newest remediation's observed head, and whether the row
+// is in remediation_due. No assignment row means the control was
+// withdrawn.
 func (q *Queries) RemediationTarget(ctx context.Context, arg RemediationTargetParams) (RemediationTargetRow, error) {
 	row := q.db.QueryRow(ctx, remediationTarget, arg.ControlID, arg.RepositoryID)
 	var i RemediationTargetRow
@@ -613,12 +631,15 @@ func (q *Queries) RemediationTarget(ctx context.Context, arg RemediationTargetPa
 		&i.Org,
 		&i.Name,
 		&i.Active,
+		&i.ProviderRepoID,
 		&i.Epoch,
 		&i.State,
 		&i.EffectiveMode,
 		&i.Revision,
+		&i.ControlVersion,
 		&i.InstallationID,
 		&i.Remediable,
+		&i.AccountType,
 		&i.HasResult,
 		&i.ResultEpoch,
 		&i.EvalGeneration,
@@ -626,6 +647,7 @@ func (q *Queries) RemediationTarget(ctx context.Context, arg RemediationTargetPa
 		&i.Status,
 		&i.Hold,
 		&i.ObservedHeadSha,
+		&i.Due,
 	)
 	return i, err
 }
@@ -713,6 +735,16 @@ func (q *Queries) SetResultHold(ctx context.Context, arg SetResultHoldParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const touchLastRemediation = `-- name: TouchLastRemediation :exec
+UPDATE repository_policy_state SET last_remediation_at = now() WHERE repository_id = $1
+`
+
+// The one column the remediator may update on repository_policy_state.
+func (q *Queries) TouchLastRemediation(ctx context.Context, repositoryID int64) error {
+	_, err := q.db.Exec(ctx, touchLastRemediation, repositoryID)
+	return err
 }
 
 const trackedPullRequests = `-- name: TrackedPullRequests :many

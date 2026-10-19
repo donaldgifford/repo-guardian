@@ -10,11 +10,15 @@ SELECT max_open_prs FROM repository_policy_state WHERE repository_id = @reposito
 SELECT count(*)::int FROM remediations WHERE repository_id = @repository_id AND state IN ('reserved', 'open');
 
 -- name: InsertReservation :one
+-- The run's intent (base_sha, branch, expected_head) is written with the
+-- reservation, so it is committed before any external step (IMPL-0030
+-- 4.4).
 INSERT INTO remediations (
     repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
-    reserved_until, remediated_generation, created_at, last_run_at)
+    base_sha, branch, expected_head, reserved_until, remediated_generation, created_at, last_run_at)
 VALUES (
     @repository_id, @control_id, @assignment_epoch, @operation_key, 'pull_request', 'reserved', @intent_revision,
+    sqlc.narg(base_sha), sqlc.narg(branch), sqlc.narg(expected_head),
     now() + make_interval(secs => @ttl_seconds::float8), @remediated_generation, now(), now())
 ON CONFLICT (operation_key) DO NOTHING
 RETURNING id;
@@ -181,14 +185,16 @@ ORDER BY ordinal;
 
 -- name: RemediationTarget :one
 -- What a remediation run reads before acting and what its epoch fence
--- re-reads before every write (IMPL-0030 3.5): the assignment, whether
--- the Remediation App can reach the repository, the evaluator's result
--- and the newest remediation's observed head. No assignment row means
--- the control was withdrawn.
-SELECT r.org, r.name, r.active,
-       a.epoch, a.state, a.effective_mode, a.revision,
+-- re-reads before every write (IMPL-0030 3.5, 4.1): the assignment,
+-- whether the Remediation App can reach the repository, the evaluator's
+-- result, the newest remediation's observed head, and whether the row
+-- is in remediation_due. No assignment row means the control was
+-- withdrawn.
+SELECT r.org, r.name, r.active, COALESCE(r.provider_repo_id, 0)::bigint AS provider_repo_id,
+       a.epoch, a.state, a.effective_mode, a.revision, a.control_version,
        COALESCE(acc.installation_id, 0)::bigint AS installation_id,
        (acc.installation_id IS NOT NULL AND i.suspended_at IS NULL)::bool AS remediable,
+       COALESCE(i.account_type, '')::text AS account_type,
        (cr.repository_id IS NOT NULL)::bool AS has_result,
        COALESCE(cr.assignment_epoch, 0)::bigint AS result_epoch,
        COALESCE(cr.eval_generation, 0)::bigint AS eval_generation,
@@ -197,10 +203,16 @@ SELECT r.org, r.name, r.active,
        COALESCE(cr.hold, '')::text AS hold,
        COALESCE((SELECT m.observed_head_sha FROM remediations m
                  WHERE m.repository_id = r.id AND m.control_id = a.control_id
-                 ORDER BY m.id DESC LIMIT 1), '')::text AS observed_head_sha
+                 ORDER BY m.id DESC LIMIT 1), '')::text AS observed_head_sha,
+       EXISTS (SELECT 1 FROM remediation_due d
+               WHERE d.repository_id = r.id AND d.control_id = a.control_id)::bool AS due
 FROM repositories r
 JOIN control_assignments a ON a.repository_id = r.id AND a.control_id = @control_id
 LEFT JOIN app_repository_access acc ON acc.repository_id = r.id AND acc.app = 'remediate'
 LEFT JOIN app_installations i ON i.app = acc.app AND i.installation_id = acc.installation_id
 LEFT JOIN control_results cr ON cr.repository_id = r.id AND cr.control_id = a.control_id
 WHERE r.id = @repository_id;
+
+-- name: TouchLastRemediation :exec
+-- The one column the remediator may update on repository_policy_state.
+UPDATE repository_policy_state SET last_remediation_at = now() WHERE repository_id = @repository_id;

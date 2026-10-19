@@ -545,3 +545,56 @@ func TestRemediationStore_RemediationTarget(t *testing.T) {
 		t.Errorf("RemediationTarget(unassigned) = %+v, %v; want nil", missing, err)
 	}
 }
+
+// TestRemediationStore_PullRequestPathReads is what IMPL-0030 Phase 4
+// adds: a reservation carries the run's intent, the target reports the
+// due predicate, a run with no remediation row acknowledges the
+// generation on the result alone, and the record stamps
+// last_remediation_at.
+func TestRemediationStore_PullRequestPathReads(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	run(t, f.dsns.Owner, `UPDATE control_assignments SET effective_mode = 'remediate', requested_mode = 'remediate'`)
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := f.r.RemediationTarget(ctx, f.repoID, "codeowners")
+	if err != nil || got == nil || !got.Due || got.ControlVersion != 1 || got.Generation != 1 {
+		t.Fatalf("RemediationTarget = %+v, %v; want due at generation 1, version 1", got, err)
+	}
+
+	// Nothing opened: the generation is acknowledged and the row is no
+	// longer due.
+	ok, err := f.r.RecordRun(ctx, &store.RunRecord{Org: "acme", RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, Generation: 1})
+	if err != nil || !ok {
+		t.Fatalf("RecordRun without a row = %v, %v; want recorded", ok, err)
+	}
+
+	if got, _ := f.r.RemediationTarget(ctx, f.repoID, "codeowners"); got.Due {
+		t.Error("still due after acknowledging the generation")
+	}
+
+	row, err := f.r.ReserveSlot(ctx, &store.SlotRequest{
+		RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "op-1", Intent: "i1", Generation: 1, TTL: time.Hour,
+		BaseSHA: "b1", Branch: "repo-guardian/codeowners", ExpectedHead: "b1",
+	})
+	if err != nil || row.BaseSHA != "b1" || row.Branch != "repo-guardian/codeowners" || row.ExpectedHead != "b1" {
+		t.Fatalf("ReserveSlot = %+v, %v; want the intent on the reservation", row, err)
+	}
+
+	if err := f.r.TouchLastRemediation(ctx, f.repoID); err != nil {
+		t.Fatalf("TouchLastRemediation = %v", err)
+	}
+
+	var stamped bool
+	queryArgs(t, f.dsns.Owner, `SELECT last_remediation_at IS NOT NULL FROM repository_policy_state WHERE repository_id = $1`, &stamped, f.repoID)
+
+	if !stamped {
+		t.Error("last_remediation_at not stamped")
+	}
+}

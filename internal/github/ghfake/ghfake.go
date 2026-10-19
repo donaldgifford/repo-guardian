@@ -152,6 +152,7 @@ type pullRequest struct {
 	// follows its ref; a fork PR stores its head SHA.
 	sameRepo bool
 	comments []string
+	labels   []string
 }
 
 // Repo is one repository's state.
@@ -261,6 +262,18 @@ func (r *Repo) PullRequest(number int) *control.PullRequest {
 	out := r.prView(pr)
 
 	return &out
+}
+
+// Labels returns PR number's labels in the order they were added.
+func (r *Repo) Labels(number int) []string {
+	r.gh.mu.Lock()
+	defer r.gh.mu.Unlock()
+
+	if pr, ok := r.prs[number]; ok {
+		return slices.Clone(pr.labels)
+	}
+
+	return nil
 }
 
 // Comments returns PR number's comments in order.
@@ -739,6 +752,21 @@ func (c *Client) UpsertPRComment(_ context.Context, number int, marker, body str
 	})
 }
 
+// AddPRLabels adds labels to PR number, skipping ones it carries.
+func (c *Client) AddPRLabels(_ context.Context, number int, labels []string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	return c.withPR("AddPRLabels", number, func(pr *pullRequest) {
+		for _, l := range labels {
+			if !slices.Contains(pr.labels, l) {
+				pr.labels = append(pr.labels, l)
+			}
+		}
+	})
+}
+
 func (c *Client) withPR(method string, number int, fn func(*pullRequest)) error {
 	if err := c.begin(method, fmt.Sprint(number)); err != nil {
 		c.end()
@@ -1083,7 +1111,9 @@ func (c *Client) GetPullRequest(_ context.Context, number int) (*control.PullReq
 	return &out, nil
 }
 
-// ListCommits returns branch's first-parent history, newest first.
+// ListCommits returns every commit reachable from branch, as GitHub's
+// commits endpoint does, breadth-first from the head (newest first for a
+// linear history).
 func (c *Client) ListCommits(_ context.Context, branch string) ([]control.Commit, error) {
 	if err := c.begin("ListCommits", branch); err != nil {
 		c.end()
@@ -1092,24 +1122,28 @@ func (c *Client) ListCommits(_ context.Context, branch string) ([]control.Commit
 	}
 	defer c.end()
 
-	sha, ok := c.repo.refs[branch]
+	head, ok := c.repo.refs[branch]
 	if !ok {
 		return nil, fmt.Errorf("branch %s: %w", branch, ErrNotFound)
 	}
 
 	var out []control.Commit
 
-	for sha != "" {
+	seen := make(map[string]bool)
+
+	for queue := []string{head}; len(queue) > 0; queue = queue[1:] {
+		sha := queue[0]
+		if seen[sha] {
+			continue
+		}
+
+		seen[sha] = true
 		cm := c.repo.commits[sha]
 		out = append(out, control.Commit{
 			SHA: cm.sha, Message: cm.message, AuthorID: cm.author.ID, AuthorLogin: cm.author.Login,
 			CommitterLogin: cm.committer, Verified: cm.verified,
 		})
-
-		sha = ""
-		if len(cm.parents) > 0 {
-			sha = cm.parents[0]
-		}
+		queue = append(queue, cm.parents...)
 	}
 
 	return out, nil

@@ -123,6 +123,46 @@ func (q *Queries) CountSlots(ctx context.Context, repositoryID int64) (int32, er
 	return column_1, err
 }
 
+const dueRemediations = `-- name: DueRemediations :many
+SELECT repository_id, control_id, ordinal FROM remediation_due
+ORDER BY repository_id, ordinal
+LIMIT $1
+`
+
+func (q *Queries) DueRemediations(ctx context.Context, batch int32) ([]RemediationDue, error) {
+	rows, err := q.db.Query(ctx, dueRemediations, batch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RemediationDue
+	for rows.Next() {
+		var i RemediationDue
+		if err := rows.Scan(&i.RepositoryID, &i.ControlID, &i.Ordinal); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const expireReservations = `-- name: ExpireReservations :execrows
+DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < $1::timestamptz
+`
+
+// The remediator's one DELETE (RLS remediations_expire): a reservation
+// whose run never opened its pull request frees the slot.
+func (q *Queries) ExpireReservations(ctx context.Context, now time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, expireReservations, now)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertReservation = `-- name: InsertReservation :one
 INSERT INTO remediations (
     repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
@@ -286,6 +326,48 @@ func (q *Queries) LockResultForRun(ctx context.Context, arg LockResultForRunPara
 	var i LockResultForRunRow
 	err := row.Scan(&i.AssignmentEpoch, &i.CurrentEpoch, &i.AssignmentState)
 	return i, err
+}
+
+const maintenanceCandidates = `-- name: MaintenanceCandidates :many
+SELECT remediation_id, repository_id, control_id, kind, state, action::text AS action FROM remediation_maintenance
+ORDER BY remediation_id
+LIMIT $1
+`
+
+type MaintenanceCandidatesRow struct {
+	RemediationID int64
+	RepositoryID  int64
+	ControlID     string
+	Kind          string
+	State         string
+	Action        string
+}
+
+func (q *Queries) MaintenanceCandidates(ctx context.Context, batch int32) ([]MaintenanceCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, maintenanceCandidates, batch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MaintenanceCandidatesRow
+	for rows.Next() {
+		var i MaintenanceCandidatesRow
+		if err := rows.Scan(
+			&i.RemediationID,
+			&i.RepositoryID,
+			&i.ControlID,
+			&i.Kind,
+			&i.State,
+			&i.Action,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const recordRemediationRun = `-- name: RecordRemediationRun :execrows

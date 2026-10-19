@@ -122,3 +122,18 @@ WHERE id = (
 
 -- name: ResultExists :one
 SELECT EXISTS (SELECT 1 FROM control_results WHERE repository_id = @repository_id AND control_id = @control_id);
+
+-- name: DueRemediations :many
+SELECT repository_id, control_id, ordinal FROM remediation_due
+ORDER BY repository_id, ordinal
+LIMIT @batch;
+
+-- name: MaintenanceCandidates :many
+SELECT remediation_id, repository_id, control_id, kind, state, action::text AS action FROM remediation_maintenance
+ORDER BY remediation_id
+LIMIT @batch;
+
+-- name: ExpireReservations :execrows
+-- The remediator's one DELETE (RLS remediations_expire): a reservation
+-- whose run never opened its pull request frees the slot.
+DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < @now::timestamptz;

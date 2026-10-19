@@ -74,6 +74,41 @@ type Remediations interface {
 	// is dropped. It reports whether a row took the hold. Like RecordRun,
 	// call it outside ClaimOperation; inside, set Remediation.Hold.
 	SetHold(ctx context.Context, repositoryID int64, controlID string, epoch int64, hold string) (bool, error)
+	// DueRemediations reads up to batch rows of remediation_due, the
+	// controls that need a new run, by repository and policy order.
+	DueRemediations(ctx context.Context, batch int) ([]DueRemediation, error)
+	// MaintenanceCandidates reads up to batch rows of
+	// remediation_maintenance, the durable rows with a lifecycle action.
+	MaintenanceCandidates(ctx context.Context, batch int) ([]MaintenanceCandidate, error)
+	// ExpireReservations deletes the reservations past reserved_until at
+	// now and returns how many it freed.
+	ExpireReservations(ctx context.Context, now time.Time) (int, error)
+}
+
+// DueRemediation is one remediation_due row.
+type DueRemediation struct {
+	RepositoryID int64
+	ControlID    string
+	Ordinal      int
+}
+
+// The remediation_maintenance actions.
+const (
+	MaintenanceExpire         = "expire"
+	MaintenanceWithdraw       = "withdraw"
+	MaintenanceSupersede      = "supersede"
+	MaintenanceCloseCompliant = "close_compliant"
+)
+
+// MaintenanceCandidate is one remediation_maintenance row; Action is a
+// Maintenance* value.
+type MaintenanceCandidate struct {
+	RemediationID int64
+	RepositoryID  int64
+	ControlID     string
+	Kind          string
+	State         string
+	Action        string
 }
 
 // The holds a control result can carry (DESIGN-0032 § Data model); a

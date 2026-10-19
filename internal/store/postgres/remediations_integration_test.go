@@ -293,3 +293,47 @@ func TestRemediationStore_SetHold(t *testing.T) {
 		t.Errorf("remediations.hold = %q, want permission", got.Hold)
 	}
 }
+
+// TestRemediationStore_DueAndMaintenance is IMPL-0030 1.8: a failing,
+// remediable result is due; a reservation takes it out of due; once past
+// reserved_until it is an expire candidate and ExpireReservations frees
+// it, after which it is due again. The full truth table is task 1.10.
+func TestRemediationStore_DueAndMaintenance(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	due, err := f.r.DueRemediations(ctx, 10)
+	if err != nil || len(due) != 1 || due[0].RepositoryID != f.repoID || due[0].ControlID != "codeowners" {
+		t.Fatalf("DueRemediations = %+v, %v; want codeowners", due, err)
+	}
+
+	if _, err := f.r.ReserveSlot(ctx, &store.SlotRequest{
+		RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "op-1", Intent: "i1", Generation: 1, TTL: -time.Minute,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 0 {
+		t.Errorf("DueRemediations with a reservation = %+v, want none", due)
+	}
+
+	m, err := f.r.MaintenanceCandidates(ctx, 10)
+	if err != nil || len(m) != 1 || m[0].Action != store.MaintenanceExpire || m[0].State != store.StateReserved {
+		t.Fatalf("MaintenanceCandidates = %+v, %v; want one expire", m, err)
+	}
+
+	if n, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || n != 1 {
+		t.Fatalf("ExpireReservations = %d, %v; want 1", n, err)
+	}
+
+	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 1 {
+		t.Errorf("DueRemediations after expiry = %+v, want codeowners again", due)
+	}
+}

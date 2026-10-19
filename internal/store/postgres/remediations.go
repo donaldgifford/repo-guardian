@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -413,4 +414,45 @@ func (s *RemediationStore) SetHold(ctx context.Context, repositoryID int64, cont
 	}
 
 	return held, nil
+}
+
+// DueRemediations reads remediation_due.
+func (s *RemediationStore) DueRemediations(ctx context.Context, batch int) ([]store.DueRemediation, error) {
+	rows, err := s.q.DueRemediations(ctx, int32(batch)) //nolint:gosec // a page size
+	if err != nil {
+		return nil, fmt.Errorf("due remediations: %w", err)
+	}
+
+	out := make([]store.DueRemediation, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.DueRemediation{RepositoryID: r.RepositoryID, ControlID: r.ControlID, Ordinal: int(r.Ordinal)})
+	}
+
+	return out, nil
+}
+
+// MaintenanceCandidates reads remediation_maintenance.
+func (s *RemediationStore) MaintenanceCandidates(ctx context.Context, batch int) ([]store.MaintenanceCandidate, error) {
+	rows, err := s.q.MaintenanceCandidates(ctx, int32(batch)) //nolint:gosec // a page size
+	if err != nil {
+		return nil, fmt.Errorf("maintenance candidates: %w", err)
+	}
+
+	out := make([]store.MaintenanceCandidate, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.MaintenanceCandidate(r))
+	}
+
+	return out, nil
+}
+
+// ExpireReservations deletes expired reservations, the remediator's only
+// DELETE (RLS allows state = 'reserved' and nothing else).
+func (s *RemediationStore) ExpireReservations(ctx context.Context, now time.Time) (int, error) {
+	n, err := s.q.ExpireReservations(ctx, now)
+	if err != nil {
+		return 0, fmt.Errorf("expire reservations: %w", err)
+	}
+
+	return int(n), nil
 }

@@ -253,10 +253,12 @@ human required`.
   Done: `hold_since` keeps the start of an unchanged hold; a stale epoch
   writes nothing; with the result gone only `permission` lands, on the
   newest remediation. `TestRemediationStore_SetHold`.
-- [ ] 1.8 `DueRemediations(ctx, batch)` and
+- [x] 1.8 `DueRemediations(ctx, batch)` and
   `MaintenanceCandidates(ctx, batch)` over the two views;
   `ExpireReservations(ctx, now)` returning the count for
   `remediation_reservations_expired_total`.
+  Done: the caller counts the metric (Phase 6 defines it).
+  `TestRemediationStore_DueAndMaintenance`.
 - [ ] 1.9 Pool: `REMEDIATOR_DB_POOL_SIZE` (default
   `REMEDIATOR_CONCURRENCY + 4`); startup refuses a pool smaller than
   the concurrency, since every running operation holds one connection

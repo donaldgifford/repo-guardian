@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import type { Schemas } from "../api/client";
 import { useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { StatusBadge } from "../components/badges";
+import { RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
@@ -246,7 +246,7 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
 
 const ruleColumns: Column<Schemas["RuleResult"]>[] = [
   { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
-  { key: "status", header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+  { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
   { key: "evidence", header: "Evidence", cell: (r) => <EvidenceText evidence={r.evidence} /> },
   { key: "remediate", header: "Remediates", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
 ];
@@ -295,11 +295,18 @@ const eventColumns: Column<Schemas["Event"]>[] = [
     cell: (e) =>
       e.to_status || e.from_status ? (
         <span className="inline-flex items-center gap-1.5">
-          {e.from_status ? <StatusBadge status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→{e.to_status ? <StatusBadge status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
+          {e.from_status ? <EventStatus event={e} status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→
+          {e.to_status ? <EventStatus event={e} status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
         </span>
       ) : null,
   },
 ];
+
+// EventStatus tones a rule-level event (one with a rule_id) by the rule
+// row and a control-level event by the control status row.
+function EventStatus({ event, status }: { event: Schemas["Event"]; status: string }) {
+  return event.rule_id ? <RuleStatusBadge status={status} /> : <StatusBadge status={status} />;
+}
 
 function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);

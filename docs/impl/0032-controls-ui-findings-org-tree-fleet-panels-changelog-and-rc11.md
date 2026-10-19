@@ -193,7 +193,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   `components/posture.tsx` onto `toneFor`, and add `RuleStatusBadge`.
   Extend `format.test.ts` with every rule value, including a failing
   rule rendering `bad`.
-- [ ] 1.2 **Repository page rule badges.** The repository page's
+- [x] 1.2 **Repository page rule badges.** The repository page's
   `ruleColumns` (`views/repositories.tsx`) and the Events tab use
   `RuleStatusBadge` when `rule_id` is set and `StatusBadge` otherwise.
 - [ ] 1.3 **Breadcrumb label (INV-0023 F2).** Add a breadcrumb label

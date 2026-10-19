@@ -220,7 +220,7 @@ human required`.
   **Done (IMPL-0029, `00003`/`00002`/`00001`):** every grant and the
   reservation-only DELETE policy exist. No sequence grant is needed: the
   remediation tables use identity keys. The 1.11 grant tests pin it.
-- [ ] 1.5 `internal/store/postgres/remediations.go`:
+- [x] 1.5 `internal/store/postgres/remediations.go`:
   `ReserveSlot(ctx, repo, control, epoch, opKey, intent, ttl)` (one
   transaction: `SELECT ... FOR UPDATE` on `repository_policy_state`,
   count `open + reserved` through `remediations_slots`, insert
@@ -229,6 +229,13 @@ human required`.
   returning `ErrOperationHeld` when another attempt holds it; the
   transaction stays open for the activity and is released on return);
   `LatestRemediation`, `AppendStep`, `AppendEvent`, `SetIntent`.
+  Done: `postgres.RemediationStore` (the rg_remediator pool) implements
+  `store.Remediations`; the claim uses `FOR NO KEY UPDATE SKIP LOCKED`
+  so journal inserts (`FOR KEY SHARE` on the parent) commit on their own
+  connection, and writes to the claimed row go through
+  `ClaimedOperation`. A retried reservation returns its own row before
+  the cap check. Pinned by `TestRemediationStore_ReserveSlot` and
+  `TestRemediationStore_ClaimOperation`.
 - [ ] 1.6 `RecordRun` (record-is-narrow): `remediated_generation` to
   the generation read at run start, `acknowledged_head_sha` by
   compare-and-set against the head processed, `intent_revision`,

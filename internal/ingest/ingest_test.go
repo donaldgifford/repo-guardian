@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -397,5 +398,51 @@ func TestNewApp_InstallationFacts(t *testing.T) {
 
 	if in := starter.inputs[1]; in.AccountType != "" {
 		t.Errorf("rc input account type = %q, want unchanged inputs", in.AccountType)
+	}
+}
+
+// TestNewApp_PullRequestEvents is IMPL-0030 2.3: a remediation PR's head
+// move, close or reopen on the Evaluation App's route starts a workflow;
+// another branch, another action and the Remediation App's route do not.
+func TestNewApp_PullRequestEvents(t *testing.T) {
+	body := func(action, head string) string {
+		return fmt.Sprintf(`{"action":%q,"installation":{"id":5},"repository":{"id":42,"name":"api","owner":{"login":"acme"}},`+
+			`"pull_request":{"number":7,"head":{"ref":%q}}}`, action, head)
+	}
+
+	tests := []struct {
+		name, action, head string
+		remediate          bool
+		want               int
+	}{
+		{name: "head moved", action: "synchronize", head: "repo-guardian/codeowners", want: http.StatusAccepted},
+		{name: "closed", action: "closed", head: "repo-guardian/codeowners", want: http.StatusAccepted},
+		{name: "reopened", action: "reopened", head: "repo-guardian/codeowners", want: http.StatusAccepted},
+		{name: "someone else's branch", action: "closed", head: "feature/x", want: http.StatusNoContent},
+		{name: "unhandled action", action: "labeled", head: "repo-guardian/codeowners", want: http.StatusNoContent},
+		{name: "remediate route", action: "closed", head: "repo-guardian/codeowners", remediate: true, want: http.StatusNoContent},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			starter := &fakeStarter{}
+			eval, remediate := newAppHandlers(starter)
+			h, key := eval, evalSecret
+
+			if tt.remediate {
+				h, key = remediate, remediateSecret
+			}
+
+			if rec := postWithKey(t, h, eventPullRequest, "d-"+tt.action, body(tt.action, tt.head), key); rec.Code != tt.want {
+				t.Fatalf("pull_request %s on %s = %d, want %d", tt.action, tt.head, rec.Code, tt.want)
+			}
+
+			if tt.want == http.StatusAccepted {
+				in := starter.inputs[0]
+				if in.Event != eventPullRequest || in.Action != tt.action || len(in.Repositories) != 1 || in.Repositories[0].ID != 42 {
+					t.Errorf("input = %+v, want pull_request.%s for repository 42", in, tt.action)
+				}
+			}
+		})
 	}
 }

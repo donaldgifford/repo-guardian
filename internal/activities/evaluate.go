@@ -104,7 +104,7 @@ func countEvaluation(org string, res *workflows.EvaluateResult, err error) {
 	case err != nil:
 	case res.Kind == workflows.CheckChecked:
 		outcome = evalOutcomeEvaluated
-	case res.Kind == workflows.CheckDeferred:
+	case res.Kind == workflows.CheckDeferred, res.Kind == workflows.CheckObserved:
 		return
 	default:
 		outcome = evalOutcomeSkipped
@@ -131,6 +131,10 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 
 	if t.PolicyState != policy.StateManaged || t.InstallationID == 0 {
 		return skipped, nil
+	}
+
+	if in.Observe {
+		return e.observeOnly(ctx, log, t, in)
 	}
 
 	selected := e.selectControls(log, t.Assignments, in)
@@ -199,6 +203,25 @@ func (e *Evaluator) observe(ctx context.Context, log *slog.Logger, repoID int64,
 	if err != nil {
 		log.Warn("pull request observation failed", "tracked", len(tracked), "error", err)
 	}
+}
+
+// observeOnly is a pr_event run: observation and nothing else, so no
+// evaluation column moves (DESIGN-0032 D24).
+func (e *Evaluator) observeOnly(
+	ctx context.Context,
+	log *slog.Logger,
+	t *store.EvaluationTarget,
+	in *workflows.EvaluateInput,
+) (*workflows.EvaluateResult, error) {
+	repo, err := e.github.Repo(ctx, t.InstallationID, t.Org, t.Name)
+	if err != nil {
+		return nil, fmt.Errorf("open %s/%s: %w", t.Org, t.Name, err)
+	}
+
+	obsCtx, usage := ghclient.WithUsage(ctx)
+	e.observe(obsCtx, log, in.RepositoryID, repo)
+
+	return &workflows.EvaluateResult{Kind: workflows.CheckObserved, Calls: usage.Calls(), Rate: toRate(usage.Rate())}, nil
 }
 
 // evaluation is the activity result plus what run staged.

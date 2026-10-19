@@ -372,3 +372,53 @@ func TestEvaluationWorkflow_HistoryBoundedUnderMaxSignals(t *testing.T) {
 		t.Errorf("signal paths per iteration = %d bytes, want at most %d", perIteration, MaxChangedPaths*64)
 	}
 }
+
+// TestEvaluationWorkflow_PREventObservesOnly is IMPL-0030 2.3: a bare
+// pr_event re-check runs observation only, records nothing and keeps the
+// schedule and the iteration; coalesced with a push it gives way.
+func TestEvaluationWorkflow_PREventObservesOnly(t *testing.T) {
+	t.Parallel()
+
+	f := &evalFakes{script: func(n int, in *EvaluateInput) *EvaluateResult {
+		switch {
+		case in.Observe:
+			return &EvaluateResult{Kind: CheckObserved}
+		case n >= 2:
+			return &EvaluateResult{Kind: CheckParked, ParkReason: ParkAccessDenied}
+		default:
+			return &EvaluateResult{Kind: CheckChecked}
+		}
+	}}
+	env := newEvalEnv(t, f)
+	f.during = func(n int) {
+		if n == 0 {
+			env.SignalWorkflow(RecheckSignal, &Recheck{Trigger: TriggerPREvent, Priority: PriorityWebhook})
+		}
+	}
+
+	env.ExecuteWorkflow(EvaluationWorkflowName, evalInput())
+
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(f.evals) != 3 || len(f.records) != 1 {
+		t.Fatalf("evals %d, records %d; want 3 (schedule, observe, schedule) and 1 record", len(f.evals), len(f.records))
+	}
+
+	if in := f.evals[1]; !in.Observe || in.All || in.Trigger != TriggerPREvent {
+		t.Errorf("pr_event input = %+v, want observation only", in)
+	}
+
+	if in := f.evals[2]; !in.Scheduled || in.CheckKey != f.evals[1].CheckKey {
+		t.Errorf("next input = %+v, want the scheduled evaluation under the observation's unused key %q", in, f.evals[1].CheckKey)
+	}
+
+	got := coalesce(
+		&Recheck{Trigger: TriggerPREvent, Priority: PriorityWebhook},
+		&Recheck{Trigger: TriggerPush, Priority: PriorityWebhook, Paths: []string{"a"}},
+	)
+	if got.Trigger != TriggerPush || observeOnly(got) {
+		t.Errorf("coalesce(pr_event, push) = %+v, want the push's trigger and a real evaluation", got)
+	}
+}

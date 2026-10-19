@@ -279,3 +279,28 @@ func TestControlsRouter_RemediationAccessReResolves(t *testing.T) {
 		t.Errorf("resolved %v, signals %d; want the account's repositories resolved and no signal without a change", st.resolved, len(tc.signals))
 	}
 }
+
+// TestControlsRouter_PullRequestEventObserves is IMPL-0030 2.3: a
+// remediation PR event rechecks a managed repository with pr_event at
+// webhook priority, and never discovers or un-parks.
+func TestControlsRouter_PullRequestEventObserves(t *testing.T) {
+	t.Parallel()
+
+	r, st, tc := newControlsRouter(t)
+
+	for _, repo := range []workflows.WebhookRepo{widgets, {ID: 10, Org: "acme", Name: "parked"}, {ID: 12, Org: "acme", Name: "new"}} {
+		if err := r.RouteWebhook(t.Context(), evalWebhook("pull_request", "closed", repo)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	wantSignals(t, tc, signal{workflowID: "evaluation/42", name: workflows.RecheckSignal, started: true, priority: int(workflows.PriorityWebhook)})
+
+	if got := recheckOf(t, &tc.signals[0]); got.Trigger != workflows.TriggerPREvent || len(got.Paths) != 0 || got.Unknown {
+		t.Errorf("recheck = %+v, want a bare pr_event", got)
+	}
+
+	if len(st.upserted) != 0 {
+		t.Errorf("upserts = %+v, want none: a PR event never discovers", st.upserted)
+	}
+}

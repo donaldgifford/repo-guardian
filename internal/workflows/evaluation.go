@@ -130,7 +130,8 @@ func (e *evalLoop) drain() {
 // coalesce folds a re-check into the pending one: the union of the
 // changed paths, Unknown dominating (it selects every control, so the
 // paths no longer matter), at the highest priority (the lowest key),
-// whose trigger is kept. A union past MaxChangedPaths becomes unknown,
+// whose trigger is kept; on a tie a pr_event gives way, since it alone
+// evaluates nothing. A union past MaxChangedPaths becomes unknown,
 // so the carried state stays bounded however many signals arrive.
 func coalesce(pending, s *Recheck) *Recheck {
 	if pending == nil {
@@ -143,7 +144,7 @@ func coalesce(pending, s *Recheck) *Recheck {
 	}
 
 	out := *pending
-	if s.Priority < out.Priority {
+	if s.Priority < out.Priority || (s.Priority == out.Priority && out.Trigger == TriggerPREvent) {
 		out.Priority, out.Trigger = s.Priority, s.Trigger
 	}
 
@@ -208,6 +209,9 @@ func (e *evalLoop) input(key string) EvaluateInput {
 	e.priority = PrioritySchedule
 
 	switch p := e.state.Pending; {
+	case p != nil && observeOnly(p) && !e.state.PolicyPending:
+		in.Trigger, in.Observe = p.Trigger, true
+		e.priority = p.Priority
 	case p != nil:
 		in.Trigger, in.Paths, in.All = p.Trigger, p.Paths, p.Unknown || e.state.PolicyPending
 		e.priority = p.Priority
@@ -224,6 +228,12 @@ func (e *evalLoop) input(key string) EvaluateInput {
 	e.state.Pending, e.state.PolicyPending = nil, false
 
 	return in
+}
+
+// observeOnly reports whether a pending re-check is a bare pr_event:
+// one that coalesced with a push or an unknown change selects controls.
+func observeOnly(p *Recheck) bool {
+	return p.Trigger == TriggerPREvent && !p.Unknown && len(p.Paths) == 0
 }
 
 // evaluate runs one evaluation to a disposition. A deferral waits on a
@@ -249,7 +259,11 @@ func (e *evalLoop) evaluate() (done bool, err error) {
 
 			e.report(lease, nil)
 			workflow.GetLogger(e.ctx).Warn("evaluation failed after retries; trying again next interval", "check_key", key, "error", err)
-			e.scheduleNext()
+
+			// A failed observation leaves the schedule where it was.
+			if !in.Observe {
+				e.scheduleNext()
+			}
 
 			return false, nil
 		}
@@ -268,6 +282,8 @@ func (e *evalLoop) evaluate() (done bool, err error) {
 		case CheckSkipped:
 			e.scheduleNext()
 
+			return false, nil
+		case CheckObserved:
 			return false, nil
 		default:
 			return false, e.record(key)

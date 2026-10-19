@@ -338,14 +338,23 @@ human required`.
   `Merged` reads `merged_at` too (the list endpoint omits `merged`).
   `TestControlsStore_ObservePullRequests` (as `rg_evaluator`, with the
   remediator-column denials).
-- [ ] 2.3 `pr_event` trigger: a `pull_request` webhook on a
+- [x] 2.3 `pr_event` trigger: a `pull_request` webhook on a
   `repo-guardian/` head signals the evaluation with trigger `pr_event`,
   which runs observation only and touches no evaluation column
   (DESIGN-0032 D24). Priority 2.
-- [ ] 2.4 Confirm `control_results.intent_revision` is computed by the
+  Done: ingest routes `pull_request` synchronize/closed/reopened on a
+  `repo-guardian/` head (Evaluation App route only); `ControlsRouter`
+  rechecks a known managed repository with `pr_event` and never
+  discovers. A bare `pr_event` re-check (no paths, not unknown, no policy
+  pending) sets `EvaluateInput.Observe`; Evaluate returns
+  `CheckObserved`, which keeps the schedule and the iteration (also on
+  failure). On a priority tie `coalesce` lets a pr_event give way.
+- [x] 2.4 Confirm `control_results.intent_revision` is computed by the
   evaluator as DESIGN-0032 D23 states (hash of epoch, generation,
   `apply`, effective mode, remediability, control revision); add it if
   IMPL-0029 did not.
+  Done: `intentRevision` in `internal/store/postgres/controls_evaluation.go`
+  hashes exactly D23's inputs; nothing to add.
 - [ ] 2.5 `StartDueRemediations` activity: at the end of each
   evaluation, read `remediation_due` for that repository and call
   `client.SignalWithStartWorkflow` once per due control with id

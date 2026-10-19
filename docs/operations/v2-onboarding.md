@@ -292,8 +292,8 @@ under this set; no write permission is needed to read them.
 
 #### Evaluation App events
 
-Subscribe to **Push**, **Repository** and **Installation repositories**.
-Installation events are delivered to every App webhook without a
+Subscribe to **Push**, **Repository**, **Installation repositories** and
+**Pull request**. Installation events are delivered to every App webhook without a
 subscription.
 
 | Event | Actions handled | What happens |
@@ -306,11 +306,11 @@ subscription.
 | `repository` | `created`, `renamed`, `transferred`, `archived`, `unarchived` | upserts the repository (renames and transfers match by GitHub id), parks an archived or forked one, resolves it and evaluates it if managed |
 | `repository` | `deleted` | parks it (`removed`) |
 | `push` | default branch only | re-evaluates a known, managed repository with the paths the push changed, if it touched a path a control owns or reads; an unknown repository is discovered; a parked one stays parked |
+| `pull_request` | `synchronize`, `closed`, `reopened`, on a `repo-guardian/` head | observes the repository's remediation pull requests (`pr_event`): records a moved head, a merge or a user close, and evaluates nothing |
 
 Ingest answers anything else with 204: other actions, tag pushes, pushes
-to other branches, and pushes touching no watched path. `pull_request`
-events are used from IMPL-0030 (pull-request observation); subscribing
-to them now does no harm.
+to other branches, pushes touching no watched path, and pull requests
+on any other branch.
 
 #### Remediation App permissions
 
@@ -892,7 +892,7 @@ Prerequisites:
 - [ ] Postgres mode chosen on an empty database; DSN Secrets for
       `external`
 - [ ] Evaluation App registered: webhook active on `/webhooks/github/eval`,
-      Push, Repository and Installation repositories subscribed,
+      Push, Repository, Installation repositories and Pull request subscribed,
       read-only permissions granted, private key stored
 - [ ] (Optional in this rc) Remediation App registered on
       `/webhooks/github/remediate`, base permissions granted

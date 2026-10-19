@@ -39,6 +39,10 @@ const (
 	eventRepository               = "repository"
 	eventInstallation             = "installation"
 	eventInstallationRepositories = "installation_repositories"
+	eventPullRequest              = "pull_request"
+
+	actionClosed   = "closed"
+	actionReopened = "reopened"
 )
 
 // Starter starts workflows. client.Client satisfies it.
@@ -176,6 +180,9 @@ var handled = map[string]map[string]bool{
 	eventRepository:               {"created": true, "deleted": true, "archived": true, "unarchived": true, "renamed": true, "transferred": true},
 	eventInstallation:             {"created": true, "deleted": true, "suspend": true, "unsuspend": true},
 	eventInstallationRepositories: {"added": true, "removed": true},
+	// A remediation PR's head moved, or it closed or reopened: observe it
+	// (DESIGN-0032 D24). Evaluation App route only.
+	eventPullRequest: {"synchronize": true, actionClosed: true, actionReopened: true},
 }
 
 // route decides statelessly whether an event needs a workflow and builds
@@ -208,6 +215,8 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 		h.installationFacts(in, e.GetInstallation())
 
 		return in, true
+	case *gh.PullRequestEvent:
+		return h.routePullRequest(eventType, e)
 	case *gh.InstallationRepositoriesEvent:
 		if !handled[eventType][e.GetAction()] {
 			return nil, false
@@ -234,6 +243,22 @@ func (h *Handler) route(eventType string, event any) (*workflows.WebhookInput, b
 
 		return nil, false
 	}
+}
+
+// routePullRequest keeps a remediation pull request's head moves, closes
+// and reopens on the Evaluation App's route: the evaluator observes them
+// with a pr_event re-check. Anyone's PR on another branch is dropped.
+func (h *Handler) routePullRequest(eventType string, e *gh.PullRequestEvent) (*workflows.WebhookInput, bool) {
+	if h.app != workflows.AppEval || !handled[eventType][e.GetAction()] ||
+		!strings.HasPrefix(e.GetPullRequest().GetHead().GetRef(), workflows.RemediationBranchPrefix) {
+		return nil, false
+	}
+
+	return &workflows.WebhookInput{
+		Event: eventType, Action: e.GetAction(),
+		InstallationID: e.GetInstallation().GetID(),
+		Repositories:   []workflows.WebhookRepo{repoOf(e.GetRepo())},
+	}, true
 }
 
 // routePush keeps only default-branch pushes that add, modify or remove

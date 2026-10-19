@@ -205,7 +205,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   `Remediates` to `Remediable rule`. Under `remediable no`, the facts
   card adds the hint "Remediation App has no access to this
   repository", as the mockup draws it.
-- [ ] 1.5 **Status screenshot (INV-0023 F7.3).** Re-render the visual
+- [x] 1.5 **Status screenshot (INV-0023 F7.3).** Re-render the visual
   snapshots in the pinned Playwright image
   (`make test-ui-e2e-update-snapshots`), then copy
   `ui/e2e/__screenshots__/status.png` to `docs/usage/img/ui/status.png`.

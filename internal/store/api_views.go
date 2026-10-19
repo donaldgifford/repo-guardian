@@ -282,14 +282,27 @@ type RemediationFilter struct {
 	Limit  int
 }
 
+// History aggregations (IMPL-0030 7.6).
+const (
+	HistoryNone    = "none"
+	HistoryFleet   = "fleet"
+	HistoryOrg     = "org"
+	HistoryControl = "control"
+)
+
 // HistoryFilter selects compliance snapshots. Empty fields do not filter.
 type HistoryFilter struct {
 	ControlID string
 	Org       string
 	Since     time.Time
+	// Aggregate sums each UTC day's rows over the fleet, per org or per
+	// control; empty or HistoryNone returns the rows themselves.
+	Aggregate string
 }
 
-// ComplianceSnapshot is one compliance_snapshots row.
+// ComplianceSnapshot is one compliance_snapshots row, or a day's sum of
+// them when aggregated: SnapshotAt is then the UTC day, and the fields
+// the aggregation leaves out (Org, ControlID, Decision) are empty.
 type ComplianceSnapshot struct {
 	ControlPosture
 	SnapshotAt time.Time

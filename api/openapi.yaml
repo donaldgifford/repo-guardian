@@ -462,8 +462,21 @@ paths:
     get:
       operationId: getComplianceHistory
       summary: Compliance snapshots by org and control, oldest first.
+      description: |
+        With `aggregate=none` (the default) each UTC day's last snapshot
+        per org, control and lineage. `fleet`, `org` and `control` sum
+        those rows per UTC day, over the fleet or per org or control,
+        and compute `percent` and `coverage` from the sums, never by
+        averaging.
       tags: [controls]
       parameters:
+        - name: aggregate
+          in: query
+          description: How to sum each day's rows.
+          schema:
+            type: string
+            enum: [none, fleet, org, control]
+            default: none
         - name: control
           in: query
           description: Only this control slug.
@@ -1461,9 +1474,13 @@ components:
         next_cursor:
           $ref: "#/components/schemas/Cursor"
     HistoryPoint:
-      description: One compliance snapshot row.
+      description: |
+        One compliance snapshot row, or one UTC day's sum of them. Which
+        keys are present depends on `aggregate`: `none` carries `org`,
+        `control_id` and `decision`; `org` carries `org`; `control`
+        carries `control_id`; `fleet` carries none of them.
       type: object
-      required: [org, control_id, decision, snapshot_at, compliance]
+      required: [snapshot_at, compliance]
       properties:
         org:
           type: string
@@ -1472,6 +1489,7 @@ components:
         decision:
           $ref: "#/components/schemas/Decision"
         snapshot_at:
+          description: The snapshot's time; midnight UTC of the day for an aggregated point.
           type: string
           format: date-time
         compliance:

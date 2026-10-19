@@ -267,9 +267,9 @@ func TestStatus_Operations(t *testing.T) {
 		want      gen.StatusOperationsRolloutState
 		completed bool
 	}{
-		{name: "no version", want: gen.None},
-		{name: "in progress", rollout: &store.Rollout{}, want: gen.InProgress},
-		{name: "complete", rollout: &store.Rollout{CompletedAt: ptrTime(time.Hour)}, want: gen.Complete, completed: true},
+		{name: "no version", want: gen.StatusOperationsRolloutStateNone},
+		{name: "in progress", rollout: &store.Rollout{}, want: gen.StatusOperationsRolloutStateInProgress},
+		{name: "complete", rollout: &store.Rollout{CompletedAt: ptrTime(time.Hour)}, want: gen.StatusOperationsRolloutStateComplete, completed: true},
 	}
 
 	for _, tt := range tests {

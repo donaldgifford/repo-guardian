@@ -168,6 +168,13 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 		}
 	}
 
+	for _, agg := range []string{"none", "fleet", "org", "control"} {
+		h := decodeAs[gen.ComplianceHistory](t, e.get(t, "/compliance/history?aggregate="+agg, "platform"))
+		if len(h.Items) == 0 {
+			t.Errorf("/compliance/history?aggregate=%s is empty", agg)
+		}
+	}
+
 	b := decodeAs[gen.RepositoryDetail](t, e.get(t, e.repoPath("acme-web/b", ""), "platform"))
 	if b.Repository.Name != "b" || b.LastEvaluation == nil {
 		t.Errorf("repository b = %+v", b)

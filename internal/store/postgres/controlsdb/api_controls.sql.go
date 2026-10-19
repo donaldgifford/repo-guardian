@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const aPIComplianceHistory = `-- name: APIComplianceHistory :many
@@ -60,6 +62,115 @@ func (q *Queries) APIComplianceHistory(ctx context.Context, arg APIComplianceHis
 			&i.ControlID,
 			&i.Decision,
 			&i.SnapshotAt,
+			&i.Compliant,
+			&i.NonCompliant,
+			&i.Pending,
+			&i.Stale,
+			&i.UnmeasurableAccessDenied,
+			&i.UnmeasurableSuspended,
+			&i.UnmeasurableConflict,
+			&i.NotApplicable,
+			&i.Unknown,
+			&i.Excluded,
+			&i.Assigned,
+			&i.Percent,
+			&i.Coverage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aPIComplianceHistoryAggregate = `-- name: APIComplianceHistoryAggregate :many
+SELECT g.day, coalesce(CASE WHEN g.org_key IS NOT NULL THEN min(g.org) END, '')::text AS org,
+       coalesce(g.control_key, '')::text AS control_id,
+       sum(g.compliant)::int AS compliant, sum(g.non_compliant)::int AS non_compliant, sum(g.pending)::int AS pending,
+       sum(g.stale)::int AS stale, sum(g.unmeasurable_access_denied)::int AS unmeasurable_access_denied,
+       sum(g.unmeasurable_suspended)::int AS unmeasurable_suspended,
+       sum(g.unmeasurable_conflict)::int AS unmeasurable_conflict, sum(g.not_applicable)::int AS not_applicable,
+       sum(g.unknown)::int AS unknown, sum(g.excluded)::int AS excluded, sum(g.assigned)::int AS assigned,
+       floor_percent(sum(g.compliant)::bigint, sum(g.compliant + g.non_compliant)::bigint)::numeric AS percent,
+       floor_percent(sum(g.compliant + g.non_compliant + g.not_applicable)::bigint, sum(g.assigned)::bigint)::numeric AS coverage
+FROM (
+    SELECT (date_trunc('day', h.snapshot_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::timestamptz AS day,
+           CASE WHEN $1::text = 'org' THEN lower(h.org) END AS org_key,
+           CASE WHEN $1::text = 'control' THEN h.control_id END AS control_key,
+           h.org, h.control_id, h.decision, h.snapshot_at, h.compliant, h.non_compliant, h.pending, h.stale, h.unmeasurable_access_denied, h.unmeasurable_suspended, h.unmeasurable_conflict, h.not_applicable, h.unknown, h.excluded, h.assigned, h.percent, h.coverage
+    FROM (
+        SELECT DISTINCT ON (date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), lower(cs.org), cs.control_id, cs.decision)
+               cs.org, cs.control_id, cs.decision, cs.snapshot_at, cs.compliant, cs.non_compliant, cs.pending, cs.stale, cs.unmeasurable_access_denied, cs.unmeasurable_suspended, cs.unmeasurable_conflict, cs.not_applicable, cs.unknown, cs.excluded, cs.assigned, cs.percent, cs.coverage
+        FROM compliance_snapshots cs
+        WHERE ($2::bool OR lower(cs.org) = ANY ($3::text[]))
+          AND cs.snapshot_at >= $4
+          AND ($5::text IS NULL OR cs.control_id = $5::text)
+          AND ($6::text IS NULL OR lower(cs.org) = lower($6::text))
+        ORDER BY date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), lower(cs.org), cs.control_id, cs.decision,
+                 cs.snapshot_at DESC
+    ) h
+) g
+GROUP BY g.day, g.org_key, g.control_key
+ORDER BY g.day, g.org_key, g.control_key
+`
+
+type APIComplianceHistoryAggregateParams struct {
+	By        string
+	ScopeAll  bool
+	ScopeOrgs []string
+	Since     time.Time
+	ControlID *string
+	Org       *string
+}
+
+type APIComplianceHistoryAggregateRow struct {
+	Day                      time.Time
+	Org                      string
+	ControlID                string
+	Compliant                int32
+	NonCompliant             int32
+	Pending                  int32
+	Stale                    int32
+	UnmeasurableAccessDenied int32
+	UnmeasurableSuspended    int32
+	UnmeasurableConflict     int32
+	NotApplicable            int32
+	Unknown                  int32
+	Excluded                 int32
+	Assigned                 int32
+	Percent                  pgtype.Numeric
+	Coverage                 pgtype.Numeric
+}
+
+// APIComplianceHistory's rows summed per UTC day, and per org or control
+// by @by (fleet, org or control; IMPL-0030 7.6): the day, not the raw
+// snapshot_at, keys the sum, so orgs snapshotted at different times on
+// one day collapse into one point; org or control_id is ” when the
+// grouping leaves it out. Percent and coverage come from the
+// sums through floor_percent, never an average of percentages.
+func (q *Queries) APIComplianceHistoryAggregate(ctx context.Context, arg APIComplianceHistoryAggregateParams) ([]APIComplianceHistoryAggregateRow, error) {
+	rows, err := q.db.Query(ctx, aPIComplianceHistoryAggregate,
+		arg.By,
+		arg.ScopeAll,
+		arg.ScopeOrgs,
+		arg.Since,
+		arg.ControlID,
+		arg.Org,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIComplianceHistoryAggregateRow
+	for rows.Next() {
+		var i APIComplianceHistoryAggregateRow
+		if err := rows.Scan(
+			&i.Day,
+			&i.Org,
+			&i.ControlID,
 			&i.Compliant,
 			&i.NonCompliant,
 			&i.Pending,

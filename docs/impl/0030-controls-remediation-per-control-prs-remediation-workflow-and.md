@@ -721,7 +721,7 @@ without one) → `make generate-ui-api` → `make lint-api lint-sql`.
 Every new query lives in an `api_*.sql` file so
 `TestAPIQueries_AreScoped` lints its scope predicate.
 
-- [ ] 7.6 **`/compliance/history?aggregate=none|fleet|org|control`**
+- [x] 7.6 **`/compliance/history?aggregate=none|fleet|org|control`**
   (default `none`, today's rows). New queries sum the ten bucket
   columns of `compliance_snapshots` per UTC day (`snapshot_at::date`,
   not the raw timestamp, so per-org snapshot times on one day

@@ -279,7 +279,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Compliance snapshots by org and control, oldest first. */
+        /**
+         * Compliance snapshots by org and control, oldest first.
+         * @description With `aggregate=none` (the default) each UTC day's last snapshot
+         *     per org, control and lineage. `fleet`, `org` and `control` sum
+         *     those rows per UTC day, over the fleet or per org or control,
+         *     and compute `percent` and `coverage` from the sums, never by
+         *     averaging.
+         */
         get: operations["getComplianceHistory"];
         put?: never;
         post?: never;
@@ -853,12 +860,20 @@ export interface components {
             items: components["schemas"]["Remediation"][];
             next_cursor?: components["schemas"]["Cursor"];
         };
-        /** @description One compliance snapshot row. */
+        /**
+         * @description One compliance snapshot row, or one UTC day's sum of them. Which
+         *     keys are present depends on `aggregate`: `none` carries `org`,
+         *     `control_id` and `decision`; `org` carries `org`; `control`
+         *     carries `control_id`; `fleet` carries none of them.
+         */
         HistoryPoint: {
-            org: string;
-            control_id: components["schemas"]["ControlSlug"];
-            decision: components["schemas"]["Decision"];
-            /** Format: date-time */
+            org?: string;
+            control_id?: components["schemas"]["ControlSlug"];
+            decision?: components["schemas"]["Decision"];
+            /**
+             * Format: date-time
+             * @description The snapshot's time; midnight UTC of the day for an aggregated point.
+             */
             snapshot_at: string;
             compliance: components["schemas"]["Posture"];
         };
@@ -1418,6 +1433,8 @@ export interface operations {
     getComplianceHistory: {
         parameters: {
             query?: {
+                /** @description How to sum each day's rows. */
+                aggregate?: "none" | "fleet" | "org" | "control";
                 /** @description Only this control slug. */
                 control?: components["schemas"]["ControlSlug"];
                 /** @description Only this org, case-insensitive. */

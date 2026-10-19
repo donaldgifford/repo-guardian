@@ -267,9 +267,14 @@ func (s *server) GetComplianceHistory(
 		return nil, statusError(http.StatusBadRequest, "control is not a control slug")
 	}
 
-	rows, err := s.opts.Reader.ComplianceHistory(ctx, p.Visible, &store.HistoryFilter{
+	f := store.HistoryFilter{
 		ControlID: deref(q.Control), Org: deref(q.Org), Since: s.opts.Now().Add(-time.Duration(days) * 24 * time.Hour),
-	})
+	}
+	if q.Aggregate != nil {
+		f.Aggregate = string(*q.Aggregate)
+	}
+
+	rows, err := s.opts.Reader.ComplianceHistory(ctx, p.Visible, &f)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +283,8 @@ func (s *server) GetComplianceHistory(
 	for i := range rows {
 		r := &rows[i]
 		out.Items = append(out.Items, gen.HistoryPoint{
-			Org: r.Org, ControlId: r.ControlID, Decision: r.Decision, SnapshotAt: r.SnapshotAt.UTC(), Compliance: postureOut(&r.ControlPosture),
+			Org: optStr(r.Org), ControlId: optStr(r.ControlID), Decision: optStr(r.Decision),
+			SnapshotAt: r.SnapshotAt.UTC(), Compliance: postureOut(&r.ControlPosture),
 		})
 	}
 

@@ -277,6 +277,10 @@ func (r *APIReader) ComplianceHistory(
 ) (out []store.ComplianceSnapshot, err error) {
 	defer func(start time.Time) { observeQuery("api_compliance_history", start, err) }(time.Now())
 
+	if f.Aggregate != "" && f.Aggregate != store.HistoryNone {
+		return r.complianceHistoryAggregate(ctx, scope, f)
+	}
+
 	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		rows, err := q.APIComplianceHistory(ctx, controlsdb.APIComplianceHistoryParams{
 			ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Since: f.Since,
@@ -291,6 +295,55 @@ func (r *APIReader) ComplianceHistory(
 		for i := range rows {
 			s, err := complianceSnapshot(&rows[i])
 			if err != nil {
+				return err
+			}
+
+			out = append(out, s)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("postgres.APIReader.ComplianceHistory: %w", err)
+	}
+
+	return out, nil
+}
+
+// complianceHistoryAggregate is ComplianceHistory summed per UTC day
+// in SQL, over the fleet or per org or control.
+func (r *APIReader) complianceHistoryAggregate(
+	ctx context.Context, scope store.APIScope, f *store.HistoryFilter,
+) (out []store.ComplianceSnapshot, err error) {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
+		rows, err := q.APIComplianceHistoryAggregate(ctx, controlsdb.APIComplianceHistoryAggregateParams{
+			By: f.Aggregate, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Since: f.Since,
+			ControlID: optString(f.ControlID), Org: optString(f.Org),
+		})
+		if err != nil {
+			return err
+		}
+
+		out = make([]store.ComplianceSnapshot, 0, len(rows))
+
+		for i := range rows {
+			a := &rows[i]
+			s := store.ComplianceSnapshot{
+				SnapshotAt: a.Day,
+				ControlPosture: store.ControlPosture{
+					Org: a.Org, ControlID: a.ControlID,
+					Compliant: int(a.Compliant), NonCompliant: int(a.NonCompliant), Pending: int(a.Pending), Stale: int(a.Stale),
+					UnmeasurableAccessDenied: int(a.UnmeasurableAccessDenied), UnmeasurableSuspended: int(a.UnmeasurableSuspended),
+					UnmeasurableConflict: int(a.UnmeasurableConflict), NotApplicable: int(a.NotApplicable), Unknown: int(a.Unknown),
+					Excluded: int(a.Excluded), Assigned: int(a.Assigned),
+				},
+			}
+
+			if s.Percent, err = numericPtr(a.Percent); err != nil {
+				return err
+			}
+
+			if s.Coverage, err = numericPtr(a.Coverage); err != nil {
 				return err
 			}
 

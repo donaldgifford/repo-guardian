@@ -19,6 +19,8 @@ const (
 	logEvaluationFailed   = "evaluation failed after retries"
 	logAwaitsResolution   = "assignment awaits re-resolution"
 	logDiscoveryPartial   = "controls discovery: installation listing incomplete"
+	logRemediationHeld    = "remediation held"
+	logRemediationAdopted = "adopted the remediation app's own pull request"
 )
 
 // Log levels as slog's JSON handler writes them.
@@ -59,6 +61,7 @@ func e4Loki(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
 	b = withErrorSection(b, ds)
 	b = withRepositoryFaultSection(b, ds)
 	b = withEvaluationLogSection(b, ds)
+	b = withRemediationLogSection(b, ds)
 
 	return id.dashboard(kindLogs, labelLogs, b)
 }
@@ -158,6 +161,33 @@ func withEvaluationLogSection(b *Builder, ds Datasources) *Builder {
 				"repository are a repository that will not converge.",
 			LogQuery{
 				Expr:     stream + ` |~ "` + logEvaluationDeferred + `|` + logEvaluationFailed + `" | json`,
+				MaxLines: maxLogLines,
+			}))
+}
+
+// withRemediationLogSection answers which repository a remediation hold
+// or adoption was (IMPL-0030 7.3): remediation_blocked_total says how
+// many, by org and reason, and only the log line carries repository_id.
+func withRemediationLogSection(b *Builder, ds Datasources) *Builder {
+	stream := ds.Stream()
+
+	return b.
+		WithRow(Row("Remediation holds and adoptions")).
+		WithPanel(LogTimeSeries(ds, "Remediation holds by reason",
+			"Runs that stopped on a hold. foreign_branch and permission need a human; "+
+				"pr_cap, stale_branch and conflict usually clear on their own.",
+			unitShort, LogQuery{
+				Expr: `sum by (hold) (
+  count_over_time(` + stream + ` |= "` + logRemediationHeld + `" | json [1h])
+)`,
+				Legend: "{{ hold }}",
+			})).
+		WithPanel(Logs(ds, "Holds and adoptions",
+			"Holds carry repository_id, control and hold; an adoption is the Remediation App "+
+				"finding its own open pull request with no tracked row and taking it back, "+
+				"which follows a lost database row or a restored branch.",
+			LogQuery{
+				Expr:     stream + ` |~ "` + logRemediationHeld + `|` + logRemediationAdopted + `" | json`,
 				MaxLines: maxLogLines,
 			}))
 }

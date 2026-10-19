@@ -692,7 +692,7 @@ human required`.
   per OQ11, rare-event ones with `alert.firstOrIncrease`; mirror them in
   the chart PrometheusRule; `make monitoring-generate`,
   `make lint-monitoring`, `make lint-alerts`.
-- [ ] 7.3 Dashboard panels: remediation backlog, open PRs by age,
+- [x] 7.3 Dashboard panels: remediation backlog, open PRs by age,
   blocked by reason, run results; E4 log matchers for hold and
   adoption log lines, with `TestLogLines_AreStillEmittedByTheBinary`
   covering them.

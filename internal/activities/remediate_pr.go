@@ -392,6 +392,7 @@ func (p *prRun) adopt(ctx context.Context, pr *control.PullRequest) error {
 	}
 
 	p.event(ctx, rem.ID, "adopted", fmt.Sprintf(`{"pr_number":%d}`, pr.Number))
+	p.log.Info("adopted the remediation app's own pull request", "pr_number", pr.Number)
 
 	return p.tracked(ctx, rem)
 }

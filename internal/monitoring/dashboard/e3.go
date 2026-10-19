@@ -250,7 +250,7 @@ func withAPISection(b *Builder, ds Datasources) *Builder {
 				"after an IdP change is a configuration mismatch, not an attack.",
 			unitShort, Query{
 				Expr:   `sum by (reason) (rate(repo_guardian_api_auth_failures_total[15m]))`,
-				Legend: "{{ reason }}",
+				Legend: legendReason,
 			})).
 		WithPanel(TimeSeries(ds, "Status page refresh p99",
 			"The background read behind /status. The page itself never queries, so a slow "+

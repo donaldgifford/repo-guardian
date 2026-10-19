@@ -367,6 +367,96 @@
         "sortOrder": "Descending",
         "dedupStrategy": ""
       }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Remediation holds and adoptions",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (hold) (\n  count_over_time({app=\"repo-guardian\"} |= \"remediation held\" | json [1h])\n)",
+          "legendFormat": "{{ hold }}"
+        }
+      ],
+      "title": "Remediation holds by reason",
+      "description": "Runs that stopped on a hold. foreign_branch and permission need a human; pr_cap, stale_branch and conflict usually clear on their own.",
+      "transparent": false,
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 49
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{app=\"repo-guardian\"} |~ \"remediation held|adopted the remediation app's own pull request\" | json",
+          "maxLines": 200
+        }
+      ],
+      "title": "Holds and adoptions",
+      "description": "Holds carry repository_id, control and hold; an adoption is the Remediation App finding its own open pull request with no tracked row and taking it back, which follows a lost database row or a restored branch.",
+      "transparent": false,
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 49
+      },
+      "repeatDirection": "h",
+      "options": {
+        "showLabels": false,
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLogContextToggle": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": ""
+      }
     }
   ],
   "templating": {},

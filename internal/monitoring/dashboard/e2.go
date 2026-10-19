@@ -32,6 +32,7 @@ func e2Detail(m *monitoring.Model, ds Datasources, id Identity) Dashboard {
 	}
 
 	b = withFleetSection(b, ds)
+	b = withRemediationSection(b, ds)
 
 	if len(orgs) == 0 {
 		return id.dashboard(kindDetail, labelDetail, withOrgSection(b, ds, orgVar, "Organisation: $org"))
@@ -86,7 +87,7 @@ func withFleetSection(b *Builder, ds Datasources) *Builder {
 				"access_denied share is the one to act on.",
 			unitShort, Query{
 				Expr:   `sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))`,
-				Legend: "{{ reason }}",
+				Legend: legendReason,
 			})).
 		WithPanel(TimeSeries(ds, "GitHub API budget by org",
 			"Remaining API budget, joined from the installation-keyed gauge onto orgs via "+
@@ -102,8 +103,51 @@ func withFleetSection(b *Builder, ds Datasources) *Builder {
 			}))
 }
 
-// legendOrg labels a series by organisation.
-const legendOrg = "{{ org }}"
+// withRemediationSection charts remediation across the fleet (IMPL-0030
+// 7.3). The two gauges are published by every api replica from the
+// store, so they collapse replicas with max by before summing, exactly
+// as the posture gauges do.
+func withRemediationSection(b *Builder, ds Datasources) *Builder {
+	return b.
+		WithRow(Row("Remediation")).
+		WithPanel(TimeSeries(ds, "Remediation backlog: held results by reason",
+			"Control results held from remediation, by hold. pr_cap and stale_branch "+
+				"are routine and clear on their own; foreign_branch, permission and a "+
+				"conflict held past a week need a human.",
+			unitShort, Query{
+				Expr:   `sum by (reason) (max by (org, reason, age_bucket) (repo_guardian_remediation_holds))`,
+				Legend: legendReason,
+			})).
+		WithPanel(TimeSeries(ds, "Open remediation pull requests by age",
+			"Open pull requests repo-guardian is waiting on someone to merge. A growing 30d+ "+
+				"band is a fleet that is not taking its remediations.",
+			unitShort, Query{
+				Expr:   `sum by (age_bucket) (max by (org, control, age_bucket) (repo_guardian_remediation_prs_open))`,
+				Legend: "{{ age_bucket }}",
+			})).
+		WithPanel(TimeSeries(ds, "Remediations blocked in the last 24h",
+			"New holds and Remediation App access losses by reason. The E4 logs name the "+
+				"repositories.",
+			unitShort, Query{
+				Expr:   `sum by (reason) (increase(repo_guardian_remediation_blocked_total[24h]))`,
+				Legend: legendReason,
+			})).
+		WithPanel(TimeSeries(ds, "Remediation run results in the last 24h",
+			"What remediation runs and lifecycle maintenance did. noop is a run that found "+
+				"nothing to change; deferred is a run waiting for a budget reset, not a failure.",
+			unitShort, Query{
+				Expr:   `sum by (result) (increase(repo_guardian_remediation_runs_total[24h]))`,
+				Legend: "{{ result }}",
+			}))
+}
+
+// Legends shared across panels.
+const (
+	// legendOrg labels a series by organisation.
+	legendOrg = "{{ org }}"
+	// legendReason labels a series by reason.
+	legendReason = "{{ reason }}"
+)
 
 // withOrgSection adds one organisation's row.
 //

@@ -220,7 +220,10 @@ func TestSuite_PostureQueriesDedupeAcrossReplicas(t *testing.T) {
 	seen := 0
 
 	for _, tgt := range promTargets(t) {
-		for _, gauge := range []string{"repo_guardian_controls_status", "repo_guardian_controls_coverage"} {
+		for _, gauge := range []string{
+			"repo_guardian_controls_status", "repo_guardian_controls_coverage",
+			"repo_guardian_remediation_prs_open", "repo_guardian_remediation_holds",
+		} {
 			all := strings.Count(tgt.Expr, gauge)
 			wrapped := len(regexp.MustCompile(`max by \([^)]*\) \(`+gauge+`\b`).FindAllString(tgt.Expr, -1))
 			seen += all

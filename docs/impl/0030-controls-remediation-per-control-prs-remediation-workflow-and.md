@@ -550,7 +550,7 @@ human required`.
   journaled `committed_sha` under the same `operation_key`.
 - [x] 4.15 Record (`RecordRun`), then `last_remediation_at`, then the
   workflow's loop check (3.1).
-- [ ] 4.16 Behaviour tests, one per DESIGN-0032 Testing Strategy bullet
+- [x] 4.16 Behaviour tests, one per DESIGN-0032 Testing Strategy bullet
   under "Remediation workflow": onboarding opens the PR; a no-change
   evaluation does nothing; human edits plus a main merge; main changes
   the same file (mergeable proposal or `conflict`; retired-rule revert;

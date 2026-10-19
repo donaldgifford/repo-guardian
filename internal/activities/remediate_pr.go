@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
+	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/template"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
@@ -311,7 +312,7 @@ func (p *prRun) ownPR(ctx context.Context) (*control.PullRequest, error) {
 // never consulted.
 func (p *prRun) isOwn(pr *control.PullRequest) bool {
 	return pr.State == prOpen && pr.HeadRef == p.branch && pr.AuthorID == p.r.bot.ID && pr.AuthorID != 0 &&
-		pr.AuthorType == "Bot" && pr.HeadRepoID != 0 && pr.HeadRepoID == p.target.ProviderRepoID
+		pr.AuthorType == ghclient.UserTypeBot && pr.HeadRepoID != 0 && pr.HeadRepoID == p.target.ProviderRepoID
 }
 
 // untracked is a branch with no tracked PR: adopt the App's own open PR,

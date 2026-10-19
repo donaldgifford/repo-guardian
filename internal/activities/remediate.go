@@ -153,12 +153,19 @@ type remediationRun struct {
 	def     control.Definition
 }
 
+// assignmentActive is the state of an assignment that is in force;
+// modeRemediate is the effective mode a run acts in.
+const (
+	assignmentActive = "active"
+	modeRemediate    = "remediate"
+)
+
 // remediates reports whether t is a target a run acts on: an active
 // assignment on an active repository in remediate mode that the
 // Remediation App can reach. Anything else completes with nothing done;
 // resolution's effective-mode downgrade takes an unreachable repository.
 func remediates(t *store.RemediationTarget) bool {
-	return t.Active && t.State == "active" && t.EffectiveMode == "remediate" && t.Remediable && t.InstallationID != 0
+	return t.Active && t.State == assignmentActive && t.EffectiveMode == modeRemediate && t.Remediable && t.InstallationID != 0
 }
 
 // Remediate runs one remediation loop of RemediationWorkflow (IMPL-0030

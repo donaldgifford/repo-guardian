@@ -1100,8 +1100,18 @@ components:
     Summary:
       description: Fleet totals over the visible orgs.
       type: object
-      required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog, parked_by_reason, controls_failing]
+      required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog, parked_by_reason, controls_failing,
+        finding_age]
       properties:
+        finding_age:
+          description: |
+            Results in the non-compliant bucket by how long ago they last
+            changed: every one of the six buckets (<1d, 1-7d, 7-30d,
+            30-90d, 90-180d, 180d+), youngest first. The counts sum to
+            `compliance.non_compliant`.
+          type: array
+          items:
+            $ref: "#/components/schemas/AgeCount"
         parked_by_reason:
           description: Parked repositories by park reason, ordered by reason; a reason with none is absent.
           type: array
@@ -1137,6 +1147,16 @@ components:
         policy_version:
           description: The active policy version; absent before one is activated.
           type: string
+    AgeCount:
+      description: How many fall in one age bucket.
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          type: string
+        count:
+          type: integer
+          minimum: 0
     ReasonCount:
       description: How many repositories were parked for one reason.
       type: object

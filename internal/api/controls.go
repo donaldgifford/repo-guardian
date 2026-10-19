@@ -72,8 +72,17 @@ func (s *server) GetSummary(ctx context.Context, _ gen.GetSummaryRequestObject) 
 		Tracked: tracked, Parked: parked, Compliance: postureOut(&total), OpenPrs: view.OpenPRs,
 		Evaluated24h: view.Evaluated, LastEvaluatedAt: view.LastEvaluatedAt, PolicyVersion: optStr(view.PolicyVersion),
 		RemediationBacklog: view.RemediationBacklog, ParkedByReason: parkedByReason(view.Repositories),
-		ControlsFailing: controlsFailing(view.Compliance),
+		ControlsFailing: controlsFailing(view.Compliance), FindingAge: ageCountsOut(view.FindingAge),
 	}, nil
+}
+
+func ageCountsOut(counts []store.AgeCount) []gen.AgeCount {
+	out := make([]gen.AgeCount, 0, len(counts))
+	for _, c := range counts {
+		out = append(out, gen.AgeCount{Bucket: c.Bucket, Count: c.Count})
+	}
+
+	return out
 }
 
 // parkedByReason counts parked repositories per park reason, ordered by

@@ -73,6 +73,18 @@ func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.
 
 		view.RemediationBacklog = int(backlog)
 
+		ages, err := q.APIFindingAge(ctx, controlsdb.APIFindingAgeParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+		if err != nil {
+			return fmt.Errorf("finding age: %w", err)
+		}
+
+		byBucket := make(map[string]int, len(ages))
+		for _, a := range ages {
+			byBucket[a.Bucket] = int(a.Findings)
+		}
+
+		view.FindingAge = store.AgeCounts(store.FindingAgeBuckets, byBucket)
+
 		active, err := q.CurrentActivation(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil

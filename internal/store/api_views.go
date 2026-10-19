@@ -160,6 +160,29 @@ type SummaryView struct {
 	// RemediationBacklog counts outstanding remediations: reserved, open,
 	// recommended or failed.
 	RemediationBacklog int
+	// FindingAge counts results in the non-compliant bucket per
+	// FindingAgeBuckets bucket, every bucket present, in that order.
+	FindingAge []AgeCount
+}
+
+// AgeCount is how many of something fall in one age bucket.
+type AgeCount struct {
+	Bucket string
+	Count  int
+}
+
+// FindingAgeBuckets are Summary.finding_age's buckets, youngest first.
+var FindingAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30-90d", "90-180d", "180d+"}
+
+// AgeCounts orders counts by buckets, with a zero for a bucket counts
+// lacks.
+func AgeCounts(buckets []string, counts map[string]int) []AgeCount {
+	out := make([]AgeCount, 0, len(buckets))
+	for _, b := range buckets {
+		out = append(out, AgeCount{Bucket: b, Count: counts[b]})
+	}
+
+	return out
 }
 
 // ControlVersion is one version and revision of a control assigned in

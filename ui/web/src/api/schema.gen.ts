@@ -621,6 +621,13 @@ export interface components {
         };
         /** @description Fleet totals over the visible orgs. */
         Summary: {
+            /**
+             * @description Results in the non-compliant bucket by how long ago they last
+             *     changed: every one of the six buckets (<1d, 1-7d, 7-30d,
+             *     30-90d, 90-180d, 180d+), youngest first. The counts sum to
+             *     `compliance.non_compliant`.
+             */
+            finding_age: components["schemas"]["AgeCount"][];
             /** @description Parked repositories by park reason, ordered by reason; a reason with none is absent. */
             parked_by_reason: components["schemas"]["ReasonCount"][];
             /** @description Controls with at least one result in the non-compliant bucket. */
@@ -638,6 +645,11 @@ export interface components {
             last_evaluated_at?: string;
             /** @description The active policy version; absent before one is activated. */
             policy_version?: string;
+        };
+        /** @description How many fall in one age bucket. */
+        AgeCount: {
+            bucket: string;
+            count: number;
         };
         /** @description How many repositories were parked for one reason. */
         ReasonCount: {

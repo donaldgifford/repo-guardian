@@ -764,7 +764,7 @@ Every new query lives in an `api_*.sql` file so
   already reads (`Repositories` per park reason; `Compliance` rows
   with `non_compliant > 0`, counted by distinct control). No new SQL.
   `apitest` cases.
-- [ ] 7.10 **`Summary.finding_age`**: six fixed buckets (`<1d`, `1–7d`,
+- [x] 7.10 **`Summary.finding_age`**: six fixed buckets (`<1d`, `1–7d`,
   `7–30d`, `30–90d`, `90–180d`, `180d+`) of
   `now() − last_changed_at` over results in the `non_compliant`
   bucket, in `api_summary.sql` with the scope predicate. The bucket

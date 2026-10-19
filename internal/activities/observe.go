@@ -47,13 +47,16 @@ func observePRs(ctx context.Context, o control.PRObserver, tracked []store.Track
 	return out, nil
 }
 
+// prStateClosed is GitHub's state for a closed (merged or not) PR.
+const prStateClosed = "closed"
+
 func observation(t store.TrackedPR, pr *control.PullRequest) store.PRObservation {
 	obs := store.PRObservation{RemediationID: t.RemediationID, PRNumber: t.PRNumber, State: store.PRObservedOpen, HeadSHA: pr.HeadSHA}
 
 	switch {
 	case pr.Merged:
 		obs.State, obs.ClosedAt = store.PRObservedMerged, pr.ClosedAt
-	case pr.State == "closed":
+	case pr.State == prStateClosed:
 		obs.State, obs.ClosedAt = store.PRObservedClosed, pr.ClosedAt
 	}
 

@@ -374,11 +374,18 @@ human required`.
   version 1 runs `StartDueRemediations` after a record that recorded
   something (or was already final) with bounded retries (`hookOptions`),
   so a failure is logged and never holds the loop.
-- [ ] 2.7 Tests: observation table (open with a new head, merged,
+- [x] 2.7 Tests: observation table (open with a new head, merged,
   user-closed, closed by us, a failed second page, a PR authored by
   someone else on a `repo-guardian/` branch, which is ignored);
   signal-with-start into a completing workflow, against the result of
   IMPL-0028's spike; a no-change evaluation starts nothing.
+  Done: `TestObservePRs` (the table; a remediator-closed row is never
+  tracked, and the store's `state = 'open'` guard is pinned by
+  `TestControlsStore_ObservePullRequests`), `TestEvaluate_ObserveOnly`,
+  `TestIntegration_StartRemediationsIntoCompletingWorkflow` (100
+  signal-with-starts into a draining stand-in, none lost), and
+  `TestStartDueRemediations` plus the 1.10 truth table for "no change
+  starts nothing".
 - [x] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
   at time.Time)` with a sqlc query, plus an integration test that runs
   as `rg_evaluator` (the grant, not the owner).

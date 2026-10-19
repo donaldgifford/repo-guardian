@@ -128,12 +128,13 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | --- | --- |
 | `/status` | public service status (below) |
 | `/me` | the caller, and the orgs it may see |
-| `/summary` | tracked and parked repositories, the fleet posture, open PRs, repositories evaluated in the last 24 hours and the active policy version |
+| `/summary` | tracked and parked repositories, the fleet posture, open PRs, the remediation backlog (reserved, open, recommended or failed), repositories evaluated in the last 24 hours and the active policy version |
 | `/controls`, `/controls/{id}` | each assigned control's posture (`?org=` narrows it); one control by org and lineage, with the versions and revisions each org carries |
 | `/orgs`, `/orgs/{org}` | posture and `open_prs` per org; one org's baseline against what it added (percent and coverage each), its controls, its five worst and its exclusions |
 | `/repositories`, `/repositories/{id}` | repositories filtered by `org`, `active`, `park_reason`, `policy_state`, `q`; one repository with its last evaluation, policy state and whether each App can reach it |
-| `/repositories/{id}/controls` | the repository's assignments in remediation order, each with its bucket, mode, rule results and evidence |
-| `/repositories/{id}/evaluations`, `/repositories/{id}/events` | the evaluation log; result changes and repository events |
+| `/repositories/{id}/controls` | the repository's assignments in remediation order, each with its bucket, mode, rule results, evidence and latest remediation |
+| `/repositories/{id}/evaluations`, `/repositories/{id}/events` | the evaluation log; result changes, repository events and remediation events |
+| `/remediations` | remediations newest first, by `kind`, `state`, `org`, `control`, `hold` (repeatable) and `older_than_days`, each with its proposal and step journal; a branch `hold` also lists the results held before a pull request exists (below) |
 | `POST /repositories/{id}/evaluate` | asks for an evaluation now (below) |
 | `/compliance/history` | each UTC day's last snapshot per org, control and lineage, by `control`, `org` and `days` (1–365, default 30) |
 | `/policies` | the active policy as the caller may see it: its version and rollout, each visible org's layer, the catalogue entries those reference, and the enterprise layer for callers who see every org |
@@ -155,6 +156,20 @@ percentages.
 framework evidence, written when an evaluation could not decide, adds
 `reason`. Values in it came from repositories (paths, file contents,
 setting values): treat them as data and never render them as markup.
+
+**Remediations.** `/remediations` lists one row per remediation: a
+pull request (`reserved` through `merged` or a close), a
+recommendation, or a direct apply with its `proposal` (each resource's
+value before and the value asked for) and `steps` journal. Open pull
+requests older than N days are
+`?kind=pull_request&state=open&older_than_days=N`, outstanding
+recommendations `?state=recommended`, blocked cleanup
+`?hold=permission`. The branch holds (`pr_cap`, `foreign_branch`,
+`stale_branch`, `conflict`) are set on a result before any pull request
+exists, so `?hold=` with one of them also lists those results as rows
+of their own: `kind` `pull_request`, no `id`, `state` or pull request,
+and `created_at` when the hold began. One cursor pages both kinds of
+row.
 
 **Re-evaluation.** `POST /repositories/{id}/evaluate` signals the
 repository's evaluation workflow at the highest priority and answers

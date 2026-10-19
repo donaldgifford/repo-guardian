@@ -71,6 +71,7 @@ func (s *server) GetSummary(ctx context.Context, _ gen.GetSummaryRequestObject) 
 	return gen.GetSummary200JSONResponse{
 		Tracked: tracked, Parked: parked, Compliance: postureOut(&total), OpenPrs: view.OpenPRs,
 		Evaluated24h: view.Evaluated, LastEvaluatedAt: view.LastEvaluatedAt, PolicyVersion: optStr(view.PolicyVersion),
+		RemediationBacklog: view.RemediationBacklog,
 	}, nil
 }
 

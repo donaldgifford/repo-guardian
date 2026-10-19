@@ -154,6 +154,9 @@ type SummaryView struct {
 	LastEvaluatedAt *time.Time
 	// PolicyVersion is empty before a version is activated.
 	PolicyVersion string
+	// RemediationBacklog counts outstanding remediations: reserved, open,
+	// recommended or failed.
+	RemediationBacklog int
 }
 
 // ControlVersion is one version and revision of a control assigned in
@@ -224,6 +227,59 @@ type RepositoryControl struct {
 	Hold          string
 	HoldSince     *time.Time
 	Rules         []RuleResult
+	// Remediation is the control's latest remediation; nil before one.
+	Remediation *RemediationView
+}
+
+// RemediationView is one remediation as the API shows it: a
+// remediations row, or a result held before a pull request exists (ID
+// zero, State empty, Kind pull_request, CreatedAt its hold_since).
+type RemediationView struct {
+	ID                  int64
+	RepositoryID        int64
+	Org                 string
+	Repository          string
+	ControlID           string
+	Kind                string
+	State               string
+	IntentRevision      string
+	Branch              string
+	PRNumber            int
+	PRURL               string
+	ObservedHeadSHA     string
+	AcknowledgedHeadSHA string
+	Hold                string
+	HoldSince           *time.Time
+	Proposal            json.RawMessage
+	CreatedAt           time.Time
+	LastRunAt           *time.Time
+	ClosedAt            *time.Time
+	CloseReason         string
+	Steps               []RemediationStep
+}
+
+// RemediationKey orders /remediations for paging, newest first.
+type RemediationKey struct {
+	At           time.Time
+	RepositoryID int64
+	ControlID    string
+	ID           int64
+}
+
+// RemediationFilter selects remediations. Zero fields do not filter.
+type RemediationFilter struct {
+	Kind      string
+	State     string
+	Org       string
+	ControlID string
+	// Holds matches any of these holds. A branch hold also lists the
+	// results held before a pull request exists, unless Kind is api or
+	// State is set.
+	Holds []string
+	// Before keeps remediations created (or held) before it.
+	Before *time.Time
+	After  *RemediationKey
+	Limit  int
 }
 
 // HistoryFilter selects compliance snapshots. Empty fields do not filter.
@@ -267,12 +323,13 @@ type RepositoryDetail struct {
 
 // Event sources in the merged timeline.
 const (
-	EventSourceResult     = "result"
-	EventSourceRepository = "repository"
+	EventSourceResult      = "result"
+	EventSourceRepository  = "repository"
+	EventSourceRemediation = "remediation"
 )
 
-// Event is one timeline entry: a control result transition or a
-// repository event, by Source.
+// Event is one timeline entry: a control result transition, a
+// repository event or a remediation event, by Source.
 type Event struct {
 	Source     string
 	ID         int64
@@ -286,9 +343,10 @@ type Event struct {
 	FromStatus *string
 	ToStatus   *string
 
-	// Repository events.
-	RepositoryKind string
-	Detail         json.RawMessage
+	// Repository and remediation events. A remediation event carries
+	// its control too, and remediation_id in Detail.
+	Kind   string
+	Detail json.RawMessage
 }
 
 // EventKey orders the timeline for paging, newest first.
@@ -361,6 +419,8 @@ type StatusInputs struct {
 	Rollout *Rollout
 	// LastSnapshot is nil before the first compliance snapshot.
 	LastSnapshot *time.Time
+	// RemediationBacklog counts outstanding remediations fleet-wide.
+	RemediationBacklog int
 }
 
 // CompliancePoint is fleet compliance at one snapshot; Percent is nil

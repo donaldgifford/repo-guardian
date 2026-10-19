@@ -59,9 +59,9 @@ ORDER BY c.id DESC
 LIMIT @page_limit;
 
 -- name: APIRepositoryEvents :many
--- Control-status and rule-result transitions and repository events
--- merged with UNION ALL, newest first, keyed by (occurred_at, source, id).
--- Remediation events join with IMPL-0030.
+-- Control-status and rule-result transitions, repository events and
+-- remediation events merged with UNION ALL, newest first, keyed by
+-- (occurred_at, source, id).
 SELECT e.source, e.id, e.occurred_at, coalesce(e.control_id, '')::text AS control_id,
        coalesce(e.rule_id, '')::text AS rule_id, e.from_status, e.to_status, e.kind, e.detail
 FROM (
@@ -73,6 +73,12 @@ FROM (
     SELECT 'repository'::text, re.id, re.occurred_at, NULL::text, NULL::text, NULL::text, NULL::text, re.kind, re.detail
     FROM repository_events re
     WHERE re.repository_id = @repository_id
+    UNION ALL
+    SELECT 'remediation'::text, me.id, me.occurred_at, m.control_id, NULL::text, NULL::text, NULL::text, me.kind,
+           me.detail || jsonb_build_object('remediation_id', m.id)
+    FROM remediation_events me
+    JOIN remediations m ON m.id = me.remediation_id
+    WHERE m.repository_id = @repository_id
 ) e
 JOIN repositories r ON r.id = @repository_id
 WHERE (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))

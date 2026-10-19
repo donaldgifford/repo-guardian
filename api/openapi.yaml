@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: repo-guardian API
-  version: 2.0.0
+  version: 2.1.0
   summary: Compliance API for repo-guardian's controls.
   description: |
     The API behind the repo-guardian UI and status page (DESIGN-0027,
@@ -37,6 +37,8 @@ tags:
     description: Controls, their compliance and the policy that assigns them.
   - name: repositories
     description: Repositories and their history.
+  - name: remediations
+    description: What repo-guardian is doing about findings.
   - name: meta
     description: The service and its contract.
 paths:
@@ -295,8 +297,7 @@ paths:
   /repositories/{id}/events:
     get:
       operationId: listRepositoryEvents
-      summary: The repository's timeline, result and repository events merged, newest first.
-      description: Remediation events join the timeline with IMPL-0030.
+      summary: The repository's timeline, result, repository and remediation events merged, newest first.
       tags: [repositories]
       parameters:
         - $ref: "#/components/parameters/RepositoryID"
@@ -384,6 +385,77 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Error"
+  /remediations:
+    get:
+      operationId: listRemediations
+      summary: Remediations over the visible orgs, newest first.
+      description: |
+        One row per remediation: a pull request, a recommendation or a
+        direct apply, with its step journal. Filtering by a branch hold
+        (`pr_cap`, `foreign_branch`, `stale_branch`, `conflict`) also
+        lists the results held before a pull request exists, as rows with
+        `kind` pull_request and no `id`, `state` or pull request, dated
+        from when the hold began; `kind=api` or any `state` filter leaves
+        them out. Open pull requests older than N days are
+        `kind=pull_request&state=open&older_than_days=N`; outstanding
+        recommendations `state=recommended`; blocked cleanup
+        `hold=permission`.
+      tags: [remediations]
+      parameters:
+        - name: kind
+          in: query
+          description: "Only this kind. Open enum: pull_request, api."
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Only this state.
+          schema:
+            $ref: "#/components/schemas/RemediationState"
+        - name: org
+          in: query
+          description: Only this org, case-insensitive.
+          schema:
+            type: string
+        - name: control
+          in: query
+          description: Only this control slug.
+          schema:
+            $ref: "#/components/schemas/ControlSlug"
+        - name: hold
+          in: query
+          description: Only these holds; repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 5
+            items:
+              $ref: "#/components/schemas/Hold"
+        - name: older_than_days
+          in: query
+          description: Only remediations created (or held) at least this many days ago.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3650
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of remediations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemediationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/Error"
   /compliance/history:
@@ -643,8 +715,12 @@ components:
     StatusOperations:
       description: The status page's operations strip. Counts and times only.
       type: object
-      required: [evaluated_24h, overdue, tracked, rollout_state]
+      required: [evaluated_24h, overdue, tracked, rollout_state, remediation_backlog]
       properties:
+        remediation_backlog:
+          description: Outstanding remediations (reserved, open, recommended or failed) fleet-wide.
+          type: integer
+          minimum: 0
         evaluated_24h:
           description: Repositories with a finished evaluation in the last 24 hours.
           type: integer
@@ -843,12 +919,13 @@ components:
         for a rule-result transition, and the status transition (to_status
         is absent when the result was withdrawn, which is how an
         assignment's withdrawal shows); a repository event carries kind
-        and detail.
+        and detail; a remediation event carries the control, kind and
+        detail, with `remediation_id` in the detail.
       type: object
       required: [source, id, occurred_at]
       properties:
         source:
-          description: "Open enum: result, repository."
+          description: "Open enum: result, repository, remediation."
           type: string
         id:
           type: integer
@@ -868,11 +945,15 @@ components:
           description: "Open enum: compliant, non_compliant, unknown, not_applicable."
           type: string
         kind:
-          description: "Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended."
+          description: |
+            Open enum. Repository events: discovered, renamed, transferred,
+            parked, unparked, removed, suspended, unsuspended. Remediation
+            events: the state the remediation entered (such as open,
+            merged, recommended or applied), adopted, observed.
           type: string
         detail:
           type: object
-          description: A repository event's detail, such as the names around a rename.
+          description: A repository or remediation event's detail, such as the names around a rename.
     EventPage:
       description: A page of timeline events.
       type: object
@@ -941,8 +1022,12 @@ components:
     Summary:
       description: Fleet totals over the visible orgs.
       type: object
-      required: [tracked, parked, compliance, open_prs, evaluated_24h]
+      required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog]
       properties:
+        remediation_backlog:
+          description: Outstanding remediations (reserved, open, recommended or failed) in the visible orgs.
+          type: integer
+          minimum: 0
         tracked:
           description: Active repositories.
           type: integer
@@ -1149,8 +1234,8 @@ components:
       additionalProperties: true
     RepositoryControl:
       description: |
-        One assignment with provenance, requested and effective mode, and
-        its result. The latest remediation joins with IMPL-0030.
+        One assignment with provenance, requested and effective mode, its
+        result and its latest remediation.
       type: object
       required: [control_id, version, revision, state, decision, source, requested_mode, effective_mode, mode_source,
         epoch, bucket, rules]
@@ -1225,6 +1310,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RuleResult"
+        remediation:
+          $ref: "#/components/schemas/Remediation"
+          description: The control's latest remediation; absent before one.
     RepositoryControlList:
       description: A repository's assignments.
       type: object
@@ -1234,6 +1322,144 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RepositoryControl"
+    RemediationState:
+      description: |
+        Open enum. A pull request: reserved, open, merged,
+        closed_compliant, closed_by_user, closed_withdrawn. An API
+        remediation: recommended, superseded, withdrawn, resolved,
+        applied, failed.
+      type: string
+      examples: [open]
+    Hold:
+      description: "Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission."
+      type: string
+      examples: [foreign_branch]
+    Remediation:
+      description: |
+        One remediation (DESIGN-0032): a pull request, a recommendation
+        or a direct apply. A result held before a pull request exists
+        (`/remediations?hold=`) is a row with `kind` pull_request and no
+        `id`, `state` or pull request, `created_at` when the hold began.
+      type: object
+      required: [repository_id, org, repository, control_id, kind, intent_revision, created_at, steps]
+      properties:
+        id:
+          description: Absent on a held result.
+          type: integer
+          format: int64
+        repository_id:
+          type: integer
+          format: int64
+        org:
+          type: string
+        repository:
+          description: The repository name.
+          type: string
+        control_id:
+          $ref: "#/components/schemas/ControlSlug"
+        kind:
+          description: "Open enum: pull_request, api."
+          type: string
+        state:
+          $ref: "#/components/schemas/RemediationState"
+          description: Absent on a held result.
+        intent_revision:
+          description: What remediation was asked to do, as a digest; a moved intent supersedes a recommendation.
+          type: string
+        branch:
+          description: The pull request's `repo-guardian/<control>` branch.
+          type: string
+        pr_number:
+          type: integer
+        pr_url:
+          type: string
+        observed_head_sha:
+          description: The pull request head the Evaluation App last saw.
+          type: string
+        acknowledged_head_sha:
+          description: The head the remediator last accepted as its own.
+          type: string
+        hold:
+          $ref: "#/components/schemas/Hold"
+        hold_since:
+          description: When a held result's hold began.
+          type: string
+          format: date-time
+        proposal:
+          description: A recommendation's or direct apply's changes.
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposedChange"
+        created_at:
+          type: string
+          format: date-time
+        last_run_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        close_reason:
+          type: string
+        steps:
+          description: The external steps journaled, in order; empty for a held result.
+          type: array
+          items:
+            $ref: "#/components/schemas/RemediationStep"
+    ProposedChange:
+      description: One resource an API remediation would change, with its value before and the value asked for.
+      type: object
+      required: [key, op]
+      properties:
+        key:
+          description: The resource, such as `setting:delete_branch_on_merge`.
+          type: string
+        op:
+          type: string
+        before:
+          description: The value read before; null when the read failed. Any JSON value.
+        after:
+          description: The value asked for. Any JSON value.
+    RemediationStep:
+      description: One journaled external step.
+      type: object
+      required: [seq, kind, status, occurred_at]
+      properties:
+        seq:
+          type: integer
+        kind:
+          description: "Open enum: branch_created, branch_updated, committed, reverted, pr_created, pr_updated, pr_rebased, pr_closed, api_write."
+          type: string
+        status:
+          description: "Open enum: done, failed."
+          type: string
+        resource_key:
+          type: string
+        committed_sha:
+          type: string
+        pr_number:
+          type: integer
+        before:
+          description: An API write's value before. Any JSON value.
+        after:
+          description: An API write's value read back. Any JSON value.
+        error:
+          description: Why a failed step failed.
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    RemediationPage:
+      description: A page of remediations.
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Remediation"
+        next_cursor:
+          $ref: "#/components/schemas/Cursor"
     HistoryPoint:
       description: One compliance snapshot row.
       type: object

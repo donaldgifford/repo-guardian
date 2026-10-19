@@ -130,6 +130,7 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 		{"/repositories/{id}/evaluations", http.MethodGet, e.repoPath("acme-web/b", "/evaluations"), http.StatusOK},
 		// No Temporal client in this harness: the spec's 501.
 		{"/repositories/{id}/evaluate", http.MethodPost, e.repoPath("acme-web/b", "/evaluate"), http.StatusNotImplemented},
+		{"/remediations", http.MethodGet, "/remediations?hold=conflict&hold=permission", http.StatusOK},
 		{"/compliance/history", http.MethodGet, "/compliance/history?days=7", http.StatusOK},
 		{"/status", http.MethodGet, "/status", http.StatusOK},
 		{"/openapi.yaml", http.MethodGet, "/openapi.yaml", http.StatusOK},

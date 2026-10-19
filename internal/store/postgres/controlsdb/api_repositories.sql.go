@@ -348,6 +348,12 @@ FROM (
     SELECT 'repository'::text, re.id, re.occurred_at, NULL::text, NULL::text, NULL::text, NULL::text, re.kind, re.detail
     FROM repository_events re
     WHERE re.repository_id = $1
+    UNION ALL
+    SELECT 'remediation'::text, me.id, me.occurred_at, m.control_id, NULL::text, NULL::text, NULL::text, me.kind,
+           me.detail || jsonb_build_object('remediation_id', m.id)
+    FROM remediation_events me
+    JOIN remediations m ON m.id = me.remediation_id
+    WHERE m.repository_id = $1
 ) e
 JOIN repositories r ON r.id = $1
 WHERE ($2::bool OR lower(r.org) = ANY ($3::text[]))
@@ -380,9 +386,9 @@ type APIRepositoryEventsRow struct {
 	Detail     json.RawMessage
 }
 
-// Control-status and rule-result transitions and repository events
-// merged with UNION ALL, newest first, keyed by (occurred_at, source, id).
-// Remediation events join with IMPL-0030.
+// Control-status and rule-result transitions, repository events and
+// remediation events merged with UNION ALL, newest first, keyed by
+// (occurred_at, source, id).
 func (q *Queries) APIRepositoryEvents(ctx context.Context, arg APIRepositoryEventsParams) ([]APIRepositoryEventsRow, error) {
 	rows, err := q.db.Query(ctx, aPIRepositoryEvents,
 		arg.RepositoryID,

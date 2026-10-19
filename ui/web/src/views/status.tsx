@@ -49,7 +49,7 @@ const dotClass: Record<StatusTone, string> = {
 export function StatusView() {
   const status = useStatus();
   const config = useUIConfig();
-  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", topology: "all", components: [], apps: [], compliance: { percent: null, coverage: null, measured: false, history: [] }, operations: { evaluated_24h: 0, overdue: 0, tracked: 0, rollout_state: "none" } };
+  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", topology: "all", components: [], apps: [], compliance: { percent: null, coverage: null, measured: false, history: [] }, operations: { evaluated_24h: 0, overdue: 0, tracked: 0, remediation_backlog: 0, rollout_state: "none" } };
   const { headline, tone } = statusHeadline(s.state);
   return (
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">

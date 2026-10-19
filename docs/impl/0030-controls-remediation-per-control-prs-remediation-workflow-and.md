@@ -696,7 +696,7 @@ human required`.
   blocked by reason, run results; E4 log matchers for hold and
   adoption log lines, with `TestLogLines_AreStillEmittedByTheBinary`
   covering them.
-- [ ] 7.4 API: `/remediations` (filters kind, state, org, control,
+- [x] 7.4 API: `/remediations` (filters kind, state, org, control,
   age, hold; open PRs older than N days; recommendations outstanding;
   blocked cleanup); the remediation object (`kind`, `state`,
   `intent_revision`, `observed_head_sha`, `acknowledged_head_sha`,
@@ -790,7 +790,7 @@ Every new query lives in an `api_*.sql` file so
   rule statuses on rule-level events; `ParkReason` lists `suspended`.
   Bump `info.version` (2.1.0, or with 7.4 if it already did) and document every addition in
   `docs/usage/api.md`.
-- [ ] 7.16 **Held results (OQ20).** Expose the results held before a
+- [x] 7.16 **Held results (OQ20).** Expose the results held before a
   pull request exists (`control_results.hold` in `pr_cap`,
   `foreign_branch`, `stale_branch`, `conflict`) from
   `/remediations?hold=` as rows with `kind = pull_request`, no id and no

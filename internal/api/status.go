@@ -246,7 +246,10 @@ func complianceOut(in *store.StatusInputs) gen.Compliance {
 // operationsOut is the operations strip: counts, times and a rollout
 // state from a closed enum, never text.
 func operationsOut(in *store.StatusInputs) gen.StatusOperations {
-	ops := gen.StatusOperations{Evaluated24h: in.EvaluatedLastDay, Overdue: in.Overdue, Tracked: in.ActiveRepositories, RolloutState: gen.None}
+	ops := gen.StatusOperations{
+		Evaluated24h: in.EvaluatedLastDay, Overdue: in.Overdue, Tracked: in.ActiveRepositories, RolloutState: gen.None,
+		RemediationBacklog: in.RemediationBacklog,
+	}
 
 	if in.LastSnapshot != nil {
 		t := in.LastSnapshot.UTC()

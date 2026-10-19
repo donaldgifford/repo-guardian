@@ -15,6 +15,9 @@ var apiScopePredicate = regexp.MustCompile(
 
 var queryName = regexp.MustCompile(`(?m)^-- name: (\w+)`)
 
+// repositoriesJoin finds a query (or branch) reading repositories.
+var repositoriesJoin = regexp.MustCompile(`(?i)\b(FROM|JOIN) repositories\b`)
+
 // TestAPIQueries_AreScoped fails on any queries_controls/api_*.sql query
 // without the scope predicate (IMPL-0025 14.9), so a new endpoint cannot
 // read past the caller's orgs by forgetting it.
@@ -44,6 +47,16 @@ func TestAPIQueries_AreScoped(t *testing.T) {
 			if !apiScopePredicate.MatchString(body) {
 				t.Errorf("%s: query %s is not scoped: it must filter with (@scope_all::bool OR lower(org) = ANY (@scope_orgs::text[]))",
 					f, name)
+			}
+
+			// A UNION ALL branch that joins repositories itself must
+			// carry its own predicate: one scoped branch beside an
+			// unscoped one passes the check above and reads past the
+			// caller's orgs (IMPL-0030 7.16's held results).
+			for i, branch := range strings.Split(body, "UNION ALL") {
+				if repositoriesJoin.MatchString(branch) && !apiScopePredicate.MatchString(branch) {
+					t.Errorf("%s: query %s, UNION ALL branch %d reads repositories without the scope predicate", f, name, i)
+				}
 			}
 		}
 	}

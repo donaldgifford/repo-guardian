@@ -64,6 +64,15 @@ func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.
 
 		view.Evaluated, view.LastEvaluatedAt = int(ev.Evaluated), unlessEpoch(ev.LastEvaluatedAt)
 
+		backlog, err := q.APIRemediationBacklog(ctx, controlsdb.APIRemediationBacklogParams{
+			ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
+		})
+		if err != nil {
+			return fmt.Errorf("remediation backlog: %w", err)
+		}
+
+		view.RemediationBacklog = int(backlog)
+
 		active, err := q.CurrentActivation(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -197,7 +206,8 @@ func (r *APIReader) Org(ctx context.Context, scope store.APIScope, org string) (
 }
 
 // RepositoryControls returns a repository's assignments with their
-// results and rule results, in remediation priority order. ErrNotFound
+// results, rule results and latest remediation, in remediation priority
+// order. ErrNotFound
 // when the repository is unknown or invisible.
 func (r *APIReader) RepositoryControls(ctx context.Context, scope store.APIScope, id int64) (out []store.RepositoryControl, err error) {
 	defer func(start time.Time) { observeQuery("api_repository_controls", start, err) }(time.Now())
@@ -226,10 +236,16 @@ func (r *APIReader) RepositoryControls(ctx context.Context, scope store.APIScope
 			})
 		}
 
+		remediations, err := repositoryRemediations(ctx, q, scope, id)
+		if err != nil {
+			return err
+		}
+
 		out = make([]store.RepositoryControl, 0, len(rows))
 		for i := range rows {
 			c := repositoryControl(&rows[i])
 			c.Rules = byControl[c.ControlID]
+			c.Remediation = remediations[c.ControlID]
 			out = append(out, c)
 		}
 

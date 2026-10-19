@@ -301,7 +301,7 @@ func apiEvent(row *controlsdb.APIRepositoryEventsRow) store.Event {
 	return store.Event{
 		Source: row.Source, ID: row.ID, OccurredAt: row.OccurredAt,
 		ControlID: row.ControlID, RuleID: row.RuleID, FromStatus: row.FromStatus, ToStatus: row.ToStatus,
-		RepositoryKind: derefOr(row.Kind), Detail: row.Detail,
+		Kind: derefOr(row.Kind), Detail: row.Detail,
 	}
 }
 

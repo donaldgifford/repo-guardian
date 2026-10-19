@@ -256,7 +256,10 @@ Two words, two meanings (OQ1):
 - A **result** is the outcome of one assigned control on one repository
   (`control_results`: status, rule results, evidence,
   `last_changed_at`), whatever its status.
-- A **finding** is a result that failed: status `non_compliant`.
+- A **finding** is a result in the non-compliant posture bucket (IMPL-0030
+  OQ15): status `non_compliant` and not stale, parked or suspended, so
+  the Findings page, its total and `Summary.compliance.non_compliant`
+  count the same rows.
 
 The API serves results (`GET /results`, any status, filterable); the
 Findings page lists findings, which is `/results?status=non_compliant`.
@@ -479,18 +482,20 @@ guard holds) when a Remediation App is installed.
 <!--docz:api-changes:start-->
 ## API / Interface Changes
 
-All additions; nothing existing changes shape. Every new SQL query
+All additions except one: aggregated history relaxes `HistoryPoint`'s
+`org`, `control_id` and `decision` to optional, stating per `aggregate`
+which are present (IMPL-0030 OQ14). Every new SQL query
 carries the scope predicate (`TestAPIQueries_AreScoped`) and every new
 operation gets a case in `TestEndpoints_ValidateAgainstTheSpec`.
 
 | Change | Shape | Phase |
 |--------|-------|-------|
-| `GET /results` | query `status`, `control`, `rule`, `org`, `decision`, `sort` (`since_asc`, `since_desc`), `cursor`, `limit`; returns `ResultPage{items: [ResultRow], total, next_cursor}`. `ResultRow`: repository id/org/name, control id/version, decision, status, `failing_rules: [rule_id]`, `reason` (first failing rule's evidence `reason` or `evidence_kind`), `last_changed_at` || IMPL-0030 |
-| `Repository.compliance` | `Posture` over the repository's assignments, on list and detail || IMPL-0030 |
-| `Summary.parked_by_reason` | `[{reason, count}]` over visible orgs || IMPL-0030 |
-| `Summary.finding_age` | `[{bucket, count}]`, the six fixed buckets || IMPL-0030 |
-| `Summary.controls_failing` | count of controls with any non-compliant result || IMPL-0030 |
-| `/compliance/history?aggregate=` | `none` (today's rows, default) \| `fleet` \| `org` \| `control`; sums per day in SQL with `floor_percent`, never averaged; DESIGN-0036 OQ6 on the controls schema || IMPL-0030 |
+| `GET /results` | query `bucket`, `control`, `rule`, `org`, `decision`, `sort` (`since_asc`, `since_desc`), `cursor`, `limit`; returns `ResultPage{items: [ResultRow], total, next_cursor}`. `ResultRow`: repository id/org/name, control id/version, decision, status, `failing_rules: [rule_id]`, `reason` (first failing rule's evidence `reason` or `evidence_kind`), `last_changed_at` | IMPL-0030 |
+| `Repository.compliance` | `Posture` over the repository's assignments, on list and detail | IMPL-0030 |
+| `Summary.parked_by_reason` | `[{reason, count}]` over visible orgs | IMPL-0030 |
+| `Summary.finding_age` | `[{bucket, count}]`, the six fixed buckets | IMPL-0030 |
+| `Summary.controls_failing` | count of controls with any non-compliant result | IMPL-0030 |
+| `/compliance/history?aggregate=` | `none` (today's rows, default) \| `fleet` \| `org` \| `control`; sums per day in SQL with `floor_percent`, never averaged; DESIGN-0036 OQ6 on the controls schema | IMPL-0030 |
 | `Summary.open_prs_by_age` | `[{bucket, count}]` | IMPL-0030 |
 | `GET /remediations/activity` | `days` (1–90, default 14) → `[{day, opened, closed}]` | IMPL-0030 |
 | `/results` `pr_stale`, `ResultRow.remediation` | remediation state, PR number/url, PR age | IMPL-0030 |

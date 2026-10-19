@@ -153,7 +153,7 @@ API to IMPL-0030):
 | `GroupGrid` shares one denominator (tracked) for percent and shading, nests children in an inner table and is unused | OQ4; Phase 4 |
 | `RangeTabs`, `OrgScope`, `CommandPalette`, `csv.ts`, `range.ts` were deleted in `7ad928f`; `RangeTabs` bound `?range=` strings, and `csv.ts` carried findings-era helpers | 2.1–2.4 restore and rework them |
 | `BucketBadge`/`DecisionBadge` keep their own tone maps outside `toneFor` | 1.1 folds them in |
-| The e2e seed installs the remediate App on acme | OQ6 |
+| The e2e seed installs the remediate App on acme, so only the installed state is tested end to end | OQ6; 8.7 adds the absent state |
 | `docs/usage/img/ui/status.png` is a hand copy of the e2e snapshot | 1.5 copies it after re-rendering |
 | `Status.apps` names the Apps `eval` and `remediate` | every gated panel decides from `remediate` |
 
@@ -214,8 +214,10 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   `bad` tone class, and one that the repository crumb reads `org/name`.
   Break `toneFor`'s `rule` row once, confirm the spec fails, restore.
 - [ ] 1.7 **Ship.** Open the PR into `v2` with `dont-release`; record in
-  INV-0023 which findings it closes (F1, F2, F4, F7.3). Cut an rc per
-  OQ7.
+  INV-0023 which findings it closes (F1, F2, F4, F7.3). Then, after merge,
+  tag `v2.0.0-rc.12` (chart `2.0.0-rc.12`, appVersion bumped by hand)
+  and dispatch `ghcr.yml` with the tag (OQ7; the tag and dispatch are
+  `deferred - human required`).
 
 <!--docz:tasks:end-->
 
@@ -271,8 +273,8 @@ merges: task 2.6 regenerates the client from its spec.
   IMPL-0030's spec. Add `useRemediationEnabled()` (true when
   `Status.apps` has `remediate`) and a `GatedPanel` that renders "Remediation
   is not enabled on this deployment" without it and the caller's empty
-  state ("No open pull requests") with it. Unit-test the decision table
-  (OQ6).
+  state ("No open pull requests") with it. Unit-test the decision table;
+  e2e covers both states (8.7, OQ6).
 - [ ] 2.7 **Nav.** `nav.ts` gains a `badge` field and the `/findings`
   and `/remediations` paths, each hidden until its phase lands the
   route. Then add the IMPL-0031 6.3 keyboard pass on the current pages:
@@ -548,7 +550,7 @@ the audit.
 - [ ] 7.1 **The changelog file.** `CHANGELOG.yaml` at the location OQ1
   chooses, seeded from rc.8 to the current rc (rc.8: fleet history
   refetch fix; rc.9: design refresh; rc.10: repository page polish;
-  rc.11: controls evaluation; then Phase 1's rc if OQ7 cuts one, and
+  rc.11: controls evaluation; rc.12: the INV-0023 fixes (OQ7); and
   IMPL-0030's) with closed-set tags. Add the `tag` tone row (`new` ok,
   `improved` info, `fixed` warn, `breaking` bad, areas outline).
 - [ ] 7.2 **Into the bundle** per OQ2. The UI also needs its own
@@ -637,15 +639,25 @@ the audit.
 - [ ] 8.6 **Close the related docs.** Mark INV-0023 Concluded with each
   finding's outcome (F3, F7.1 and F7.2 pointing at IMPL-0030), and set
   DESIGN-0037 to Implemented (`docz update`).
+- [ ] 8.7 **The "not enabled" stack (OQ6).** `ui/e2e/seed-no-remediate.sql`
+  (the base seed without the remediate App's installations, access rows
+  and remediations), loaded into a second database in the same Postgres
+  container, and a Playwright project `no-remediation` whose
+  `webServer` entry starts a second `api` role and BFF on their own
+  ports against it (`ui/e2e/stack.ts`). Its spec walks Fleet, Findings,
+  Orgs (PR activity), the repository page, Remediations and the status
+  page, and asserts every gated panel reads "Remediation is not
+  enabled", the Remediations nav count is blank and the status backlog
+  cell is absent. `e2e/teardown.ts` sweeps both databases.
 
 <!--docz:tasks:end-->
 
 <!--docz:criteria:start-->
 #### Success Criteria
 
-- `make test-ui-e2e` passes with the new specs, axe reports no
-  violations on the new pages, and the screenshots show the controls
-  pages.
+- `make test-ui-e2e` passes with the new specs and both projects, axe
+  reports no violations on the new pages, and the screenshots show the
+  controls pages.
 
 <!--docz:criteria:end-->
 <!--docz:phase:end-->
@@ -698,6 +710,7 @@ the audit.
 | changelog file (OQ1), `ui/scripts/check-changelog.ts` (+ test), `ui/package.json` | Create/Modify | changelog and gate |
 | `.github/workflows/ci.yml` | Modify | `ui` paths filter |
 | `ui/e2e/seed.sql`, `ui.spec.ts`, `a11y.spec.ts` | Modify | e2e |
+| `ui/e2e/seed-no-remediate.sql`, `no-remediation.spec.ts`, `stack.ts`, `teardown.ts`, `playwright.config.ts` | Create/Modify | the second project (OQ6) |
 | `ui/design/repo-guardian-mockup.html` | Modify | only where a page must differ |
 | `docs/usage/ui.md`, `ui/README.md`, `CLAUDE.md` | Modify | docs |
 
@@ -711,8 +724,8 @@ the audit.
   remediations), tree sums and shading, deltas, the gated-state
   decision, every remediation state and hold, the changelog check.
 - **e2e** (`make test-ui-e2e`): the Phase 1 tone and crumb assertions,
-  the specs in 8.2, axe in 8.3, and the visual snapshots in the pinned
-  image.
+  the specs in 8.2, axe in 8.3, the `no-remediation` project in 8.7,
+  and the visual snapshots in the pinned image.
 - **Non-vacuous checks.** For the tone assertion, the gated decision
   and the changelog gate, break the code under test once, confirm the
   test fails, then restore.
@@ -735,6 +748,8 @@ the audit.
 
 ### OQ1: Where CHANGELOG.yaml lives
 
+**Resolved 2026-10-19: (a).**
+
 The UI image builds with context `ui/`.
 
 - (a) ✅ recommended: **`ui/CHANGELOG.yaml`**. It is in the build
@@ -750,6 +765,8 @@ The UI image builds with context `ui/`.
 - other:
 
 ### OQ2: How the changelog reaches the Vite bundle
+
+**Resolved 2026-10-19: (a).**
 
 Vite has no YAML loader.
 
@@ -768,6 +785,8 @@ Vite has no YAML loader.
 
 ### OQ3: The header org scope
 
+**Resolved 2026-10-19: (a).**
+
 DESIGN-0037 said the header org scope was "kept", but `OrgScope.tsx`
 was deleted in `7ad928f`. The accepted mockup draws it on Fleet,
 Controls, Findings, Remediations and History.
@@ -781,6 +800,8 @@ Controls, Findings, Remediations and History.
 
 ### OQ4: The org tree component
 
+**Resolved 2026-10-19: (a).**
+
 - (a) ✅ recommended: **rework the existing `GroupGrid`** (task 4.1)
   into flat child rows with per-cell denominators. It is unused, so
   there are no other callers to keep, and its tests come with it.
@@ -790,6 +811,8 @@ Controls, Findings, Remediations and History.
 
 ### OQ5: Default range
 
+**Resolved 2026-10-19: (a).**
+
 - (a) ✅ recommended: **30 days**, matching the API's `days` default,
   the mockup and rc.11's history.
 - (b) 90 days, the IMPL-0031 default. Longer trends, but four times
@@ -797,6 +820,8 @@ Controls, Findings, Remediations and History.
 - other:
 
 ### OQ6: Testing the "not enabled" empty state
+
+**Resolved 2026-10-19: (b).** Both states run end to end: task 8.7 adds a second seed and Playwright project without the remediate App. The unit test of the decision table (2.6) stays.
 
 The e2e seed installs the remediate App on acme, so the gated panels
 read "No open pull requests" there.
@@ -809,6 +834,8 @@ read "No open pull requests" there.
 - other:
 
 ### OQ7: Does the fixes pull request cut its own rc
+
+**Resolved 2026-10-19: (a).** Phase 1 ships as `v2.0.0-rc.12`.
 
 Phase 1 is four UI fixes and a screenshot.
 

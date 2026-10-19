@@ -568,9 +568,18 @@ human required`.
   no checks table, which is wrong. Add a `PruneControlsChecks(before)`
   activity after the snapshot, behind a `GetVersion` (captured snapshot
   histories must replay), deleting `checks` finished before
-  `now − CHECKS_RETENTION`, and fix the comment. Decide
-  `last_evaluated_at` under pruning per OQ19 first. Integration test as
+  `now − CHECKS_RETENTION`, and fix the comment. Lands with 6.9, so no
+  repository reads "never evaluated" after a prune. Integration test as
   the evaluator role.
+- [ ] 6.9 **`last_checked_at` (OQ19).** `RecordEvaluation` writes
+  `repositories.last_checked_at` (the controls migration grants
+  `rg_evaluator` `UPDATE (last_checked_at)`), and the API's
+  `last_evaluated_at` reads that column in place of
+  `max(checks.finished_at)`, dropping the join. Fenced with the rest of
+  the record (a stale-epoch discard writes nothing). Integration test:
+  prune every check, and the repository still reports its last
+  evaluation. Update CLAUDE.md, which says the controls line never
+  writes `last_checked_at`.
 
 #### Success Criteria
 
@@ -637,7 +646,8 @@ Every new query lives in an `api_*.sql` file so
   - **Query** `api_results.sql` over `control_results` ⋈
     `control_assignments` ⋈ `repositories` ⋈ `repository_policy_state`,
     with the posture bucket computed by the same `CASE` as
-    `compliance.sql`. It filters `status` or `bucket` (OQ15),
+    `compliance.sql`. It filters `bucket` (OQ15; `ResultRow` carries
+    `status` too, but the query takes no `status` parameter),
     `control`, `org`, `decision` (from `control_assignments`), and
     `rule`: an `EXISTS` on `rule_results` with status `fail` or
     `error`.
@@ -648,7 +658,8 @@ Every new query lives in an `api_*.sql` file so
     id/version, decision, status, bucket, `failing_rules[]`, `reason`
     (the first failing rule's evidence `reason`, else its
     `evidence_kind`) and `last_changed_at`.
-  - **`total`:** computed per OQ16.
+  - **`total`:** counted on the first page only (no cursor), in the
+    same read-only transaction; later pages omit it (OQ16).
   - **Tests:** integration tests for scope (two-org authz), keyset
     paging with ties on `last_changed_at`, each filter, and `total`
     matching the filter. A parity test proves that with no filters,
@@ -691,7 +702,10 @@ Every new query lives in an `api_*.sql` file so
   `docs/usage/api.md`.
 - [ ] 7.16 **Held results (OQ20).** Expose the results held before a
   pull request exists (`control_results.hold` in `pr_cap`,
-  `foreign_branch`, `stale_branch`, `conflict`) the way OQ20 decides, so
+  `foreign_branch`, `stale_branch`, `conflict`) from
+  `/remediations?hold=` as rows with `kind = pull_request`, no id and no
+  pull request, under the same cursor (OQ20). The `Remediation` schema
+  documents that row shape, and the two-org authz test covers it, so
   the Remediations view's Held list is complete.
 
 #### Success Criteria
@@ -1053,6 +1067,8 @@ does not matter.
 
 ### OQ14: The shape of aggregated history points
 
+**Resolved 2026-10-19: (a).** DESIGN-0037's API section records the relaxed fields.
+
 `HistoryPoint` requires `org`, `control_id` and `decision`. A fleet
 point has none of them, and a control point has no org.
 
@@ -1073,6 +1089,8 @@ point has none of them, and a control point has no org.
 
 ### OQ15: What /results filters on: status or bucket
 
+**Resolved 2026-10-19: (a).** DESIGN-0037's vocabulary now reads "a finding is a result in the non-compliant bucket".
+
 The nav badge and DESIGN-0037's "N of M" read
 `Summary.compliance.non_compliant`, which is the posture *bucket*.
 Raw `control_results.status = non_compliant` also includes stale
@@ -1091,6 +1109,8 @@ results and rows under access-denied parks and suspended installs.
 
 ### OQ16: When /results computes total
 
+**Resolved 2026-10-19: (a).**
+
 - (a) ✅ recommended: **count on the first page only** (no cursor), in
   the same read-only transaction. The client keeps it across "Load
   more". One count per filter change, and the number is stable while
@@ -1102,6 +1122,8 @@ results and rows under access-denied parks and suspended installs.
 - other:
 
 ### OQ17: How next due is persisted
+
+**Resolved 2026-10-19: (a).**
 
 `RecordEvaluation` runs before `scheduleNext` draws the jitter, and
 the failed and skipped paths never record.
@@ -1121,6 +1143,8 @@ the failed and skipped paths never record.
 
 ### OQ18: The control_results index
 
+**Resolved 2026-10-19: (a).**
+
 - (a) ✅ recommended: **decide from task 7.14's plan output.** Add
   `00005` only if `/results` shows a sequential scan at fleet size.
   This follows DESIGN-0037's Data Model.
@@ -1129,6 +1153,8 @@ the failed and skipped paths never record.
 - other:
 
 ### OQ19: last_evaluated_at once checks are pruned
+
+**Resolved 2026-10-19: (a).** Task 6.9.
 
 `last_evaluated_at` is `max(checks.finished_at)` for the repository.
 Pruning `checks` past `CHECKS_RETENTION` (6.8) makes a repository idle
@@ -1148,6 +1174,8 @@ longer than the retention read "never evaluated".
 - other:
 
 ### OQ20: Where the Held list reads branch holds from
+
+**Resolved 2026-10-19: (a).**
 
 `remediations.hold` is `permission` only. `pr_cap`, `foreign_branch`,
 `stale_branch` and `conflict` sit on `control_results.hold`, often

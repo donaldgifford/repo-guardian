@@ -496,6 +496,8 @@ export interface components {
         };
         /** @description One repository. */
         Repository: {
+            /** @description The posture over the repository's own assignments, bucketed as the compliance query does. */
+            compliance: components["schemas"]["Posture"];
             /** Format: int64 */
             id: number;
             org: string;

@@ -755,7 +755,7 @@ Every new query lives in an `api_*.sql` file so
     matching the filter. A parity test proves that with no filters,
     `total` for non-compliant equals `Summary.compliance.non_compliant`
     on the fixture.
-- [ ] 7.8 **`Repository.compliance`** (`Posture` over the repository's
+- [x] 7.8 **`Repository.compliance`** (`Posture` over the repository's
   assignments, same bucket `CASE`) on `/repositories` and
   `/repositories/{id}`, in one grouped query per page, not N+1.
   Integration test: one repository with mixed buckets.

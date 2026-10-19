@@ -108,6 +108,9 @@ type Repository struct {
 	// the Remediation App can and is not suspended.
 	Evaluable  bool
 	Remediable bool
+	// Compliance is the posture over the repository's own assignments
+	// (Org, ControlID and Decision empty).
+	Compliance ControlPosture
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.

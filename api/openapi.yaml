@@ -891,8 +891,11 @@ components:
     Repository:
       description: One repository.
       type: object
-      required: [id, org, name, active, discovered_at, evaluable, remediable]
+      required: [id, org, name, active, discovered_at, evaluable, remediable, compliance]
       properties:
+        compliance:
+          $ref: "#/components/schemas/Posture"
+          description: The posture over the repository's own assignments, bucketed as the compliance query does.
         id:
           type: integer
           format: int64

@@ -104,3 +104,51 @@ WHERE r.active AND m.kind = 'pull_request' AND m.state = 'open'
   AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
 GROUP BY r.org
 ORDER BY lower(r.org);
+
+-- name: APIRepositoryPostures :many
+-- Repository.compliance (IMPL-0030 7.8): each repository's posture over
+-- its own assignments, for one page of repositories in one grouped read.
+-- bucket is ControlCompliance's CASE, so a repository's counts and the
+-- fleet's never disagree.
+WITH posture AS MATERIALIZED (
+    SELECT ca.repository_id,
+           CASE
+             WHEN ca.state = 'excluded'                              THEN 'excluded'
+             WHEN ca.state = 'conflict'                              THEN 'unmeasurable_conflict'
+             WHEN ps.state = 'parked'                                THEN 'unmeasurable_access_denied'
+             WHEN EXISTS (SELECT 1 FROM app_repository_access a
+                          JOIN app_installations i ON (i.app, i.installation_id) = (a.app, a.installation_id)
+                          WHERE a.repository_id = r.id AND a.app = 'eval' AND i.suspended_at IS NOT NULL)
+                                                                     THEN 'unmeasurable_suspended'
+             WHEN cr.repository_id IS NULL                           THEN 'pending'
+             WHEN cr.assignment_epoch <> ca.epoch OR cr.revision <> ca.revision THEN 'stale'
+             ELSE cr.status
+           END AS bucket
+    FROM control_assignments ca
+    JOIN repositories r ON r.id = ca.repository_id
+    JOIN repository_policy_state ps ON ps.repository_id = ca.repository_id
+    LEFT JOIN control_results cr ON (cr.repository_id, cr.control_id) = (ca.repository_id, ca.control_id)
+    WHERE ca.repository_id = ANY (@ids::bigint[])
+      AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+), counts AS (
+    SELECT repository_id,
+           count(*) FILTER (WHERE bucket = 'compliant')::int                  AS compliant,
+           count(*) FILTER (WHERE bucket = 'non_compliant')::int              AS non_compliant,
+           count(*) FILTER (WHERE bucket = 'pending')::int                    AS pending,
+           count(*) FILTER (WHERE bucket = 'stale')::int                      AS stale,
+           count(*) FILTER (WHERE bucket = 'unmeasurable_access_denied')::int AS unmeasurable_access_denied,
+           count(*) FILTER (WHERE bucket = 'unmeasurable_suspended')::int     AS unmeasurable_suspended,
+           count(*) FILTER (WHERE bucket = 'unmeasurable_conflict')::int      AS unmeasurable_conflict,
+           count(*) FILTER (WHERE bucket = 'not_applicable')::int             AS not_applicable,
+           count(*) FILTER (WHERE bucket = 'unknown')::int                    AS unknown,
+           count(*) FILTER (WHERE bucket = 'excluded')::int                   AS excluded,
+           count(*) FILTER (WHERE bucket NOT IN ('excluded', 'unmeasurable_conflict'))::int AS assigned
+    FROM posture
+    GROUP BY repository_id
+)
+SELECT repository_id, compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended,
+       unmeasurable_conflict, not_applicable, unknown, excluded, assigned,
+       floor_percent(compliant, compliant + non_compliant)::numeric AS percent,
+       floor_percent(compliant + non_compliant + not_applicable, assigned)::numeric AS coverage
+FROM counts
+ORDER BY repository_id;

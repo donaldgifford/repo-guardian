@@ -438,7 +438,7 @@ human required`.
   `eval_generation`, `intent_revision` and `observed_head_sha` through
   a `ReadRemediationState` activity, and loop again if any moved or a
   signal arrived; otherwise complete. ContinueAsNew after 100 loops.
-- [ ] 3.2 Register the workflow and its activities only on the
+- [x] 3.2 Register the workflow and its activities only on the
   remediator worker (`repo-guardian-remediate`, worker deployment
   `repo-guardian-remediate`); a depguard or registration test proves
   the evaluator never registers them.

@@ -146,6 +146,38 @@ func (s *RemediationStore) LatestRemediation(ctx context.Context, repositoryID i
 	return remediationOut(&row), nil
 }
 
+// RemediationTarget reads the control as a run and its fence see it, or
+// nil when it is not assigned.
+func (s *RemediationStore) RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*store.RemediationTarget, error) {
+	row, err := s.q.RemediationTarget(ctx, controlsdb.RemediationTargetParams{RepositoryID: repositoryID, ControlID: controlID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil //nolint:nilnil // a withdrawn control is not an error
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("remediation target: %w", err)
+	}
+
+	return &store.RemediationTarget{
+		Org:            row.Org,
+		Name:           row.Name,
+		Active:         row.Active,
+		Epoch:          row.Epoch,
+		State:          row.State,
+		EffectiveMode:  row.EffectiveMode,
+		Revision:       row.Revision,
+		InstallationID: row.InstallationID,
+		Remediable:     row.Remediable,
+		HasResult:      row.HasResult,
+		ResultEpoch:    row.ResultEpoch,
+		Generation:     row.EvalGeneration,
+		IntentRevision: row.IntentRevision,
+		Status:         row.Status,
+		Hold:           row.Hold,
+		ObservedHead:   row.ObservedHeadSha,
+	}, nil
+}
+
 // AppendStep journals one step on its own connection, so it commits even
 // when the claimed operation later fails.
 func (s *RemediationStore) AppendStep(ctx context.Context, step *store.RemediationStep) (int, error) {

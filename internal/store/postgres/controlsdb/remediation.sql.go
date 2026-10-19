@@ -555,6 +555,81 @@ func (q *Queries) RemediationByOperationKey(ctx context.Context, operationKey st
 	return i, err
 }
 
+const remediationTarget = `-- name: RemediationTarget :one
+SELECT r.org, r.name, r.active,
+       a.epoch, a.state, a.effective_mode, a.revision,
+       COALESCE(acc.installation_id, 0)::bigint AS installation_id,
+       (acc.installation_id IS NOT NULL AND i.suspended_at IS NULL)::bool AS remediable,
+       (cr.repository_id IS NOT NULL)::bool AS has_result,
+       COALESCE(cr.assignment_epoch, 0)::bigint AS result_epoch,
+       COALESCE(cr.eval_generation, 0)::bigint AS eval_generation,
+       COALESCE(cr.intent_revision, '')::text AS intent_revision,
+       COALESCE(cr.status, '')::text AS status,
+       COALESCE(cr.hold, '')::text AS hold,
+       COALESCE((SELECT m.observed_head_sha FROM remediations m
+                 WHERE m.repository_id = r.id AND m.control_id = a.control_id
+                 ORDER BY m.id DESC LIMIT 1), '')::text AS observed_head_sha
+FROM repositories r
+JOIN control_assignments a ON a.repository_id = r.id AND a.control_id = $1
+LEFT JOIN app_repository_access acc ON acc.repository_id = r.id AND acc.app = 'remediate'
+LEFT JOIN app_installations i ON i.app = acc.app AND i.installation_id = acc.installation_id
+LEFT JOIN control_results cr ON cr.repository_id = r.id AND cr.control_id = a.control_id
+WHERE r.id = $2
+`
+
+type RemediationTargetParams struct {
+	ControlID    string
+	RepositoryID int64
+}
+
+type RemediationTargetRow struct {
+	Org             string
+	Name            string
+	Active          bool
+	Epoch           int64
+	State           string
+	EffectiveMode   string
+	Revision        string
+	InstallationID  int64
+	Remediable      bool
+	HasResult       bool
+	ResultEpoch     int64
+	EvalGeneration  int64
+	IntentRevision  string
+	Status          string
+	Hold            string
+	ObservedHeadSha string
+}
+
+// What a remediation run reads before acting and what its epoch fence
+// re-reads before every write (IMPL-0030 3.5): the assignment, whether
+// the Remediation App can reach the repository, the evaluator's result
+// and the newest remediation's observed head. No assignment row means
+// the control was withdrawn.
+func (q *Queries) RemediationTarget(ctx context.Context, arg RemediationTargetParams) (RemediationTargetRow, error) {
+	row := q.db.QueryRow(ctx, remediationTarget, arg.ControlID, arg.RepositoryID)
+	var i RemediationTargetRow
+	err := row.Scan(
+		&i.Org,
+		&i.Name,
+		&i.Active,
+		&i.Epoch,
+		&i.State,
+		&i.EffectiveMode,
+		&i.Revision,
+		&i.InstallationID,
+		&i.Remediable,
+		&i.HasResult,
+		&i.ResultEpoch,
+		&i.EvalGeneration,
+		&i.IntentRevision,
+		&i.Status,
+		&i.Hold,
+		&i.ObservedHeadSha,
+	)
+	return i, err
+}
+
 const resultExists = `-- name: ResultExists :one
 SELECT EXISTS (SELECT 1 FROM control_results WHERE repository_id = $1 AND control_id = $2)
 `

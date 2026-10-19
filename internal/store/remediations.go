@@ -83,6 +83,40 @@ type Remediations interface {
 	// ExpireReservations deletes the reservations past reserved_until at
 	// now and returns how many it freed.
 	ExpireReservations(ctx context.Context, now time.Time) (int, error)
+	// RemediationTarget reads one control on one repository as a
+	// remediation run and its epoch fence see it; nil when the control is
+	// not assigned (withdrawn) or the repository is unknown.
+	RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*RemediationTarget, error)
+}
+
+// RemediationTarget is one control on one repository as the remediator
+// reads it (IMPL-0030 3.1, 3.5). InstallationID is 0 when the
+// Remediation App has no access row; Remediable is false then or while
+// its installation is suspended. The result fields are zero when the
+// control has no result yet.
+type RemediationTarget struct {
+	Org    string
+	Name   string
+	Active bool
+
+	// The assignment, as the fence compares it.
+	Epoch         int64
+	State         string
+	EffectiveMode string
+	Revision      string
+
+	InstallationID int64
+	Remediable     bool
+
+	HasResult      bool
+	ResultEpoch    int64
+	Generation     int64
+	IntentRevision string
+	Status         string
+	Hold           string
+
+	// ObservedHead is the newest remediation's observed head, if any.
+	ObservedHead string
 }
 
 // DueRemediation is one remediation_due row.

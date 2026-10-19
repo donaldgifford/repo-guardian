@@ -525,3 +525,23 @@ func TestControlsStore_ObservePullRequests(t *testing.T) {
 		}
 	}
 }
+
+// TestRemediationStore_RemediationTarget is what IMPL-0030 3.1 and 3.5
+// read: the assignment, the Remediation App's reach and the result, and
+// nil for a control that is not assigned.
+func TestRemediationStore_RemediationTarget(t *testing.T) {
+	r, repoID := remediationStores(t)
+
+	got, err := r.RemediationTarget(t.Context(), repoID, "codeowners")
+	if err != nil || got == nil {
+		t.Fatalf("RemediationTarget = %v, %v; want the assignment", got, err)
+	}
+
+	if !got.Active || got.Epoch == 0 || got.State != "active" || got.Revision != "r1" || got.HasResult {
+		t.Errorf("RemediationTarget = %+v, want an active, unevaluated assignment", got)
+	}
+
+	if missing, err := r.RemediationTarget(t.Context(), repoID, "labels"); err != nil || missing != nil {
+		t.Errorf("RemediationTarget(unassigned) = %+v, %v; want nil", missing, err)
+	}
+}

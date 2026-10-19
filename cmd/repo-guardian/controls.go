@@ -161,13 +161,18 @@ func startControlsWorker(
 	activities.NewBudget(tc, half.app, wc.TaskQueue, cfg.RateLimitThreshold).Register(w)
 
 	var eval *evaluation
-	if half.app == workflows.AppEval {
-		eval, err = registerEvaluation(cfg, tc, tcfg, w, pool, logger)
-		if err != nil {
-			pool.Close()
 
-			return nil, nil, fmt.Errorf("%s: %w", half.name, err)
-		}
+	switch half.app {
+	case workflows.AppEval:
+		eval, err = registerEvaluation(cfg, tc, tcfg, w, pool, logger)
+	case workflows.AppRemediate:
+		err = registerRemediation(cfg, w, pool, logger)
+	}
+
+	if err != nil {
+		pool.Close()
+
+		return nil, nil, fmt.Errorf("%s: %w", half.name, err)
 	}
 
 	if err := w.Start(); err != nil {
@@ -248,6 +253,23 @@ func registerEvaluation(
 	logger.Info("controls policy loaded", "path", cfg.GuardianConfigPath, "policy_version", snap.Version())
 
 	return &evaluation{policy: snap, store: st}, nil
+}
+
+// registerRemediation registers the remediator's activities on w
+// (IMPL-0030 task 3.2) as the Remediation App. Only this half registers
+// them; the evaluator half never reaches the Writer.
+func registerRemediation(cfg *config.Config, w worker.Registry, pool *pgxpool.Pool, logger *slog.Logger) error {
+	creds := cfg.Credentials(config.AppRemediate)
+
+	app, err := ghclient.NewClient(creds.AppID, creds.PrivateKeyPath, logger, cfg.RateLimitThreshold)
+	if err != nil {
+		return fmt.Errorf("remediation app client: %w", err)
+	}
+
+	activities.NewRemediator(pgstore.NewRemediationStore(pool), activities.NewGitHubRemediationClients(app), ghclient.BotIdentity{}, logger).
+		Register(w)
+
+	return nil
 }
 
 // start reconciles the evaluator's Schedules and starts the rollout of

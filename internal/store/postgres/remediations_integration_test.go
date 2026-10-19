@@ -5,6 +5,8 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -394,5 +396,47 @@ func TestRemediationStore_CrossWriterDenied(t *testing.T) {
 
 	if n, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || n != 0 {
 		t.Errorf("ExpireReservations over an open row = %d, %v; want 0", n, err)
+	}
+}
+
+// TestRemediationStore_ConcurrentReservations is IMPL-0030 Phase 1's
+// success criterion: sixteen concurrent ReserveSlot calls for sixteen
+// controls on one repository at max_open_prs = 3 leave exactly three
+// reserved rows, and every other call gets ErrPRCap.
+func TestRemediationStore_ConcurrentReservations(t *testing.T) {
+	r, repoID := remediationStores(t)
+
+	const n = 16
+
+	errs := make(chan error, n)
+
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			_, err := r.ReserveSlot(context.Background(), &store.SlotRequest{
+				RepositoryID: repoID, ControlID: fmt.Sprintf("c%02d", i), Epoch: 1, OperationKey: fmt.Sprintf("op-%02d", i),
+				Intent: "i1", Generation: 1, TTL: time.Hour,
+			})
+			errs <- err
+		})
+	}
+
+	wg.Wait()
+	close(errs)
+
+	var reserved, capped int
+	for err := range errs {
+		switch {
+		case err == nil:
+			reserved++
+		case errors.Is(err, store.ErrPRCap):
+			capped++
+		default:
+			t.Errorf("ReserveSlot: %v", err)
+		}
+	}
+
+	if reserved != 3 || capped != n-3 {
+		t.Errorf("concurrent ReserveSlot = %d reserved, %d capped; want 3 and %d", reserved, capped, n-3)
 	}
 }

@@ -278,11 +278,16 @@ human required`.
   owner transaction over one recorded fixture) plus
   `TestRemediationMaintenance_Actions`, which pins 1.3 and 00005's
   evaluate-downgrade withdraw.
-- [ ] 1.11 Grant tests through the extended `pgtest` harness, run as
+- [x] 1.11 Grant tests through the extended `pgtest` harness, run as
   `rg_remediator` and never as the owner: every stated transaction
   succeeds (reservation, claim, step, record, hold, expiry); every
   cross-writer operation fails (remediator writing `eval_generation` or
   `observed_head_sha`, deleting an `open` row, updating a step).
+  Done: every `TestRemediationStore_*` runs as `rg_remediator`;
+  `TestRemediationStore_CrossWriterDenied` adds the cross-writer cases
+  beside `TestControlsChain_GrantsHoldAsEachRole`. Deleting an `open` row
+  is not an error under RLS (the policy hides it), so it asserts zero
+  rows affected.
 - [ ] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
   `cmd/repo-guardian/controls.go` parses `cfg.StoreDSN` for both halves,
   so the evaluator and remediator connect as whatever `STORE_DSN` names

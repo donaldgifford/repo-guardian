@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
@@ -335,5 +336,63 @@ func TestRemediationStore_DueAndMaintenance(t *testing.T) {
 
 	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 1 {
 		t.Errorf("DueRemediations after expiry = %+v, want codeowners again", due)
+	}
+}
+
+// TestRemediationStore_CrossWriterDenied is IMPL-0030 1.11, run as
+// rg_remediator: the stated transactions pass through RemediationStore
+// (the tests above all run as the remediator), and every cross-writer
+// operation fails. Deleting an open row is not an error under RLS — the
+// remediations_expire policy hides it — so that case checks the row
+// count, and ExpireReservations frees only the reservation.
+func TestRemediationStore_CrossWriterDenied(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	row, err := reserve(t, f.r, f.repoID, "codeowners", "op-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.r.AppendStep(ctx, &store.RemediationStep{RemediationID: row.ID, OperationKey: "op-1", Kind: "committed", Status: "done"}); err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, `UPDATE remediations SET state = 'open', reserved_until = now() - interval '1 hour'`)
+
+	for _, sql := range []string{
+		`UPDATE control_results SET eval_generation = 9`,
+		`UPDATE remediations SET observed_head_sha = 'h9'`,
+		`UPDATE remediations SET closed_generation = 9`,
+		`UPDATE remediations SET next_eligible_at = now()`,
+		`UPDATE remediation_steps SET status = 'failed'`,
+		`DELETE FROM remediation_steps`,
+		`DELETE FROM remediation_events`,
+	} {
+		if err := exec(t, f.dsns.Remediator, sql); err == nil {
+			t.Errorf("%s as rg_remediator: allowed, want permission denied", sql)
+		}
+	}
+
+	conn, err := pgx.Connect(ctx, f.dsns.Remediator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+
+	tag, err := conn.Exec(ctx, `DELETE FROM remediations WHERE state = 'open'`)
+	if err != nil || tag.RowsAffected() != 0 {
+		t.Errorf("DELETE an open row as rg_remediator = %v rows, %v; want 0 rows", tag.RowsAffected(), err)
+	}
+
+	if n, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || n != 0 {
+		t.Errorf("ExpireReservations over an open row = %d, %v; want 0", n, err)
 	}
 }

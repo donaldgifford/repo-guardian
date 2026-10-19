@@ -190,7 +190,7 @@ human required`.
   did not withdraw on an `effective_mode = 'evaluate'` downgrade (1.3).
   rc databases have applied `00003`, so the fix is the additive
   `00005_remediation.sql` (`ControlsSchemaVersion` 5), not an edit.
-- [ ] 1.2 `remediation_due` view: the DESIGN-0032 predicate over
+- [x] 1.2 `remediation_due` view: the DESIGN-0032 predicate over
   `repository_policy_state`, `control_assignments` (active, matching
   epoch, `effective_mode = 'remediate'`), `control_results` (status
   `non_compliant`, remediable, `eval_generation > remediated_generation`
@@ -199,13 +199,15 @@ human required`.
   remediation (`closed_by_user` eligible only when
   `eval_generation > closed_generation` or `next_eligible_at <= now()`).
   Ordered by `ordinal`.
-- [ ] 1.3 `remediation_maintenance` view: rows needing `expire`
+  **Done (IMPL-0029, `00003`):** the view matches; the 1.10 truth table pins it.
+- [x] 1.3 `remediation_maintenance` view: rows needing `expire`
   (`reserved` past `reserved_until`), `withdraw` (open PR or
   recommendation whose assignment is gone, excluded, parked, out of
   org, or `effective_mode = 'evaluate'`), `supersede` (recommendation
   whose `intent_revision` moved) and `close_compliant` (open PR whose
   control reads `compliant`; acted on only after a fresh read, 4.10).
-- [ ] 1.4 Grants: `rg_remediator` INSERT on `remediations`, UPDATE on
+  **Done:** `00003` plus the evaluate-downgrade `withdraw` arm in `00005` (1.1).
+- [x] 1.4 Grants: `rg_remediator` INSERT on `remediations`, UPDATE on
   every column except `observed_head_sha`, `observed_at`,
   `closed_generation`, `next_eligible_at`, DELETE on `reserved` rows
   (a row-level security policy `FOR DELETE TO rg_remediator USING
@@ -215,6 +217,9 @@ human required`.
   UPDATE (`last_remediation_at`) on `repository_policy_state`; INSERT on
   `service_runs`; sequence USAGE. UPDATE, DELETE and TRUNCATE revoked
   for both roles on `remediation_steps` and `remediation_events`.
+  **Done (IMPL-0029, `00003`/`00002`/`00001`):** every grant and the
+  reservation-only DELETE policy exist. No sequence grant is needed: the
+  remediation tables use identity keys. The 1.11 grant tests pin it.
 - [ ] 1.5 `internal/store/postgres/remediations.go`:
   `ReserveSlot(ctx, repo, control, epoch, opKey, intent, ttl)` (one
   transaction: `SELECT ... FOR UPDATE` on `repository_policy_state`,

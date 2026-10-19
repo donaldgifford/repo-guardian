@@ -73,6 +73,7 @@ func (s *server) GetSummary(ctx context.Context, _ gen.GetSummaryRequestObject) 
 		Evaluated24h: view.Evaluated, LastEvaluatedAt: view.LastEvaluatedAt, PolicyVersion: optStr(view.PolicyVersion),
 		RemediationBacklog: view.RemediationBacklog, ParkedByReason: parkedByReason(view.Repositories),
 		ControlsFailing: controlsFailing(view.Compliance), FindingAge: ageCountsOut(view.FindingAge),
+		OpenPrsByAge: ageCountsOut(view.OpenPRsByAge),
 	}, nil
 }
 

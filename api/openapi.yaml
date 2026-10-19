@@ -1101,8 +1101,16 @@ components:
       description: Fleet totals over the visible orgs.
       type: object
       required: [tracked, parked, compliance, open_prs, evaluated_24h, remediation_backlog, parked_by_reason, controls_failing,
-        finding_age]
+        finding_age, open_prs_by_age]
       properties:
+        open_prs_by_age:
+          description: |
+            Open repo-guardian pull requests by how long ago they were
+            opened: every one of the four buckets (<1d, 1-7d, 7-30d, 30d+),
+            youngest first. The counts sum to `open_prs`.
+          type: array
+          items:
+            $ref: "#/components/schemas/AgeCount"
         finding_age:
           description: |
             Results in the non-compliant bucket by how long ago they last

@@ -38,3 +38,21 @@ FROM (
 ) x
 WHERE x.posture_bucket = 'non_compliant'
 GROUP BY 1;
+
+-- name: APIOpenPRAge :many
+-- Summary.open_prs_by_age: open repo-guardian pull requests by
+-- created_at, over the same active repositories as APIOrgOpenPRs, so
+-- the counts sum to the summary's open_prs. A bucket with none is
+-- absent; the reader fills it.
+SELECT (CASE
+          WHEN now() - m.created_at < interval '1 day'   THEN '<1d'
+          WHEN now() - m.created_at < interval '7 days'  THEN '1-7d'
+          WHEN now() - m.created_at < interval '30 days' THEN '7-30d'
+          ELSE '30d+'
+        END)::text AS bucket,
+       count(*)::int AS pull_requests
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+WHERE r.active AND m.kind = 'pull_request' AND m.state = 'open'
+  AND (@scope_all::bool OR lower(r.org) = ANY (@scope_orgs::text[]))
+GROUP BY 1;

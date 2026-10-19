@@ -770,7 +770,7 @@ Every new query lives in an `api_*.sql` file so
   bucket, in `api_summary.sql` with the scope predicate. The bucket
   sum equals `Summary.compliance.non_compliant` (test). The fixture
   spans every boundary.
-- [ ] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
+- [x] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
   of open pull-request remediations by `created_at`).
 - [ ] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
   `[{day, opened, closed}]` (opened by `created_at`, closed by `closed_at`, per UTC day, scoped).

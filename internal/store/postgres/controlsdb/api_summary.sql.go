@@ -80,3 +80,52 @@ func (q *Queries) APIFindingAge(ctx context.Context, arg APIFindingAgeParams) ([
 	}
 	return items, nil
 }
+
+const aPIOpenPRAge = `-- name: APIOpenPRAge :many
+SELECT (CASE
+          WHEN now() - m.created_at < interval '1 day'   THEN '<1d'
+          WHEN now() - m.created_at < interval '7 days'  THEN '1-7d'
+          WHEN now() - m.created_at < interval '30 days' THEN '7-30d'
+          ELSE '30d+'
+        END)::text AS bucket,
+       count(*)::int AS pull_requests
+FROM remediations m
+JOIN repositories r ON r.id = m.repository_id
+WHERE r.active AND m.kind = 'pull_request' AND m.state = 'open'
+  AND ($1::bool OR lower(r.org) = ANY ($2::text[]))
+GROUP BY 1
+`
+
+type APIOpenPRAgeParams struct {
+	ScopeAll  bool
+	ScopeOrgs []string
+}
+
+type APIOpenPRAgeRow struct {
+	Bucket       string
+	PullRequests int32
+}
+
+// Summary.open_prs_by_age: open repo-guardian pull requests by
+// created_at, over the same active repositories as APIOrgOpenPRs, so
+// the counts sum to the summary's open_prs. A bucket with none is
+// absent; the reader fills it.
+func (q *Queries) APIOpenPRAge(ctx context.Context, arg APIOpenPRAgeParams) ([]APIOpenPRAgeRow, error) {
+	rows, err := q.db.Query(ctx, aPIOpenPRAge, arg.ScopeAll, arg.ScopeOrgs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []APIOpenPRAgeRow
+	for rows.Next() {
+		var i APIOpenPRAgeRow
+		if err := rows.Scan(&i.Bucket, &i.PullRequests); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

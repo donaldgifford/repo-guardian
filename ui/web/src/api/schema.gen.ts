@@ -622,6 +622,12 @@ export interface components {
         /** @description Fleet totals over the visible orgs. */
         Summary: {
             /**
+             * @description Open repo-guardian pull requests by how long ago they were
+             *     opened: every one of the four buckets (<1d, 1-7d, 7-30d, 30d+),
+             *     youngest first. The counts sum to `open_prs`.
+             */
+            open_prs_by_age: components["schemas"]["AgeCount"][];
+            /**
              * @description Results in the non-compliant bucket by how long ago they last
              *     changed: every one of the six buckets (<1d, 1-7d, 7-30d,
              *     30-90d, 90-180d, 180d+), youngest first. The counts sum to

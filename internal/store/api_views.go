@@ -163,6 +163,9 @@ type SummaryView struct {
 	// FindingAge counts results in the non-compliant bucket per
 	// FindingAgeBuckets bucket, every bucket present, in that order.
 	FindingAge []AgeCount
+	// OpenPRsByAge counts OpenPRs per OpenPRAgeBuckets bucket of
+	// created_at, every bucket present, in that order.
+	OpenPRsByAge []AgeCount
 }
 
 // AgeCount is how many of something fall in one age bucket.
@@ -173,6 +176,9 @@ type AgeCount struct {
 
 // FindingAgeBuckets are Summary.finding_age's buckets, youngest first.
 var FindingAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30-90d", "90-180d", "180d+"}
+
+// OpenPRAgeBuckets are Summary.open_prs_by_age's buckets, youngest first.
+var OpenPRAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30d+"}
 
 // AgeCounts orders counts by buckets, with a zero for a bucket counts
 // lacks.

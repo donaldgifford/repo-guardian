@@ -85,6 +85,18 @@ func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.
 
 		view.FindingAge = store.AgeCounts(store.FindingAgeBuckets, byBucket)
 
+		prAges, err := q.APIOpenPRAge(ctx, controlsdb.APIOpenPRAgeParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+		if err != nil {
+			return fmt.Errorf("open pull request age: %w", err)
+		}
+
+		byBucket = make(map[string]int, len(prAges))
+		for _, a := range prAges {
+			byBucket[a.Bucket] = int(a.PullRequests)
+		}
+
+		view.OpenPRsByAge = store.AgeCounts(store.OpenPRAgeBuckets, byBucket)
+
 		active, err := q.CurrentActivation(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil

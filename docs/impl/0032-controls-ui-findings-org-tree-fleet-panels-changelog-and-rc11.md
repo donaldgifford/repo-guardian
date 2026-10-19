@@ -213,7 +213,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   `ui/e2e/ui.spec.ts` that a seeded failing rule's badge carries the
   `bad` tone class, and one that the repository crumb reads `org/name`.
   Break `toneFor`'s `rule` row once, confirm the spec fails, restore.
-- [ ] 1.7 **Ship.** Open the PR into `v2` with `dont-release`; record in
+- [x] 1.7 **Ship.** Open the PR into `v2` with `dont-release` (#222); record in
   INV-0023 which findings it closes (F1, F2, F4, F7.3). Then, after merge,
   tag `v2.0.0-rc.12` (chart `2.0.0-rc.12`, appVersion bumped by hand)
   and dispatch `ghcr.yml` with the tag (OQ7; the tag and dispatch are

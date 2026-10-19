@@ -540,7 +540,7 @@ human required`.
   `UpdatePullRequest` with the re-rendered title and body. Labels via
   the PR template. Journal `pr_created`/`pr_updated`; the reserved row
   becomes `open` with `pr_number` and `pr_url`.
-- [ ] 4.13 PR title, body and labels rendered from the evaluation
+- [x] 4.13 PR title, body and labels rendered from the evaluation
   through the control's `pr {}` block and `internal/template`
   (`template.PRVars` with `.Control`, `.Fixed`, `.Manual`, `.Notes`),
   defaults per OQ10; bodies over 65000 characters truncated with the

@@ -63,6 +63,30 @@ type PRVars struct {
 	// Reconciler is the reconciler name when the PR is opened by a
 	// reconciler (e.g. "custom_properties"); empty string otherwise.
 	Reconciler string
+
+	// The controls line's remediation PR (IMPL-0030 4.13): the control,
+	// the failing rules this PR fixes, the ones that need a human, and
+	// the notes explaining those. ControlsURL links the repository's
+	// controls page; empty when no UI is configured.
+	Control     ControlRef
+	Fixed       []RuleRef
+	Manual      []RuleRef
+	Notes       []string
+	ControlsURL string
+}
+
+// ControlRef names the control a remediation PR is for.
+type ControlRef struct {
+	// ID is slug@version.
+	ID    string
+	Slug  string
+	Title string
+}
+
+// RuleRef names one rule of a control.
+type RuleRef struct {
+	ID    string
+	Title string
 }
 
 // Rule names a rule by its HCL label and the file path it targets.

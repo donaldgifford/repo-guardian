@@ -262,3 +262,13 @@ type OpenPRAge struct {
 	AgeBucket string
 	Open      int
 }
+
+// HoldAge is one remediation_holds series: control results of one org
+// held from remediation for one reason, in one age bucket of how long
+// they have been held.
+type HoldAge struct {
+	Org       string
+	Reason    string
+	AgeBucket string
+	Held      int
+}

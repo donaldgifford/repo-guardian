@@ -15,9 +15,10 @@ import (
 // fakePosture returns rows, or err, and records whether the gauges were
 // already reset when it was read.
 type fakePosture struct {
-	rows []store.ControlPosture
-	err  error
-	prs  []store.OpenPRAge
+	rows  []store.ControlPosture
+	err   error
+	prs   []store.OpenPRAge
+	holds []store.HoldAge
 
 	sawSeries int
 }
@@ -30,6 +31,10 @@ func (f *fakePosture) ControlCompliance(context.Context, []string, string) ([]st
 
 func (f *fakePosture) OpenRemediationPRs(context.Context) ([]store.OpenPRAge, error) {
 	return f.prs, nil
+}
+
+func (f *fakePosture) RemediationHolds(context.Context) ([]store.HoldAge, error) {
+	return f.holds, nil
 }
 
 // posture is one codeowners row of org.
@@ -149,5 +154,27 @@ func TestPostureExporter_PublishesOpenPRs(t *testing.T) {
 
 	if n := testutil.CollectAndCount(metrics.RemediationPRsOpen); n != 2 {
 		t.Errorf("remediation_prs_open has %d series, want 2", n)
+	}
+}
+
+// TestPostureExporter_PublishesHolds is IMPL-0030 7.2: remediation_holds
+// per org, reason and age bucket, the series the conflict-held-a-week
+// alert reads.
+func TestPostureExporter_PublishesHolds(t *testing.T) {
+	r := &fakePosture{holds: []store.HoldAge{
+		{Org: "acme", Reason: "conflict", AgeBucket: "7-30d", Held: 3},
+		{Org: "acme", Reason: "pr_cap", AgeBucket: "<1d", Held: 1},
+	}}
+
+	if err := NewPostureExporter(r, slog.New(slog.DiscardHandler)).Export(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := testutil.ToFloat64(metrics.RemediationHolds.WithLabelValues("acme", "conflict", "7-30d")); got != 3 {
+		t.Errorf("remediation_holds{reason=conflict,age_bucket=7-30d} = %v, want 3", got)
+	}
+
+	if n := testutil.CollectAndCount(metrics.RemediationHolds); n != 2 {
+		t.Errorf("remediation_holds has %d series, want 2", n)
 	}
 }

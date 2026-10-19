@@ -149,11 +149,10 @@ func TestCatalogue_EveryAlertIsDescribed(t *testing.T) {
 	}
 }
 
-// TestGenerate_NothingIsGatedYet pins the controls catalogue's shape:
-// every alert reads a series the evaluator, ingest, the store or the
-// Temporal SDK always produces, so no mechanism set drops one. The gated
-// alerts return with remediation (IMPL-0030); skip_test.go keeps the
-// gating itself covered meanwhile.
+// TestGenerate_NothingIsGatedYet pins the controls catalogue's shape: no
+// mechanism set drops an alert. The remediation alerts read series that
+// are absent on a deployment that never remediates, so they stay silent
+// there ungated; skip_test.go keeps the gating itself covered.
 func TestGenerate_NothingIsGatedYet(t *testing.T) {
 	t.Parallel()
 
@@ -194,6 +193,8 @@ func TestCatalogue_RareEventAlertsCatchTheFirstIncrement(t *testing.T) {
 	// without the guard fails this test.
 	rare := []string{
 		"RepoGuardianControlEvaluationErrors",
+		"RepoGuardianRemediationAppUnreachable",
+		"RepoGuardianRemediationBlocked",
 	}
 
 	byName := make(map[string]alert.Spec)

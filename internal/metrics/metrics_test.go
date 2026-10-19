@@ -133,6 +133,7 @@ func TestMetricNames_ExactSet(t *testing.T) {
 		"repo_guardian_rate_limit_remaining",
 		"repo_guardian_remediation_blocked_total",
 		"repo_guardian_remediation_cleanup_latency_seconds",
+		"repo_guardian_remediation_holds",
 		"repo_guardian_remediation_prs_open",
 		"repo_guardian_remediation_reservations_expired_total",
 		"repo_guardian_remediation_runs_total",

@@ -688,7 +688,7 @@ human required`.
   `remediation_reservations_expired_total{org}`,
   `remediation_cleanup_latency_seconds{org}`,
   `store_pool_wait_seconds{role}`. No repository or PR label.
-- [ ] 7.2 Alerts in the generated catalogue (`internal/monitoring/alert`)
+- [x] 7.2 Alerts in the generated catalogue (`internal/monitoring/alert`)
   per OQ11, rare-event ones with `alert.firstOrIncrease`; mirror them in
   the chart PrometheusRule; `make monitoring-generate`,
   `make lint-monitoring`, `make lint-alerts`.

@@ -323,3 +323,54 @@ func (q *Queries) OpenRemediationPRs(ctx context.Context) ([]OpenRemediationPRsR
 	}
 	return items, nil
 }
+
+const remediationHolds = `-- name: RemediationHolds :many
+SELECT r.org, c.hold::text AS reason,
+       (CASE
+          WHEN now() - c.hold_since < interval '1 day'   THEN '<1d'
+          WHEN now() - c.hold_since < interval '7 days'  THEN '1-7d'
+          WHEN now() - c.hold_since < interval '30 days' THEN '7-30d'
+          ELSE '30d+'
+        END)::text AS age_bucket,
+       count(*)::int AS held
+FROM control_results c
+JOIN repositories r ON r.id = c.repository_id
+WHERE c.hold IS NOT NULL AND c.hold_since IS NOT NULL
+GROUP BY r.org, c.hold, age_bucket
+ORDER BY r.org, reason, age_bucket
+`
+
+type RemediationHoldsRow struct {
+	Org       string
+	Reason    string
+	AgeBucket string
+	Held      int32
+}
+
+// remediation_holds (IMPL-0030 7.2): control results held from
+// remediation per org, hold reason and how long they have been held,
+// so a conflict held past a week can alert (OQ11) without a counter.
+func (q *Queries) RemediationHolds(ctx context.Context) ([]RemediationHoldsRow, error) {
+	rows, err := q.db.Query(ctx, remediationHolds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RemediationHoldsRow
+	for rows.Next() {
+		var i RemediationHoldsRow
+		if err := rows.Scan(
+			&i.Org,
+			&i.Reason,
+			&i.AgeBucket,
+			&i.Held,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -25,15 +25,16 @@ const (
 )
 
 // PostureReader is the controls compliance query (IMPL-0029 task 4.7)
-// and the open remediation pull requests (IMPL-0030 7.1).
+// and the open remediation pull requests and holds (IMPL-0030 7.1, 7.2).
 // *postgres.ControlsStore satisfies it.
 type PostureReader interface {
 	ControlCompliance(ctx context.Context, orgs []string, lineage string) ([]store.ControlPosture, error)
 	OpenRemediationPRs(ctx context.Context) ([]store.OpenPRAge, error)
+	RemediationHolds(ctx context.Context) ([]store.HoldAge, error)
 }
 
 // PostureExporter publishes controls_status and controls_coverage from
-// the compliance query, and remediation_prs_open. Every api replica runs one (IMPL-0029 OQ8): they
+// the compliance query, and remediation_prs_open and remediation_holds. Every api replica runs one (IMPL-0029 OQ8): they
 // read the same rows, so dashboards collapse replicas with max by.
 type PostureExporter struct {
 	reader PostureReader
@@ -127,7 +128,11 @@ func (p *PostureExporter) Export(ctx context.Context) error {
 		metrics.ControlsCoverage.WithLabelValues(k.org, k.control).Set(float64(s.Assigned))
 	}
 
-	return p.exportPRs(ctx)
+	if err := p.exportPRs(ctx); err != nil {
+		return err
+	}
+
+	return p.exportHolds(ctx)
 }
 
 // exportPRs republishes remediation_prs_open the same way: read first,
@@ -142,6 +147,23 @@ func (p *PostureExporter) exportPRs(ctx context.Context) error {
 
 	for _, r := range prs {
 		metrics.RemediationPRsOpen.WithLabelValues(r.Org, r.ControlID, r.AgeBucket).Set(float64(r.Open))
+	}
+
+	return nil
+}
+
+// exportHolds republishes remediation_holds: read first, and keep the
+// previous values on a read error.
+func (p *PostureExporter) exportHolds(ctx context.Context) error {
+	holds, err := p.reader.RemediationHolds(ctx)
+	if err != nil {
+		return fmt.Errorf("read remediation holds: %w", err)
+	}
+
+	metrics.RemediationHolds.Reset()
+
+	for _, h := range holds {
+		metrics.RemediationHolds.WithLabelValues(h.Org, h.Reason, h.AgeBucket).Set(float64(h.Held))
 	}
 
 	return nil

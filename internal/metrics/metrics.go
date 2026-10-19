@@ -243,6 +243,15 @@ var (
 		Help: "Open remediation pull requests per control and age bucket (api-exported; query with max by).",
 	}, []string{labelOrg, labelControl, labelAgeBucket})
 
+	// RemediationHolds is the control results held from remediation per
+	// hold reason and how long they have been held (<1d, 1-7d, 7-30d,
+	// 30d+), published from the store by every api replica; query with
+	// max by. A conflict held past a week alerts (IMPL-0030 OQ11).
+	RemediationHolds = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_remediation_holds",
+		Help: "Control results held from remediation per hold reason and age bucket (api-exported; query with max by).",
+	}, []string{labelOrg, labelReason, labelAgeBucket})
+
 	// RemediationBlockedTotal counts remediations blocked, by reason:
 	// a hold (foreign_branch, stale_branch, conflict, pr_cap, permission)
 	// or an assignment resolution downgraded because the Remediation App

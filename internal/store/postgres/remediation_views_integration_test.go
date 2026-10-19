@@ -211,3 +211,29 @@ func TestControlsStore_OpenRemediationPRs(t *testing.T) {
 		t.Errorf("OpenRemediationPRs = %+v, want %+v", got, want)
 	}
 }
+
+// TestControlsStore_RemediationHolds is IMPL-0030 7.2's
+// remediation_holds read: held control results per org, reason and how
+// long they have been held.
+func TestControlsStore_RemediationHolds(t *testing.T) {
+	f := newRemediationFixture(t)
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	stage(t, f.eval, f.repoID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := f.eval.RecordEvaluation(t.Context(), "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	run(t, f.dsns.Owner, `UPDATE control_results SET hold = 'conflict', hold_since = now() - interval '8 days'`)
+
+	got, err := f.eval.RemediationHolds(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []store.HoldAge{{Org: "acme", Reason: "conflict", AgeBucket: "7-30d", Held: 1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("RemediationHolds = %+v, want %+v", got, want)
+	}
+}

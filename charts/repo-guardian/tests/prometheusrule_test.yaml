@@ -220,3 +220,39 @@ tests:
           content:
             alert: RepoGuardianTemporalStickyCacheEvictions
           any: true
+
+  # IMPL-0030 OQ11: the remediation holds group. The first-increment
+  # guard and the reason selectors are locked: pr_cap, stale_branch and
+  # cooldown are routine and must never page.
+  - it: should render the remediation holds group
+    set:
+      prometheusRule:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.groups[2].name
+          value: repo-guardian.remediation
+      - lengthEqual:
+          path: spec.groups[2].rules
+          count: 3
+      - contains:
+          path: spec.groups[2].rules
+          content:
+            alert: RepoGuardianRemediationBlocked
+            expr: |
+              increase(repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}[1h]) > 0
+              or
+              (repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}
+                unless repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"} offset 1h) > 0
+            labels:
+              severity: warning
+          any: true
+      - matchRegex:
+          path: spec.groups[2].rules[0].expr
+          pattern: 'reason=~"remediation_app_no_access\|remediation_app_suspended"'
+      - equal:
+          path: spec.groups[2].rules[2].expr
+          value: max by (org) (repo_guardian_remediation_holds{reason="conflict",age_bucket=~"7-30d|30d[+]"}) > 0
+      - notMatchRegex:
+          path: spec.groups[2].rules[*].expr
+          pattern: 'pr_cap|stale_branch|cooldown'

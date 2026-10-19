@@ -169,3 +169,19 @@ func (s *ControlsStore) OpenRemediationPRs(ctx context.Context) ([]store.OpenPRA
 
 	return out, nil
 }
+
+// RemediationHolds counts held control results per org, hold reason and
+// age bucket (IMPL-0030 7.2).
+func (s *ControlsStore) RemediationHolds(ctx context.Context) ([]store.HoldAge, error) {
+	rows, err := s.q.RemediationHolds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("remediation holds: %w", err)
+	}
+
+	out := make([]store.HoldAge, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.HoldAge{Org: r.Org, Reason: r.Reason, AgeBucket: r.AgeBucket, Held: int(r.Held)})
+	}
+
+	return out, nil
+}

@@ -76,13 +76,14 @@ type Spec struct {
 // Ordered by group then name, so the generated manifest is stable for
 // the drift gate without a sort at emit time.
 //
-// Nothing in it is mechanism-gated today: the controls line evaluates
-// every assigned control the same way, and the gated alerts (PR churn,
-// remediation, the custom-properties workflow) return with remediation
-// in IMPL-0030. Requires and Excludes stay so they can.
+// Nothing in it is mechanism-gated: every alert reads a series that is
+// absent, not zero, on a deployment that never remediates, so an
+// ungated remediation alert stays silent there instead of paging.
+// Requires and Excludes stay for an alert whose silence would mislead.
 func Catalogue() []Spec {
-	specs := make([]Spec, 0, 16)
+	specs := make([]Spec, 0, 20)
 	specs = append(specs, coreSpecs()...)
+	specs = append(specs, remediationSpecs()...)
 	specs = append(specs, infraSpecs()...)
 	specs = append(specs, temporalSpecs()...)
 
@@ -219,6 +220,58 @@ func firstOrIncrease(selector, window string) string {
 	return "increase(" + sel + "[" + window + "]) > 0\n" +
 		"or\n" +
 		"(" + sel + " unless " + sel + " offset " + window + ") > 0"
+}
+
+// remediationGroup holds the remediation hold alerts (IMPL-0030 OQ11).
+const remediationGroup = "repo-guardian.remediation"
+
+// remediationSpecs are the holds that need a human. Per OQ11:
+// foreign_branch, permission and the Remediation App losing a
+// repository alert on their first occurrence; conflict alerts only
+// once held a week; pr_cap, stale_branch and cooldown never alert
+// (routine, shown in the UI).
+func remediationSpecs() []Spec {
+	const group = remediationGroup
+
+	return []Spec{
+		{
+			Name:     "RepoGuardianRemediationAppUnreachable",
+			Group:    group,
+			Expr:     firstOrIncrease(`repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"}`, "1h"),
+			Window:   time.Hour,
+			Severity: SeverityWarning,
+			Summary:  "The Remediation App cannot reach repositories it is assigned to remediate",
+			Description: "Assignments in remediate mode were downgraded to evaluate because the " +
+				"Remediation App is not installed on the repository or its installation is " +
+				"suspended. Install or unsuspend the App, or set the org's mode to evaluate.",
+		},
+		{
+			Name:  "RepoGuardianRemediationBlocked",
+			Group: group,
+			// Keeps org and reason: which of the two holds it is decides
+			// who acts.
+			Expr:     firstOrIncrease(`repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}`, "1h"),
+			Window:   time.Hour,
+			Severity: SeverityWarning,
+			Summary:  "A remediation is held on a foreign branch or a missing permission",
+			Description: "foreign_branch: someone else pushed to the remediation branch, so " +
+				"repo-guardian will not touch it until the branch is restored or deleted. " +
+				"permission: GitHub refused the Remediation App's write; the App lacks a " +
+				"permission the control needs. The E4 logs name the repositories.",
+		},
+		{
+			Name:  "RepoGuardianRemediationConflictHeld",
+			Group: group,
+			// Published by every api replica from the store, so max by.
+			Expr:     `max by (org) (repo_guardian_remediation_holds{reason="conflict",age_bucket=~"7-30d|30d[+]"}) > 0`,
+			For:      time.Hour,
+			Severity: SeverityWarning,
+			Summary:  "A remediation has been held on a conflict for over a week",
+			Description: "Two controls own one resource, or a human change keeps conflicting " +
+				"with the remediation. A short conflict resolves itself; a week means the " +
+				"policy needs an owner decision.",
+		},
+	}
 }
 
 // infraGroup is the group the store and rate-limit alerts render into.

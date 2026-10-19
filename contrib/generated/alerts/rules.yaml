@@ -58,6 +58,36 @@ groups:
         annotations:
           description: Signature validation failures (401s) — usually a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not here (DESIGN-0023).
           summary: Webhook requests are being rejected
+  - name: repo-guardian.remediation
+    rules:
+      - alert: RepoGuardianRemediationAppUnreachable
+        expr: |-
+          increase(repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"}[1h]) > 0
+          or
+          (repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"} unless repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"} offset 1h) > 0
+        labels:
+          severity: warning
+        annotations:
+          description: Assignments in remediate mode were downgraded to evaluate because the Remediation App is not installed on the repository or its installation is suspended. Install or unsuspend the App, or set the org's mode to evaluate.
+          summary: The Remediation App cannot reach repositories it is assigned to remediate
+      - alert: RepoGuardianRemediationBlocked
+        expr: |-
+          increase(repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}[1h]) > 0
+          or
+          (repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"} unless repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"} offset 1h) > 0
+        labels:
+          severity: warning
+        annotations:
+          description: 'foreign_branch: someone else pushed to the remediation branch, so repo-guardian will not touch it until the branch is restored or deleted. permission: GitHub refused the Remediation App''s write; the App lacks a permission the control needs. The E4 logs name the repositories.'
+          summary: A remediation is held on a foreign branch or a missing permission
+      - alert: RepoGuardianRemediationConflictHeld
+        expr: max by (org) (repo_guardian_remediation_holds{reason="conflict",age_bucket=~"7-30d|30d[+]"}) > 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          description: Two controls own one resource, or a human change keeps conflicting with the remediation. A short conflict resolves itself; a week means the policy needs an owner decision.
+          summary: A remediation has been held on a conflict for over a week
   - name: repo-guardian.multi-replica
     rules:
       - alert: RepoGuardianStoreErrors

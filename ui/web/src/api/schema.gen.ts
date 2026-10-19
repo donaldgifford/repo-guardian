@@ -402,7 +402,11 @@ export interface components {
          */
         Cursor: string;
         /**
-         * @description Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
+         * @description Open enum: access_denied, archived, fork, removed,
+         *     installation_removed, suspended, unknown. The schema admits
+         *     suspended, but the controls line never parks a repository for
+         *     an App's suspension: its results read unmeasurable_suspended
+         *     instead.
          * @example archived
          */
         ParkReason: string;
@@ -595,9 +599,20 @@ export interface components {
             control_id?: string;
             /** @description Set on a rule-result transition; absent on a control-status one. */
             rule_id?: string;
-            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            /**
+             * @description Open enum. On a control-level event (no rule_id) a result
+             *     status: compliant, non_compliant, unknown, not_applicable. On
+             *     a rule-level event (rule_id set) a rule status: pass, fail,
+             *     error, unknown, not_applicable. Absent when there was no
+             *     status before.
+             */
             from_status?: string;
-            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            /**
+             * @description Open enum, as from_status: a result status on a control-level
+             *     event, a rule status (pass, fail, error, unknown,
+             *     not_applicable) on a rule-level one. Absent when the result
+             *     was withdrawn or cleared by a park.
+             */
             to_status?: string;
             /**
              * @description Open enum. Repository events: discovered, renamed, transferred,

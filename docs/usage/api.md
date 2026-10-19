@@ -138,7 +138,7 @@ All live under `/api/v1`. The OpenAPI document has the full schemas.
 | `/remediations` | remediations newest first, by `kind`, `state`, `org`, `control`, `hold` (repeatable) and `older_than_days`, each with its proposal and step journal; a branch `hold` also lists the results held before a pull request exists (below) |
 | `/remediations/activity` | pull request throughput: repo-guardian pull requests opened and closed on each UTC day of the last `days` (1–90, default 14), today included, every day present |
 | `POST /repositories/{id}/evaluate` | asks for an evaluation now (below) |
-| `/compliance/history` | each UTC day's last snapshot per org, control and lineage, by `control`, `org` and `days` (1–365, default 30) |
+| `/compliance/history` | each UTC day's last snapshot per org, control and lineage, by `control`, `org` and `days` (1–365, default 30); `aggregate=fleet`, `org` or `control` sums each day's rows to one point per day (per org, per control) with the percentages recomputed from the sums |
 | `/policies` | the active policy as the caller may see it: its version and rollout, each visible org's layer, the catalogue entries those reference, and the enterprise layer for callers who see every org |
 | `/openapi.yaml` | the contract (public) |
 
@@ -200,7 +200,8 @@ installation and its installation, suspended and reachable-repository
 counts. `compliance` carries the fleet percent and coverage and
 `compliance.history`: one point per UTC day over the last 30 days,
 taken from that day's last snapshot. `operations` adds repositories
-evaluated in the last 24 hours, `overdue` (managed repositories with no
+evaluated in the last 24 hours, `remediation_backlog` (outstanding
+remediations, as on `/summary`), `overdue` (managed repositories with no
 successful evaluation within twice `EVAL_INTERVAL`), tracked
 repositories, the newest policy version's `rollout_state` (`none`,
 `in_progress` or `complete`, with `rollout_completed_at`) and
@@ -257,6 +258,17 @@ endpoints (`/rules`, `/findings`, `/policy`, `/installations`,
 `/repositories/{id}/evaluations`, and every compliance object is a
 `Posture`. It ships before v2.0.0 is released, so no 1.x client exists
 to break.
+
+2.1.0 (IMPL-0030) adds remediation: `/remediations`,
+`/remediations/activity` and `/results`; `aggregate` on
+`/compliance/history`; `compliance` on every repository; each
+assignment's latest `remediation` on `/repositories/{id}/controls`;
+remediation events in the timeline; and on `/summary`
+`remediation_backlog`, `parked_by_reason`, `controls_failing`,
+`finding_age` and `open_prs_by_age` (the status page gains
+`remediation_backlog`). On a rule-level event (`rule_id` set),
+`from_status` and `to_status` are rule statuses (pass, fail, error,
+unknown, not applicable), not result statuses.
 
 Anything else would be `/api/v2`, served beside v1 for a deprecation
 window. The UI and the API are released together from one tag, so the

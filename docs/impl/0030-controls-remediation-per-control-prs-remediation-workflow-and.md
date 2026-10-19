@@ -786,7 +786,7 @@ Every new query lives in an `api_*.sql` file so
   status, last_changed_at)`) numbered after Phase 1's, bump
   `ControlsSchemaVersion` with it, and extend the controls dry-run
   test.
-- [ ] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
+- [x] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
   rule statuses on rule-level events; `ParkReason` lists `suspended`.
   Bump `info.version` (2.1.0, or with 7.4 if it already did) and document every addition in
   `docs/usage/api.md`.

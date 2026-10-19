@@ -901,16 +901,16 @@ Every new query lives in an `api_*.sql` file so
   | `TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote` | retired: v1 behaviour, no replacement — one control owns a path (`ValidateChangeSet`, load-time ownership warning), so two never write one file |
   | `TestPRRefresh_UnchangedText_SkipsPatch` | `TestPullRequest_NoChangeDoesNothing` (no commit, no `UpdatePullRequest`) |
   | `TestPRRefresh_CRLFBodyFromWebUI_SkipsPatch` | retired: v1 behaviour, no replacement — the body is re-rendered only on a commit, never compared with what GitHub holds |
-- [ ] 8.3 Rewrite `docs/operations/v2-migration.md` as the fresh-install
+- [x] 8.3 Rewrite `docs/operations/v2-migration.md` as the fresh-install
   cutover: DESIGN-0032's six steps, rgctl at steps 3 and 6 once per App
   (per OQ6), a fresh database and Temporal namespace, rollback as the
   previous chart against the previous database, and what is not
   restored. Drop every in-place adopt/backfill/verify-shadow claim.
-- [ ] 8.4 `v2-overview.md` remediation parts: one PR per control on
+- [x] 8.4 `v2-overview.md` remediation parts: one PR per control on
   `repo-guardian/<slug>`, `max_open_prs`, `reopen_after`,
   `search_terms`/foreign-PR dropped, `apply` modes, holds, never
   deleting branches.
-- [ ] 8.5 `v2-onboarding.md` remediation parts: the Remediation App's
+- [x] 8.5 `v2-onboarding.md` remediation parts: the Remediation App's
   permissions and events (Workflows only for `workflow` controls), its
   webhook path, the remediator role, `REMEDIATION_*` and
   `REMEDIATOR_*` config, enabling `mode = "remediate"` for one org.

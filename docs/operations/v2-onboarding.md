@@ -2,17 +2,17 @@
 
 A runbook for a **new** v2 install: what has to exist first, the steps
 to turn it on, how organisations and repositories are onboarded, and how
-to change policy and follow a change through the fleet. Upgrading an
-existing v1 install is a different path, in
-[v1 → v2 migration](v2-migration.md). For what repo-guardian enforces
+to change policy and follow a change through the fleet. Replacing an
+existing v1 or release-candidate install is the same fresh install,
+with a cutover order around it, in
+[Moving to repo-guardian v2](v2-migration.md). For what repo-guardian enforces
 and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
 
-> **This release candidate evaluates only.** It reads every repository,
-> records each control's result and reports compliance. It writes
-> nothing to GitHub: no pull requests, no setting or ruleset changes.
-> Remediation arrives with IMPL-0030. You can register and install the
-> Remediation App now, and the remediator role will start, but it does
-> no work yet.
+> **Start in `evaluate`.** A new install reads every repository,
+> records each control's result and reports compliance, and writes
+> nothing to GitHub until an assignment is in `mode = "remediate"` on a
+> repository the Remediation App can reach. Turn remediation on one
+> organisation at a time ([Turning on remediation](#turning-on-remediation)).
 
 <!--toc:start-->
 - [What you end up with](#what-you-end-up-with)
@@ -26,6 +26,7 @@ and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
   - [7. Prometheus and Grafana (optional)](#7-prometheus-and-grafana-optional)
   - [8. A first policy](#8-a-first-policy)
 - [Turning it on](#turning-it-on)
+- [Turning on remediation](#turning-on-remediation)
 - [Installing with Argo CD](#installing-with-argo-cd)
 - [Onboarding organisations and repositories](#onboarding-organisations-and-repositories)
 - [Changing policy](#changing-policy)
@@ -39,7 +40,7 @@ and why, read [repo-guardian and v2 at a glance](v2-overview.md) first.
 ```text
                 ┌─/webhooks/github/eval──────┐
 GitHub ─────────┤                            ├──▶ ingest ──▶ Temporal ──┬──▶ evaluator  ──▶ GitHub API (read)
-                └─/webhooks/github/remediate─┘                         └──▶ remediator ──▶ GitHub API (write, IMPL-0030)
+                └─/webhooks/github/remediate─┘                         └──▶ remediator ──▶ GitHub API (write)
                                                                                 │
                                                                                 ▼
                                           UI ──▶ api (read-only) ──────────▶ Postgres
@@ -49,7 +50,7 @@ GitHub ─────────┤                            ├──▶ in
 | --- | --- | --- |
 | `ingest` | both webhook secrets and App ids, Temporal client | validates webhooks and starts workflows; holds no App key and no database access |
 | `evaluator` | Evaluation App private key, Postgres, Temporal client | discovers repositories, resolves the policy, evaluates controls, records results |
-| `remediator` | Remediation App private key, Postgres, Temporal client | starts and reports ready; opens pull requests and applies API changes from IMPL-0030 |
+| `remediator` | Remediation App private key, Postgres, Temporal client | for `remediate` assignments, opens one pull request per control and applies or recommends API changes; runs the remediation sweep and maintenance |
 | `api` (optional) | read-only Postgres role, optionally a Temporal client | serves compliance over REST behind OIDC |
 | `ui` (optional) | OIDC client secret, session keys | the web UI and public status page |
 
@@ -269,7 +270,7 @@ intends, so the evaluator holds a key that cannot write.
 
 | | Evaluation App | Remediation App |
 | --- | --- | --- |
-| Install on | every organisation in `enterprise.orgs` | organisations with any `remediate` assignment (from IMPL-0030) |
+| Install on | every organisation in `enterprise.orgs` | organisations with any `remediate` assignment |
 | Key held by | evaluator (and `all`) | remediator (and `all`) |
 | Webhook URL | `POST /webhooks/github/eval` | `POST /webhooks/github/remediate` |
 | Rate budget | `installation/eval/<installation id>` | `installation/remediate/<installation id>` |
@@ -409,7 +410,7 @@ github:
     appId: "123456"                  # empty disables the block
     existingSecret: rg-eval-app      # keys: private-key, webhook-secret
   remediate:
-    appId: "234567"                  # optional in this rc
+    appId: "234567"                  # optional until an org remediates
     existingSecret: rg-remediate-app
 ```
 
@@ -569,7 +570,7 @@ API changes, per the control's `remediate` rules). The mode is set on
 `enterprise`, an org, a `repos` block, or a single control, and the
 most specific wins; with none set it is `evaluate`. A `remediate`
 assignment on a repository the Remediation App cannot reach is
-evaluated only. In this rc every assignment is effectively `evaluate`.
+evaluated only, with the reason recorded on the assignment.
 
 Validate the policy before deploying. `monitoring generate` runs the
 same loader and validation the server does, and fails on any error:
@@ -731,9 +732,72 @@ of the two.
 
 7. **Generate the dashboards and alerts** (prerequisite 7).
 
-Turning on remediation (setting `mode = "remediate"` and installing the
-Remediation App) does nothing in this rc; it takes effect with
-IMPL-0030.
+## Turning on remediation
+
+Do this for one organisation, watch it, then widen it.
+
+1. **Register and install the Remediation App** on that organisation
+   only ([Registering and installing](#registering-and-installing)),
+   with the base permissions plus whatever the org's `remediate`
+   controls write ([Remediation App permissions](#remediation-app-permissions)).
+   Subscribe it to **Installation repositories** and point its webhook
+   at `/webhooks/github/remediate`.
+
+2. **Add it to the values** and size the remediator:
+
+   ```yaml
+   github:
+     remediate:
+       appId: "234567"
+       existingSecret: rg-remediate-app   # private-key, webhook-secret
+
+   remediator:
+     replicas: 1
+     concurrency: 10                      # REMEDIATOR_CONCURRENCY
+     dbPoolSize: 0                        # REMEDIATOR_DB_POOL_SIZE; 0 = default
+     reservationTTL: 1h                   # REMEDIATION_RESERVATION_TTL
+     sweepBatch: 500                      # REMEDIATION_SWEEP_BATCH
+     maintenanceBatch: 200                # REMEDIATION_MAINTENANCE_BATCH
+   ```
+
+   In `split` the chart renders the `remediator` Deployment only now,
+   mounts the Remediation App key into it alone, and gives it the
+   `rg_remediator` database role. Deploy, then check
+   `temporal worker deployment describe --deployment-name repo-guardian-remediate`
+   names the image's build as current, and compare the startup log's
+   `Remediation App permissions required` with the installation's.
+
+3. **Wait for access.** The `controls-discovery-remediate` Schedule
+   records which repositories the App can reach and hands them to the
+   evaluator to re-resolve. Until then the org's assignments read
+   `remediation_app_no_access` and stay `evaluate`.
+
+4. **Set the mode** in that organisation's layer and deploy the policy:
+
+   ```hcl
+   # orgs/myorg.hcl
+   org "myorg" {
+     mode = "remediate"
+   }
+   ```
+
+   Narrower is fine: a `repos` block or a single control can carry the
+   mode instead. `remediation { max_open_prs, reopen_after }` in
+   `enterprise.hcl` sets the per-repository cap (default 3) and the
+   cooldown after a human closes a PR (default 14 days).
+
+5. **Watch the first pull requests** in the UI's Remediations view or at
+   `GET /api/v1/remediations`: one PR per control on
+   `repo-guardian/<control slug>`, at most `max_open_prs` open per
+   repository, the rest held `pr_cap`. Every other hold (`foreign_branch`,
+   `stale_branch`, `conflict`, `permission`) should have an explanation
+   ([How it fixes things](v2-overview.md#how-it-fixes-things)).
+
+6. **Close the old deployment's pull requests** for that organisation,
+   if you replaced one ([cutover step 6](v2-migration.md#6-close-the-old-pull-requests)).
+
+Then repeat for the next organisation: install the App there, and set
+its mode. Neither needs a deploy of the service, only of the policy.
 
 ## Installing with Argo CD
 
@@ -827,7 +891,7 @@ Treat the policy directory like code.
 3. **Introduce enforcement in stages.** Add a new control with
    `mode = "evaluate"`, read its results, add exclusions, then move it
    to `remediate` for one `repos` block or organisation before widening
-   it. (Remediation itself waits for IMPL-0030.)
+   it.
 4. **Grant new App permissions before the control ships.** A control
    type may need a permission an App lacks: Administration read on the
    Evaluation App for `repo_settings`, or, for remediation, Workflows
@@ -908,13 +972,14 @@ it finished.
   (`EVAL_INTERVAL`, 24h, jittered ±10%), and at once on a push that
   touches a path one of its controls owns or reads. `CHECK_INTERVAL` is
   removed; the binary warns and ignores it.
-- **Retention.** This rc prunes nothing: evaluation records, results,
-  their events and compliance history are all kept. `checksRetention`
-  is accepted and has no effect yet.
+- **Retention.** Evaluation records older than `checksRetention` are
+  pruned; a repository's last evaluation survives on the repository
+  row. Results, their events, remediations and compliance history are
+  kept.
 - **Pausing.** There is no dry-run switch. Set `mode = "evaluate"` on
   the enterprise (or the org) and roll the policy out; evaluation
-  continues and results stay current. In this rc nothing is written to
-  GitHub in any mode.
+  continues and results stay current, and the remediator opens and
+  updates nothing more. Pull requests already open stay open.
 
 ## Checklist
 
@@ -928,8 +993,9 @@ Prerequisites:
 - [ ] Evaluation App registered: webhook active on `/webhooks/github/eval`,
       Push, Repository, Installation repositories and Pull request subscribed,
       read-only permissions granted, private key stored
-- [ ] (Optional in this rc) Remediation App registered on
-      `/webhooks/github/remediate`, base permissions granted
+- [ ] (For remediation) Remediation App registered on
+      `/webhooks/github/remediate`, Installation repositories subscribed,
+      base permissions plus each `direct`/`workflow` control's granted
 - [ ] Public HTTPS route to the ingest Service
 - [ ] (API/UI) OIDC issuer, API audience, UI client, authz groups
 - [ ] A policy directory in git that validates, with every assignment

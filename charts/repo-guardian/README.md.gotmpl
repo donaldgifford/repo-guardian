@@ -165,8 +165,10 @@ signs users in against `api.auth.issuer`.
 
 `migrate.enabled` (default `true`) runs `repo-guardian migrate` as a
 hook Job: `post-install` (so a baked Postgres exists to connect to) and
-`pre-upgrade` (so the schema lands before new pods roll). On an adopted
-v1 database it also runs the one-time backfill.
+`pre-upgrade` (so the schema lands before new pods roll). It applies
+the controls chain to an empty database and never adopts an older
+schema; see `docs/operations/v2-migration.md` for the fresh-install
+cutover.
 
 ### Mode-scoped secret knobs
 

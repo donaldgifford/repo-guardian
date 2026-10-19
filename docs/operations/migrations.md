@@ -1,52 +1,55 @@
 # Postgres schema operations
 
 This is the operator-facing guide to repo-guardian's Postgres schema.
-v2 (chart 2.0.0) manages it with goose, from a hook Job. The v1 sections
-further down describe the golang-migrate schema v2 adopts; they apply
-only to v1 deployments and to rollback.
+v2 manages it with goose, from a hook Job. The v1 sections further down
+describe v1's golang-migrate schema; they apply only to a v1 deployment
+and to rolling back to one. v2 never reads or migrates v1's tables, or
+the v2 release candidates' findings schema: it starts on an empty
+database ([Moving to repo-guardian v2](v2-migration.md)).
 
-## v2: goose and the migrate hook
+## v2: the controls chain and the migrate hook
 
-`repo-guardian migrate` applies the embedded goose migrations
-(`internal/store/postgres/migrations_v2/`, version table
-`goose_db_version`). Pods never migrate at startup: one Job holds the
-DDL-capable credential, instead of every replica racing.
+`repo-guardian migrate` applies the embedded controls chain
+(`internal/store/postgres/migrations_controls/`, version table
+`goose_controls_version`). Pods never migrate at startup: one Job holds
+the DDL-capable credential, instead of every replica racing, and every
+role refuses to serve against a schema older than the one its build
+expects.
 
 | Situation | What `migrate` does |
 |---|---|
-| `goose_db_version` exists | applies pending v2 migrations |
-| empty database | creates the v2 schema; no backfill |
-| v1 schema at version 3, not dirty | adopts it (`00001`), creates v2 tables (`00002`), backfills from v1 in one transaction (`00003`) |
-| v1 schema at another version, or dirty | fails: upgrade to the last v1.x first, or resolve the dirty migration |
+| empty database | applies the whole chain |
+| `goose_controls_version` exists | applies pending migrations |
+| a database holding other tables (v1, or a release candidate's findings schema) | fails on its first `CREATE TABLE`; there is no adoption |
+
+After applying, it activates the policy at `--policy` (default
+`$GUARDIAN_CONFIG`) as the owner; re-activating the current version is a
+no-op, so a re-run never starts a rollout.
 
 The chart runs it as the `<release>-migrate` hook Job
 (`migrate.enabled`, default `true`):
 
 - **`post-install`**, so a baked Postgres and a chart-rendered store
-  Secret exist to connect to. On a first install the worker retries
-  until the schema lands.
-- **`pre-upgrade`**, so the schema is current before new pods roll.
+  Secret exist to connect to; the Job waits for the database itself
+  (`migrate.waitSeconds`, `MIGRATE_WAIT`).
+- **`pre-upgrade`** and **`pre-rollback`**, so the schema is current
+  before new pods roll.
 
 Failed Jobs are replaced on the next attempt
 (`before-hook-creation`); successful ones are deleted.
 
-**Flags:** `--dsn` (default `$STORE_DSN`), `--freshness` (seeds the v1
-backfill's due times; chart value `migrate.freshness`), `--dry-run`
-(replays pending migrations in a transaction, prints counts and
-collisions, rolls back), `--json`, and `--force-running` (skips the
-guard that refuses to run while v1 wrote `repo_state` in the last
-minute; only for restored copies).
+**Flags:** `--chain controls` (the only chain), `--dsn` (default
+`$STORE_DSN`), `--policy`, `--wait`, `--dry-run` (applies every pending
+migration in one transaction and rolls it back) and `--json`.
 
-**Grants.** Migrations grant to the migrating role and, when it exists,
-`repoguardian_ro`. They never create roles. The chart creates
-`repoguardian_ro` for the API (see the chart README). `finding_events`
-is append-only by grant, which binds only a non-superuser, so run
-migrations as the application role, not a superuser, wherever you
-control the role. The baked Postgres image's `POSTGRES_USER` is a
-superuser; use `cnpg` or `external` where that guarantee matters.
-
-**The v1 → v2 cutover** has its own runbook:
-[Migrating from v1 to v2](v2-migration.md).
+**Roles.** Migrations grant to `rg_evaluator` and `rg_remediator` by
+column (the API's read-only role reads through `pg_read_all_data`), and
+never create a role: a missing role
+fails the migration. The chart provisions the roles in `baked` and
+`cnpg` modes; for an external database see
+[Controls database roles](v2-onboarding.md#controls-database-roles).
+Run migrations as the owner role, never a superuser, wherever you
+control the role.
 
 ### Out-of-band runs
 
@@ -56,15 +59,15 @@ upgrading the chart:
 ```bash
 kubectl -n repo-guardian run rg-migrate --rm -it --restart=Never \
   --image=ghcr.io/donaldgifford/repo-guardian:<tag> \
-  --env=STORE_DSN="$STORE_DSN" -- migrate
+  --env=STORE_DSN="$STORE_DSN" -- migrate --chain controls
 ```
 
 ## v1: golang-migrate runtime
 
 !!! note "v1 only"
     This and the following v1 sections describe the pre-2.0 schema. v2
-    adopts it and leaves its tables untouched until a later release
-    drops them.
+    never reads or migrates it; keep it only for a v1 deployment and
+    for rolling back to one.
 
 v1 calls `golang-migrate` against an embedded `migrations/` directory
 at startup. Migration is idempotent: `migrate.Up()` returns

@@ -54,6 +54,40 @@ func controlsHalves(cfg *config.Config, roles config.Role, tcfg *temporal.Config
 	return halves
 }
 
+// remediatorPoolHeadroom is the connections a remediator pool keeps
+// beyond its concurrency by default, for the journal and record writes
+// that run beside the claims.
+const remediatorPoolHeadroom = 4
+
+// halfSizing is the half's activity concurrency and Postgres pool size
+// (0 for pgxpool's default). Every running remediation holds one
+// connection for its row lock (store.Remediations.ClaimOperation), so
+// the remediator defaults its pool to concurrency +
+// remediatorPoolHeadroom and refuses one smaller than its concurrency,
+// which would starve claims of their journal writes.
+func halfSizing(half controlsHalf) (concurrency int, pool int32, err error) {
+	concurrency, pool = temporal.DefaultActivityConcurrency, half.sizing.DBPoolSize
+	if half.sizing.Concurrency > 0 {
+		concurrency = half.sizing.Concurrency
+	}
+
+	switch {
+	case half.app != workflows.AppRemediate:
+		return concurrency, pool, nil
+	case pool == 0:
+		return concurrency, int32(concurrency + remediatorPoolHeadroom), nil
+	case int(pool) < concurrency:
+		return 0, 0, fmt.Errorf(
+			"%s: REMEDIATOR_DB_POOL_SIZE (%d) is smaller than REMEDIATOR_CONCURRENCY (%d): every running remediation holds a connection",
+			half.name,
+			pool,
+			concurrency,
+		)
+	default:
+		return concurrency, pool, nil
+	}
+}
+
 // startControlsWorker starts one controls half's Temporal worker on its
 // own task queue, registering only that half's workflows and
 // activities, then promotes its build in the background. It returns the
@@ -74,8 +108,13 @@ func startControlsWorker(
 		return nil, nil, fmt.Errorf("%s: parse STORE_DSN: %w", half.name, err)
 	}
 
-	if half.sizing.DBPoolSize > 0 {
-		pcfg.MaxConns = half.sizing.DBPoolSize
+	concurrency, poolSize, err := halfSizing(half)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if poolSize > 0 {
+		pcfg.MaxConns = poolSize
 	}
 
 	observability.InstrumentPostgresConfig(pcfg, half.name)
@@ -93,9 +132,7 @@ func startControlsWorker(
 
 	wc := temporal.WorkerConfigFromEnv(tcfg)
 	wc.TaskQueue = half.taskQueue
-	if half.sizing.Concurrency > 0 {
-		wc.ActivityConcurrency = half.sizing.Concurrency
-	}
+	wc.ActivityConcurrency = concurrency
 	wc.Deployment = temporal.DeploymentName(half.name)
 
 	w := temporal.NewWorker(tc, &wc)

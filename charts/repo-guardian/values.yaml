@@ -209,8 +209,10 @@ remediator:
   replicas: 1
   # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
   concurrency: 10
-  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps
-  # pgxpool's default.
+  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means
+  # concurrency + 4; the remediator refuses to start with fewer
+  # connections than `concurrency`, since every running remediation
+  # holds one for its row lock.
   dbPoolSize: 0
   # -- Resources; empty falls back to `resources`.
   resources: {}

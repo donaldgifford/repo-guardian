@@ -662,7 +662,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | readinessProbe.periodSeconds | int | `10` |  |
 | remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
 | remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
-| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means concurrency + 4; the remediator refuses to start with fewer connections than `concurrency`, since every running remediation holds one for its row lock. |
 | remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
 | remediator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
 | remediator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `remediator.replicas`. |

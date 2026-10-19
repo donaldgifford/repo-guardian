@@ -259,11 +259,15 @@ human required`.
   `remediation_reservations_expired_total`.
   Done: the caller counts the metric (Phase 6 defines it).
   `TestRemediationStore_DueAndMaintenance`.
-- [ ] 1.9 Pool: `REMEDIATOR_DB_POOL_SIZE` (default
+- [x] 1.9 Pool: `REMEDIATOR_DB_POOL_SIZE` (default
   `REMEDIATOR_CONCURRENCY + 4`); startup refuses a pool smaller than
   the concurrency, since every running operation holds one connection
   for its row lock. `store_pool_wait_seconds{role}` from the pgxpool
   stats.
+  Done: `halfSizing` in `cmd/repo-guardian/controls.go`
+  (`TestHalfSizing`); `store_pool_wait_seconds{role}` was already
+  produced by the pool tracer (`observability.InstrumentPostgresConfig`).
+  Chart `remediator.dbPoolSize` comment updated.
 - [ ] 1.10 `remediation_due` truth table as SQL against the view
   (DESIGN-0032 Testing Strategy): policy state, assignment state and
   epoch, effective mode and reason, status, remediable, generations

@@ -5,6 +5,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/config"
 	"github.com/donaldgifford/repo-guardian/internal/temporal"
+	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
 // TestControlsHalves is IMPL-0028 task 4.2: each controls role runs one
@@ -73,5 +74,36 @@ func TestControlsHalves_Sizing(t *testing.T) {
 
 	if halves[0].sizing != cfg.Evaluator || halves[1].sizing != cfg.Remediator {
 		t.Errorf("sizing = %+v, %+v, want %+v, %+v", halves[0].sizing, halves[1].sizing, cfg.Evaluator, cfg.Remediator)
+	}
+}
+
+// TestHalfSizing is IMPL-0030 1.9: the remediator defaults its pool to
+// concurrency + 4 and refuses one smaller than its concurrency; the
+// evaluator keeps its configured size or pgxpool's default.
+func TestHalfSizing(t *testing.T) {
+	eval := controlsHalf{name: cmdEvaluator, app: workflows.AppEval}
+	rem := func(pool int32) controlsHalf {
+		return controlsHalf{name: cmdRemediator, app: workflows.AppRemediate, sizing: config.WorkerSizing{Concurrency: 10, DBPoolSize: pool}}
+	}
+
+	tests := []struct {
+		name    string
+		half    controlsHalf
+		want    int32
+		wantErr bool
+	}{
+		{name: "evaluator default", half: eval, want: 0},
+		{name: "remediator default", half: rem(0), want: 14},
+		{name: "remediator equal", half: rem(10), want: 10},
+		{name: "remediator too small", half: rem(9), wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got, err := halfSizing(tt.half)
+			if (err != nil) != tt.wantErr || got != tt.want {
+				t.Errorf("halfSizing(%s) pool = %d, %v; want %d, error %v", tt.half.name, got, err, tt.want, tt.wantErr)
+			}
+		})
 	}
 }

@@ -40,6 +40,12 @@ const (
 	// StartRemediationsActivity signal-with-starts the due
 	// RemediationWorkflows, one activity per evaluation (INV-0022 F4).
 	StartRemediationsActivity = "StartRemediations"
+	// StartDueRemediationsActivity reads one repository's due controls
+	// and starts each, once per evaluation (IMPL-0030 2.5).
+	StartDueRemediationsActivity = "StartDueRemediations"
+	// SetNextDueActivity persists an evaluation loop's next due time, as a
+	// local activity (IMPL-0030 2.9, OQ17).
+	SetNextDueActivity = "SetNextDue"
 
 	// The controls evaluation activities (IMPL-0029 Phase 5).
 	EvaluateActivity                  = "Evaluate"
@@ -63,7 +69,7 @@ const RemediationBranchPrefix = "repo-guardian/"
 
 // RemediateSignal asks a RemediationWorkflow to run, or to loop once
 // more when it already is (DESIGN-0032 D6).
-const RemediateSignal = "remediate"
+const RemediateSignal = RecheckSignal
 
 // RemediationWorkflowID is remediation/<repository id>/<control slug>:
 // at most one remediation runs per control per repository.

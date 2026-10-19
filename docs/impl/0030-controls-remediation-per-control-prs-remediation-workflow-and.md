@@ -355,13 +355,17 @@ human required`.
   IMPL-0029 did not.
   Done: `intentRevision` in `internal/store/postgres/controls_evaluation.go`
   hashes exactly D23's inputs; nothing to add.
-- [ ] 2.5 `StartDueRemediations` activity: at the end of each
+- [x] 2.5 `StartDueRemediations` activity: at the end of each
   evaluation, read `remediation_due` for that repository and call
   `client.SignalWithStartWorkflow` once per due control with id
   `remediation/<repository id>/<slug>`, signal `recheck`, task queue
   `repo-guardian-remediate`, priority 3, `WorkflowIDReusePolicy`
   allowing a new run after completion. One activity per evaluation
   whatever the number of due controls (DESIGN-0032 A1).
+  Done: on `RemediationStarter` (beside IMPL-0028's `StartRemediations`,
+  kept for the sweep), reading `ControlsStore.DueRemediationsFor`.
+  `RemediateSignal` is now `"recheck"` (nothing ever sent `"remediate"`).
+  `TestStartDueRemediations`.
 - [ ] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
   `Record`; a deferred or discarded evaluation skips it. Behind one
   `workflow.GetVersion(ctx, "remediation-v1", workflow.DefaultVersion, 1)`

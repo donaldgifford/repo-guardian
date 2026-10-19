@@ -149,6 +149,33 @@ func (q *Queries) DueRemediations(ctx context.Context, batch int32) ([]Remediati
 	return items, nil
 }
 
+const dueRemediationsForRepository = `-- name: DueRemediationsForRepository :many
+SELECT repository_id, control_id, ordinal FROM remediation_due
+WHERE repository_id = $1
+ORDER BY ordinal
+`
+
+// What one evaluation hands to StartDueRemediations, in policy order.
+func (q *Queries) DueRemediationsForRepository(ctx context.Context, repositoryID int64) ([]RemediationDue, error) {
+	rows, err := q.db.Query(ctx, dueRemediationsForRepository, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RemediationDue
+	for rows.Next() {
+		var i RemediationDue
+		if err := rows.Scan(&i.RepositoryID, &i.ControlID, &i.Ordinal); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const expireReservations = `-- name: ExpireReservations :execrows
 DELETE FROM remediations WHERE state = 'reserved' AND reserved_until < $1::timestamptz
 `

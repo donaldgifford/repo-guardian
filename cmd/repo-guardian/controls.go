@@ -243,7 +243,7 @@ func registerEvaluation(
 
 	routing := activities.NewControlsRouter(st, snap, tc, queue, cfg.EvalInterval, logger)
 	activities.NewRouter(logger).WithControls(routing).WithAccessRecorder(routing).Register(w)
-	activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue).Register(w)
+	activities.NewRemediationStarter(tc, tcfg.RemediateTaskQueue, st).Register(w)
 
 	logger.Info("controls policy loaded", "path", cfg.GuardianConfigPath, "policy_version", snap.Version())
 

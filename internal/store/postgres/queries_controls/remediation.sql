@@ -172,3 +172,9 @@ UPDATE remediations r SET
     next_eligible_at  = v.closed_at + ps.reopen_after
 FROM repository_policy_state ps, v
 WHERE ps.repository_id = r.repository_id AND r.id = @id AND r.state = 'open';
+
+-- name: DueRemediationsForRepository :many
+-- What one evaluation hands to StartDueRemediations, in policy order.
+SELECT repository_id, control_id, ordinal FROM remediation_due
+WHERE repository_id = @repository_id
+ORDER BY ordinal;

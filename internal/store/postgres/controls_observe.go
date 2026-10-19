@@ -93,3 +93,19 @@ func observe(ctx context.Context, q *controlsdb.Queries, o *store.PRObservation)
 		RemediationID: o.RemediationID, Kind: remediationEventObserved, Detail: detail,
 	})
 }
+
+// DueRemediationsFor is remediation_due for one repository, read by the
+// evaluator after it records (IMPL-0030 2.5).
+func (s *ControlsStore) DueRemediationsFor(ctx context.Context, repoID int64) ([]store.DueRemediation, error) {
+	rows, err := s.q.DueRemediationsForRepository(ctx, repoID)
+	if err != nil {
+		return nil, fmt.Errorf("due remediations for %d: %w", repoID, err)
+	}
+
+	out := make([]store.DueRemediation, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.DueRemediation{RepositoryID: r.RepositoryID, ControlID: r.ControlID, Ordinal: int(r.Ordinal)})
+	}
+
+	return out, nil
+}

@@ -145,3 +145,52 @@ func TestEndpoints_ResultsPageThroughTies(t *testing.T) {
 		}
 	}
 }
+
+// TestEndpoints_ResultsPRStaleAndAge is IMPL-0030 7.13: b's open PR is
+// stale (opened 62 days before the handler clock), c's is not, widgets
+// has none; pr_stale splits them, sort=pr_age walks oldest PR first and
+// widgets last, and each row carries its latest remediation.
+func TestEndpoints_ResultsPRStaleAndAge(t *testing.T) {
+	t.Parallel()
+
+	e := newEndpoints(t)
+	e.f.openPR(t, e.ids["acme-pay/c"], 8)
+	run(t, e.f.dsns.Owner, `UPDATE remediations SET created_at = '2026-07-01T12:00:00Z' WHERE pr_number = 7`)
+	run(t, e.f.dsns.Owner, `UPDATE remediations SET created_at = '2026-08-20T12:00:00Z' WHERE pr_number = 8`)
+
+	for query, want := range map[string]int{"pr_stale=true": 1, "pr_stale=false": 2, "pr_stale=true&org=acme-pay": 0} {
+		page := decodeAs[gen.ResultPage](t, e.get(t, "/results?"+query, "platform"))
+		if len(page.Items) != want || page.Total == nil || *page.Total != want {
+			t.Errorf("/results?%s = %d items (total %v), want %d", query, len(page.Items), page.Total, want)
+		}
+	}
+
+	stale := decodeAs[gen.ResultPage](t, e.get(t, "/results?pr_stale=true", "platform")).Items[0]
+	if r := stale.Remediation; stale.Repository != "b" || r == nil || r.State != "open" || r.PrNumber == nil ||
+		*r.PrNumber != 7 || r.AgeDays != 62 {
+		t.Errorf("stale row = %+v (remediation %+v), want b with open PR #7 aged 62 days", stale, stale.Remediation)
+	}
+
+	var order []string
+
+	next := "/results?sort=pr_age&limit=1"
+	for i := 0; next != "" && i < 5; i++ {
+		page := decodeAs[gen.ResultPage](t, e.get(t, next, "platform"))
+		for _, r := range page.Items {
+			order = append(order, r.Repository)
+		}
+
+		next = ""
+		if page.NextCursor != nil {
+			next = "/results?sort=pr_age&limit=1&cursor=" + url.QueryEscape(*page.NextCursor)
+		}
+	}
+
+	if len(order) != 3 || order[0] != "b" || order[1] != "c" || order[2] != "widgets" {
+		t.Errorf("sort=pr_age walked %v, want [b c widgets]", order)
+	}
+
+	if r := e.get(t, "/results?sort=pr_ages", "platform"); r.Status != http.StatusBadRequest {
+		t.Errorf("sort=pr_ages = %d, want 400", r.Status)
+	}
+}

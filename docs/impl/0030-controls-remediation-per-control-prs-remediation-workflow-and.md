@@ -774,7 +774,7 @@ Every new query lives in an `api_*.sql` file so
   of open pull-request remediations by `created_at`).
 - [x] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
   `[{day, opened, closed}]` (opened by `created_at`, closed by `closed_at`, per UTC day, scoped).
-- [ ] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
+- [x] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
   PR number/url, age). `sort=pr_age` joins the `/results` sorts; `pr_stale` is open pull-request
   remediations at least 30 days old.
 - [ ] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed

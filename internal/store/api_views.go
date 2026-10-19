@@ -279,6 +279,22 @@ type ResultRow struct {
 	FailingRules  []string
 	Reason        string
 	LastChangedAt time.Time
+	// Remediation is the control's latest remediation, nil when it has
+	// none.
+	Remediation *ResultRemediation
+	// SortAt is the row's paging key: LastChangedAt, or under PRAge the
+	// open pull request's created_at.
+	SortAt time.Time
+}
+
+// ResultRemediation is the part of a result's latest remediation the
+// results list shows.
+type ResultRemediation struct {
+	Kind      string
+	State     string
+	PRNumber  *int
+	PRURL     string
+	CreatedAt time.Time
 }
 
 // ResultKey orders /results for paging.
@@ -297,7 +313,15 @@ type ResultFilter struct {
 	Decision  string
 	// RuleID keeps results where this rule fails or errors.
 	RuleID string
-	// Descending sorts newest change first.
+	// PRStale keeps results whose latest remediation is an open pull
+	// request created at or before StaleBefore (true), or those whose is
+	// not (false).
+	PRStale     *bool
+	StaleBefore time.Time
+	// PRAge sorts by the open pull request's created_at, oldest first,
+	// results with none last, in place of the last change.
+	PRAge bool
+	// Descending reverses the sort: newest change first.
 	Descending bool
 	After      *ResultKey
 	Limit      int

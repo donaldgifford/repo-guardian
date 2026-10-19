@@ -874,6 +874,19 @@ export interface components {
             reason?: string;
             /** Format: date-time */
             last_changed_at: string;
+            remediation?: components["schemas"]["ResultRemediation"];
+        };
+        /** @description A result's latest remediation, absent when its control has none. */
+        ResultRemediation: {
+            /** @description Open enum: pull_request, api. */
+            kind: string;
+            state: components["schemas"]["RemediationState"];
+            pr_number?: number;
+            pr_url?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Whole days since it was created. */
+            age_days: number;
         };
         /** @description A page of results. */
         ResultPage: {
@@ -1521,8 +1534,17 @@ export interface operations {
                 org?: string;
                 /** @description Only this assignment decision. Open enum: baseline, replaced, org_added, excluded. */
                 decision?: string;
-                /** @description By last change, oldest first (since_asc) or newest first (since_desc). */
-                sort?: "since_asc" | "since_desc";
+                /**
+                 * @description true keeps results whose latest remediation is an open pull
+                 *     request opened at least 30 days ago; false keeps the rest.
+                 */
+                pr_stale?: boolean;
+                /**
+                 * @description By last change, oldest first (since_asc) or newest first
+                 *     (since_desc), or by the open pull request's age, oldest
+                 *     pull request first and results with none last (pr_age).
+                 */
+                sort?: "since_asc" | "since_desc" | "pr_age";
                 /** @description The next_cursor of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size. */

@@ -27,7 +27,7 @@ func (r *APIReader) Results(ctx context.Context, scope store.APIScope, f *store.
 	params := controlsdb.APIResultsParams{
 		ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Org: optString(f.Org), ControlID: optString(f.ControlID),
 		Decision: optString(f.Decision), RuleID: optString(f.RuleID), Bucket: optString(f.Bucket),
-		Descending: f.Descending, PageLimit: pageLimit(f.Limit),
+		PrStale: f.PRStale, StaleBefore: f.StaleBefore, PrAge: f.PRAge, Descending: f.Descending, PageLimit: pageLimit(f.Limit),
 	}
 
 	if a := f.After; a != nil {
@@ -50,6 +50,7 @@ func (r *APIReader) Results(ctx context.Context, scope store.APIScope, f *store.
 				RepositoryID: row.RepositoryID, Org: row.Org, Repository: row.Name, ControlID: row.ControlID,
 				ControlVersion: int(row.ControlVersion), Decision: row.Decision, Status: row.Status, Bucket: row.Bucket,
 				FailingRules: row.FailingRules, Reason: row.Reason, LastChangedAt: row.LastChangedAt,
+				Remediation: resultRemediation(row), SortAt: row.SortAt,
 			})
 		}
 
@@ -59,7 +60,8 @@ func (r *APIReader) Results(ctx context.Context, scope store.APIScope, f *store.
 
 		total, err := q.APIResultsTotal(ctx, controlsdb.APIResultsTotalParams{
 			ScopeAll: params.ScopeAll, ScopeOrgs: params.ScopeOrgs, Org: params.Org, ControlID: params.ControlID,
-			Decision: params.Decision, RuleID: params.RuleID, Bucket: params.Bucket,
+			Decision: params.Decision, RuleID: params.RuleID, Bucket: params.Bucket, PrStale: params.PrStale,
+			StaleBefore: params.StaleBefore,
 		})
 		if err != nil {
 			return fmt.Errorf("results total: %w", err)
@@ -77,4 +79,21 @@ func (r *APIReader) Results(ctx context.Context, scope store.APIScope, f *store.
 	p.Page = page(items, f.Limit)
 
 	return p, nil
+}
+
+func resultRemediation(row *controlsdb.APIResultsRow) *store.ResultRemediation {
+	if row.RemediationKind == "" {
+		return nil
+	}
+
+	out := &store.ResultRemediation{
+		Kind: row.RemediationKind, State: row.RemediationState, PRURL: derefOr(row.PrUrl), CreatedAt: row.RemediationCreatedAt,
+	}
+
+	if row.PrNumber != nil {
+		n := int(*row.PrNumber)
+		out.PRNumber = &n
+	}
+
+	return out
 }

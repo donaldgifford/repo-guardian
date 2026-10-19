@@ -451,7 +451,7 @@ human required`.
   budget workflow at id `installation/remediate/<installation id>`
   (the app-dimensioned id from IMPL-0028), with `DefaultLeaseTTL`
   sized to cover the remediation activities' `ScheduleToClose`.
-- [ ] 3.5 Epoch fence helper `fence(ctx, repo, control, epoch)`:
+- [x] 3.5 Epoch fence helper `fence(ctx, repo, control, epoch)`:
   re-reads `effective_mode`, `remediable`, the write set and `epoch`
   and returns `ErrStaleEpoch` when any changed. Called immediately
   before every external write in Phases 4 and 5; a lint-style test

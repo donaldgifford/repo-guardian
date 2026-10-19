@@ -197,7 +197,18 @@ function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
     { key: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
     ...(r.policy_reason ? [{ key: "policy reason", value: r.policy_reason }] : []),
     { key: "evaluable", value: r.evaluable ? "yes" : "no" },
-    { key: "remediable", value: r.remediable ? "yes" : "no" },
+    {
+      key: "remediable",
+      // INV-0023 F4: "no" here is about App access, while a rule's
+      // "Remediable rule" is about the rule, so say which one this is.
+      value: r.remediable ? (
+        "yes"
+      ) : (
+        <span>
+          no<span className="block text-xs text-muted-foreground">Remediation App has no access to this repository</span>
+        </span>
+      ),
+    },
     { key: "discovered", value: <Time iso={r.discovered_at} style="date" /> },
     { key: "next due", value: r.next_due_at ? <Time iso={r.next_due_at} style="relative" /> : "—" },
   ];
@@ -251,7 +262,7 @@ const ruleColumns: Column<Schemas["RuleResult"]>[] = [
   { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
   { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
   { key: "evidence", header: "Evidence", cell: (r) => <EvidenceText evidence={r.evidence} /> },
-  { key: "remediate", header: "Remediates", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
+  { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
 ];
 
 function outcomeTone(outcome: string): "ok" | "bad" | "mute" {

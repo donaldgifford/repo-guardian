@@ -201,7 +201,7 @@ status screenshot. UI-only, no new API, branched from `v2` now.
   have the repository view set `org/name` from `useRepository`. The
   crumb falls back to the param while loading, or reads `…` for
   numeric params. Unit test: the crumb reads `acme/widgets`, never `1`.
-- [ ] 1.4 **Remediable wording (INV-0023 F4).** Rename the rule column
+- [x] 1.4 **Remediable wording (INV-0023 F4).** Rename the rule column
   `Remediates` to `Remediable rule`. Under `remediable no`, the facts
   card adds the hint "Remediation App has no access to this
   repository", as the mockup draws it.

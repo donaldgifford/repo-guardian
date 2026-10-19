@@ -18,9 +18,8 @@ const (
 	WebhookWorkflowName      = "WebhookWorkflow"
 
 	// RemediationWorkflowName is the per-(repository, control)
-	// remediation run on the remediation queue (DESIGN-0032). IMPL-0030
-	// implements it; the name is fixed now so StartRemediations can
-	// target it.
+	// remediation run on the remediation queue (DESIGN-0032, IMPL-0030
+	// Phase 3).
 	RemediationWorkflowName = "RemediationWorkflow"
 
 	// The controls evaluation workflows (IMPL-0029 Phase 5), on the
@@ -46,6 +45,11 @@ const (
 	// SetNextDueActivity persists an evaluation loop's next due time, as a
 	// local activity (IMPL-0030 2.9, OQ17).
 	SetNextDueActivity = "SetNextDue"
+
+	// The remediation activities (IMPL-0030 Phase 3), registered only on
+	// the remediator worker.
+	RemediateActivity            = "Remediate"
+	ReadRemediationStateActivity = "ReadRemediationState"
 
 	// The controls evaluation activities (IMPL-0029 Phase 5).
 	EvaluateActivity                  = "Evaluate"

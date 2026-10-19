@@ -138,6 +138,8 @@ type RemediationInput struct {
 	RepositoryID   int64
 	Control        string
 	InstallationID int64
+	// Priority orders the run's tasks; zero is PrioritySchedule.
+	Priority Priority `json:",omitempty"`
 }
 
 // Remediate is RemediateSignal's payload. It carries nothing the run

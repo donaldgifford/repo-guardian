@@ -90,7 +90,9 @@ func (s *RemediationStarter) StartRemediations(ctx context.Context, starts []wor
 				WorkflowIDReusePolicy: enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE,
 			},
 			workflows.RemediationWorkflowName,
-			&workflows.RemediationInput{RepositoryID: st.RepositoryID, Control: st.Control, InstallationID: st.InstallationID})
+			&workflows.RemediationInput{
+				RepositoryID: st.RepositoryID, Control: st.Control, InstallationID: st.InstallationID, Priority: st.Priority,
+			})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("start %s: %w", id, err))
 		}

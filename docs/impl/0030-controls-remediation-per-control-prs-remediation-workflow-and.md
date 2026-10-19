@@ -432,7 +432,7 @@ human required`.
 
 #### Tasks
 
-- [ ] 3.1 `internal/workflows/remediation.go`: `RemediationWorkflow`
+- [x] 3.1 `internal/workflows/remediation.go`: `RemediationWorkflow`
   with a `recheck` signal channel and a `recheckPending` flag. A run
   loops: run one remediation (activities below), drain signals, re-read
   `eval_generation`, `intent_revision` and `observed_head_sha` through

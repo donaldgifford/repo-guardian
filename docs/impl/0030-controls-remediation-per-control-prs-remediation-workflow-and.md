@@ -442,12 +442,12 @@ human required`.
   remediator worker (`repo-guardian-remediate`, worker deployment
   `repo-guardian-remediate`); a depguard or registration test proves
   the evaluator never registers them.
-- [ ] 3.3 Activity options: every remediation activity heartbeats and
+- [x] 3.3 Activity options: every remediation activity heartbeats and
   carries a `ScheduleToClose` timeout; `StartToClose` below it; retry
   policy non-retryable on `ErrOperationHeld`, `ErrStaleEpoch` and
   holds. The activity exits cleanly when `ClaimOperation` returns
   `ErrOperationHeld`.
-- [ ] 3.4 Budget: the remediation run acquires the per-installation
+- [x] 3.4 Budget: the remediation run acquires the per-installation
   budget workflow at id `installation/remediate/<installation id>`
   (the app-dimensioned id from IMPL-0028), with `DefaultLeaseTTL`
   sized to cover the remediation activities' `ScheduleToClose`.

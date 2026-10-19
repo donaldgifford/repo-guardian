@@ -268,12 +268,16 @@ human required`.
   (`TestHalfSizing`); `store_pool_wait_seconds{role}` was already
   produced by the pool tracer (`observability.InstrumentPostgresConfig`).
   Chart `remediator.dbPoolSize` comment updated.
-- [ ] 1.10 `remediation_due` truth table as SQL against the view
+- [x] 1.10 `remediation_due` truth table as SQL against the view
   (DESIGN-0032 Testing Strategy): policy state, assignment state and
   epoch, effective mode and reason, status, remediable, generations
   including the first-evaluation `1 > 0` row, intent revision, latest
   state, observed versus acknowledged head, `closed_generation`,
   `next_eligible_at`.
+  Done: `TestRemediationDue_TruthTable` (24 rows, each in a rolled-back
+  owner transaction over one recorded fixture) plus
+  `TestRemediationMaintenance_Actions`, which pins 1.3 and 00005's
+  evaluate-downgrade withdraw.
 - [ ] 1.11 Grant tests through the extended `pgtest` harness, run as
   `rg_remediator` and never as the owner: every stated transaction
   succeeds (reservation, claim, step, record, hold, expiry); every

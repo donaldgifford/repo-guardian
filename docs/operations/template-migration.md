@@ -170,4 +170,4 @@ rollbacks don't require coordinated binary rollbacks.
 - [IMPL-0012](../impl/0012-customizable-pr-templates-and-extensible-template-configmap.md) — full implementation plan
 - [DESIGN-0013](../design/0013-customizable-pr-templates-and-extensible-template-configmap.md) — design rationale
 - [docs/ADDING_RULES.md "Customizing PR text"](../ADDING_RULES.md#customizing-pr-text) — operator-facing reference
-- [`charts/repo-guardian/docs/homelab-smoke.md`](../../charts/repo-guardian/docs/homelab-smoke.md) — copy-pasteable smoke runbook for chart 0.4.0
+- [`charts/repo-guardian/docs/homelab-smoke.md`](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/docs/homelab-smoke.md) — copy-pasteable smoke runbook for chart 0.4.0

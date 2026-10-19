@@ -130,6 +130,10 @@ nav:
         - Webhook ingress: operations/ingress.md
         - repo-guardian GitHub App — Enterprise Setup Guide: operations/ent-setup.md
         - repo-guardian and v2 at a glance: operations/v2-overview.md
+# docs/README.md is the GitHub landing page; index.md is the site's.
+exclude_docs: |
+  /README.md
+
 plugins:
     - techdocs-core
 site_description: Documentation for repo-guardian

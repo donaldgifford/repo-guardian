@@ -214,5 +214,5 @@ so rollback does not blind you to drift.
 
 - [INV-0005](../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md) — bug investigation.
 - [IMPL-0013](../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied.md) — implementation plan.
-- [contrib/README.md](../../contrib/README.md) — PromQL recipes for the new metrics.
-- [examples/guardian-full.hcl](../../examples/guardian-full.hcl) — the `auto_close_pr` knob documented inline.
+- [contrib/README.md](https://github.com/donaldgifford/repo-guardian/blob/main/contrib/README.md) — PromQL recipes for the new metrics.
+- [examples/guardian-full.hcl](https://github.com/donaldgifford/repo-guardian/blob/main/examples/guardian-full.hcl) — the `auto_close_pr` knob documented inline.

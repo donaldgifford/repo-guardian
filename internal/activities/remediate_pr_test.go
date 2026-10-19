@@ -155,6 +155,37 @@ func (m *memRemediationStore) ReserveSlot(_ context.Context, in *store.SlotReque
 	return &out, nil
 }
 
+func (m *memRemediationStore) InsertAPIRemediation(_ context.Context, in *store.APIRemediation) (*store.Remediation, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, r := range m.rows {
+		if r.OperationKey == in.OperationKey {
+			out := *r
+
+			return &out, nil
+		}
+	}
+
+	for _, r := range m.rows {
+		if r.ControlID == in.ControlID &&
+			slices.Contains([]string{store.StateReserved, store.StateOpen, store.StateRecommended, store.StateFailed}, r.State) {
+			return nil, fmt.Errorf("remediations_one_open: %s already has row %d", in.ControlID, r.ID)
+		}
+	}
+
+	r := &store.Remediation{
+		ID: int64(len(m.rows) + 1), RepositoryID: in.RepositoryID, ControlID: in.ControlID, AssignmentEpoch: in.Epoch,
+		OperationKey: in.OperationKey, Kind: store.RemediationAPI, State: in.State, IntentRevision: in.Intent,
+		Proposal: in.Proposal, RemediatedGeneration: in.Generation,
+	}
+	m.rows = append(m.rows, r)
+
+	out := *r
+
+	return &out, nil
+}
+
 type memClaim struct {
 	m   *memRemediationStore
 	row store.Remediation
@@ -347,16 +378,31 @@ func filePolicy(t *testing.T, paths map[string]string) *policy.Snapshot {
 	return snap
 }
 
-type ghfakeRemediationRepo struct{ c *ghfake.Client }
+type ghfakeRemediationRepo struct {
+	c    *ghfake.Client
+	wrap func(control.Writer) control.Writer
+}
 
-func (r ghfakeRemediationRepo) Writer() control.Writer           { return r.c }
+func (r ghfakeRemediationRepo) Writer() control.Writer {
+	if r.wrap != nil {
+		return r.wrap(r.c)
+	}
+
+	return r.c
+}
+
 func (r ghfakeRemediationRepo) Reader(sha string) control.Reader { return r.c.At(sha) }
 func (r ghfakeRemediationRepo) Observer() control.PRObserver     { return r.c }
 
-type ghfakeRemediationClients struct{ repo *ghfake.Repo }
+// ghfakeRemediationClients opens the repository as the bot; wrap, when
+// set, decorates the Writer.
+type ghfakeRemediationClients struct {
+	repo *ghfake.Repo
+	wrap func(control.Writer) control.Writer
+}
 
-func (f ghfakeRemediationClients) Repo(context.Context, int64, string, string) (RemediationRepo, error) {
-	return ghfakeRemediationRepo{f.repo.As(prBot)}, nil
+func (f *ghfakeRemediationClients) Repo(context.Context, int64, string, string) (RemediationRepo, error) {
+	return ghfakeRemediationRepo{c: f.repo.As(prBot), wrap: f.wrap}, nil
 }
 
 // prHarness is one repository, the remediator over the in-memory store,
@@ -373,12 +419,24 @@ type prHarness struct {
 func newPRHarness(t *testing.T, limit int, paths, files map[string]string) *prHarness {
 	t.Helper()
 
+	slugs := make([]string, 0, len(paths))
+	for slug := range paths {
+		slugs = append(slugs, slug)
+	}
+
+	return newHarness(t, limit, filePolicy(t, paths), slugs, files)
+}
+
+// newHarness assigns slugs from snap to one repository holding files,
+// each due at generation 1.
+func newHarness(t *testing.T, limit int, snap *policy.Snapshot, slugs []string, files map[string]string) *prHarness {
+	t.Helper()
+
 	gh := ghfake.New()
 	repo := gh.AddRepo("acme", "svc", prRepoID, files)
 	st := newMemStore(limit)
-	snap := filePolicy(t, paths)
 
-	for slug := range paths {
+	for _, slug := range slugs {
 		id := control.ID{Slug: slug, Version: 1}
 		st.targets[slug] = &store.RemediationTarget{
 			Org: "acme", Name: "svc", Active: true, Epoch: 1, State: assignmentActive, EffectiveMode: modeRemediate, Revision: snap.Revision(id),
@@ -387,13 +445,10 @@ func newPRHarness(t *testing.T, limit int, paths, files map[string]string) *prHa
 		}
 	}
 
-	r := NewRemediator(
-		st,
-		snap,
-		ghfakeRemediationClients{repo: repo},
-		ghclient.BotIdentity{ID: prBot.ID, Login: prBot.Login},
-		slog.New(slog.DiscardHandler),
-	)
+	r := NewRemediator(&RemediatorConfig{
+		Store: st, Policy: snap, Types: builtin.Registry(), Clients: &ghfakeRemediationClients{repo: repo},
+		Bot: ghclient.BotIdentity{ID: prBot.ID, Login: prBot.Login}, Logger: slog.New(slog.DiscardHandler),
+	})
 
 	return &prHarness{t: t, gh: gh, repo: repo, st: st, r: r}
 }

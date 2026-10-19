@@ -13,6 +13,7 @@ import (
 
 	"github.com/donaldgifford/repo-guardian/internal/activities"
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/controls/builtin"
 	ghclient "github.com/donaldgifford/repo-guardian/internal/github"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
@@ -279,9 +280,44 @@ func registerRemediation(ctx context.Context, cfg *config.Config, w worker.Regis
 	}
 
 	logger.Info("remediation app bot user", "login", bot.Login, "id", bot.ID)
-	activities.NewRemediator(pgstore.NewRemediationStore(pool), snap, activities.NewGitHubRemediationClients(app), bot, logger).Register(w)
+	logger.Info("Remediation App permissions required", "app", config.AppRemediate,
+		"permissions", permissionStrings(remediationPermissions(snap)))
+
+	activities.NewRemediator(&activities.RemediatorConfig{
+		Store: pgstore.NewRemediationStore(pool), Policy: snap, Types: builtin.Registry(),
+		Clients: activities.NewGitHubRemediationClients(app), Bot: bot, Logger: logger,
+	}).Register(w)
 
 	return nil
+}
+
+// remediationPermissions derives the Remediation App's permission set
+// from the loaded policy (IMPL-0030 5.6): write on every API resource a
+// direct control writes, and Workflows write only when a control writes
+// under .github/workflows/ (a workflow-apply control, or a file control
+// whose file lives there). GitHub refuses those commits on Contents
+// write alone.
+func remediationPermissions(snap *policy.Snapshot) []control.Permission {
+	var (
+		resources      []string
+		writesWorkflow bool
+	)
+
+	for _, id := range snap.Controls() {
+		def, _ := snap.Definition(id)
+		writesWorkflow = writesWorkflow || def.Apply == control.ApplyWorkflow
+
+		for _, res := range snap.Control(id).Owns() {
+			switch {
+			case res.Kind == control.KindFile:
+				writesWorkflow = writesWorkflow || strings.HasPrefix(res.Key, ".github/workflows/")
+			case def.Apply == control.ApplyDirect:
+				resources = append(resources, control.PermissionResource(res.Kind))
+			}
+		}
+	}
+
+	return control.RemediationPermissions(resources, writesWorkflow)
 }
 
 // start reconciles the evaluator's Schedules and starts the rollout of

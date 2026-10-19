@@ -81,7 +81,9 @@ func TestIntegration_OneRemediation(t *testing.T) {
 	}
 
 	activities.NewBudget(srv.Client, workflows.AppRemediate, queue, 0.10).Register(w)
-	activities.NewRemediator(remediableStore{}, nil, fakeClients{repo: repo, actor: bot}, ghclient.BotIdentity{ID: bot.ID, Login: bot.Login}, quiet).Register(w)
+	activities.NewRemediator(&activities.RemediatorConfig{
+		Store: remediableStore{}, Clients: fakeClients{repo: repo, actor: bot}, Bot: ghclient.BotIdentity{ID: bot.ID, Login: bot.Login}, Logger: quiet,
+	}).Register(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("start worker: %v", err)

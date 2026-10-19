@@ -598,3 +598,52 @@ func TestRemediationStore_PullRequestPathReads(t *testing.T) {
 		t.Error("last_remediation_at not stamped")
 	}
 }
+
+// TestRemediationStore_APIRemediation is IMPL-0030 5.1-5.3's store side:
+// an API row holds the one-open slot but never the PR cap, a retried key
+// returns its row, and a superseded recommendation releases the slot for
+// the direct apply that follows.
+func TestRemediationStore_APIRemediation(t *testing.T) {
+	f := newRemediationFixture(t)
+	ctx := t.Context()
+	epoch := epochOf(t, f.dsns.Owner, f.repoID)
+
+	// A cap of zero: the PR path could reserve nothing.
+	run(t, f.dsns.Owner, `UPDATE repository_policy_state SET max_open_prs = 0`)
+
+	rec := &store.APIRemediation{
+		RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "api-1", State: store.StateRecommended,
+		Intent: "i1", Generation: 1, Proposal: []byte(`[{"key":"setting:has_wiki","before":true,"after":false}]`),
+	}
+
+	row, err := f.r.InsertAPIRemediation(ctx, rec)
+	if err != nil || row.Kind != store.RemediationAPI || row.State != store.StateRecommended || len(row.Proposal) == 0 {
+		t.Fatalf("InsertAPIRemediation = %+v, %v; want a recommended api row with its proposal", row, err)
+	}
+
+	if again, err := f.r.InsertAPIRemediation(ctx, rec); err != nil || again.ID != row.ID {
+		t.Fatalf("retried InsertAPIRemediation = %+v, %v; want row %d", again, err, row.ID)
+	}
+
+	direct := &store.APIRemediation{
+		RepositoryID: f.repoID, ControlID: "codeowners", Epoch: epoch, OperationKey: "api-2", State: store.StateFailed, Intent: "i2", Generation: 1,
+	}
+
+	if _, err := f.r.InsertAPIRemediation(ctx, direct); err == nil {
+		t.Fatal("a second open api row was inserted beside the recommendation")
+	}
+
+	err = f.r.ClaimOperation(ctx, "api-1", func(ctx context.Context, op store.ClaimedOperation) error {
+		r := op.Remediation()
+		r.State = store.StateSuperseded
+
+		return op.Update(ctx, &r)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := f.r.InsertAPIRemediation(ctx, direct); err != nil || got.State != store.StateFailed {
+		t.Fatalf("direct after supersede = %+v, %v; want a failed (resumable) row", got, err)
+	}
+}

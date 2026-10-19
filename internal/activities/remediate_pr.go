@@ -1,6 +1,7 @@
 package activities
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1" //nolint:gosec // git object ids are sha1
 	"encoding/hex"
@@ -45,7 +46,9 @@ func branchName(slug string) string { return workflows.RemediationBranchPrefix +
 
 // pullRequest runs one remediation of a file control by pull request
 // (IMPL-0030 Phase 4, DESIGN-0032 § What one run does).
-func (r *Remediator) pullRequest(ctx context.Context, run *remediationRun) error {
+// With wf set the control's API changes travel as its workflow file
+// (apply = "workflow", IMPL-0030 5.4).
+func (r *Remediator) pullRequest(ctx context.Context, run *remediationRun, wf control.WorkflowApply) error {
 	t := run.target
 	if !t.Due {
 		return nil
@@ -68,7 +71,7 @@ func (r *Remediator) pullRequest(ctx context.Context, run *remediationRun) error
 		return err
 	}
 
-	pr := &prRun{remediationRun: run, r: r, branch: branch, main: main, mainSHA: mainSHA}
+	pr := &prRun{remediationRun: run, r: r, branch: branch, main: main, mainSHA: mainSHA, workflow: wf}
 
 	switch {
 	case latest != nil && latest.State == store.StateOpen && latest.PRNumber != 0 && latest.Branch == branch:
@@ -113,6 +116,9 @@ type prRun struct {
 	r             *Remediator
 	branch        string
 	main, mainSHA string
+
+	// workflow turns the API changes into the control's workflow file.
+	workflow control.WorkflowApply
 }
 
 // proposal is a fresh evaluation and the change it proposes.
@@ -236,7 +242,7 @@ func (p *prRun) commitOnce(ctx context.Context, row *store.Remediation, steps []
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("commit: %w", err)
+		return "", p.commitError(err)
 	}
 
 	p.journalFiles(ctx, row.ID, stepCommitted, sha, prop.cs.Files)
@@ -548,7 +554,7 @@ func (p *prRun) commitDelta(
 	}
 
 	if err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return p.commitError(err)
 	}
 
 	p.journalFiles(ctx, row.ID, stepCommitted, sha, prop.cs.Files)
@@ -673,11 +679,63 @@ func (p *prRun) propose(ctx context.Context, sha string) (*proposal, error) {
 		return nil, fmt.Errorf("change set of %s: %w", p.in.Control, err)
 	}
 
+	if p.workflow != nil {
+		// The workflow applies the change on merge, so the changed
+		// content cannot pass before then: no self-check.
+		if err := p.asWorkflow(ctx, sha, &cs); err != nil {
+			return nil, err
+		}
+
+		return &proposal{ev: ev, cs: cs}, nil
+	}
+
 	if err := p.selfCheck(ctx, sha, ev, &cs); err != nil {
 		return nil, err
 	}
 
 	return &proposal{ev: ev, cs: cs}, nil
+}
+
+// asWorkflow replaces the API changes with the control's workflow file
+// (IMPL-0030 5.4), dropped when sha already carries it byte for byte.
+// Property values reach the workflow only through its env block
+// (IMPL-0020 A2), which WorkflowFile renders.
+func (p *prRun) asWorkflow(ctx context.Context, sha string, cs *control.ChangeSet) error {
+	if len(cs.API) == 0 {
+		return nil
+	}
+
+	f, err := p.workflow.WorkflowFile(p.def, cs.API)
+	if err != nil {
+		return fmt.Errorf("workflow file of %s: %w", p.in.Control, err)
+	}
+
+	cs.API = nil
+
+	current, _, found, err := p.repo.Reader(sha).GetContents(ctx, f.Path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", f.Path, err)
+	}
+
+	if !found || !bytes.Equal(current, f.Content) {
+		cs.Files = append(cs.Files, f)
+	}
+
+	return nil
+}
+
+// commitError names the Workflows permission when GitHub refuses a
+// workflow file commit (IMPL-0030 5.4): Contents write alone is not
+// enough under .github/workflows/.
+func (p *prRun) commitError(err error) error {
+	if p.workflow != nil && accessDenied(err) {
+		return &holdError{
+			hold:  store.HoldPermission,
+			cause: fmt.Errorf("the Remediation App needs the Workflows: write permission to commit its workflow file: %w", err),
+		}
+	}
+
+	return fmt.Errorf("commit: %w", err)
 }
 
 // selfCheck evaluates the changed content and refuses a change set

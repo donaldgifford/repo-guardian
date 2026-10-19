@@ -53,6 +53,7 @@ func (e *deferError) Error() string { return "remediation deferred: " + e.reason
 type RemediationStore interface {
 	RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*store.RemediationTarget, error)
 	SetHold(ctx context.Context, repositoryID int64, controlID string, epoch int64, hold string) (bool, error)
+	InsertAPIRemediation(ctx context.Context, in *store.APIRemediation) (*store.Remediation, error)
 	LatestRemediation(ctx context.Context, repositoryID int64, controlID string) (*store.Remediation, error)
 	ReserveSlot(ctx context.Context, in *store.SlotRequest) (*store.Remediation, error)
 	ClaimOperation(ctx context.Context, operationKey string, fn func(ctx context.Context, op store.ClaimedOperation) error) error
@@ -69,6 +70,13 @@ type RemediationPolicy interface {
 	Control(id control.ID) control.Control
 	Definition(id control.ID) (control.Definition, bool)
 	Revision(id control.ID) string
+}
+
+// TypeLookup finds a control type by name; *control.Registry satisfies
+// it. The remediator dispatches on the type: an APIType remediates by
+// API (recommend, direct) or, with WorkflowApply, by a workflow PR.
+type TypeLookup interface {
+	Type(name string) (control.Type, bool)
 }
 
 // RemediationClients opens a repository as the Remediation App.
@@ -94,6 +102,7 @@ type remediationAct func(ctx context.Context, run *remediationRun) error
 type Remediator struct {
 	store   RemediationStore
 	policy  RemediationPolicy
+	types   TypeLookup
 	clients RemediationClients
 	bot     ghclient.BotIdentity
 	logger  *slog.Logger
@@ -103,32 +112,61 @@ type Remediator struct {
 	act remediationAct
 }
 
-// NewRemediator returns the remediation activities over st and the
-// loaded policy as the Remediation App, whose bot identity was resolved
-// at startup.
-func NewRemediator(
-	st RemediationStore, pol RemediationPolicy, clients RemediationClients, bot ghclient.BotIdentity, logger *slog.Logger,
-) *Remediator {
-	r := &Remediator{store: st, policy: pol, clients: clients, bot: bot, logger: logger, now: time.Now}
+// RemediatorConfig is what the remediation activities run with.
+type RemediatorConfig struct {
+	Store   RemediationStore
+	Policy  RemediationPolicy
+	Types   TypeLookup
+	Clients RemediationClients
+	// Bot is the Remediation App's bot user, resolved at startup.
+	Bot    ghclient.BotIdentity
+	Logger *slog.Logger
+}
+
+// NewRemediator returns the remediation activities as the Remediation
+// App.
+func NewRemediator(cfg *RemediatorConfig) *Remediator {
+	r := &Remediator{
+		store: cfg.Store, policy: cfg.Policy, types: cfg.Types, clients: cfg.Clients, bot: cfg.Bot, logger: cfg.Logger, now: time.Now,
+	}
 	r.act = r.dispatch
 
 	return r
 }
 
-// dispatch runs the control's remediation: a file control by pull
-// request (IMPL-0030 Phase 4); an API control is Phase 5's. A control
-// whose loaded revision is not the assignment's waits for the rollout
-// to re-resolve it.
+// dispatch runs the control's remediation by its type: a file type by
+// pull request (IMPL-0030 Phase 4); an APIType by its apply value
+// (Phase 5): recommend (the default) or direct through the API, or
+// workflow as a pull request carrying the workflow file. A control whose
+// loaded revision is not the assignment's waits for the rollout to
+// re-resolve it.
 func (r *Remediator) dispatch(ctx context.Context, run *remediationRun) error {
 	if run.control == nil {
 		return nil
 	}
 
-	if _, api := run.control.(control.APIType); api || run.def.Apply != "" {
-		return nil
+	var typ control.Type
+	if r.types != nil {
+		typ, _ = r.types.Type(run.def.Type)
 	}
 
-	return r.pullRequest(ctx, run)
+	if _, api := typ.(control.APIType); !api {
+		return r.pullRequest(ctx, run, nil)
+	}
+
+	switch run.def.Apply {
+	case control.ApplyWorkflow:
+		wf, ok := typ.(control.WorkflowApply)
+		if !ok {
+			return fmt.Errorf("%s: type %s has no workflow apply", run.def.ID, run.def.Type)
+		}
+
+		return r.pullRequest(ctx, run, wf)
+	case control.ApplyDirect:
+		return r.api(ctx, run, true)
+	default:
+		return r.api(ctx, run, false)
+	}
 }
 
 // Register registers the remediation activities on the remediator
@@ -242,7 +280,7 @@ func (r *Remediator) classify(
 		log.Info("deferring remediation", "reason", deferred.reason, "due", out.Until, "deferrals", in.Deferrals)
 
 		return out, nil
-	case ghclient.IsAccessDenied(err):
+	case accessDenied(err):
 		held = &holdError{hold: store.HoldPermission, cause: err}
 	case errors.Is(err, ErrStaleEpoch):
 		out.Kind = workflows.RemediationStale
@@ -266,6 +304,12 @@ func (r *Remediator) classify(
 	out.Kind, out.Hold = workflows.RemediationHeld, held.hold
 
 	return out, nil
+}
+
+// accessDenied reports whether err is the Remediation App losing access:
+// a 403/404 from REST, or a write the Writer reports forbidden.
+func accessDenied(err error) bool {
+	return ghclient.IsAccessDenied(err) || errors.Is(err, control.ErrPermission)
 }
 
 // ReadRemediationState re-reads what RemediationWorkflow compares after a

@@ -190,6 +190,44 @@ func (q *Queries) ExpireReservations(ctx context.Context, now time.Time) (int64,
 	return result.RowsAffected(), nil
 }
 
+const insertAPIRemediation = `-- name: InsertAPIRemediation :exec
+INSERT INTO remediations (
+    repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
+    proposal, remediated_generation, created_at, last_run_at)
+VALUES (
+    $1, $2, $3, $4, 'api', $5, $6,
+    $7, $8, now(), now())
+ON CONFLICT (operation_key) DO NOTHING
+`
+
+type InsertAPIRemediationParams struct {
+	RepositoryID         int64
+	ControlID            string
+	AssignmentEpoch      int64
+	OperationKey         string
+	State                string
+	IntentRevision       string
+	Proposal             json.RawMessage
+	RemediatedGeneration int64
+}
+
+// An API remediation (IMPL-0030 Phase 5): a recommendation, or a direct
+// apply written failed until every step is done, so a crash at any point
+// leaves a resumable row. It holds the one-open slot, never the PR cap.
+func (q *Queries) InsertAPIRemediation(ctx context.Context, arg InsertAPIRemediationParams) error {
+	_, err := q.db.Exec(ctx, insertAPIRemediation,
+		arg.RepositoryID,
+		arg.ControlID,
+		arg.AssignmentEpoch,
+		arg.OperationKey,
+		arg.State,
+		arg.IntentRevision,
+		arg.Proposal,
+		arg.RemediatedGeneration,
+	)
+	return err
+}
+
 const insertReservation = `-- name: InsertReservation :one
 INSERT INTO remediations (
     repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,

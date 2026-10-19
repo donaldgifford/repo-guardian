@@ -36,6 +36,11 @@ const (
 // expectedHeadOid is not the branch head (INV-0022 spike 1).
 const staleData = "STALE_DATA"
 
+// forbidden is the GraphQL error type of a mutation the App lacks the
+// permission for, such as a commit under .github/workflows/ without
+// Workflows write.
+const forbidden = "FORBIDDEN"
+
 // Writer is control.Writer bound to one repository.
 type Writer struct {
 	client *ghclient.GitHubClient
@@ -91,6 +96,10 @@ func (w *Writer) Commit(ctx context.Context, branch, baseSHA string, changes []c
 	if err := w.client.GraphQLClient().Mutate(ctx, &m, input, nil); err != nil {
 		if types.Has(staleData) {
 			return "", fmt.Errorf("committing to %s in %s/%s: %w: %w", branch, w.owner, w.repo, control.ErrExpectedHeadMismatch, err)
+		}
+
+		if types.Has(forbidden) {
+			return "", fmt.Errorf("committing to %s in %s/%s: %w: %w", branch, w.owner, w.repo, control.ErrPermission, err)
 		}
 
 		return "", fmt.Errorf("committing to %s in %s/%s: %w", branch, w.owner, w.repo, err)

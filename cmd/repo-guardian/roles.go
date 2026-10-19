@@ -298,20 +298,15 @@ func topologyOf(roles config.Role) string {
 	return metrics.TopologySplit
 }
 
-// logAppPermissions logs, once at startup, the App permission set each
-// running role acts with (IMPL-0028 task 3.4), so an operator can check
-// the installation against it. The Remediation App's set is derived
-// from the registered control types; until IMPL-0029 registers any it is
-// the base set.
+// logAppPermissions logs, once at startup, the Evaluation App's
+// permission set (IMPL-0028 task 3.4), so an operator can check the
+// installation against it. The Remediation App's set depends on the
+// policy and is logged when the remediator loads it
+// (remediationPermissions).
 func logAppPermissions(logger *slog.Logger, roles config.Role) {
 	if roles.Has(config.RoleEvaluator) {
 		logger.Info("Evaluation App permissions required", "app", config.AppEval,
 			"permissions", permissionStrings(control.EvaluationPermissions()))
-	}
-
-	if roles.Has(config.RoleRemediator) {
-		logger.Info("Remediation App permissions required", "app", config.AppRemediate,
-			"permissions", permissionStrings(control.RemediationPermissions(nil, false)))
 	}
 }
 

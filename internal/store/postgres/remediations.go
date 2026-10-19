@@ -97,6 +97,30 @@ func (s *RemediationStore) ReserveSlot(ctx context.Context, in *store.SlotReques
 	return out, nil
 }
 
+// InsertAPIRemediation writes an API remediation row; a retried
+// operation key returns the row it wrote.
+func (s *RemediationStore) InsertAPIRemediation(ctx context.Context, in *store.APIRemediation) (*store.Remediation, error) {
+	if err := s.q.InsertAPIRemediation(ctx, controlsdb.InsertAPIRemediationParams{
+		RepositoryID:         in.RepositoryID,
+		ControlID:            in.ControlID,
+		AssignmentEpoch:      in.Epoch,
+		OperationKey:         in.OperationKey,
+		State:                in.State,
+		IntentRevision:       in.Intent,
+		Proposal:             in.Proposal,
+		RemediatedGeneration: in.Generation,
+	}); err != nil {
+		return nil, fmt.Errorf("insert api remediation: %w", err)
+	}
+
+	row, err := s.q.RemediationByOperationKey(ctx, in.OperationKey)
+	if err != nil {
+		return nil, fmt.Errorf("read api remediation: %w", err)
+	}
+
+	return remediationOut(&row), nil
+}
+
 // ClaimOperation holds the operation's row with FOR NO KEY UPDATE SKIP
 // LOCKED for the life of fn (DESIGN-0032 § Remediation: overlapping
 // attempts). The transaction holds one pool connection, which is why the

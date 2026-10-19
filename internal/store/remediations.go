@@ -87,6 +87,13 @@ type Remediations interface {
 	// remediation run and its epoch fence see it; nil when the control is
 	// not assigned (withdrawn) or the repository is unknown.
 	RemediationTarget(ctx context.Context, repositoryID int64, controlID string) (*RemediationTarget, error)
+
+	// InsertAPIRemediation writes an API remediation row (state
+	// StateRecommended or, for a direct apply, StateFailed until every
+	// step is done) and returns it; a retried operation key returns the
+	// existing row. It takes the one-open slot, never the PR cap
+	// (IMPL-0030 5.1, 5.3).
+	InsertAPIRemediation(ctx context.Context, in *APIRemediation) (*Remediation, error)
 	// TouchLastRemediation stamps the repository's last_remediation_at
 	// after a recorded run (IMPL-0030 4.15).
 	TouchLastRemediation(ctx context.Context, repositoryID int64) error
@@ -211,6 +218,19 @@ type SlotRequest struct {
 	ExpectedHead string
 	// TTL bounds the reservation; maintenance expires it after.
 	TTL time.Duration
+}
+
+// APIRemediation is a new API remediation row.
+type APIRemediation struct {
+	RepositoryID int64
+	ControlID    string
+	Epoch        int64
+	OperationKey string
+	State        string
+	Intent       string
+	Generation   int64
+	// Proposal is the per-resource change: key, before, after.
+	Proposal json.RawMessage
 }
 
 // Remediation is one remediations row.

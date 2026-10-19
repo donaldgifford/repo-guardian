@@ -135,7 +135,9 @@ type Writer interface {
 }
 
 // ErrPermission is a Reader error for one endpoint the App lacks the
-// permission to read. The rule that needed it is
+// permission to read, and the Writer's error for a commit GitHub
+// forbids (a workflow file without Workflows write). The rule that
+// needed a refused read is
 // unknown{reason=permission}; the rest of the evaluation proceeds and
 // the repository is never parked for it (DESIGN-0032 AR-0032-08).
 var ErrPermission = errors.New("permission denied for this resource")

@@ -93,7 +93,7 @@ func runRemediate(t *testing.T, st *fakeRemediationStore, act remediationAct) (*
 
 	var suite testsuite.WorkflowTestSuite
 
-	r := NewRemediator(st, nil, &fakeRemediationClients{}, ghclient.BotIdentity{}, slog.New(slog.DiscardHandler))
+	r := NewRemediator(&RemediatorConfig{Store: st, Clients: &fakeRemediationClients{}, Logger: slog.New(slog.DiscardHandler)})
 	r.act = act
 
 	env := suite.NewTestActivityEnvironment()

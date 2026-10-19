@@ -62,7 +62,8 @@ func calls(n ast.Node, match func(string) bool) bool {
 }
 
 // unfencedWrites lists every statement in f that calls a Writer method
-// without the statement before it, in the same block, calling fence.
+// without the statement before it, in the same block, calling fence. A
+// case or select clause body is a block of its own.
 func unfencedWrites(fset *token.FileSet, f *ast.File, methods map[string]bool) []string {
 	var out []string
 
@@ -70,17 +71,25 @@ func unfencedWrites(fset *token.FileSet, f *ast.File, methods map[string]bool) [
 	isFence := func(name string) bool { return name == "fence" }
 
 	ast.Inspect(f, func(n ast.Node) bool {
-		block, ok := n.(*ast.BlockStmt)
-		if !ok {
+		var list []ast.Stmt
+
+		switch b := n.(type) {
+		case *ast.BlockStmt:
+			list = b.List
+		case *ast.CaseClause:
+			list = b.Body
+		case *ast.CommClause:
+			list = b.Body
+		default:
 			return true
 		}
 
-		for i, stmt := range block.List {
+		for i, stmt := range list {
 			if !calls(stmt, isWrite) || stmtIsBlockOwner(stmt) {
 				continue
 			}
 
-			if i == 0 || !calls(block.List[i-1], isFence) {
+			if i == 0 || !calls(list[i-1], isFence) {
 				out = append(out, fset.Position(stmt.Pos()).String())
 			}
 		}
@@ -101,7 +110,8 @@ func stmtIsBlockOwner(stmt ast.Stmt) bool {
 	switch s := stmt.(type) {
 	case *ast.IfStmt:
 		return (s.Init == nil || !calls(s.Init, isWrite)) && !calls(s.Cond, isWrite)
-	case *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt, *ast.BlockStmt:
+	case *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt, *ast.BlockStmt,
+		*ast.CaseClause, *ast.CommClause:
 		return true
 	default:
 		return false
@@ -137,6 +147,19 @@ func late(ctx context.Context, run *remediationRun, w control.Writer) error {
 	_ = x
 	return w.UpsertLabel(ctx, control.Label{})
 }
+
+func cases(ctx context.Context, run *remediationRun, w control.Writer, k int) error {
+	switch k {
+	case 1:
+		if err := run.fence(ctx); err != nil {
+			return err
+		}
+		return w.DeleteLabel(ctx, "a")
+	case 2:
+		return w.DeleteLabel(ctx, "b")
+	}
+	return nil
+}
 `
 
 	fset := token.NewFileSet()
@@ -147,8 +170,9 @@ func late(ctx context.Context, run *remediationRun, w control.Writer) error {
 	}
 
 	got := unfencedWrites(fset, f, writerMethods())
-	if len(got) != 2 || !strings.HasPrefix(got[0], "probe.go:14") || !strings.HasPrefix(got[1], "probe.go:23") {
-		t.Errorf("unfencedWrites = %v, want lines 14 and 23", got)
+	if len(got) != 3 || !strings.HasPrefix(got[0], "probe.go:14") || !strings.HasPrefix(got[1], "probe.go:23") ||
+		!strings.HasPrefix(got[2], "probe.go:34") {
+		t.Errorf("unfencedWrites = %v, want lines 14, 23 and 34 (a case fenced only by the case before it)", got)
 	}
 }
 

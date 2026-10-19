@@ -40,9 +40,16 @@ helm install repo-guardian \
 - Helm 3.14+ or 4.x (OCI support)
 - A Temporal cluster the pods can reach (`temporal.address`); see
   `contrib/temporal/` for a pinned install
-- A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
-  - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
-  - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
+- An Evaluation App (read-only) and, to remediate, a Remediation App;
+  the permission and event tables are in
+  `docs/operations/v2-onboarding.md`. The Remediation App always needs
+  Contents and Pull requests write. It needs **Workflows: write only
+  when the policy has a control that writes under `.github/workflows/`**
+  (an `apply = "workflow"` control, or a file control whose file lives
+  there): GitHub refuses those commits on Contents write alone, and the
+  remediator holds the control with `hold = permission`. The remediator
+  logs the set its policy needs at startup (`Remediation App
+  permissions required`).
 
 ## Quick Start
 

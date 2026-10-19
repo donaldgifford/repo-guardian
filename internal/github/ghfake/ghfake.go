@@ -202,6 +202,15 @@ func (g *GitHub) AddRepo(owner, name string, id int64, files map[string]string) 
 	return r
 }
 
+// SetSchema sets the org custom property schema the repository's
+// installation sees.
+func (r *Repo) SetSchema(names ...string) {
+	r.gh.mu.Lock()
+	defer r.gh.mu.Unlock()
+
+	r.schema = slices.Clone(names)
+}
+
 // FullName is owner/name.
 func (r *Repo) FullName() string { return r.Owner + "/" + r.Name }
 

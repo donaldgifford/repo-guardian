@@ -314,8 +314,9 @@ on any other branch.
 
 #### Remediation App permissions
 
-The remediator logs its set at startup (`Remediation App permissions
-required`). The base set is always required:
+The remediator derives its set from the loaded policy and logs it at
+startup (`Remediation App permissions required`). The base set is
+always required:
 
 | Permission | Access | Needed for |
 | --- | --- | --- |
@@ -323,15 +324,16 @@ required`). The base set is always required:
 | Contents | Read & write | every file-based control |
 | Pull requests | Read & write | every remediation pull request |
 
-When remediation lands, grant write on each resource a control type
-your policy remediates:
+Grant write on each resource a control writes directly (`remediation {
+apply = "direct" }`). A `recommend` control (the default for API types)
+writes nothing, so it needs no write permission:
 
 | Permission | Access | Control types |
 | --- | --- | --- |
-| Administration | Read & write | `repo_settings`, `branch_ruleset` |
-| Custom properties | Read & write | `custom_properties` |
-| Issues | Read & write | `labels` |
-| Workflows | Read & write | any control that writes under `.github/workflows/` (GitHub requires it in addition to Contents) |
+| Administration | Read & write | `repo_settings`, `branch_ruleset` with `apply = "direct"` |
+| Custom properties | Read & write | `custom_properties` with `apply = "direct"` |
+| Issues | Read & write | `labels` with `apply = "direct"` |
+| Workflows | Read & write | only when a control writes under `.github/workflows/`: `custom_properties` with `apply = "workflow"`, or a file control whose file lives there. GitHub refuses those commits on Contents write alone; without it the control is held with `hold = permission` |
 
 #### Remediation App events
 

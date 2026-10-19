@@ -577,35 +577,35 @@ human required`.
 
 #### Tasks
 
-- [ ] 5.1 `recommend` (default): a `kind = 'api'` row in state
+- [x] 5.1 `recommend` (default): a `kind = 'api'` row in state
   `recommended` with `proposal` JSONB (per resource: key, before,
   after). No GitHub write. Uses the slot only for the one-open index,
   not the PR cap.
-- [ ] 5.2 Supersede: a recommendation whose `intent_revision` no longer
+- [x] 5.2 Supersede: a recommendation whose `intent_revision` no longer
   matches becomes `superseded` and a new row runs with the new intent
   (an `apply` toggle with no file change is a new intent, D23).
   `resolved` when the control is compliant at a fresh read.
-- [ ] 5.3 `direct` (D14): per resource in `ChangeSet.API`, fence, read,
+- [x] 5.3 `direct` (D14): per resource in `ChangeSet.API`, fence, read,
   write through `Writer` (`UpdateRepository`, `UpsertRuleset` for
   repository-sourced rulesets by id, `SetCustomProperties`,
   `UpsertLabel`, `DeleteLabel`), read back and compare; journal
   `api_write` with `before` and `after`. All done → `applied`; any
   failure → `failed` with the completed steps; the next run resumes
   from the journal and writes only what is not yet journaled `done`.
-- [ ] 5.4 `workflow` (D15): only for types implementing
+- [x] 5.4 `workflow` (D15): only for types implementing
   `WorkflowApply` (`custom_properties`); the change becomes a PR on the
   Phase 4 path carrying `.github/workflows/repo-guardian-<slug>.yml`,
   with property values only through the IMPL-0020 A2 env-indirection
   shape (`yamlq`, `propenv`). A 403 on the workflow path holds
   `permission` with the Workflows permission named in the note.
-- [ ] 5.5 Per-write gating: a write whose prerequisite read failed is
+- [x] 5.5 Per-write gating: a write whose prerequisite read failed is
   `Blocked` and not attempted, even inside a non-compliant control; a
   property absent from the org schema is `Blocked` while the rest
   syncs.
-- [ ] 5.6 Chart and docs: the Remediation App's permission table gains
+- [x] 5.6 Chart and docs: the Remediation App's permission table gains
   Workflows: write only when a policy has a `workflow` control; the
   chart README notes it.
-- [ ] 5.7 Tests (DESIGN-0032 "Direct API apply"): fail the second of
+- [x] 5.7 Tests (DESIGN-0032 "Direct API apply"): fail the second of
   three writes and resume; mutate a target concurrently; toggle
   `apply` from `recommend` to `direct` without a file change
   (supersede, then apply); restore the Remediation App's access; a

@@ -23,6 +23,18 @@ VALUES (
 ON CONFLICT (operation_key) DO NOTHING
 RETURNING id;
 
+-- name: InsertAPIRemediation :exec
+-- An API remediation (IMPL-0030 Phase 5): a recommendation, or a direct
+-- apply written failed until every step is done, so a crash at any point
+-- leaves a resumable row. It holds the one-open slot, never the PR cap.
+INSERT INTO remediations (
+    repository_id, control_id, assignment_epoch, operation_key, kind, state, intent_revision,
+    proposal, remediated_generation, created_at, last_run_at)
+VALUES (
+    @repository_id, @control_id, @assignment_epoch, @operation_key, 'api', @state, @intent_revision,
+    @proposal, @remediated_generation, now(), now())
+ON CONFLICT (operation_key) DO NOTHING;
+
 -- name: RemediationByOperationKey :one
 SELECT * FROM remediations WHERE operation_key = @operation_key;
 

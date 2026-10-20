@@ -914,21 +914,12 @@ Every new query lives in an `api_*.sql` file so
   permissions and events (Workflows only for `workflow` controls), its
   webhook path, the remediator role, `REMEDIATION_*` and
   `REMEDIATOR_*` config, enabling `mode = "remediate"` for one org.
-- [ ] 8.6 `docs/operations/rgctl.md`: link the cutover runbook's steps
-  3 and 6; note one record per App.
-  `deferred - human required`: `rgctl.md` lives on `main` (with
-  `tools/rgctl`), not on this branch, so the edit is a PR against
-  `main`, outside this IMPL's one PR. The text to add, under a new
-  "At the v2 cutover" heading after "Commands": "The cutover runbook,
-  Moving to repo-guardian v2 (`v2-migration.md`), runs rgctl twice. At
-  step 3, `rgctl prs list --org <org> --format json --out
-  <app>-<org>.json` once **per old App**, with that App's credentials,
-  because identity is the App's bot login: a v1 App and a release
-  candidate's App each need their own record. At step 6, per org once
-  that org turns on `remediate`, `rgctl prs close --from
-  <app>-<org>.json --yes`." The same PR can drop the stale
-  "frozen by TestPRIdentity_IsFrozen there" comment in
-  `internal/prs/identity.go` (8.1).
+- [x] 8.6 `docs/operations/rgctl.md`: link the cutover runbook's steps
+  3 and 6; note one record per App. Landed on `main` in PR #225
+  (`rgctl.md` and `tools/rgctl` live there): an "At the v2 cutover"
+  section, the "v2 adopts edited PRs" line corrected (it adopts only its
+  own Remediation App's), and the stale `TestPRIdentity_IsFrozen`
+  comment dropped from `tools/rgctl/internal/prs/identity.go`.
 - [x] 8.7 CLAUDE.md: a remediation contract entry (record-is-narrow
   via grants, observed/acknowledged heads, epoch fence before every
   write, adopt by bot user id, never delete a branch, never

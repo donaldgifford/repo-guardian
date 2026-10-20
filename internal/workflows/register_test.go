@@ -21,7 +21,8 @@ func (*recordingRegistry) RegisterDynamicWorkflow(any, workflow.DynamicRegisterO
 // TestRegister_EachRoleRegistersOnlyItsSet pins each controls worker's
 // workflows (IMPL-0028 task 4.2, IMPL-0029 task 7.1): the evaluator runs
 // the evaluation loop, its services and the webhook routing, the
-// remediator only its budget, and the union registers each name once.
+// remediator its budget and the remediation loop (IMPL-0030 task 3.2),
+// and the union registers each name once.
 func TestRegister_EachRoleRegistersOnlyItsSet(t *testing.T) {
 	t.Parallel()
 
@@ -41,7 +42,7 @@ func TestRegister_EachRoleRegistersOnlyItsSet(t *testing.T) {
 		{
 			name:     "remediator",
 			register: func(r *recordingRegistry) { RegisterRemediator(r) },
-			want:     []string{InstallationWorkflowName},
+			want:     []string{InstallationWorkflowName, RemediationDiscoveryWorkflowName, RemediationSweepWorkflowName, RemediationWorkflowName},
 		},
 	} {
 		var r recordingRegistry

@@ -74,6 +74,42 @@ FROM (
 ) h
 ORDER BY h.snapshot_at, lower(h.org), h.control_id, h.decision;
 
+-- name: APIComplianceHistoryAggregate :many
+-- APIComplianceHistory's rows summed per UTC day, and per org or control
+-- by @by (fleet, org or control; IMPL-0030 7.6): the day, not the raw
+-- snapshot_at, keys the sum, so orgs snapshotted at different times on
+-- one day collapse into one point; org or control_id is '' when the
+-- grouping leaves it out. Percent and coverage come from the
+-- sums through floor_percent, never an average of percentages.
+SELECT g.day, coalesce(CASE WHEN g.org_key IS NOT NULL THEN min(g.org) END, '')::text AS org,
+       coalesce(g.control_key, '')::text AS control_id,
+       sum(g.compliant)::int AS compliant, sum(g.non_compliant)::int AS non_compliant, sum(g.pending)::int AS pending,
+       sum(g.stale)::int AS stale, sum(g.unmeasurable_access_denied)::int AS unmeasurable_access_denied,
+       sum(g.unmeasurable_suspended)::int AS unmeasurable_suspended,
+       sum(g.unmeasurable_conflict)::int AS unmeasurable_conflict, sum(g.not_applicable)::int AS not_applicable,
+       sum(g.unknown)::int AS unknown, sum(g.excluded)::int AS excluded, sum(g.assigned)::int AS assigned,
+       floor_percent(sum(g.compliant)::bigint, sum(g.compliant + g.non_compliant)::bigint)::numeric AS percent,
+       floor_percent(sum(g.compliant + g.non_compliant + g.not_applicable)::bigint, sum(g.assigned)::bigint)::numeric AS coverage
+FROM (
+    SELECT (date_trunc('day', h.snapshot_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::timestamptz AS day,
+           CASE WHEN @by::text = 'org' THEN lower(h.org) END AS org_key,
+           CASE WHEN @by::text = 'control' THEN h.control_id END AS control_key,
+           h.*
+    FROM (
+        SELECT DISTINCT ON (date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), lower(cs.org), cs.control_id, cs.decision)
+               cs.*
+        FROM compliance_snapshots cs
+        WHERE (@scope_all::bool OR lower(cs.org) = ANY (@scope_orgs::text[]))
+          AND cs.snapshot_at >= @since
+          AND (sqlc.narg(control_id)::text IS NULL OR cs.control_id = sqlc.narg(control_id)::text)
+          AND (sqlc.narg(org)::text IS NULL OR lower(cs.org) = lower(sqlc.narg(org)::text))
+        ORDER BY date_trunc('day', cs.snapshot_at AT TIME ZONE 'UTC'), lower(cs.org), cs.control_id, cs.decision,
+                 cs.snapshot_at DESC
+    ) h
+) g
+GROUP BY g.day, g.org_key, g.control_key
+ORDER BY g.day, g.org_key, g.control_key;
+
 -- name: APISummaryEvaluations :one
 -- Repositories evaluated successfully since @since, and the newest
 -- evaluation (the epoch when there is none).

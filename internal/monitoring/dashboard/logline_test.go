@@ -38,6 +38,8 @@ func TestLogLines_AreStillEmittedByTheBinary(t *testing.T) {
 		{"logEvaluationFailed", logEvaluationFailed},
 		{"logAwaitsResolution", logAwaitsResolution},
 		{"logDiscoveryPartial", logDiscoveryPartial},
+		{"logRemediationHeld", logRemediationHeld},
+		{"logRemediationAdopted", logRemediationAdopted},
 	} {
 		if !emitted(sources, line.text) {
 			t.Errorf("%s = %q, but nothing under internal/activities or internal/workflows logs it any more; "+

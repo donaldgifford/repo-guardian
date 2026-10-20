@@ -113,12 +113,33 @@ type RemediationStart struct {
 	Priority       Priority
 }
 
+// StartDueRemediationsInput is the StartDueRemediations activity input:
+// the repository an evaluation just recorded.
+type StartDueRemediationsInput struct {
+	RepositoryID   int64
+	InstallationID int64
+}
+
+// StartDueRemediationsResult counts the remediations signalled.
+type StartDueRemediationsResult struct {
+	Started int
+}
+
+// SetNextDueInput is the SetNextDue local activity input; a zero At
+// clears it.
+type SetNextDueInput struct {
+	RepositoryID int64
+	At           time.Time
+}
+
 // RemediationInput is RemediationWorkflow's input. The run re-reads
 // everything else from the database (DESIGN-0032 § Remediation).
 type RemediationInput struct {
 	RepositoryID   int64
 	Control        string
 	InstallationID int64
+	// Priority orders the run's tasks; zero is PrioritySchedule.
+	Priority Priority `json:",omitempty"`
 }
 
 // Remediate is RemediateSignal's payload. It carries nothing the run

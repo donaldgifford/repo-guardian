@@ -40,9 +40,16 @@ helm install repo-guardian \
 - Helm 3.14+ or 4.x (OCI support)
 - A Temporal cluster the pods can reach (`temporal.address`); see
   `contrib/temporal/` for a pinned install
-- A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
-  - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
-  - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
+- An Evaluation App (read-only) and, to remediate, a Remediation App;
+  the permission and event tables are in
+  `docs/operations/v2-onboarding.md`. The Remediation App always needs
+  Contents and Pull requests write. It needs **Workflows: write only
+  when the policy has a control that writes under `.github/workflows/`**
+  (an `apply = "workflow"` control, or a file control whose file lives
+  there): GitHub refuses those commits on Contents write alone, and the
+  remediator holds the control with `hold = permission`. The remediator
+  logs the set its policy needs at startup (`Remediation App
+  permissions required`).
 
 ## Quick Start
 
@@ -158,8 +165,10 @@ signs users in against `api.auth.issuer`.
 
 `migrate.enabled` (default `true`) runs `repo-guardian migrate` as a
 hook Job: `post-install` (so a baked Postgres exists to connect to) and
-`pre-upgrade` (so the schema lands before new pods roll). On an adopted
-v1 database it also runs the one-time backfill.
+`pre-upgrade` (so the schema lands before new pods roll). It applies
+the controls chain to an empty database and never adopts an older
+schema; see `docs/operations/v2-migration.md` for the fresh-install
+cutover.
 
 ### Mode-scoped secret knobs
 
@@ -660,9 +669,9 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
-| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"maintenanceBatch":200,"replicas":1,"reservationTTL":"1h","resources":{},"sweepBatch":500}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
 | remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
-| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means concurrency + 4; the remediator refuses to start with fewer connections than `concurrency`, since every running remediation holds one for its row lock. |
 | remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
 | remediator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
 | remediator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `remediator.replicas`. |
@@ -670,8 +679,11 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | remediator.keda.minReplicas | int | `0` | Floor. 0 is allowed: promotion does not depend on a running remediator (DESIGN-0032 D28). |
 | remediator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
 | remediator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| remediator.maintenanceBatch | int | `200` | Lifecycle candidates (expire, withdraw, supersede, close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH). |
 | remediator.replicas | int | `1` | Replica count (split only). Ignored when `remediator.keda.enabled`. |
+| remediator.reservationTTL | string | `"1h"` | How long a reserved pull-request slot waits for its PR before the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL). |
 | remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| remediator.sweepBatch | int | `500` | Due remediations one hourly `remediation-sweep` starts (REMEDIATION_SWEEP_BATCH). |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
@@ -690,7 +702,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | store.controls | object | `{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}}` | The controls line's database roles (IMPL-0028 Phase 6, DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in baked mode a non-superuser owner, rg_owner, for the migrate Job. |
 | store.controls.all.existingSecret | string | `""` | External mode, `topology: all`: Secret holding rg_all's DSN. |
 | store.controls.all.existingSecretKey | string | `"STORE_DSN_ALL"` | Key inside existingSecret. |
-| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods, and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
+| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods (a split controls pod then gets no STORE_DSN), and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
 | store.controls.evaluator.existingSecret | string | `""` | External mode: Secret holding rg_evaluator's DSN. |
 | store.controls.evaluator.existingSecretKey | string | `"STORE_DSN_EVALUATOR"` | Key inside existingSecret. |
 | store.controls.remediator.existingSecret | string | `""` | External mode: Secret holding rg_remediator's DSN. |

@@ -209,9 +209,20 @@ remediator:
   replicas: 1
   # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
   concurrency: 10
-  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 keeps
-  # pgxpool's default.
+  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means
+  # concurrency + 4; the remediator refuses to start with fewer
+  # connections than `concurrency`, since every running remediation
+  # holds one for its row lock.
   dbPoolSize: 0
+  # -- How long a reserved pull-request slot waits for its PR before
+  # the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL).
+  reservationTTL: 1h
+  # -- Due remediations one hourly `remediation-sweep` starts
+  # (REMEDIATION_SWEEP_BATCH).
+  sweepBatch: 500
+  # -- Lifecycle candidates (expire, withdraw, supersede,
+  # close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH).
+  maintenanceBatch: 200
   # -- Resources; empty falls back to `resources`.
   resources: {}
   # -- KEDA autoscaling on this role's queue backlog (split only).
@@ -562,8 +573,9 @@ store:
   # baked mode a non-superuser owner, rg_owner, for the migrate Job.
   controls:
     # -- Provision the roles, mount STORE_DSN_EVALUATOR /
-    # STORE_DSN_REMEDIATOR into the controls roles' pods, and point the
-    # migrate Job at the controls chain as the owner. Off until
+    # STORE_DSN_REMEDIATOR into the controls roles' pods (a split
+    # controls pod then gets no STORE_DSN), and point the migrate Job at
+    # the controls chain as the owner. Off until
     # IMPL-0029's switch-over; enable it only against an empty database.
     enabled: false
     evaluator:

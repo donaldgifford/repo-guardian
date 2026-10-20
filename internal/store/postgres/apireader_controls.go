@@ -64,6 +64,39 @@ func (r *APIReader) Summary(ctx context.Context, scope store.APIScope, now time.
 
 		view.Evaluated, view.LastEvaluatedAt = int(ev.Evaluated), unlessEpoch(ev.LastEvaluatedAt)
 
+		backlog, err := q.APIRemediationBacklog(ctx, controlsdb.APIRemediationBacklogParams{
+			ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
+		})
+		if err != nil {
+			return fmt.Errorf("remediation backlog: %w", err)
+		}
+
+		view.RemediationBacklog = int(backlog)
+
+		ages, err := q.APIFindingAge(ctx, controlsdb.APIFindingAgeParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+		if err != nil {
+			return fmt.Errorf("finding age: %w", err)
+		}
+
+		byBucket := make(map[string]int, len(ages))
+		for _, a := range ages {
+			byBucket[a.Bucket] = int(a.Findings)
+		}
+
+		view.FindingAge = store.AgeCounts(store.FindingAgeBuckets, byBucket)
+
+		prAges, err := q.APIOpenPRAge(ctx, controlsdb.APIOpenPRAgeParams{ScopeAll: scope.All(), ScopeOrgs: scope.Orgs()})
+		if err != nil {
+			return fmt.Errorf("open pull request age: %w", err)
+		}
+
+		byBucket = make(map[string]int, len(prAges))
+		for _, a := range prAges {
+			byBucket[a.Bucket] = int(a.PullRequests)
+		}
+
+		view.OpenPRsByAge = store.AgeCounts(store.OpenPRAgeBuckets, byBucket)
+
 		active, err := q.CurrentActivation(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -197,7 +230,8 @@ func (r *APIReader) Org(ctx context.Context, scope store.APIScope, org string) (
 }
 
 // RepositoryControls returns a repository's assignments with their
-// results and rule results, in remediation priority order. ErrNotFound
+// results, rule results and latest remediation, in remediation priority
+// order. ErrNotFound
 // when the repository is unknown or invisible.
 func (r *APIReader) RepositoryControls(ctx context.Context, scope store.APIScope, id int64) (out []store.RepositoryControl, err error) {
 	defer func(start time.Time) { observeQuery("api_repository_controls", start, err) }(time.Now())
@@ -226,10 +260,16 @@ func (r *APIReader) RepositoryControls(ctx context.Context, scope store.APIScope
 			})
 		}
 
+		remediations, err := repositoryRemediations(ctx, q, scope, id)
+		if err != nil {
+			return err
+		}
+
 		out = make([]store.RepositoryControl, 0, len(rows))
 		for i := range rows {
 			c := repositoryControl(&rows[i])
 			c.Rules = byControl[c.ControlID]
+			c.Remediation = remediations[c.ControlID]
 			out = append(out, c)
 		}
 
@@ -261,6 +301,10 @@ func (r *APIReader) ComplianceHistory(
 ) (out []store.ComplianceSnapshot, err error) {
 	defer func(start time.Time) { observeQuery("api_compliance_history", start, err) }(time.Now())
 
+	if f.Aggregate != "" && f.Aggregate != store.HistoryNone {
+		return r.complianceHistoryAggregate(ctx, scope, f)
+	}
+
 	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
 		rows, err := q.APIComplianceHistory(ctx, controlsdb.APIComplianceHistoryParams{
 			ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Since: f.Since,
@@ -275,6 +319,55 @@ func (r *APIReader) ComplianceHistory(
 		for i := range rows {
 			s, err := complianceSnapshot(&rows[i])
 			if err != nil {
+				return err
+			}
+
+			out = append(out, s)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("postgres.APIReader.ComplianceHistory: %w", err)
+	}
+
+	return out, nil
+}
+
+// complianceHistoryAggregate is ComplianceHistory summed per UTC day
+// in SQL, over the fleet or per org or control.
+func (r *APIReader) complianceHistoryAggregate(
+	ctx context.Context, scope store.APIScope, f *store.HistoryFilter,
+) (out []store.ComplianceSnapshot, err error) {
+	err = r.readOnly(ctx, func(q *controlsdb.Queries) error {
+		rows, err := q.APIComplianceHistoryAggregate(ctx, controlsdb.APIComplianceHistoryAggregateParams{
+			By: f.Aggregate, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), Since: f.Since,
+			ControlID: optString(f.ControlID), Org: optString(f.Org),
+		})
+		if err != nil {
+			return err
+		}
+
+		out = make([]store.ComplianceSnapshot, 0, len(rows))
+
+		for i := range rows {
+			a := &rows[i]
+			s := store.ComplianceSnapshot{
+				SnapshotAt: a.Day,
+				ControlPosture: store.ControlPosture{
+					Org: a.Org, ControlID: a.ControlID,
+					Compliant: int(a.Compliant), NonCompliant: int(a.NonCompliant), Pending: int(a.Pending), Stale: int(a.Stale),
+					UnmeasurableAccessDenied: int(a.UnmeasurableAccessDenied), UnmeasurableSuspended: int(a.UnmeasurableSuspended),
+					UnmeasurableConflict: int(a.UnmeasurableConflict), NotApplicable: int(a.NotApplicable), Unknown: int(a.Unknown),
+					Excluded: int(a.Excluded), Assigned: int(a.Assigned),
+				},
+			}
+
+			if s.Percent, err = numericPtr(a.Percent); err != nil {
+				return err
+			}
+
+			if s.Coverage, err = numericPtr(a.Coverage); err != nil {
 				return err
 			}
 

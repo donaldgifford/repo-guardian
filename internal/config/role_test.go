@@ -39,6 +39,8 @@ func TestLoadRole_Ingest(t *testing.T) {
 	for _, tt := range []struct{ env, want string }{
 		{"EVAL_GITHUB_PRIVATE_KEY_PATH", "App key"},
 		{"STORE_DSN", "database credentials"},
+		{"STORE_DSN_EVALUATOR", "database credentials"},
+		{"STORE_DSN_REMEDIATOR", "database credentials"},
 	} {
 		t.Run("refuses "+tt.env, func(t *testing.T) {
 			setIngestRoute(t)
@@ -319,4 +321,42 @@ func TestParse_WorkerSizing(t *testing.T) {
 	if _, err := parse(); err == nil || !strings.Contains(err.Error(), "REMEDIATOR_DB_POOL_SIZE") {
 		t.Errorf("parse with a negative REMEDIATOR_DB_POOL_SIZE = %v, want an error naming it", err)
 	}
+}
+
+// TestWorkerStoreDSN is IMPL-0030 1.12 (INV-0023 F7.1): each controls
+// half connects with its own STORE_DSN_<HALF>, falls back to STORE_DSN
+// only when that is unset, and a remediator that can resolve neither
+// refuses to start.
+func TestWorkerStoreDSN(t *testing.T) {
+	cfg := &Config{StoreDSN: "postgres://owner", StoreDSNEvaluator: "postgres://rg_evaluator"}
+
+	if dsn, env := cfg.WorkerStoreDSN(RoleEvaluator); dsn != "postgres://rg_evaluator" || env != "STORE_DSN_EVALUATOR" {
+		t.Errorf("WorkerStoreDSN(evaluator) = %q, %q; want its own", dsn, env)
+	}
+
+	if dsn, env := cfg.WorkerStoreDSN(RoleRemediator); dsn != "postgres://owner" || env != "STORE_DSN" {
+		t.Errorf("WorkerStoreDSN(remediator) = %q, %q; want the STORE_DSN fallback", dsn, env)
+	}
+
+	cfg.StoreDSNRemediator = "postgres://rg_remediator"
+	if dsn, _ := cfg.WorkerStoreDSN(RoleRemediator); dsn != "postgres://rg_remediator" {
+		t.Errorf("WorkerStoreDSN(remediator) = %q, want its own over STORE_DSN", dsn)
+	}
+
+	t.Run("remediator refuses without a DSN", func(t *testing.T) {
+		t.Setenv("TEMPORAL_ADDRESS", "temporal:7233")
+		t.Setenv("GUARDIAN_CONFIG", "/etc/repo-guardian/policy")
+		t.Setenv("STORE_DSN_EVALUATOR", "postgres://rg_evaluator")
+		setAppEnv(t, "REMEDIATE")
+
+		if _, err := LoadRole(RoleRemediator); err == nil || !strings.Contains(err.Error(), "STORE_DSN_REMEDIATOR") {
+			t.Errorf("LoadRole(remediator) = %v, want a refusal naming STORE_DSN_REMEDIATOR", err)
+		}
+
+		t.Setenv("STORE_DSN_REMEDIATOR", "postgres://rg_remediator")
+
+		if _, err := LoadRole(RoleRemediator); err != nil {
+			t.Errorf("LoadRole(remediator) with its own DSN = %v", err)
+		}
+	})
 }

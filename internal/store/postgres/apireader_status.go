@@ -123,6 +123,7 @@ func statusOperations(ctx context.Context, q *controlsdb.Queries, now time.Time,
 	}
 
 	in.EvaluatedLastDay, in.LastSnapshot = int(ops.Checked), anyTime(ops.LastSnapshot)
+	in.RemediationBacklog = int(ops.RemediationBacklog)
 	if ops.PolicyVersions > 0 {
 		in.Rollout = &store.Rollout{CompletedAt: ops.RolloutCompletedAt}
 	}

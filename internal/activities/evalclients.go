@@ -67,3 +67,7 @@ func (r *githubEvalRepo) Head(ctx context.Context) (branch, sha string, err erro
 func (r *githubEvalRepo) Reader(sha string) control.Reader {
 	return r.client.RepoReader(r.owner, r.name, sha)
 }
+
+func (r *githubEvalRepo) Observer() control.PRObserver {
+	return r.client.RepoObserver(r.owner, r.name)
+}

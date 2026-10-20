@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -12,34 +13,66 @@ import (
 	temporalmocks "go.temporal.io/sdk/mocks"
 
 	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/donaldgifford/repo-guardian/internal/temporal"
 	"github.com/donaldgifford/repo-guardian/internal/workflows"
 )
 
-// TestServiceStarter_SchedulesPerRole is IMPL-0028 task 4.4: each role
-// ensures only its own Schedules.
+// TestServiceStarter_SchedulesPerRole is IMPL-0028 task 4.4 and
+// IMPL-0030 6.5: each role ensures only its own Schedules. An evaluator
+// never ensures remediation-sweep or controls-discovery-remediate, a
+// remediator never the evaluation schedules, and DISCOVERY_ENABLED=false
+// removes each role's own discovery only.
 func TestServiceStarter_SchedulesPerRole(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.Config{DiscoveryEnabled: true, DiscoveryInterval: time.Hour, ComplianceSnapshotInterval: 24 * time.Hour}
-	s := &serviceStarter{cfg: cfg, taskQueue: "repo-guardian"}
+	evaluation := []string{workflows.ControlsDiscoveryScheduleID, workflows.ControlsSnapshotScheduleID}
+	remediation := []string{workflows.RemediationDiscoveryScheduleID, workflows.RemediationSweepScheduleID}
 
-	ensure, remove := s.schedules(config.RoleEvaluator)
-	if len(ensure) != 2 || ensure[0].ID != workflows.ControlsDiscoveryScheduleID || ensure[1].ID != workflows.ControlsSnapshotScheduleID ||
-		ensure[0].Workflow != workflows.ControlsDiscoveryWorkflowName || len(remove) != 0 {
-		t.Errorf("evaluator schedules = %+v, remove %v; want controls-discovery and controls-snapshot only", ensure, remove)
-	}
-
-	for _, role := range []config.Role{config.RoleRemediator, config.RoleIngest} {
-		if ensure, remove := s.schedules(role); len(ensure) != 0 || len(remove) != 0 {
-			t.Errorf("schedules(%v) = %+v, remove %v; want none", role, ensure, remove)
+	ids := func(ss []*temporal.Schedule) []string {
+		out := make([]string, 0, len(ss))
+		for _, sc := range ss {
+			out = append(out, sc.ID)
 		}
+
+		return out
 	}
 
-	cfg.DiscoveryEnabled = false
+	for _, tt := range []struct {
+		role      config.Role
+		discovery bool
+		ensure    []string
+		remove    []string
+	}{
+		{role: config.RoleEvaluator, discovery: true, ensure: evaluation},
+		{role: config.RoleEvaluator, ensure: evaluation[1:], remove: evaluation[:1]},
+		{role: config.RoleRemediator, discovery: true, ensure: remediation},
+		{role: config.RoleRemediator, ensure: remediation[1:], remove: remediation[:1]},
+		{role: config.RoleIngest, discovery: true},
+		{role: config.RoleAPI, discovery: true},
+	} {
+		cfg := &config.Config{
+			DiscoveryEnabled: tt.discovery, DiscoveryInterval: time.Hour, ComplianceSnapshotInterval: 24 * time.Hour,
+			Remediation: config.RemediationConfig{SweepBatch: 50, MaintenanceBatch: 20},
+		}
+		s := &serviceStarter{cfg: cfg, taskQueue: "q"}
 
-	ensure, remove = s.schedules(config.RoleEvaluator)
-	if len(ensure) != 1 || len(remove) != 1 || remove[0] != workflows.ControlsDiscoveryScheduleID {
-		t.Errorf("evaluator with discovery off = %+v, remove %v; want controls-snapshot only and controls-discovery removed", ensure, remove)
+		ensure, remove := s.schedules(tt.role)
+		if got := ids(ensure); !slices.Equal(got, tt.ensure) || !slices.Equal(remove, tt.remove) {
+			t.Errorf("schedules(%v, discovery %v) = %v, remove %v; want %v, remove %v", tt.role, tt.discovery, got, remove, tt.ensure, tt.remove)
+		}
+
+		for _, sc := range ensure {
+			if sc.TaskQueue != "q" || sc.Every <= 0 {
+				t.Errorf("schedule %s = %+v, want the role's queue and a cadence", sc.ID, sc)
+			}
+
+			if sc.ID == workflows.RemediationSweepScheduleID {
+				in, ok := sc.Args[0].(*workflows.RemediationSweepInput)
+				if !ok || *in != (workflows.RemediationSweepInput{SweepBatch: 50, MaintenanceBatch: 20}) || sc.Every != time.Hour {
+					t.Errorf("remediation-sweep = %+v, args %+v; want hourly with the configured batches", sc, sc.Args)
+				}
+			}
+		}
 	}
 }
 

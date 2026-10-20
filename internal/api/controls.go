@@ -71,7 +71,52 @@ func (s *server) GetSummary(ctx context.Context, _ gen.GetSummaryRequestObject) 
 	return gen.GetSummary200JSONResponse{
 		Tracked: tracked, Parked: parked, Compliance: postureOut(&total), OpenPrs: view.OpenPRs,
 		Evaluated24h: view.Evaluated, LastEvaluatedAt: view.LastEvaluatedAt, PolicyVersion: optStr(view.PolicyVersion),
+		RemediationBacklog: view.RemediationBacklog, ParkedByReason: parkedByReason(view.Repositories),
+		ControlsFailing: controlsFailing(view.Compliance), FindingAge: ageCountsOut(view.FindingAge),
+		OpenPrsByAge: ageCountsOut(view.OpenPRsByAge),
 	}, nil
+}
+
+func ageCountsOut(counts []store.AgeCount) []gen.AgeCount {
+	out := make([]gen.AgeCount, 0, len(counts))
+	for _, c := range counts {
+		out = append(out, gen.AgeCount{Bucket: c.Bucket, Count: c.Count})
+	}
+
+	return out
+}
+
+// parkedByReason counts parked repositories per park reason, ordered by
+// reason (IMPL-0030 7.9).
+func parkedByReason(counts []store.OrgRepositoryCount) []gen.ReasonCount {
+	by := map[store.ParkReason]int{}
+
+	for _, c := range counts {
+		if !c.Active {
+			by[c.ParkReason] += c.Count
+		}
+	}
+
+	out := make([]gen.ReasonCount, 0, len(by))
+	for _, reason := range slices.Sorted(maps.Keys(by)) {
+		out = append(out, gen.ReasonCount{Reason: string(reason), Count: by[reason]})
+	}
+
+	return out
+}
+
+// controlsFailing counts the distinct controls with any result in the
+// non-compliant bucket, across lineages and orgs (IMPL-0030 7.9).
+func controlsFailing(rows []store.ControlPosture) int {
+	failing := map[string]bool{}
+
+	for i := range rows {
+		if rows[i].NonCompliant > 0 {
+			failing[rows[i].ControlID] = true
+		}
+	}
+
+	return len(failing)
 }
 
 // catalogueEntry is a control's title and type, from its newest version
@@ -266,9 +311,14 @@ func (s *server) GetComplianceHistory(
 		return nil, statusError(http.StatusBadRequest, "control is not a control slug")
 	}
 
-	rows, err := s.opts.Reader.ComplianceHistory(ctx, p.Visible, &store.HistoryFilter{
+	f := store.HistoryFilter{
 		ControlID: deref(q.Control), Org: deref(q.Org), Since: s.opts.Now().Add(-time.Duration(days) * 24 * time.Hour),
-	})
+	}
+	if q.Aggregate != nil {
+		f.Aggregate = string(*q.Aggregate)
+	}
+
+	rows, err := s.opts.Reader.ComplianceHistory(ctx, p.Visible, &f)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +327,8 @@ func (s *server) GetComplianceHistory(
 	for i := range rows {
 		r := &rows[i]
 		out.Items = append(out.Items, gen.HistoryPoint{
-			Org: r.Org, ControlId: r.ControlID, Decision: r.Decision, SnapshotAt: r.SnapshotAt.UTC(), Compliance: postureOut(&r.ControlPosture),
+			Org: optStr(r.Org), ControlId: optStr(r.ControlID), Decision: optStr(r.Decision),
+			SnapshotAt: r.SnapshotAt.UTC(), Compliance: postureOut(&r.ControlPosture),
 		})
 	}
 

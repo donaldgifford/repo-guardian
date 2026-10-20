@@ -83,6 +83,8 @@ func (r *ControlsRouter) RouteWebhook(ctx context.Context, in *workflows.Webhook
 		now := time.Now()
 
 		return r.upsertInstallation(ctx, in, &now)
+	case "pull_request.synchronize", "pull_request.closed", "pull_request.reopened":
+		return r.each(ctx, in, r.prEvent)
 	case "installation.deleted":
 		_, err := r.store.ParkInstallation(ctx, in.InstallationID, string(store.ParkInstallationRemoved))
 
@@ -188,6 +190,18 @@ func (r *ControlsRouter) push(ctx context.Context, in *workflows.WebhookInput, r
 	return r.signalManaged(ctx, ref, workflows.Recheck{
 		Trigger: workflows.TriggerPush, Priority: workflows.PriorityWebhook, Paths: in.Paths, Unknown: in.Unknown,
 	})
+}
+
+// prEvent observes a known, active, managed repository's remediation
+// pull requests (a pr_event re-check evaluates nothing). An unknown or
+// parked repository is left alone: a PR event never discovers.
+func (r *ControlsRouter) prEvent(ctx context.Context, _ *workflows.WebhookInput, repo workflows.WebhookRepo) error {
+	ref, err := r.store.FindRepository(ctx, repo.ID)
+	if err != nil || ref == nil {
+		return err
+	}
+
+	return r.signalManaged(ctx, ref, workflows.Recheck{Trigger: workflows.TriggerPREvent, Priority: workflows.PriorityWebhook})
 }
 
 // discover upserts the delivery's repositories, which matches renames

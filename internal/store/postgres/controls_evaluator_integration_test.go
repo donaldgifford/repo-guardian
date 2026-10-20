@@ -87,10 +87,16 @@ func stage(t *testing.T, s *postgres.ControlsStore, repoID int64, key string, ep
 		Controls: []store.ControlEvaluation{{
 			ControlID: "codeowners", ControlVersion: 1, Revision: "r1", Epoch: epoch, Status: status, Fingerprint: fingerprint,
 			EvaluatedSHA: "sha-" + key,
-			Rules: []store.RuleEvaluation{{
-				RuleID: "exists", Status: "fail", Remediate: true, Evidence: json.RawMessage(`{"evidence_kind":"codeowners.exists","evidence_version":1,"present":false}`),
-				EvidenceKind: "codeowners.exists", EvidenceVersion: 1,
-			}},
+			Rules: []store.RuleEvaluation{
+				{
+					RuleID:          "exists",
+					Status:          "fail",
+					Remediate:       true,
+					Evidence:        json.RawMessage(`{"evidence_kind":"codeowners.exists","evidence_version":1,"present":false}`),
+					EvidenceKind:    "codeowners.exists",
+					EvidenceVersion: 1,
+				},
+			},
 		}},
 	}); err != nil {
 		t.Fatalf("StageEvaluation(%s): %v", key, err)
@@ -206,7 +212,12 @@ func TestControlsStore_EvaluationLifecycle(t *testing.T) {
 	var results, withdrawals, rules int
 	queryRow(t, dsns.Owner, `SELECT count(*) FROM control_results`, &results)
 	queryRow(t, dsns.Owner, `SELECT count(*) FROM rule_results`, &rules)
-	queryRow(t, dsns.Owner, `SELECT count(*) FROM result_events WHERE to_status IS NULL AND rule_id IS NULL AND from_status = 'compliant'`, &withdrawals)
+	queryRow(
+		t,
+		dsns.Owner,
+		`SELECT count(*) FROM result_events WHERE to_status IS NULL AND rule_id IS NULL AND from_status = 'compliant'`,
+		&withdrawals,
+	)
 
 	if results != 0 || rules != 0 || withdrawals != 1 {
 		t.Errorf("after withdrawal: %d results, %d rules, %d withdrawal events; want 0, 0, 1", results, rules, withdrawals)
@@ -581,8 +592,11 @@ func TestControlsStore_ChangeDetection(t *testing.T) {
 		controls []store.ControlEvaluation
 		want     []string // controls whose generation is bumped
 	}{
-		{key: "k1", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f1", "sha1"), evaluation("renovate", renovateEpoch, "g1", "sha1")},
-			want: []string{"codeowners", "renovate"}},
+		{
+			key:      "k1",
+			controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f1", "sha1"), evaluation("renovate", renovateEpoch, "g1", "sha1")},
+			want:     []string{"codeowners", "renovate"},
+		},
 		{key: "k2", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f1", "sha2")}},
 		{key: "k3", controls: []store.ControlEvaluation{evaluation("codeowners", epoch, "f2", "sha3")}, want: []string{"codeowners"}},
 	}
@@ -614,10 +628,113 @@ func TestControlsStore_ChangeDetection(t *testing.T) {
 	}
 
 	var codeownersSHA, renovateSHA string
-	queryArgs(t, dsns.Owner, `SELECT evaluated_sha FROM control_results WHERE repository_id = $1 AND control_id = 'codeowners'`, &codeownersSHA, repo.ID)
+	queryArgs(
+		t,
+		dsns.Owner,
+		`SELECT evaluated_sha FROM control_results WHERE repository_id = $1 AND control_id = 'codeowners'`,
+		&codeownersSHA,
+		repo.ID,
+	)
 	queryArgs(t, dsns.Owner, `SELECT evaluated_sha FROM control_results WHERE repository_id = $1 AND control_id = 'renovate'`, &renovateSHA, repo.ID)
 
 	if codeownersSHA != "sha3" || renovateSHA != "sha1" {
 		t.Errorf("evaluated_sha codeowners %q, renovate %q; want sha3 and the unselected renovate's sha1 kept", codeownersSHA, renovateSHA)
+	}
+}
+
+// TestControlsStore_SetNextDue is IMPL-0030 2.8, run as rg_evaluator:
+// next_due_at is written and a zero time clears it.
+func TestControlsStore_SetNextDue(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	repo := discover(t, s, &fakeResolver{})
+	at := time.Date(2026, 10, 20, 9, 30, 0, 0, time.UTC)
+
+	if err := s.SetNextDue(t.Context(), repo.ID, at); err != nil {
+		t.Fatalf("SetNextDue: %v", err)
+	}
+
+	var got *time.Time
+	queryArgs(t, dsns.Owner, `SELECT next_due_at FROM repositories WHERE id = $1`, &got, repo.ID)
+
+	if got == nil || !got.Equal(at) {
+		t.Fatalf("next_due_at = %v, want %v", got, at)
+	}
+
+	if err := s.SetNextDue(t.Context(), repo.ID, time.Time{}); err != nil {
+		t.Fatalf("SetNextDue(zero): %v", err)
+	}
+
+	queryArgs(t, dsns.Owner, `SELECT next_due_at FROM repositories WHERE id = $1`, &got, repo.ID)
+
+	if got != nil {
+		t.Errorf("next_due_at = %v after a zero SetNextDue, want NULL", got)
+	}
+}
+
+// TestControlsStore_PruneKeepsLastEvaluation is IMPL-0030 6.8 and 6.9,
+// run as rg_evaluator: RecordEvaluation stamps last_checked_at, a
+// stale-epoch discard leaves it alone, and after the prune deletes every
+// check the API still reports the repository's last evaluation.
+func TestControlsStore_PruneKeepsLastEvaluation(t *testing.T) {
+	s, dsns := evaluatorStore(t)
+	ctx := t.Context()
+
+	repo := discover(t, s, &fakeResolver{assignments: []policy.Assignment{codeowners("r1")}})
+	epoch := epochOf(t, dsns.Owner, repo.ID)
+
+	lastChecked := func() time.Time {
+		var at *time.Time
+		queryArgs(t, dsns.Owner, `SELECT last_checked_at FROM repositories WHERE id = $1`, &at, repo.ID)
+
+		if at == nil {
+			return time.Time{}
+		}
+
+		return *at
+	}
+
+	stage(t, s, repo.ID, "k1", epoch, "f1", "non_compliant")
+
+	if _, err := s.RecordEvaluation(ctx, "k1"); err != nil {
+		t.Fatal(err)
+	}
+
+	first := lastChecked()
+
+	var finished time.Time
+	queryArgs(t, dsns.Owner, `SELECT finished_at FROM checks WHERE check_key = 'k1'`, &finished)
+
+	if first.IsZero() || !first.Equal(finished) {
+		t.Fatalf("last_checked_at = %v, want the check's finished_at %v", first, finished)
+	}
+
+	stage(t, s, repo.ID, "k2", epoch+1000, "f2", "compliant")
+
+	if out, err := s.RecordEvaluation(ctx, "k2"); err != nil || len(out.Discarded) != 1 {
+		t.Fatalf("stale record = %+v, %v; want discarded", out, err)
+	}
+
+	if got := lastChecked(); !got.Equal(first) {
+		t.Errorf("last_checked_at after a stale discard = %v, want %v kept", got, first)
+	}
+
+	n, err := s.PruneChecks(ctx, time.Now().Add(time.Hour))
+	if err != nil || n != 2 {
+		t.Fatalf("PruneChecks = %d, %v; want both checks deleted", n, err)
+	}
+
+	pool, err := postgres.NewReadOnlyPool(ctx, dsns.ReadOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	d, err := postgres.NewAPIReader(pool).Repository(ctx, store.ScopeAll(), repo.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if d.Repository.LastEvaluatedAt == nil || !d.Repository.LastEvaluatedAt.Equal(first) {
+		t.Errorf("last_evaluated_at after the prune = %v, want %v", d.Repository.LastEvaluatedAt, first)
 	}
 }

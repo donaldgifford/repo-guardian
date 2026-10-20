@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/donaldgifford/repo-guardian/internal/control"
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 	"github.com/donaldgifford/repo-guardian/internal/store"
 	"github.com/donaldgifford/repo-guardian/internal/store/postgres/controlsdb"
@@ -65,6 +66,10 @@ func (s *ControlsStore) UpsertRepositories(
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsert repositories: %w", err)
+	}
+
+	for i := range out {
+		countBlocked(out[i].Org, out[i].Change.Blocked)
 	}
 
 	return out, nil
@@ -152,7 +157,10 @@ func (s *ControlsStore) upsertOne(
 // Resolve re-resolves one stored repository: a policy rollout, or a
 // change to either App's access.
 func (s *ControlsStore) Resolve(ctx context.Context, repoID int64, r store.Resolver) (store.ResolutionChange, error) {
-	var change store.ResolutionChange
+	var (
+		change store.ResolutionChange
+		org    string
+	)
 
 	err := s.inTx(ctx, func(q *controlsdb.Queries) error {
 		row, err := q.GetRepository(ctx, repoID)
@@ -160,6 +168,7 @@ func (s *ControlsStore) Resolve(ctx context.Context, repoID int64, r store.Resol
 			return fmt.Errorf("read repository: %w", err)
 		}
 
+		org = row.Org
 		repo := policy.Repository{Org: row.Org, Name: row.Name, Active: row.Active, ParkReason: textOf(row.ParkReason)}
 		_, change, err = s.resolveWith(ctx, q, repoID, repo, r)
 
@@ -169,7 +178,17 @@ func (s *ControlsStore) Resolve(ctx context.Context, repoID int64, r store.Resol
 		return store.ResolutionChange{}, fmt.Errorf("resolve repository %d: %w", repoID, err)
 	}
 
+	countBlocked(org, change.Blocked)
+
 	return change, nil
+}
+
+// countBlocked counts the assignments a committed resolution downgraded
+// because the Remediation App cannot reach the repository.
+func countBlocked(org string, reasons []string) {
+	for _, reason := range reasons {
+		metrics.RemediationBlockedTotal.WithLabelValues(org, reason).Inc()
+	}
 }
 
 // resolveWith reads both Apps' access, resolves and applies.
@@ -318,6 +337,10 @@ func epochFor(ctx context.Context, q *controlsdb.Queries, repoID int64, a *polic
 	}
 
 	change.Changed = append(change.Changed, a.Control.Slug)
+
+	if a.ModeReason == policy.ModeReasonNoAccess || a.ModeReason == policy.ModeReasonSuspended {
+		change.Blocked = append(change.Blocked, a.ModeReason)
+	}
 
 	return epoch, event(ctx, q, repoID, eventAssignmentChanged, map[string]any{
 		detailControl: a.Control.String(), detailFrom: from, detailTo: string(a.State), "epoch": epoch,

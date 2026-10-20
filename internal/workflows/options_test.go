@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -54,5 +55,45 @@ func TestActivityOptions_MatchTheDesignTable(t *testing.T) {
 
 	if rp := st.RetryPolicy; rp == nil || rp.InitialInterval != time.Second || rp.MaximumInterval != time.Minute || rp.MaximumAttempts != 0 {
 		t.Errorf("store retry = %+v, want 1s→1m, unlimited", st.RetryPolicy)
+	}
+}
+
+func remediateOptionsProbe(ctx workflow.Context) (workflow.ActivityOptions, error) {
+	return workflow.GetActivityOptions(remediateOptions(ctx, TaskPriority(PrioritySchedule, 7))), nil
+}
+
+// TestRemediateOptions is IMPL-0030 3.3 and 3.4: Remediate heartbeats,
+// StartToClose sits below ScheduleToClose, the fence and hold outcomes
+// are never retried, and the Remediation App's lease outlives every
+// attempt.
+func TestRemediateOptions(t *testing.T) {
+	t.Parallel()
+
+	var suite testsuite.WorkflowTestSuite
+
+	env := suite.NewTestWorkflowEnvironment()
+	env.ExecuteWorkflow(remediateOptionsProbe)
+
+	var got workflow.ActivityOptions
+	if err := env.GetWorkflowResult(&got); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+
+	if got.HeartbeatTimeout == 0 || got.ScheduleToCloseTimeout == 0 || got.StartToCloseTimeout >= got.ScheduleToCloseTimeout {
+		t.Errorf("Remediate timeouts = heartbeat %v, start %v, schedule %v; want a heartbeat and start below schedule",
+			got.HeartbeatTimeout, got.StartToCloseTimeout, got.ScheduleToCloseTimeout)
+	}
+
+	want := []string{ErrTypeOperationHeld, ErrTypeStaleEpoch, ErrTypeHold}
+	if rp := got.RetryPolicy; rp == nil || !slices.Equal(rp.NonRetryableErrorTypes, want) {
+		t.Errorf("Remediate retry = %+v, want non-retryable %v", got.RetryPolicy, want)
+	}
+
+	if ttl := LeaseTTL(AppRemediate); ttl <= got.ScheduleToCloseTimeout {
+		t.Errorf("LeaseTTL(remediate) = %v, want past ScheduleToClose %v", ttl, got.ScheduleToCloseTimeout)
+	}
+
+	if ttl := LeaseTTL(AppEval); ttl != DefaultLeaseTTL {
+		t.Errorf("LeaseTTL(eval) = %v, want DefaultLeaseTTL", ttl)
 	}
 }

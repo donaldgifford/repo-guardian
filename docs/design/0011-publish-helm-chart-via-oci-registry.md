@@ -310,7 +310,7 @@ unmodified base.
 - [Atlantis chart consumption pattern](https://github.com/donaldgifford/homelab/blob/main/k8s/homelab-cluster/apps/cicd/atlantis/kustomization.yaml)
 - [Helm OCI registries documentation](https://helm.sh/docs/topics/registries/)
 - [GHCR + Helm integration guide](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-- [DESIGN-0005](0005-helm-chart.md) — original chart design (parent)
+- DESIGN-0005 (no longer in the repository) — original chart design (parent)
 - [IMPL-0004](../impl/0004-helm-chart-for-repo-guardian.md) — chart implementation
 - `.github/workflows/chart-release.yml` — existing workflow being replaced
 - `charts/repo-guardian/Chart.yaml` — `version` and `appVersion`

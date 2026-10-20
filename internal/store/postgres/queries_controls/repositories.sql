@@ -21,7 +21,7 @@ UPDATE repositories SET org = @org, name = @name, provider_repo_id = @provider_r
 UPDATE repositories SET active = true, park_reason = NULL, parked_at = NULL WHERE id = @id;
 
 -- name: ParkRepository :execrows
-UPDATE repositories SET active = false, park_reason = @park_reason, parked_at = now()
+UPDATE repositories SET active = false, park_reason = @park_reason, parked_at = now(), next_due_at = NULL
 WHERE id = @id AND (active OR park_reason IS DISTINCT FROM @park_reason);
 
 -- name: InsertRepositoryEvent :exec
@@ -93,3 +93,8 @@ FROM repositories r
 LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
 LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 WHERE r.id = @id;
+
+-- name: SetNextDue :exec
+-- The evaluation loop's next due time (IMPL-0030 2.8, INV-0023 F3); NULL
+-- clears it.
+UPDATE repositories SET next_due_at = sqlc.narg(next_due_at)::timestamptz WHERE id = @id;

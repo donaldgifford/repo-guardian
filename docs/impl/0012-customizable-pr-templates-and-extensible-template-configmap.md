@@ -575,7 +575,7 @@ delivers on the customization promises.
 - [ ] Homelab smoke deploy — **Pending operator action**, can't
   be performed from a code session. Operator-runnable runbook
   scaffolded at
-  [`charts/repo-guardian/docs/homelab-smoke.md`](../../charts/repo-guardian/docs/homelab-smoke.md);
+  [`charts/repo-guardian/docs/homelab-smoke.md`](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/docs/homelab-smoke.md);
   follow it end-to-end. Acceptance criteria:
   - Set `templating.vars.JIRA_PROJECT: PLAT` in chart values.
   - Set a per-rule

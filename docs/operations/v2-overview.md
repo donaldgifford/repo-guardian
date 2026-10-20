@@ -85,9 +85,9 @@ policy says so, it also fixes what it finds.
   control, and per rule inside it.
 - **Two GitHub Apps.** The Evaluation App reads. The Remediation App
   writes, and only to repositories you grant it.
-- **This release candidate evaluates only.** Remediation (pull requests
-  and API writes) lands with IMPL-0030. Until then nothing is written to
-  GitHub, whatever the policy's `mode` says.
+- **Nothing is written until you say so.** Every assignment evaluates;
+  only one in `mode = "remediate"`, on a repository the Remediation App
+  can reach, opens pull requests or writes through the API.
 
 ## What repo-guardian enforces
 
@@ -193,20 +193,50 @@ API-remediated controls also choose how they write, with
 
 ### How it fixes things
 
-Remediation ships with IMPL-0030; this section describes what it will
-do, so a policy written now behaves as expected then.
+The remediator acts as the Remediation App, one run at a time per
+repository and control, and only for assignments in `remediate` mode.
 
 - **One pull request per control.** Each control that needs file changes
   gets its own branch, `repo-guardian/<control slug>`, and its own PR,
-  updated in place as the results change. A reviewer sees one concern
-  per PR, and merging the Renovate PR never waits on the CODEOWNERS one.
-- **Bounded noise.** `remediation { max_open_prs }` caps how many
-  repo-guardian PRs a repository has open at once, and `reopen_after`
-  sets how long a PR a human closed stays closed before it is proposed
-  again.
-- **Branches are never deleted.** Branch cleanup after merge is left to
-  the repository's `delete_branch_on_merge` setting, which a
-  `repo_settings` control can enforce.
+  updated in place as the results change. The branch carries no
+  version, so a control version bump updates the same PR. A reviewer
+  sees one concern per PR, and merging the Renovate PR never waits on
+  the CODEOWNERS one.
+- **Bounded noise.** `remediation { max_open_prs }` (default 3) caps how
+  many repo-guardian PRs a repository has open at once; the rest wait
+  in policy order, held as `pr_cap`, and go out as PRs merge or close.
+  `reopen_after` (default 14 days) is how long a PR a human closed stays
+  closed while the control still fails; to stop it for good, exclude the
+  control for that repository.
+- **Humans win.** A human may push to repo-guardian's PR. The remediator
+  merges main into it, keeps human edits, reverts only its own obsolete
+  changes, and never force-pushes. It adopts an existing branch only
+  when the open PR on it was authored by the Remediation App's bot.
+- **It closes what it opened.** A PR is closed `closed_compliant` when a
+  fresh read of main shows the control passing (a human's own fix, for
+  instance), and `closed_withdrawn` when the control is no longer
+  assigned, each with a comment. A merged PR is the end of that run.
+- **Holds say why nothing happened.** A control that cannot be
+  remediated right now is held with a reason the UI and
+  `/remediations?hold=` show:
+
+  | Hold | Means | Clears when |
+  | --- | --- | --- |
+  | `pr_cap` | the repository is at `max_open_prs` | one of its PRs merges or closes |
+  | `foreign_branch` | `repo-guardian/<slug>` exists but its PR is not the App's | the branch is removed or renamed |
+  | `stale_branch` | a branch is left from a PR a human closed without merging | the branch is deleted |
+  | `conflict` | the PR's branch no longer descends from the App's last commit, or main will not merge cleanly | a human resolves the branch |
+  | `permission` | the App may not make the change (for example a workflow file without the Workflows permission), or cannot reach the repository to clean up | the App is granted the permission or the access |
+
+- **Branches are never deleted.** Not after merge, not after a close,
+  not to clear a hold. Branch cleanup after merge is the repository's
+  `delete_branch_on_merge` setting, which a `repo_settings` control can
+  enforce.
+- **API controls follow `apply`.** `recommend` writes nothing and
+  records the change for a human; `direct` writes, reads back and
+  journals each resource; `workflow` opens a PR with a workflow that
+  applies it on merge. A recommendation ends `superseded`, `withdrawn`
+  or `resolved`; it is never left dangling.
 
 ### Rolling out a new control safely
 
@@ -220,7 +250,8 @@ do, so a policy written now behaves as expected then.
    `repo-guardian report` show how many repositories fail and on which
    rule.
 4. Add exclusions, each with its reason, for the legitimate exceptions.
-5. Switch the assignment to `remediate` once remediation has shipped.
+5. Switch the assignment to `remediate` and watch the first PRs, holds
+   and the cap in the UI's Remediations view.
 
 ## What changed from guardian.hcl
 
@@ -257,8 +288,10 @@ maps each v1 rule kind to its control. `examples/policy/full` is v1's
 v1 put every file change for a repository on one branch,
 `repo-guardian/add-missing-files`, under one PR. v2 opens one PR per
 control on `repo-guardian/<slug>`, capped by `max_open_prs`. Because the
-branch names differ, v2 does not adopt v1's open PRs: close them at
-cutover. PR title, body and labels are still
+branch names differ, v2 does not adopt v1's open PRs: close them per
+org with rgctl once that org turns on `remediate`
+([cutover step 6](v2-migration.md#6-close-the-old-pull-requests)). PR
+title, body and labels are still
 templated, now per control with `pr {}` in the catalogue.
 
 ### What was dropped
@@ -438,7 +471,7 @@ CI.
 | Unit | rule, `actionable` boolean | control with rules: status, reason, evidence, history |
 | Unmeasured | reads as compliant | its own bucket; coverage reported beside percent |
 | GitHub access | one App, reads and writes | Evaluation App reads, Remediation App writes |
-| Pull requests | one branch per repository | one branch per control, capped by `max_open_prs` (IMPL-0030) |
+| Pull requests | one branch per repository | one branch per control, capped by `max_open_prs` |
 | Job system | Valkey queue, reaper, Lua, SETNX leader | Temporal workflows and schedules |
 | Rate limiting | reactive defer | per-installation, per-App budget with leases and priorities |
 | Cosmetic policy edit | re-checks the fleet | changes nothing |

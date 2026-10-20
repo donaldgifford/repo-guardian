@@ -192,10 +192,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * The repository's timeline, result and repository events merged, newest first.
-         * @description Remediation events join the timeline with IMPL-0030.
-         */
+        /** The repository's timeline, result, repository and remediation events merged, newest first. */
         get: operations["listRepositoryEvents"];
         put?: never;
         post?: never;
@@ -246,6 +243,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recorded control results over the visible orgs, filtered; findings are bucket=non_compliant.
+         * @description The population and the bucket are the compliance query's:
+         *     managed repositories plus those parked for access loss, so
+         *     `bucket=non_compliant`'s total equals the summary's
+         *     `non_compliant`. A pending assignment has no result and never
+         *     appears. `total` is counted on the first page only (no cursor).
+         */
+        get: operations["listResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remediations/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pull request throughput per UTC day over the visible orgs.
+         * @description repo-guardian pull requests opened (by when they were opened) and
+         *     closed (by when they were closed, merged or not) on each UTC day
+         *     of the last `days` days, today included. Every day is present,
+         *     oldest first; a day with neither is zeros.
+         */
+        get: operations["getRemediationActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remediations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Remediations over the visible orgs, newest first.
+         * @description One row per remediation: a pull request, a recommendation or a
+         *     direct apply, with its step journal. Filtering by a branch hold
+         *     (`pr_cap`, `foreign_branch`, `stale_branch`, `conflict`) also
+         *     lists the results held before a pull request exists, as rows with
+         *     `kind` pull_request and no `id`, `state` or pull request, dated
+         *     from when the hold began; `kind=api` or any `state` filter leaves
+         *     them out. Open pull requests older than N days are
+         *     `kind=pull_request&state=open&older_than_days=N`; outstanding
+         *     recommendations `state=recommended`; blocked cleanup
+         *     `hold=permission`.
+         */
+        get: operations["listRemediations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/compliance/history": {
         parameters: {
             query?: never;
@@ -253,7 +326,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Compliance snapshots by org and control, oldest first. */
+        /**
+         * Compliance snapshots by org and control, oldest first.
+         * @description With `aggregate=none` (the default) each UTC day's last snapshot
+         *     per org, control and lineage. `fleet`, `org` and `control` sum
+         *     those rows per UTC day, over the fleet or per org or control,
+         *     and compute `percent` and `coverage` from the sums, never by
+         *     averaging.
+         */
         get: operations["getComplianceHistory"];
         put?: never;
         post?: never;
@@ -322,7 +402,11 @@ export interface components {
          */
         Cursor: string;
         /**
-         * @description Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
+         * @description Open enum: access_denied, archived, fork, removed,
+         *     installation_removed, suspended, unknown. The schema admits
+         *     suspended, but the controls line never parks a repository for
+         *     an App's suspension: its results read unmeasurable_suspended
+         *     instead.
          * @example archived
          */
         ParkReason: string;
@@ -381,6 +465,8 @@ export interface components {
         };
         /** @description The status page's operations strip. Counts and times only. */
         StatusOperations: {
+            /** @description Outstanding remediations (reserved, open, recommended or failed) fleet-wide. */
+            remediation_backlog: number;
             /** @description Repositories with a finished evaluation in the last 24 hours. */
             evaluated_24h: number;
             /** @description Managed repositories with no successful evaluation within twice the evaluation interval. */
@@ -437,6 +523,8 @@ export interface components {
         };
         /** @description One repository. */
         Repository: {
+            /** @description The posture over the repository's own assignments, bucketed as the compliance query does. */
+            compliance: components["schemas"]["Posture"];
             /** Format: int64 */
             id: number;
             org: string;
@@ -498,10 +586,11 @@ export interface components {
          *     for a rule-result transition, and the status transition (to_status
          *     is absent when the result was withdrawn, which is how an
          *     assignment's withdrawal shows); a repository event carries kind
-         *     and detail.
+         *     and detail; a remediation event carries the control, kind and
+         *     detail, with `remediation_id` in the detail.
          */
         Event: {
-            /** @description Open enum: result, repository. */
+            /** @description Open enum: result, repository, remediation. */
             source: string;
             /** Format: int64 */
             id: number;
@@ -510,13 +599,29 @@ export interface components {
             control_id?: string;
             /** @description Set on a rule-result transition; absent on a control-status one. */
             rule_id?: string;
-            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            /**
+             * @description Open enum. On a control-level event (no rule_id) a result
+             *     status: compliant, non_compliant, unknown, not_applicable. On
+             *     a rule-level event (rule_id set) a rule status: pass, fail,
+             *     error, unknown, not_applicable. Absent when there was no
+             *     status before.
+             */
             from_status?: string;
-            /** @description Open enum: compliant, non_compliant, unknown, not_applicable. */
+            /**
+             * @description Open enum, as from_status: a result status on a control-level
+             *     event, a rule status (pass, fail, error, unknown,
+             *     not_applicable) on a rule-level one. Absent when the result
+             *     was withdrawn or cleared by a park.
+             */
             to_status?: string;
-            /** @description Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended. */
+            /**
+             * @description Open enum. Repository events: discovered, renamed, transferred,
+             *     parked, unparked, removed, suspended, unsuspended. Remediation
+             *     events: the state the remediation entered (such as open,
+             *     merged, recommended or applied), adopted, observed.
+             */
             kind?: string;
-            /** @description A repository event's detail, such as the names around a rename. */
+            /** @description A repository or remediation event's detail, such as the names around a rename. */
             detail?: Record<string, never>;
         };
         /** @description A page of timeline events. */
@@ -554,6 +659,25 @@ export interface components {
         };
         /** @description Fleet totals over the visible orgs. */
         Summary: {
+            /**
+             * @description Open repo-guardian pull requests by how long ago they were
+             *     opened: every one of the four buckets (<1d, 1-7d, 7-30d, 30d+),
+             *     youngest first. The counts sum to `open_prs`.
+             */
+            open_prs_by_age: components["schemas"]["AgeCount"][];
+            /**
+             * @description Results in the non-compliant bucket by how long ago they last
+             *     changed: every one of the six buckets (<1d, 1-7d, 7-30d,
+             *     30-90d, 90-180d, 180d+), youngest first. The counts sum to
+             *     `compliance.non_compliant`.
+             */
+            finding_age: components["schemas"]["AgeCount"][];
+            /** @description Parked repositories by park reason, ordered by reason; a reason with none is absent. */
+            parked_by_reason: components["schemas"]["ReasonCount"][];
+            /** @description Controls with at least one result in the non-compliant bucket. */
+            controls_failing: number;
+            /** @description Outstanding remediations (reserved, open, recommended or failed) in the visible orgs. */
+            remediation_backlog: number;
             /** @description Active repositories. */
             tracked: number;
             parked: number;
@@ -565,6 +689,27 @@ export interface components {
             last_evaluated_at?: string;
             /** @description The active policy version; absent before one is activated. */
             policy_version?: string;
+        };
+        /** @description Daily repo-guardian pull request throughput, oldest day first, one entry per UTC day. */
+        RemediationActivity: {
+            items: components["schemas"]["ActivityDay"][];
+        };
+        /** @description One UTC day of repo-guardian pull request throughput. */
+        ActivityDay: {
+            /** Format: date */
+            day: string;
+            opened: number;
+            closed: number;
+        };
+        /** @description How many fall in one age bucket. */
+        AgeCount: {
+            bucket: string;
+            count: number;
+        };
+        /** @description How many repositories were parked for one reason. */
+        ReasonCount: {
+            reason: components["schemas"]["ParkReason"];
+            count: number;
         };
         /** @description One control's fleet compliance. */
         ControlSummary: {
@@ -667,8 +812,8 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * @description One assignment with provenance, requested and effective mode, and
-         *     its result. The latest remediation joins with IMPL-0030.
+         * @description One assignment with provenance, requested and effective mode, its
+         *     result and its latest remediation.
          */
         RepositoryControl: {
             control_id: components["schemas"]["ControlSlug"];
@@ -713,17 +858,170 @@ export interface components {
             /** Format: date-time */
             hold_since?: string;
             rules: components["schemas"]["RuleResult"][];
+            /** @description The control's latest remediation; absent before one. */
+            remediation?: components["schemas"]["Remediation"];
         };
         /** @description A repository's assignments. */
         RepositoryControlList: {
             items: components["schemas"]["RepositoryControl"][];
         };
-        /** @description One compliance snapshot row. */
-        HistoryPoint: {
+        /**
+         * @description Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded.
+         * @example non_compliant
+         */
+        Bucket: string;
+        /** @description One recorded control result. */
+        ResultRow: {
+            /** Format: int64 */
+            repository_id: number;
             org: string;
+            /** @description The repository name. */
+            repository: string;
             control_id: components["schemas"]["ControlSlug"];
-            decision: components["schemas"]["Decision"];
+            control_version: number;
+            /** @description Open enum: baseline, replaced, org_added, excluded. */
+            decision: string;
+            /** @description Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable. */
+            status: string;
+            bucket: components["schemas"]["Bucket"];
+            /** @description The rules that fail or error, by rule id. */
+            failing_rules: string[];
+            /** @description The first failing rule's evidence reason, else its evidence_kind; absent when no rule fails. */
+            reason?: string;
             /** Format: date-time */
+            last_changed_at: string;
+            remediation?: components["schemas"]["ResultRemediation"];
+        };
+        /** @description A result's latest remediation, absent when its control has none. */
+        ResultRemediation: {
+            /** @description Open enum: pull_request, api. */
+            kind: string;
+            state: components["schemas"]["RemediationState"];
+            pr_number?: number;
+            pr_url?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Whole days since it was created. */
+            age_days: number;
+        };
+        /** @description A page of results. */
+        ResultPage: {
+            items: components["schemas"]["ResultRow"][];
+            /** @description How many results the filters match; on the first page only. */
+            total?: number;
+            next_cursor?: components["schemas"]["Cursor"];
+        };
+        /**
+         * @description Open enum. A pull request: reserved, open, merged,
+         *     closed_compliant, closed_by_user, closed_withdrawn. An API
+         *     remediation: recommended, superseded, withdrawn, resolved,
+         *     applied, failed.
+         * @example open
+         */
+        RemediationState: string;
+        /**
+         * @description Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission.
+         * @example foreign_branch
+         */
+        Hold: string;
+        /**
+         * @description One remediation (DESIGN-0032): a pull request, a recommendation
+         *     or a direct apply. A result held before a pull request exists
+         *     (`/remediations?hold=`) is a row with `kind` pull_request and no
+         *     `id`, `state` or pull request, `created_at` when the hold began.
+         */
+        Remediation: {
+            /**
+             * Format: int64
+             * @description Absent on a held result.
+             */
+            id?: number;
+            /** Format: int64 */
+            repository_id: number;
+            org: string;
+            /** @description The repository name. */
+            repository: string;
+            control_id: components["schemas"]["ControlSlug"];
+            /** @description Open enum: pull_request, api. */
+            kind: string;
+            /** @description Absent on a held result. */
+            state?: components["schemas"]["RemediationState"];
+            /** @description What remediation was asked to do, as a digest; a moved intent supersedes a recommendation. */
+            intent_revision: string;
+            /** @description The pull request's `repo-guardian/<control>` branch. */
+            branch?: string;
+            pr_number?: number;
+            pr_url?: string;
+            /** @description The pull request head the Evaluation App last saw. */
+            observed_head_sha?: string;
+            /** @description The head the remediator last accepted as its own. */
+            acknowledged_head_sha?: string;
+            hold?: components["schemas"]["Hold"];
+            /**
+             * Format: date-time
+             * @description When a held result's hold began.
+             */
+            hold_since?: string;
+            /** @description A recommendation's or direct apply's changes. */
+            proposal?: components["schemas"]["ProposedChange"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_run_at?: string;
+            /** Format: date-time */
+            closed_at?: string;
+            close_reason?: string;
+            /** @description The external steps journaled, in order; empty for a held result. */
+            steps: components["schemas"]["RemediationStep"][];
+        };
+        /** @description One resource an API remediation would change, with its value before and the value asked for. */
+        ProposedChange: {
+            /** @description The resource, such as `setting:delete_branch_on_merge`. */
+            key: string;
+            op: string;
+            /** @description The value read before; null when the read failed. Any JSON value. */
+            before?: unknown;
+            /** @description The value asked for. Any JSON value. */
+            after?: unknown;
+        };
+        /** @description One journaled external step. */
+        RemediationStep: {
+            seq: number;
+            /** @description Open enum: branch_created, branch_updated, committed, reverted, pr_created, pr_updated, pr_rebased, pr_closed, api_write. */
+            kind: string;
+            /** @description Open enum: done, failed. */
+            status: string;
+            resource_key?: string;
+            committed_sha?: string;
+            pr_number?: number;
+            /** @description An API write's value before. Any JSON value. */
+            before?: unknown;
+            /** @description An API write's value read back. Any JSON value. */
+            after?: unknown;
+            /** @description Why a failed step failed. */
+            error?: string;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        /** @description A page of remediations. */
+        RemediationPage: {
+            items: components["schemas"]["Remediation"][];
+            next_cursor?: components["schemas"]["Cursor"];
+        };
+        /**
+         * @description One compliance snapshot row, or one UTC day's sum of them. Which
+         *     keys are present depends on `aggregate`: `none` carries `org`,
+         *     `control_id` and `decision`; `org` carries `org`; `control`
+         *     carries `control_id`; `fleet` carries none of them.
+         */
+        HistoryPoint: {
+            org?: string;
+            control_id?: components["schemas"]["ControlSlug"];
+            decision?: components["schemas"]["Decision"];
+            /**
+             * Format: date-time
+             * @description The snapshot's time; midnight UTC of the day for an aggregated point.
+             */
             snapshot_at: string;
             compliance: components["schemas"]["Posture"];
         };
@@ -1239,9 +1537,128 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listResults: {
+        parameters: {
+            query?: {
+                /** @description Only this posture bucket. */
+                bucket?: components["schemas"]["Bucket"];
+                /** @description Only this control slug. */
+                control?: components["schemas"]["ControlSlug"];
+                /** @description Only results where this rule fails or errors. */
+                rule?: string;
+                /** @description Only this org, case-insensitive. */
+                org?: string;
+                /** @description Only this assignment decision. Open enum: baseline, replaced, org_added, excluded. */
+                decision?: string;
+                /**
+                 * @description true keeps results whose latest remediation is an open pull
+                 *     request opened at least 30 days ago; false keeps the rest.
+                 */
+                pr_stale?: boolean;
+                /**
+                 * @description By last change, oldest first (since_asc) or newest first
+                 *     (since_desc), or by the open pull request's age, oldest
+                 *     pull request first and results with none last (pr_age).
+                 */
+                sort?: "since_asc" | "since_desc" | "pr_age";
+                /** @description The next_cursor of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRemediationActivity: {
+        parameters: {
+            query?: {
+                /** @description How many days, today included. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per day. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemediationActivity"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRemediations: {
+        parameters: {
+            query?: {
+                /** @description Only this kind. Open enum: pull_request, api. */
+                kind?: string;
+                /** @description Only this state. */
+                state?: components["schemas"]["RemediationState"];
+                /** @description Only this org, case-insensitive. */
+                org?: string;
+                /** @description Only this control slug. */
+                control?: components["schemas"]["ControlSlug"];
+                /** @description Only these holds; repeat the parameter for several. */
+                hold?: components["schemas"]["Hold"][];
+                /** @description Only remediations created (or held) at least this many days ago. */
+                older_than_days?: number;
+                /** @description The next_cursor of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of remediations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemediationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
     getComplianceHistory: {
         parameters: {
             query?: {
+                /** @description How to sum each day's rows. */
+                aggregate?: "none" | "fleet" | "org" | "control";
                 /** @description Only this control slug. */
                 control?: components["schemas"]["ControlSlug"];
                 /** @description Only this org, case-insensitive. */

@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // App names one of the two controls GitHub Apps (DESIGN-0032 § Two
@@ -103,21 +104,21 @@ func (c *Config) Credentials(a App) AppCredentials {
 // validateEvaluator checks what the evaluator role needs: the
 // evaluation App, Temporal, the store and the policy.
 func (c *Config) validateEvaluator() []error {
-	return append(c.validateApp(AppEval, "evaluator"), c.validateControlsWorker("evaluator")...)
+	return append(c.validateApp(AppEval, "evaluator"), c.validateControlsWorker(RoleEvaluator, "evaluator")...)
 }
 
 // validateRemediator checks what the remediator role needs: the
 // remediation App, Temporal, the store and the policy.
 func (c *Config) validateRemediator() []error {
-	return append(c.validateApp(AppRemediate, "remediator"), c.validateControlsWorker("remediator")...)
+	return append(c.validateApp(AppRemediate, "remediator"), c.validateControlsWorker(RoleRemediator, "remediator")...)
 }
 
 // validateControlsWorker is what both controls worker roles share.
-func (c *Config) validateControlsWorker(role string) []error {
+func (c *Config) validateControlsWorker(half Role, role string) []error {
 	var errs []error
 
-	if c.StoreDSN == "" {
-		errs = append(errs, fmt.Errorf("STORE_DSN is required for the %s role", role))
+	if dsn, _ := c.WorkerStoreDSN(half); dsn == "" {
+		errs = append(errs, fmt.Errorf("STORE_DSN_%s (or STORE_DSN) is required for the %s role", strings.ToUpper(role), role))
 	}
 
 	if c.GuardianConfigPath == "" {
@@ -125,6 +126,34 @@ func (c *Config) validateControlsWorker(role string) []error {
 	}
 
 	return errs
+}
+
+// The store DSN variables.
+const (
+	envStoreDSN           = "STORE_DSN"
+	envStoreDSNEvaluator  = "STORE_DSN_EVALUATOR"
+	envStoreDSNRemediator = "STORE_DSN_REMEDIATOR"
+)
+
+// WorkerStoreDSN is the DSN a controls half (RoleEvaluator or
+// RoleRemediator) connects with, and the variable it came from: its own
+// STORE_DSN_<HALF>, or STORE_DSN when that is unset (a chart without
+// store.controls, or a single-DSN all). It is empty when neither is set.
+func (c *Config) WorkerStoreDSN(half Role) (dsn, source string) {
+	own, env := c.StoreDSNEvaluator, envStoreDSNEvaluator
+	if half == RoleRemediator {
+		own, env = c.StoreDSNRemediator, envStoreDSNRemediator
+	}
+
+	if own != "" {
+		return own, env
+	}
+
+	if c.StoreDSN != "" {
+		return c.StoreDSN, envStoreDSN
+	}
+
+	return "", ""
 }
 
 // validateAppRoutes checks ingest's per-App routes: a route is mounted

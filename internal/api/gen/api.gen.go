@@ -22,6 +22,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for FrameworkEvidenceEvidenceKind.
@@ -77,24 +78,87 @@ func (e StatusAppApp) Valid() bool {
 
 // Defines values for StatusOperationsRolloutState.
 const (
-	Complete   StatusOperationsRolloutState = "complete"
-	InProgress StatusOperationsRolloutState = "in_progress"
-	None       StatusOperationsRolloutState = "none"
+	StatusOperationsRolloutStateComplete   StatusOperationsRolloutState = "complete"
+	StatusOperationsRolloutStateInProgress StatusOperationsRolloutState = "in_progress"
+	StatusOperationsRolloutStateNone       StatusOperationsRolloutState = "none"
 )
 
 // Valid indicates whether the value is a known member of the StatusOperationsRolloutState enum.
 func (e StatusOperationsRolloutState) Valid() bool {
 	switch e {
-	case Complete:
+	case StatusOperationsRolloutStateComplete:
 		return true
-	case InProgress:
+	case StatusOperationsRolloutStateInProgress:
 		return true
-	case None:
+	case StatusOperationsRolloutStateNone:
 		return true
 	default:
 		return false
 	}
 }
+
+// Defines values for GetComplianceHistoryParamsAggregate.
+const (
+	GetComplianceHistoryParamsAggregateControl GetComplianceHistoryParamsAggregate = "control"
+	GetComplianceHistoryParamsAggregateFleet   GetComplianceHistoryParamsAggregate = "fleet"
+	GetComplianceHistoryParamsAggregateNone    GetComplianceHistoryParamsAggregate = "none"
+	GetComplianceHistoryParamsAggregateOrg     GetComplianceHistoryParamsAggregate = "org"
+)
+
+// Valid indicates whether the value is a known member of the GetComplianceHistoryParamsAggregate enum.
+func (e GetComplianceHistoryParamsAggregate) Valid() bool {
+	switch e {
+	case GetComplianceHistoryParamsAggregateControl:
+		return true
+	case GetComplianceHistoryParamsAggregateFleet:
+		return true
+	case GetComplianceHistoryParamsAggregateNone:
+		return true
+	case GetComplianceHistoryParamsAggregateOrg:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListResultsParamsSort.
+const (
+	PrAge     ListResultsParamsSort = "pr_age"
+	SinceAsc  ListResultsParamsSort = "since_asc"
+	SinceDesc ListResultsParamsSort = "since_desc"
+)
+
+// Valid indicates whether the value is a known member of the ListResultsParamsSort enum.
+func (e ListResultsParamsSort) Valid() bool {
+	switch e {
+	case PrAge:
+		return true
+	case SinceAsc:
+		return true
+	case SinceDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// ActivityDay One UTC day of repo-guardian pull request throughput.
+type ActivityDay struct {
+	Closed int                `json:"closed"`
+	Day    openapi_types.Date `json:"day"`
+	Opened int                `json:"opened"`
+}
+
+// AgeCount How many fall in one age bucket.
+type AgeCount struct {
+	Bucket string `json:"bucket"`
+	Count  int    `json:"count"`
+}
+
+// Bucket Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded.
+//
+// Examples: non_compliant
+type Bucket = string
 
 // Compliance Fleet-wide compliance for the status page.
 type Compliance struct {
@@ -252,28 +316,39 @@ type EvaluationPage struct {
 // for a rule-result transition, and the status transition (to_status
 // is absent when the result was withdrawn, which is how an
 // assignment's withdrawal shows); a repository event carries kind
-// and detail.
+// and detail; a remediation event carries the control, kind and
+// detail, with `remediation_id` in the detail.
 type Event struct {
 	ControlId *string `json:"control_id,omitempty"`
 
-	// Detail A repository event's detail, such as the names around a rename.
+	// Detail A repository or remediation event's detail, such as the names around a rename.
 	Detail *map[string]interface{} `json:"detail,omitempty"`
 
-	// FromStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	// FromStatus Open enum. On a control-level event (no rule_id) a result
+	// status: compliant, non_compliant, unknown, not_applicable. On
+	// a rule-level event (rule_id set) a rule status: pass, fail,
+	// error, unknown, not_applicable. Absent when there was no
+	// status before.
 	FromStatus *string `json:"from_status,omitempty"`
 	Id         int64   `json:"id"`
 
-	// Kind Open enum, repository events: discovered, renamed, transferred, parked, unparked, removed, suspended, unsuspended.
+	// Kind Open enum. Repository events: discovered, renamed, transferred,
+	// parked, unparked, removed, suspended, unsuspended. Remediation
+	// events: the state the remediation entered (such as open,
+	// merged, recommended or applied), adopted, observed.
 	Kind       *string   `json:"kind,omitempty"`
 	OccurredAt time.Time `json:"occurred_at"`
 
 	// RuleId Set on a rule-result transition; absent on a control-status one.
 	RuleId *string `json:"rule_id,omitempty"`
 
-	// Source Open enum: result, repository.
+	// Source Open enum: result, repository, remediation.
 	Source string `json:"source"`
 
-	// ToStatus Open enum: compliant, non_compliant, unknown, not_applicable.
+	// ToStatus Open enum, as from_status: a result status on a control-level
+	// event, a rule status (pass, fail, error, unknown,
+	// not_applicable) on a rule-level one. Absent when the result
+	// was withdrawn or cleared by a park.
 	ToStatus *string `json:"to_status,omitempty"`
 }
 
@@ -316,7 +391,10 @@ type FrameworkEvidence struct {
 // FrameworkEvidenceEvidenceKind defines model for FrameworkEvidence.EvidenceKind.
 type FrameworkEvidenceEvidenceKind string
 
-// HistoryPoint One compliance snapshot row.
+// HistoryPoint One compliance snapshot row, or one UTC day's sum of them. Which
+// keys are present depends on `aggregate`: `none` carries `org`,
+// `control_id` and `decision`; `org` carries `org`; `control`
+// carries `control_id`; `fleet` carries none of them.
 type HistoryPoint struct {
 	// Compliance Compliance over a set of assignments, by posture bucket. Every
 	// assignment lands in exactly one bucket. `assigned` counts every
@@ -327,15 +405,22 @@ type HistoryPoint struct {
 	Compliance Posture `json:"compliance"`
 
 	// ControlId A control's slug, the version-free part of its id.
-	ControlId ControlSlug `json:"control_id"`
+	ControlId *ControlSlug `json:"control_id,omitempty"`
 
 	// Decision Open enum: baseline, replaced, org_added.
 	//
 	// Examples: baseline
-	Decision   Decision  `json:"decision"`
-	Org        string    `json:"org"`
+	Decision *Decision `json:"decision,omitempty"`
+	Org      *string   `json:"org,omitempty"`
+
+	// SnapshotAt The snapshot's time; midnight UTC of the day for an aggregated point.
 	SnapshotAt time.Time `json:"snapshot_at"`
 }
+
+// Hold Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission.
+//
+// Examples: foreign_branch
+type Hold = string
 
 // Me The caller and the orgs it may see.
 type Me struct {
@@ -413,7 +498,11 @@ type OrgSummary struct {
 	Tracked int    `json:"tracked"`
 }
 
-// ParkReason Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
+// ParkReason Open enum: access_denied, archived, fork, removed,
+// installation_removed, suspended, unknown. The schema admits
+// suspended, but the controls line never parks a repository for
+// an App's suspension: its results read unmeasurable_suspended
+// instead.
 //
 // Examples: archived
 type ParkReason = string
@@ -535,9 +624,142 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// ProposedChange One resource an API remediation would change, with its value before and the value asked for.
+type ProposedChange struct {
+	// After The value asked for. Any JSON value.
+	After interface{} `json:"after,omitempty"`
+
+	// Before The value read before; null when the read failed. Any JSON value.
+	Before interface{} `json:"before,omitempty"`
+
+	// Key The resource, such as `setting:delete_branch_on_merge`.
+	Key string `json:"key"`
+	Op  string `json:"op"`
+}
+
+// ReasonCount How many repositories were parked for one reason.
+type ReasonCount struct {
+	Count int `json:"count"`
+
+	// Reason Open enum: access_denied, archived, fork, removed,
+	// installation_removed, suspended, unknown. The schema admits
+	// suspended, but the controls line never parks a repository for
+	// an App's suspension: its results read unmeasurable_suspended
+	// instead.
+	//
+	//
+	// Examples: archived
+	Reason ParkReason `json:"reason"`
+}
+
+// Remediation One remediation (DESIGN-0032): a pull request, a recommendation
+// or a direct apply. A result held before a pull request exists
+// (`/remediations?hold=`) is a row with `kind` pull_request and no
+// `id`, `state` or pull request, `created_at` when the hold began.
+type Remediation struct {
+	// AcknowledgedHeadSha The head the remediator last accepted as its own.
+	AcknowledgedHeadSha *string `json:"acknowledged_head_sha,omitempty"`
+
+	// Branch The pull request's `repo-guardian/<control>` branch.
+	Branch      *string    `json:"branch,omitempty"`
+	CloseReason *string    `json:"close_reason,omitempty"`
+	ClosedAt    *time.Time `json:"closed_at,omitempty"`
+
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId ControlSlug `json:"control_id"`
+	CreatedAt time.Time   `json:"created_at"`
+
+	// Hold Open enum: pr_cap, foreign_branch, stale_branch, conflict, permission.
+	//
+	// Examples: foreign_branch
+	Hold *Hold `json:"hold,omitempty"`
+
+	// HoldSince When a held result's hold began.
+	HoldSince *time.Time `json:"hold_since,omitempty"`
+
+	// Id Absent on a held result.
+	Id *int64 `json:"id,omitempty"`
+
+	// IntentRevision What remediation was asked to do, as a digest; a moved intent supersedes a recommendation.
+	IntentRevision string `json:"intent_revision"`
+
+	// Kind Open enum: pull_request, api.
+	Kind      string     `json:"kind"`
+	LastRunAt *time.Time `json:"last_run_at,omitempty"`
+
+	// ObservedHeadSha The pull request head the Evaluation App last saw.
+	ObservedHeadSha *string `json:"observed_head_sha,omitempty"`
+	Org             string  `json:"org"`
+	PrNumber        *int    `json:"pr_number,omitempty"`
+	PrUrl           *string `json:"pr_url,omitempty"`
+
+	// Proposal A recommendation's or direct apply's changes.
+	Proposal *[]ProposedChange `json:"proposal,omitempty"`
+
+	// Repository The repository name.
+	Repository   string `json:"repository"`
+	RepositoryId int64  `json:"repository_id"`
+
+	// State Absent on a held result.
+	//
+	// Examples: open
+	State *RemediationState `json:"state,omitempty"`
+
+	// Steps The external steps journaled, in order; empty for a held result.
+	Steps []RemediationStep `json:"steps"`
+}
+
+// RemediationActivity Daily repo-guardian pull request throughput, oldest day first, one entry per UTC day.
+type RemediationActivity struct {
+	Items []ActivityDay `json:"items"`
+}
+
+// RemediationPage A page of remediations.
+type RemediationPage struct {
+	Items []Remediation `json:"items"`
+
+	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
+	// fetch the next page; a cursor from different filters is refused.
+	NextCursor *Cursor `json:"next_cursor,omitempty"`
+}
+
+// RemediationState Open enum. A pull request: reserved, open, merged,
+// closed_compliant, closed_by_user, closed_withdrawn. An API
+// remediation: recommended, superseded, withdrawn, resolved,
+// applied, failed.
+//
+// Examples: open
+type RemediationState = string
+
+// RemediationStep One journaled external step.
+type RemediationStep struct {
+	// After An API write's value read back. Any JSON value.
+	After interface{} `json:"after,omitempty"`
+
+	// Before An API write's value before. Any JSON value.
+	Before       interface{} `json:"before,omitempty"`
+	CommittedSha *string     `json:"committed_sha,omitempty"`
+
+	// Error Why a failed step failed.
+	Error *string `json:"error,omitempty"`
+
+	// Kind Open enum: branch_created, branch_updated, committed, reverted, pr_created, pr_updated, pr_rebased, pr_closed, api_write.
+	Kind        string    `json:"kind"`
+	OccurredAt  time.Time `json:"occurred_at"`
+	PrNumber    *int      `json:"pr_number,omitempty"`
+	ResourceKey *string   `json:"resource_key,omitempty"`
+	Seq         int       `json:"seq"`
+
+	// Status Open enum: done, failed.
+	Status string `json:"status"`
+}
+
 // Repository One repository.
 type Repository struct {
-	Active       bool      `json:"active"`
+	Active bool `json:"active"`
+
+	// Compliance The posture over the repository's own assignments, bucketed as the compliance query does.
+	Compliance   Posture   `json:"compliance"`
 	DiscoveredAt time.Time `json:"discovered_at"`
 
 	// Evaluable The Evaluation App has access to the repository.
@@ -548,7 +770,12 @@ type Repository struct {
 	NextDueAt       *time.Time `json:"next_due_at,omitempty"`
 	Org             string     `json:"org"`
 
-	// ParkReason Open enum: access_denied, archived, fork, removed, installation_removed, unknown.
+	// ParkReason Open enum: access_denied, archived, fork, removed,
+	// installation_removed, suspended, unknown. The schema admits
+	// suspended, but the controls line never parks a repository for
+	// an App's suspension: its results read unmeasurable_suspended
+	// instead.
+	//
 	//
 	// Examples: archived
 	ParkReason *ParkReason `json:"park_reason,omitempty"`
@@ -567,8 +794,8 @@ type Repository struct {
 	Remediable bool `json:"remediable"`
 }
 
-// RepositoryControl One assignment with provenance, requested and effective mode, and
-// its result. The latest remediation joins with IMPL-0030.
+// RepositoryControl One assignment with provenance, requested and effective mode, its
+// result and its latest remediation.
 type RepositoryControl struct {
 	// BaselineControl The baseline control this assignment fulfils; absent for an org addition.
 	BaselineControl *string `json:"baseline_control,omitempty"`
@@ -601,6 +828,9 @@ type RepositoryControl struct {
 	ModeReason *string `json:"mode_reason,omitempty"`
 	ModeSource string  `json:"mode_source"`
 	Reason     *string `json:"reason,omitempty"`
+
+	// Remediation The control's latest remediation; absent before one.
+	Remediation *Remediation `json:"remediation,omitempty"`
 
 	// Replaced The control this one replaced.
 	Replaced *string `json:"replaced,omitempty"`
@@ -645,6 +875,72 @@ type RepositoryPage struct {
 	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
 	// fetch the next page; a cursor from different filters is refused.
 	NextCursor *Cursor `json:"next_cursor,omitempty"`
+}
+
+// ResultPage A page of results.
+type ResultPage struct {
+	Items []ResultRow `json:"items"`
+
+	// NextCursor An opaque keyset cursor. Pass it back unchanged as `?cursor=` to
+	// fetch the next page; a cursor from different filters is refused.
+	NextCursor *Cursor `json:"next_cursor,omitempty"`
+
+	// Total How many results the filters match; on the first page only.
+	Total *int `json:"total,omitempty"`
+}
+
+// ResultRemediation A result's latest remediation, absent when its control has none.
+type ResultRemediation struct {
+	// AgeDays Whole days since it was created.
+	AgeDays   int       `json:"age_days"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Kind Open enum: pull_request, api.
+	Kind     string  `json:"kind"`
+	PrNumber *int    `json:"pr_number,omitempty"`
+	PrUrl    *string `json:"pr_url,omitempty"`
+
+	// State Open enum. A pull request: reserved, open, merged,
+	// closed_compliant, closed_by_user, closed_withdrawn. An API
+	// remediation: recommended, superseded, withdrawn, resolved,
+	// applied, failed.
+	//
+	//
+	// Examples: open
+	State RemediationState `json:"state"`
+}
+
+// ResultRow One recorded control result.
+type ResultRow struct {
+	// Bucket Open enum, the posture bucket: compliant, non_compliant, pending, stale, unmeasurable_access_denied, unmeasurable_suspended, unmeasurable_conflict, not_applicable, unknown, excluded.
+	//
+	// Examples: non_compliant
+	Bucket Bucket `json:"bucket"`
+
+	// ControlId A control's slug, the version-free part of its id.
+	ControlId      ControlSlug `json:"control_id"`
+	ControlVersion int         `json:"control_version"`
+
+	// Decision Open enum: baseline, replaced, org_added, excluded.
+	Decision string `json:"decision"`
+
+	// FailingRules The rules that fail or error, by rule id.
+	FailingRules  []string  `json:"failing_rules"`
+	LastChangedAt time.Time `json:"last_changed_at"`
+	Org           string    `json:"org"`
+
+	// Reason The first failing rule's evidence reason, else its evidence_kind; absent when no rule fails.
+	Reason *string `json:"reason,omitempty"`
+
+	// Remediation A result's latest remediation, absent when its control has none.
+	Remediation *ResultRemediation `json:"remediation,omitempty"`
+
+	// Repository The repository name.
+	Repository   string `json:"repository"`
+	RepositoryId int64  `json:"repository_id"`
+
+	// Status Open enum, the recorded status: compliant, non_compliant, unknown, not_applicable.
+	Status string `json:"status"`
 }
 
 // RuleResult One rule's result.
@@ -706,7 +1002,10 @@ type StatusOperations struct {
 	LastSnapshotAt *time.Time `json:"last_snapshot_at,omitempty"`
 
 	// Overdue Managed repositories with no successful evaluation within twice the evaluation interval.
-	Overdue            int        `json:"overdue"`
+	Overdue int `json:"overdue"`
+
+	// RemediationBacklog Outstanding remediations (reserved, open, recommended or failed) fleet-wide.
+	RemediationBacklog int        `json:"remediation_backlog"`
 	RolloutCompletedAt *time.Time `json:"rollout_completed_at,omitempty"`
 
 	// RolloutState The newest policy version's rollout; none before any version is recorded.
@@ -729,14 +1028,34 @@ type Summary struct {
 	// decimal and null on an empty denominator.
 	Compliance Posture `json:"compliance"`
 
+	// ControlsFailing Controls with at least one result in the non-compliant bucket.
+	ControlsFailing int `json:"controls_failing"`
+
 	// Evaluated24h Repositories evaluated in the last 24 hours.
-	Evaluated24h    int        `json:"evaluated_24h"`
+	Evaluated24h int `json:"evaluated_24h"`
+
+	// FindingAge Results in the non-compliant bucket by how long ago they last
+	// changed: every one of the six buckets (<1d, 1-7d, 7-30d,
+	// 30-90d, 90-180d, 180d+), youngest first. The counts sum to
+	// `compliance.non_compliant`.
+	FindingAge      []AgeCount `json:"finding_age"`
 	LastEvaluatedAt *time.Time `json:"last_evaluated_at,omitempty"`
 	OpenPrs         int        `json:"open_prs"`
-	Parked          int        `json:"parked"`
+
+	// OpenPrsByAge Open repo-guardian pull requests by how long ago they were
+	// opened: every one of the four buckets (<1d, 1-7d, 7-30d, 30d+),
+	// youngest first. The counts sum to `open_prs`.
+	OpenPrsByAge []AgeCount `json:"open_prs_by_age"`
+	Parked       int        `json:"parked"`
+
+	// ParkedByReason Parked repositories by park reason, ordered by reason; a reason with none is absent.
+	ParkedByReason []ReasonCount `json:"parked_by_reason"`
 
 	// PolicyVersion The active policy version; absent before one is activated.
 	PolicyVersion *string `json:"policy_version,omitempty"`
+
+	// RemediationBacklog Outstanding remediations (reserved, open, recommended or failed) in the visible orgs.
+	RemediationBacklog int `json:"remediation_backlog"`
 
 	// Tracked Active repositories.
 	Tracked int `json:"tracked"`
@@ -768,6 +1087,9 @@ type Unauthorized = Problem
 
 // GetComplianceHistoryParams defines parameters for GetComplianceHistory.
 type GetComplianceHistoryParams struct {
+	// Aggregate How to sum each day's rows.
+	Aggregate *GetComplianceHistoryParamsAggregate `form:"aggregate,omitempty" json:"aggregate,omitempty"`
+
 	// Control Only this control slug.
 	Control *ControlSlug `form:"control,omitempty" json:"control,omitempty"`
 
@@ -778,10 +1100,46 @@ type GetComplianceHistoryParams struct {
 	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
+// GetComplianceHistoryParamsAggregate defines parameters for GetComplianceHistory.
+type GetComplianceHistoryParamsAggregate string
+
 // ListControlsParams defines parameters for ListControls.
 type ListControlsParams struct {
 	// Org Only this org, case-insensitive.
 	Org *string `form:"org,omitempty" json:"org,omitempty"`
+}
+
+// ListRemediationsParams defines parameters for ListRemediations.
+type ListRemediationsParams struct {
+	// Kind Only this kind. Open enum: pull_request, api.
+	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// State Only this state.
+	State *RemediationState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Org Only this org, case-insensitive.
+	Org *string `form:"org,omitempty" json:"org,omitempty"`
+
+	// Control Only this control slug.
+	Control *ControlSlug `form:"control,omitempty" json:"control,omitempty"`
+
+	// Hold Only these holds; repeat the parameter for several.
+	Hold *[]Hold `form:"hold,omitempty" json:"hold,omitempty"`
+
+	// OlderThanDays Only remediations created (or held) at least this many days ago.
+	OlderThanDays *int `form:"older_than_days,omitempty" json:"older_than_days,omitempty"`
+
+	// Cursor The next_cursor of the previous page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetRemediationActivityParams defines parameters for GetRemediationActivity.
+type GetRemediationActivityParams struct {
+	// Days How many days, today included.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListRepositoriesParams defines parameters for ListRepositories.
@@ -825,6 +1183,42 @@ type ListRepositoryEventsParams struct {
 	// Limit Page size.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// ListResultsParams defines parameters for ListResults.
+type ListResultsParams struct {
+	// Bucket Only this posture bucket.
+	Bucket *Bucket `form:"bucket,omitempty" json:"bucket,omitempty"`
+
+	// Control Only this control slug.
+	Control *ControlSlug `form:"control,omitempty" json:"control,omitempty"`
+
+	// Rule Only results where this rule fails or errors.
+	Rule *string `form:"rule,omitempty" json:"rule,omitempty"`
+
+	// Org Only this org, case-insensitive.
+	Org *string `form:"org,omitempty" json:"org,omitempty"`
+
+	// Decision Only this assignment decision. Open enum: baseline, replaced, org_added, excluded.
+	Decision *string `form:"decision,omitempty" json:"decision,omitempty"`
+
+	// PrStale true keeps results whose latest remediation is an open pull
+	// request opened at least 30 days ago; false keeps the rest.
+	PrStale *bool `form:"pr_stale,omitempty" json:"pr_stale,omitempty"`
+
+	// Sort By last change, oldest first (since_asc) or newest first
+	// (since_desc), or by the open pull request's age, oldest
+	// pull request first and results with none last (pr_age).
+	Sort *ListResultsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Cursor The next_cursor of the previous page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Page size.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListResultsParamsSort defines parameters for ListResults.
+type ListResultsParamsSort string
 
 // Getter for additional properties for ControlEvidence. Returns the specified
 // element and whether it was found
@@ -993,6 +1387,12 @@ type ServerInterface interface {
 	// GetPolicies The active policy, scoped to the visible orgs.
 	// (GET /policies)
 	GetPolicies(w http.ResponseWriter, r *http.Request)
+	// ListRemediations Remediations over the visible orgs, newest first.
+	// (GET /remediations)
+	ListRemediations(w http.ResponseWriter, r *http.Request, params ListRemediationsParams)
+	// GetRemediationActivity Pull request throughput per UTC day over the visible orgs.
+	// (GET /remediations/activity)
+	GetRemediationActivity(w http.ResponseWriter, r *http.Request, params GetRemediationActivityParams)
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(w http.ResponseWriter, r *http.Request, params ListRepositoriesParams)
@@ -1008,9 +1408,12 @@ type ServerInterface interface {
 	// ListRepositoryEvaluations The repository's evaluation log, newest first.
 	// (GET /repositories/{id}/evaluations)
 	ListRepositoryEvaluations(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEvaluationsParams)
-	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
+	// ListRepositoryEvents The repository's timeline, result, repository and remediation events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(w http.ResponseWriter, r *http.Request, id RepositoryID, params ListRepositoryEventsParams)
+	// ListResults Recorded control results over the visible orgs, filtered; findings are bucket=non_compliant.
+	// (GET /results)
+	ListResults(w http.ResponseWriter, r *http.Request, params ListResultsParams)
 	// GetStatus Public service status.
 	// (GET /status)
 	GetStatus(w http.ResponseWriter, r *http.Request)
@@ -1036,6 +1439,19 @@ func (siw *ServerInterfaceWrapper) GetComplianceHistory(w http.ResponseWriter, r
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetComplianceHistoryParams
+
+	// ------------- Optional query parameter "aggregate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "aggregate", r.URL.Query(), &params.Aggregate, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "aggregate"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aggregate", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "control" -------------
 
@@ -1219,6 +1635,163 @@ func (siw *ServerInterfaceWrapper) GetPolicies(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPolicies(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemediations operation middleware
+func (siw *ServerInterfaceWrapper) ListRemediations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRemediationsParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "control" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "control", r.URL.Query(), &params.Control, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "control"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "control", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hold" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hold", r.URL.Query(), &params.Hold, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hold"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hold", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "older_than_days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "older_than_days", r.URL.Query(), &params.OlderThanDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "older_than_days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "older_than_days", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemediations(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRemediationActivity operation middleware
+func (siw *ServerInterfaceWrapper) GetRemediationActivity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRemediationActivityParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRemediationActivity(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1527,6 +2100,143 @@ func (siw *ServerInterfaceWrapper) ListRepositoryEvents(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ListResults operation middleware
+func (siw *ServerInterfaceWrapper) ListResults(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListResultsParams
+
+	// ------------- Optional query parameter "bucket" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "bucket", r.URL.Query(), &params.Bucket, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "bucket"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "control" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "control", r.URL.Query(), &params.Control, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "control"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "control", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rule" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rule", r.URL.Query(), &params.Rule, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rule"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "org" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "org", r.URL.Query(), &params.Org, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "org"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "decision" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "decision", r.URL.Query(), &params.Decision, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "decision"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "decision", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "pr_stale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pr_stale", r.URL.Query(), &params.PrStale, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pr_stale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pr_stale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListResults(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -1688,6 +2398,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/events", wrapper.ListRepositoryEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repositories/{id}/evaluations", wrapper.ListRepositoryEvaluations)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/repositories/{id}/evaluate", wrapper.EvaluateRepository)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/results", wrapper.ListResults)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/remediations/activity", wrapper.GetRemediationActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/remediations", wrapper.ListRemediations)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/compliance/history", wrapper.GetComplianceHistory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/status", wrapper.GetStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/openapi.yaml", wrapper.GetOpenAPI)
@@ -2331,6 +3044,169 @@ func (response GetPoliciesdefaultApplicationProblemPlusJSONResponse) VisitGetPol
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRemediationsRequestObject struct {
+	Params ListRemediationsParams
+}
+
+type ListRemediationsResponseObject interface {
+	VisitListRemediationsResponse(w http.ResponseWriter) error
+}
+
+type ListRemediations200JSONResponse RemediationPage
+
+func (response ListRemediations200JSONResponse) VisitListRemediationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRemediations400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListRemediations400ApplicationProblemPlusJSONResponse) VisitListRemediationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRemediations401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListRemediations401ApplicationProblemPlusJSONResponse) VisitListRemediationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRemediations403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListRemediations403ApplicationProblemPlusJSONResponse) VisitListRemediationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRemediationsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRemediationsdefaultApplicationProblemPlusJSONResponse) VisitListRemediationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRemediationActivityRequestObject struct {
+	Params GetRemediationActivityParams
+}
+
+type GetRemediationActivityResponseObject interface {
+	VisitGetRemediationActivityResponse(w http.ResponseWriter) error
+}
+
+type GetRemediationActivity200JSONResponse RemediationActivity
+
+func (response GetRemediationActivity200JSONResponse) VisitGetRemediationActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRemediationActivity400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetRemediationActivity400ApplicationProblemPlusJSONResponse) VisitGetRemediationActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRemediationActivity401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRemediationActivity401ApplicationProblemPlusJSONResponse) VisitGetRemediationActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRemediationActivity403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetRemediationActivity403ApplicationProblemPlusJSONResponse) VisitGetRemediationActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2979,6 +3855,96 @@ func (response ListRepositoryEventsdefaultApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type ListResultsRequestObject struct {
+	Params ListResultsParams
+}
+
+type ListResultsResponseObject interface {
+	VisitListResultsResponse(w http.ResponseWriter) error
+}
+
+type ListResults200JSONResponse ResultPage
+
+func (response ListResults200JSONResponse) VisitListResultsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListResults400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListResults400ApplicationProblemPlusJSONResponse) VisitListResultsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListResults401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListResults401ApplicationProblemPlusJSONResponse) VisitListResultsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListResults403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListResults403ApplicationProblemPlusJSONResponse) VisitListResultsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListResultsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListResultsdefaultApplicationProblemPlusJSONResponse) VisitListResultsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStatusRequestObject struct {
 }
 
@@ -3116,6 +4082,12 @@ type StrictServerInterface interface {
 	// GetPolicies The active policy, scoped to the visible orgs.
 	// (GET /policies)
 	GetPolicies(ctx context.Context, request GetPoliciesRequestObject) (GetPoliciesResponseObject, error)
+	// ListRemediations Remediations over the visible orgs, newest first.
+	// (GET /remediations)
+	ListRemediations(ctx context.Context, request ListRemediationsRequestObject) (ListRemediationsResponseObject, error)
+	// GetRemediationActivity Pull request throughput per UTC day over the visible orgs.
+	// (GET /remediations/activity)
+	GetRemediationActivity(ctx context.Context, request GetRemediationActivityRequestObject) (GetRemediationActivityResponseObject, error)
 	// ListRepositories Repositories in the visible orgs, filtered.
 	// (GET /repositories)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
@@ -3131,9 +4103,12 @@ type StrictServerInterface interface {
 	// ListRepositoryEvaluations The repository's evaluation log, newest first.
 	// (GET /repositories/{id}/evaluations)
 	ListRepositoryEvaluations(ctx context.Context, request ListRepositoryEvaluationsRequestObject) (ListRepositoryEvaluationsResponseObject, error)
-	// ListRepositoryEvents The repository's timeline, result and repository events merged, newest first.
+	// ListRepositoryEvents The repository's timeline, result, repository and remediation events merged, newest first.
 	// (GET /repositories/{id}/events)
 	ListRepositoryEvents(ctx context.Context, request ListRepositoryEventsRequestObject) (ListRepositoryEventsResponseObject, error)
+	// ListResults Recorded control results over the visible orgs, filtered; findings are bucket=non_compliant.
+	// (GET /results)
+	ListResults(ctx context.Context, request ListResultsRequestObject) (ListResultsResponseObject, error)
 	// GetStatus Public service status.
 	// (GET /status)
 	GetStatus(ctx context.Context, request GetStatusRequestObject) (GetStatusResponseObject, error)
@@ -3381,6 +4356,58 @@ func (sh *strictHandler) GetPolicies(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListRemediations operation middleware
+func (sh *strictHandler) ListRemediations(w http.ResponseWriter, r *http.Request, params ListRemediationsParams) {
+	var request ListRemediationsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRemediations(ctx, request.(ListRemediationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRemediations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRemediationsResponseObject); ok {
+		if err := validResponse.VisitListRemediationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRemediationActivity operation middleware
+func (sh *strictHandler) GetRemediationActivity(w http.ResponseWriter, r *http.Request, params GetRemediationActivityParams) {
+	var request GetRemediationActivityRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRemediationActivity(ctx, request.(GetRemediationActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRemediationActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRemediationActivityResponseObject); ok {
+		if err := validResponse.VisitGetRemediationActivityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListRepositories operation middleware
 func (sh *strictHandler) ListRepositories(w http.ResponseWriter, r *http.Request, params ListRepositoriesParams) {
 	var request ListRepositoriesRequestObject
@@ -3539,6 +4566,32 @@ func (sh *strictHandler) ListRepositoryEvents(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// ListResults operation middleware
+func (sh *strictHandler) ListResults(w http.ResponseWriter, r *http.Request, params ListResultsParams) {
+	var request ListResultsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListResults(ctx, request.(ListResultsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListResults")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListResultsResponseObject); ok {
+		if err := validResponse.VisitListResultsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStatus operation middleware
 func (sh *strictHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	var request GetStatusRequestObject
@@ -3592,127 +4645,180 @@ func (sh *strictHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"+P7j/w0AAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

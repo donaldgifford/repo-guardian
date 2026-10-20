@@ -102,7 +102,7 @@ func TestE2_GeneratesARowPerDeclaredOrg(t *testing.T) {
 
 	got := rowTitles(t, findDashboard(t, strictModel()))
 
-	want := []string{"Fleet", "Organisation: acme", "Organisation: widgets"}
+	want := []string{"Fleet", "Remediation", "Organisation: acme", "Organisation: widgets"}
 	if len(got) != len(want) {
 		t.Fatalf("rows = %v, want %v", got, want)
 	}
@@ -149,8 +149,8 @@ func TestE2_LegacyModeFallsBackToTheVariable(t *testing.T) {
 	d := findDashboard(t, legacyModel())
 
 	rows := rowTitles(t, d)
-	if len(rows) != 2 || rows[1] != "Organisation: $org" {
-		t.Errorf("rows = %v, want a fleet row and one variable-driven org row", rows)
+	if len(rows) != 3 || rows[2] != "Organisation: $org" {
+		t.Errorf("rows = %v, want the fleet and remediation rows and one variable-driven org row", rows)
 	}
 
 	templating, ok := d["templating"].(map[string]any)

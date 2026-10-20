@@ -130,6 +130,9 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 		{"/repositories/{id}/evaluations", http.MethodGet, e.repoPath("acme-web/b", "/evaluations"), http.StatusOK},
 		// No Temporal client in this harness: the spec's 501.
 		{"/repositories/{id}/evaluate", http.MethodPost, e.repoPath("acme-web/b", "/evaluate"), http.StatusNotImplemented},
+		{"/results", http.MethodGet, "/results?bucket=non_compliant", http.StatusOK},
+		{"/remediations", http.MethodGet, "/remediations?hold=conflict&hold=permission", http.StatusOK},
+		{"/remediations/activity", http.MethodGet, "/remediations/activity?days=30", http.StatusOK},
 		{"/compliance/history", http.MethodGet, "/compliance/history?days=7", http.StatusOK},
 		{"/status", http.MethodGet, "/status", http.StatusOK},
 		{"/openapi.yaml", http.MethodGet, "/openapi.yaml", http.StatusOK},
@@ -164,6 +167,13 @@ func TestEndpoints_ValidateAgainstTheSpec(t *testing.T) {
 			if !covered[method+" "+path] {
 				t.Errorf("%s %s has no case", method, path)
 			}
+		}
+	}
+
+	for _, agg := range []string{"none", "fleet", "org", "control"} {
+		h := decodeAs[gen.ComplianceHistory](t, e.get(t, "/compliance/history?aggregate="+agg, "platform"))
+		if len(h.Items) == 0 {
+			t.Errorf("/compliance/history?aggregate=%s is empty", agg)
 		}
 	}
 

@@ -212,6 +212,14 @@ func TestControlsSnapshotWorkflow_WritesAndRecords(t *testing.T) {
 	}, activity.RegisterOptions{Name: ControlsSnapshotActivity})
 	env.RegisterActivityWithOptions(f.RecordServiceRun, activity.RegisterOptions{Name: ControlsRecordServiceRunActivity})
 
+	var prunedBefore time.Time
+
+	env.RegisterActivityWithOptions(func(_ context.Context, before time.Time) (int64, error) {
+		prunedBefore = before
+
+		return 2, nil
+	}, activity.RegisterOptions{Name: ControlsPruneChecksActivity})
+
 	env.ExecuteWorkflow(ControlsSnapshotWorkflow, &SnapshotInput{Retention: time.Hour})
 
 	if err := env.GetWorkflowError(); err != nil {
@@ -222,7 +230,11 @@ func TestControlsSnapshotWorkflow_WritesAndRecords(t *testing.T) {
 		t.Errorf("snapshot stamped %v, want the workflow's start %v", stampedAt, start)
 	}
 
-	if len(f.runs) != 1 || f.runs[0].Kind != ServiceSnapshot || f.runs[0].Detail["rows"] != float64(4) {
-		t.Errorf("runs = %+v, want one snapshot run of 4 rows", f.runs)
+	if !prunedBefore.Equal(start.Add(-time.Hour)) {
+		t.Errorf("pruned checks before %v, want one retention before the start %v", prunedBefore, start)
+	}
+
+	if len(f.runs) != 1 || f.runs[0].Kind != ServiceSnapshot || f.runs[0].Detail["rows"] != float64(4) || f.runs[0].Detail["pruned"] != float64(2) {
+		t.Errorf("runs = %+v, want one snapshot run of 4 rows that pruned 2", f.runs)
 	}
 }

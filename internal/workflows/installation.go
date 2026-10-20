@@ -30,8 +30,11 @@ const (
 	// waitJitterSpan spreads callers told to wait for the same reset.
 	waitJitterSpan = 60
 
+	// leaseMargin is what a lease outlives its holder's timeout by.
+	leaseMargin = 5 * time.Minute
+
 	// DefaultLeaseTTL is the CheckRepo timeout plus a margin.
-	DefaultLeaseTTL = checkRepoTimeout + 5*time.Minute
+	DefaultLeaseTTL = checkRepoTimeout + leaseMargin
 )
 
 // Lease is budget reserved for one granted check.
@@ -354,12 +357,13 @@ func (b *budget) untilSweep(now time.Time) time.Duration {
 
 // LeaseTTL is the lease TTL for app's budget: its longest
 // budget-holding activity timeout plus a margin, so a crashed holder
-// cannot leak budget for longer than it could have run. The controls
-// Apps' activities arrive with IMPL-0029 and IMPL-0030, which set their
-// own; until then every App uses the CheckRepo bound.
-//
-// TODO(IMPL-0029, IMPL-0030): give AppEval and AppRemediate their
-// evaluate and remediate activity timeouts plus a margin.
-func LeaseTTL(_ string) time.Duration {
+// cannot leak budget for longer than it could have run. A remediation
+// lease covers every attempt of Remediate (its ScheduleToClose); every
+// other App uses the CheckRepo bound.
+func LeaseTTL(app string) time.Duration {
+	if app == AppRemediate {
+		return remediateScheduleToClose + leaseMargin
+	}
+
 	return DefaultLeaseTTL
 }

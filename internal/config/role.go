@@ -101,8 +101,11 @@ func (c *Config) validateIngest(alone bool) []error {
 			"the ingest role must not hold an App key: unset EVAL_GITHUB_PRIVATE_KEY_PATH and REMEDIATE_GITHUB_PRIVATE_KEY_PATH"))
 	}
 
-	if c.StoreDSN != "" {
-		errs = append(errs, errors.New("the ingest role must not hold database credentials: unset STORE_DSN"))
+	if c.StoreDSN != "" || c.StoreDSNEvaluator != "" || c.StoreDSNRemediator != "" {
+		errs = append(
+			errs,
+			errors.New("the ingest role must not hold database credentials: unset STORE_DSN, STORE_DSN_EVALUATOR and STORE_DSN_REMEDIATOR"),
+		)
 	}
 
 	return errs

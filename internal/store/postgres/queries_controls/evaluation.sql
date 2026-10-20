@@ -15,6 +15,11 @@ FOR UPDATE OF c;
 -- name: FinishCheck :exec
 UPDATE checks SET outcome = @outcome, error = @error, pending_result = NULL, finished_at = now() WHERE id = @id;
 
+-- name: StampLastChecked :exec
+-- The repository's last evaluation (IMPL-0030 6.9, OQ19): the same now()
+-- as the check's finished_at, and it outlives the checks prune.
+UPDATE repositories SET last_checked_at = now() WHERE id = @id;
+
 -- name: AssignmentFence :one
 -- The record step's fence (DESIGN-0030 D14): held until commit, so a
 -- concurrent resolution cannot move the epoch under it.
@@ -77,3 +82,8 @@ LEFT JOIN repository_policy_state ps ON ps.repository_id = r.id
 LEFT JOIN app_repository_access a ON a.repository_id = r.id AND a.app = 'eval'
 LEFT JOIN app_installations i ON i.app = 'eval' AND i.installation_id = a.installation_id
 WHERE r.id = @id;
+
+-- name: PruneChecks :execrows
+-- The snapshot's retention prune (INV-0023 F7.2): finished checks older
+-- than @before. A pending check is a staged evaluation not yet recorded.
+DELETE FROM checks WHERE outcome <> 'pending' AND finished_at < @before::timestamptz;

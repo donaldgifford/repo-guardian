@@ -11,6 +11,10 @@ holds the rc line's `migrations_v2` chain: the two share table names.
 | `00002_controls_policy.sql` | IMPL-0029 | repository_policy_state, control_assignments, the epoch sequence, `assignment_changed`, app_installations and app_repository_access (RLS: each App writes its own rows, both read all) |
 | `00003_controls_results.sql` | IMPL-0029 | control_results, rule_results, result_events, remediations (RLS: remediator deletes only reservations), remediation_steps, remediation_events, the remediation_due and remediation_maintenance views, and the full grant matrix |
 | `00004_compliance.sql` | IMPL-0029 | compliance_snapshots keyed `(org, control_id, decision, snapshot_at)` with every posture bucket, the excluded count, percent and coverage |
+| `00005_remediation.sql` | IMPL-0030 | additive changes over 00003 (which stays the GA schema, OQ1): remediation_maintenance withdraws on an evaluate downgrade |
+| `00006_remediation_due_no_row.sql` | IMPL-0030 | remediation_due: a control with no remediation row is due on its generation alone (no NULL intent comparison) |
+| `00007_last_checked_at.sql` | IMPL-0030 | grants `rg_evaluator` `UPDATE (last_checked_at)` on repositories: `RecordEvaluation` stamps it, so the checks prune never loses a last evaluation |
+| `00008_results_index.sql` | IMPL-0030 | indexes `control_results (control_id, status, last_changed_at)` for `/results`, after `TestAPIPerf` showed a sequential scan (7.14) |
 
 Run it as the schema owner (no `CREATEROLE`). `rg_evaluator` and
 `rg_remediator` must exist first: the chain grants to them and never

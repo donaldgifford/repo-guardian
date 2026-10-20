@@ -213,12 +213,205 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "Organisation: $org",
+      "title": "Remediation",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 19
+      },
+      "id": 0,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (reason) (max by (org, reason, age_bucket) (repo_guardian_remediation_holds))",
+          "instant": false,
+          "legendFormat": "{{ reason }}",
+          "range": true
+        }
+      ],
+      "title": "Remediation backlog: held results by reason",
+      "description": "Control results held from remediation, by hold. pr_cap and stale_branch are routine and clear on their own; foreign_branch, permission and a conflict held past a week need a human.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (age_bucket) (max by (org, control, age_bucket) (repo_guardian_remediation_prs_open))",
+          "instant": false,
+          "legendFormat": "{{ age_bucket }}",
+          "range": true
+        }
+      ],
+      "title": "Open remediation pull requests by age",
+      "description": "Open pull requests repo-guardian is waiting on someone to merge. A growing 30d+ band is a fleet that is not taking its remediations.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (reason) (increase(repo_guardian_remediation_blocked_total[24h]))",
+          "instant": false,
+          "legendFormat": "{{ reason }}",
+          "range": true
+        }
+      ],
+      "title": "Remediations blocked in the last 24h",
+      "description": "New holds and Remediation App access losses by reason. The E4 logs name the repositories.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (result) (increase(repo_guardian_remediation_runs_total[24h]))",
+          "instant": false,
+          "legendFormat": "{{ result }}",
+          "range": true
+        }
+      ],
+      "title": "Remediation run results in the last 24h",
+      "description": "What remediation runs and lifecycle maintenance did. noop is a run that found nothing to change; deferred is a run waiting for a budget reset, not a failure.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "title": "Organisation: $org",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
       },
       "id": 0,
       "panels": []
@@ -243,7 +436,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 39
       },
       "repeatDirection": "h",
       "options": {
@@ -288,7 +481,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 39
       },
       "repeatDirection": "h",
       "options": {
@@ -332,7 +525,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -384,7 +577,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {

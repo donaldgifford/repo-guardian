@@ -7,6 +7,10 @@ const (
 	ServiceDiscovery     = "discovery"
 	ServiceSnapshot      = "snapshot"
 	ServicePolicyRollout = "policy_rollout"
+
+	ServiceSweep                = "sweep"
+	ServiceMaintenance          = "maintenance"
+	ServiceRemediationDiscovery = "remediation_discovery"
 )
 
 // DiscoveryInput is ControlsDiscoveryWorkflow's input. A zero InstallationID
@@ -81,4 +85,49 @@ type ServiceRun struct {
 type SnapshotInput struct {
 	// Retention prunes checks that finished longer ago than this.
 	Retention time.Duration
+}
+
+// RemediationSweepInput is RemediationSweepWorkflow's input: the batch
+// sizes REMEDIATION_SWEEP_BATCH and REMEDIATION_MAINTENANCE_BATCH.
+type RemediationSweepInput struct {
+	SweepBatch       int
+	MaintenanceBatch int
+}
+
+// MaintenanceResult counts one maintenance pass by outcome. Throttled
+// is set when a throttle ended the pass early; the next sweep goes on.
+type MaintenanceResult struct {
+	Expired    int
+	Superseded int
+	Withdrawn  int
+	Closed     int
+	Blocked    int
+	Skipped    int
+	Failed     int
+	Throttled  bool
+}
+
+// SweepResult counts one sweep: the due rows read and the remediations
+// started.
+type SweepResult struct {
+	Due     int
+	Started int
+}
+
+// RemediateInstallation is one Remediation App installation as its
+// discovery lists it.
+type RemediateInstallation struct {
+	ID                  int64
+	Account             string
+	AccountType         string
+	RepositorySelection string
+}
+
+// ResolveAccessInput asks the evaluator to re-resolve the repositories
+// whose Remediation App access changed. A zero InstallationID is a
+// prune across installations.
+type ResolveAccessInput struct {
+	InstallationID int64
+	AccountLogin   string
+	Repos          []WebhookRepo
 }

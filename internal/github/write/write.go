@@ -36,6 +36,11 @@ const (
 // expectedHeadOid is not the branch head (INV-0022 spike 1).
 const staleData = "STALE_DATA"
 
+// forbidden is the GraphQL error type of a mutation the App lacks the
+// permission for, such as a commit under .github/workflows/ without
+// Workflows write.
+const forbidden = "FORBIDDEN"
+
 // Writer is control.Writer bound to one repository.
 type Writer struct {
 	client *ghclient.GitHubClient
@@ -91,6 +96,10 @@ func (w *Writer) Commit(ctx context.Context, branch, baseSHA string, changes []c
 	if err := w.client.GraphQLClient().Mutate(ctx, &m, input, nil); err != nil {
 		if types.Has(staleData) {
 			return "", fmt.Errorf("committing to %s in %s/%s: %w: %w", branch, w.owner, w.repo, control.ErrExpectedHeadMismatch, err)
+		}
+
+		if types.Has(forbidden) {
+			return "", fmt.Errorf("committing to %s in %s/%s: %w: %w", branch, w.owner, w.repo, control.ErrPermission, err)
 		}
 
 		return "", fmt.Errorf("committing to %s in %s/%s: %w", branch, w.owner, w.repo, err)
@@ -256,6 +265,20 @@ func (w *Writer) ClosePullRequest(ctx context.Context, number int) error {
 // marker, or creates one.
 func (w *Writer) UpsertPRComment(ctx context.Context, number int, marker, body string) error {
 	return w.client.UpsertPRComment(ctx, w.owner, w.repo, number, marker, body)
+}
+
+// AddPRLabels adds labels through the issues endpoint, which creates a
+// label the repository lacks.
+func (w *Writer) AddPRLabels(ctx context.Context, number int, labels []string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	if _, _, err := w.rest().Issues.AddLabelsToIssue(ctx, w.owner, w.repo, number, labels); err != nil {
+		return fmt.Errorf("add labels to %s/%s#%d: %w", w.owner, w.repo, number, err)
+	}
+
+	return nil
 }
 
 // UpdateRepository writes the non-nil fields of settings. A

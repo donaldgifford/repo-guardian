@@ -7,6 +7,12 @@ import "time"
 // is recorded and the loop keeps its schedule.
 const CheckSkipped CheckKind = "skipped"
 
+// CheckObserved is an observation-only run (a pr_event re-check,
+// DESIGN-0032 D24): the tracked pull requests were read and recorded,
+// no control was evaluated, and the loop keeps its schedule and its
+// iteration.
+const CheckObserved CheckKind = "observed"
+
 // EvaluationWorkflowInput is EvaluationWorkflow's input and its
 // ContinueAsNew state.
 type EvaluationWorkflowInput struct {
@@ -48,7 +54,10 @@ type EvaluateInput struct {
 	Paths          []string `json:",omitempty"`
 	All            bool
 	Scheduled      bool
-	Deferrals      int
+	// Observe runs pull request observation only and evaluates nothing
+	// (a pr_event re-check).
+	Observe   bool `json:",omitempty"`
+	Deferrals int
 }
 
 // EvaluateResult is how an Evaluate activity ended. CheckChecked staged

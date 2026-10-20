@@ -41,6 +41,9 @@ type Controls interface {
 	// and installation_removed clear its results; access_denied and
 	// unknown keep them, because access loss must never improve posture.
 	Park(ctx context.Context, repoID int64, reason string) error
+	// SetNextDue records when the repository's evaluation loop runs next;
+	// a zero at clears it (IMPL-0030 2.8).
+	SetNextDue(ctx context.Context, repoID int64, at time.Time) error
 	// ParkMissing parks removed every active repository the installation
 	// gave the Evaluation App that a complete listing did not see, and
 	// reports how many.
@@ -116,6 +119,11 @@ type ResolutionChange struct {
 	Changed []string
 	// Withdrawn holds every control whose result was cleared.
 	Withdrawn []string
+	// Blocked holds the mode reason of every new or changed assignment
+	// the Remediation App's reach downgraded to evaluate
+	// (remediation_app_no_access, remediation_app_suspended), counted as
+	// remediation_blocked_total once the resolution commits.
+	Blocked []string
 }
 
 // RepositoryRef is one active repository as the rollout pages it.
@@ -244,4 +252,23 @@ type Exclusion struct {
 	State      string
 	Reason     string
 	ExcludedBy string
+}
+
+// OpenPRAge is one remediation_prs_open series: open remediation pull
+// requests of one control in one org and age bucket.
+type OpenPRAge struct {
+	Org       string
+	ControlID string
+	AgeBucket string
+	Open      int
+}
+
+// HoldAge is one remediation_holds series: control results of one org
+// held from remediation for one reason, in one age bucket of how long
+// they have been held.
+type HoldAge struct {
+	Org       string
+	Reason    string
+	AgeBucket string
+	Held      int
 }

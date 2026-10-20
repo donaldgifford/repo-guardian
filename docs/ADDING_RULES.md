@@ -496,8 +496,8 @@ Out-of-scope evaluations are tracked via the
 In legacy mode this counter is always zero. A sustained nonzero
 `level="rule"` for an org with no other activity may indicate a
 typo in `scope.orgs` — see the
-[`RepoGuardianRuleNeverApplies`](../contrib/prometheus/alerts.yaml)
-alert and the [metrics catalog](../contrib/README.md) for queries
+[`RepoGuardianRuleNeverApplies`](https://github.com/donaldgifford/repo-guardian/blob/main/contrib/prometheus/alerts.yaml)
+alert and the [metrics catalog](https://github.com/donaldgifford/repo-guardian/blob/main/contrib/README.md) for queries
 and migration recipes.
 
 ## Customizing PR text

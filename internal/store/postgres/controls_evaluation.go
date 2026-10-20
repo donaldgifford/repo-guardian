@@ -99,14 +99,13 @@ func (s *ControlsStore) RecordEvaluation(ctx context.Context, checkKey string) (
 			return fmt.Errorf("finish check: %w", err)
 		}
 
+		if err := stampLastChecked(ctx, q, chk.RepositoryID, len(staged), len(out.Recorded)); err != nil {
+			return err
+		}
+
 		org = chk.Org
 
-		// Counted once the transaction can no longer roll the discard
-		// back: a retry of a failed record would count it again.
-		for _, id := range out.Discarded {
-			s.logger.InfoContext(ctx, "discarding a stale control result", "check_key", checkKey, "control", id, "reason", reasonStaleEpoch)
-			metrics.ResultsDiscardedTotal.WithLabelValues(chk.Org, reasonStaleEpoch).Inc()
-		}
+		s.countDiscards(ctx, checkKey, chk.Org, out.Discarded)
 
 		return nil
 	})
@@ -336,4 +335,29 @@ func (s *ControlsStore) EvaluationTarget(ctx context.Context, repoID int64) (*st
 	}
 
 	return out, nil
+}
+
+// stampLastChecked writes repositories.last_checked_at (IMPL-0030 6.9),
+// fenced with the results: an evaluation whose every result was
+// discarded as stale is not the repository's last evaluation.
+func stampLastChecked(ctx context.Context, q *controlsdb.Queries, repoID int64, staged, recorded int) error {
+	if staged > 0 && recorded == 0 {
+		return nil
+	}
+
+	if err := q.StampLastChecked(ctx, repoID); err != nil {
+		return fmt.Errorf("stamp last checked: %w", err)
+	}
+
+	return nil
+}
+
+// countDiscards logs and counts the stale results a record discarded.
+// It runs once the transaction can no longer roll the discard back: a
+// retry of a failed record would count it again.
+func (s *ControlsStore) countDiscards(ctx context.Context, checkKey, org string, discarded []string) {
+	for _, id := range discarded {
+		s.logger.InfoContext(ctx, "discarding a stale control result", "check_key", checkKey, "control", id, "reason", reasonStaleEpoch)
+		metrics.ResultsDiscardedTotal.WithLabelValues(org, reasonStaleEpoch).Inc()
+	}
 }

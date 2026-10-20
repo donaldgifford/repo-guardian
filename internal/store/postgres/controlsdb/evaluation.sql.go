@@ -205,6 +205,20 @@ func (q *Queries) LockResult(ctx context.Context, arg LockResultParams) (LockRes
 	return i, err
 }
 
+const pruneChecks = `-- name: PruneChecks :execrows
+DELETE FROM checks WHERE outcome <> 'pending' AND finished_at < $1::timestamptz
+`
+
+// The snapshot's retention prune (INV-0023 F7.2): finished checks older
+// than @before. A pending check is a staged evaluation not yet recorded.
+func (q *Queries) PruneChecks(ctx context.Context, before time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneChecks, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const stageCheck = `-- name: StageCheck :exec
 INSERT INTO checks (repository_id, check_key, trigger, outcome, pending_result, policy_version, started_at)
 VALUES ($1, $2, $3, 'pending', $4, $5, $6)
@@ -232,6 +246,17 @@ func (q *Queries) StageCheck(ctx context.Context, arg StageCheckParams) error {
 		arg.PolicyVersion,
 		arg.StartedAt,
 	)
+	return err
+}
+
+const stampLastChecked = `-- name: StampLastChecked :exec
+UPDATE repositories SET last_checked_at = now() WHERE id = $1
+`
+
+// The repository's last evaluation (IMPL-0030 6.9, OQ19): the same now()
+// as the check's finished_at, and it outlives the checks prune.
+func (q *Queries) StampLastChecked(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, stampLastChecked, id)
 	return err
 }
 

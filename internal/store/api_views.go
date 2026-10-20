@@ -108,6 +108,9 @@ type Repository struct {
 	// the Remediation App can and is not suspended.
 	Evaluable  bool
 	Remediable bool
+	// Compliance is the posture over the repository's own assignments
+	// (Org, ControlID and Decision empty).
+	Compliance ControlPosture
 }
 
 // RepositoryFilter selects repositories. Zero fields do not filter.
@@ -154,6 +157,38 @@ type SummaryView struct {
 	LastEvaluatedAt *time.Time
 	// PolicyVersion is empty before a version is activated.
 	PolicyVersion string
+	// RemediationBacklog counts outstanding remediations: reserved, open,
+	// recommended or failed.
+	RemediationBacklog int
+	// FindingAge counts results in the non-compliant bucket per
+	// FindingAgeBuckets bucket, every bucket present, in that order.
+	FindingAge []AgeCount
+	// OpenPRsByAge counts OpenPRs per OpenPRAgeBuckets bucket of
+	// created_at, every bucket present, in that order.
+	OpenPRsByAge []AgeCount
+}
+
+// AgeCount is how many of something fall in one age bucket.
+type AgeCount struct {
+	Bucket string
+	Count  int
+}
+
+// FindingAgeBuckets are Summary.finding_age's buckets, youngest first.
+var FindingAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30-90d", "90-180d", "180d+"}
+
+// OpenPRAgeBuckets are Summary.open_prs_by_age's buckets, youngest first.
+var OpenPRAgeBuckets = []string{"<1d", "1-7d", "7-30d", "30d+"}
+
+// AgeCounts orders counts by buckets, with a zero for a bucket counts
+// lacks.
+func AgeCounts(buckets []string, counts map[string]int) []AgeCount {
+	out := make([]AgeCount, 0, len(buckets))
+	for _, b := range buckets {
+		out = append(out, AgeCount{Bucket: b, Count: counts[b]})
+	}
+
+	return out
 }
 
 // ControlVersion is one version and revision of a control assigned in
@@ -224,16 +259,160 @@ type RepositoryControl struct {
 	Hold          string
 	HoldSince     *time.Time
 	Rules         []RuleResult
+	// Remediation is the control's latest remediation; nil before one.
+	Remediation *RemediationView
 }
+
+// ResultRow is one recorded control result in /results: a finding when
+// its Bucket is non_compliant.
+type ResultRow struct {
+	RepositoryID   int64
+	Org            string
+	Repository     string
+	ControlID      string
+	ControlVersion int
+	Decision       string
+	Status         string
+	Bucket         string
+	// FailingRules are the rules that fail or error, by rule id; Reason
+	// is the first one's evidence reason, else its evidence_kind.
+	FailingRules  []string
+	Reason        string
+	LastChangedAt time.Time
+	// Remediation is the control's latest remediation, nil when it has
+	// none.
+	Remediation *ResultRemediation
+	// SortAt is the row's paging key: LastChangedAt, or under PRAge the
+	// open pull request's created_at.
+	SortAt time.Time
+}
+
+// ResultRemediation is the part of a result's latest remediation the
+// results list shows.
+type ResultRemediation struct {
+	Kind      string
+	State     string
+	PRNumber  *int
+	PRURL     string
+	CreatedAt time.Time
+}
+
+// ResultKey orders /results for paging.
+type ResultKey struct {
+	At           time.Time
+	RepositoryID int64
+	ControlID    string
+}
+
+// ResultFilter selects results. Zero fields do not filter.
+type ResultFilter struct {
+	// Bucket is a posture bucket, as ControlCompliance computes it.
+	Bucket    string
+	ControlID string
+	Org       string
+	Decision  string
+	// RuleID keeps results where this rule fails or errors.
+	RuleID string
+	// PRStale keeps results whose latest remediation is an open pull
+	// request created at or before StaleBefore (true), or those whose is
+	// not (false).
+	PRStale     *bool
+	StaleBefore time.Time
+	// PRAge sorts by the open pull request's created_at, oldest first,
+	// results with none last, in place of the last change.
+	PRAge bool
+	// Descending reverses the sort: newest change first.
+	Descending bool
+	After      *ResultKey
+	Limit      int
+}
+
+// ResultPage is one page of results; Total is counted on the first
+// page only.
+type ResultPage struct {
+	Page[ResultRow]
+	Total *int
+}
+
+// RemediationView is one remediation as the API shows it: a
+// remediations row, or a result held before a pull request exists (ID
+// zero, State empty, Kind pull_request, CreatedAt its hold_since).
+type RemediationView struct {
+	ID                  int64
+	RepositoryID        int64
+	Org                 string
+	Repository          string
+	ControlID           string
+	Kind                string
+	State               string
+	IntentRevision      string
+	Branch              string
+	PRNumber            int
+	PRURL               string
+	ObservedHeadSHA     string
+	AcknowledgedHeadSHA string
+	Hold                string
+	HoldSince           *time.Time
+	Proposal            json.RawMessage
+	CreatedAt           time.Time
+	LastRunAt           *time.Time
+	ClosedAt            *time.Time
+	CloseReason         string
+	Steps               []RemediationStep
+}
+
+// RemediationKey orders /remediations for paging, newest first.
+type RemediationKey struct {
+	At           time.Time
+	RepositoryID int64
+	ControlID    string
+	ID           int64
+}
+
+// ActivityDay is one UTC day of repo-guardian pull request throughput.
+type ActivityDay struct {
+	Day    time.Time
+	Opened int
+	Closed int
+}
+
+// RemediationFilter selects remediations. Zero fields do not filter.
+type RemediationFilter struct {
+	Kind      string
+	State     string
+	Org       string
+	ControlID string
+	// Holds matches any of these holds. A branch hold also lists the
+	// results held before a pull request exists, unless Kind is api or
+	// State is set.
+	Holds []string
+	// Before keeps remediations created (or held) before it.
+	Before *time.Time
+	After  *RemediationKey
+	Limit  int
+}
+
+// History aggregations (IMPL-0030 7.6).
+const (
+	HistoryNone    = "none"
+	HistoryFleet   = "fleet"
+	HistoryOrg     = "org"
+	HistoryControl = "control"
+)
 
 // HistoryFilter selects compliance snapshots. Empty fields do not filter.
 type HistoryFilter struct {
 	ControlID string
 	Org       string
 	Since     time.Time
+	// Aggregate sums each UTC day's rows over the fleet, per org or per
+	// control; empty or HistoryNone returns the rows themselves.
+	Aggregate string
 }
 
-// ComplianceSnapshot is one compliance_snapshots row.
+// ComplianceSnapshot is one compliance_snapshots row, or a day's sum of
+// them when aggregated: SnapshotAt is then the UTC day, and the fields
+// the aggregation leaves out (Org, ControlID, Decision) are empty.
 type ComplianceSnapshot struct {
 	ControlPosture
 	SnapshotAt time.Time
@@ -267,12 +446,13 @@ type RepositoryDetail struct {
 
 // Event sources in the merged timeline.
 const (
-	EventSourceResult     = "result"
-	EventSourceRepository = "repository"
+	EventSourceResult      = "result"
+	EventSourceRepository  = "repository"
+	EventSourceRemediation = "remediation"
 )
 
-// Event is one timeline entry: a control result transition or a
-// repository event, by Source.
+// Event is one timeline entry: a control result transition, a
+// repository event or a remediation event, by Source.
 type Event struct {
 	Source     string
 	ID         int64
@@ -286,9 +466,10 @@ type Event struct {
 	FromStatus *string
 	ToStatus   *string
 
-	// Repository events.
-	RepositoryKind string
-	Detail         json.RawMessage
+	// Repository and remediation events. A remediation event carries
+	// its control too, and remediation_id in Detail.
+	Kind   string
+	Detail json.RawMessage
 }
 
 // EventKey orders the timeline for paging, newest first.
@@ -361,6 +542,8 @@ type StatusInputs struct {
 	Rollout *Rollout
 	// LastSnapshot is nil before the first compliance snapshot.
 	LastSnapshot *time.Time
+	// RemediationBacklog counts outstanding remediations fleet-wide.
+	RemediationBacklog int
 }
 
 // CompliancePoint is fleet compliance at one snapshot; Percent is nil

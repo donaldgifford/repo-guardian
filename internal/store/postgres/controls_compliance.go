@@ -141,3 +141,47 @@ func numericPtr(n pgtype.Numeric) (*float64, error) {
 
 	return &f.Float64, nil
 }
+
+// PruneChecks deletes the finished checks older than before and returns
+// how many it deleted (INV-0023 F7.2). A repository's last evaluation is
+// repositories.last_checked_at, which the prune leaves alone.
+func (s *ControlsStore) PruneChecks(ctx context.Context, before time.Time) (int64, error) {
+	n, err := s.q.PruneChecks(ctx, before)
+	if err != nil {
+		return 0, fmt.Errorf("prune checks: %w", err)
+	}
+
+	return n, nil
+}
+
+// OpenRemediationPRs counts open remediation pull requests per org,
+// control and age bucket (IMPL-0030 7.1).
+func (s *ControlsStore) OpenRemediationPRs(ctx context.Context) ([]store.OpenPRAge, error) {
+	rows, err := s.q.OpenRemediationPRs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open remediation prs: %w", err)
+	}
+
+	out := make([]store.OpenPRAge, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.OpenPRAge{Org: r.Org, ControlID: r.ControlID, AgeBucket: r.AgeBucket, Open: int(r.Open)})
+	}
+
+	return out, nil
+}
+
+// RemediationHolds counts held control results per org, hold reason and
+// age bucket (IMPL-0030 7.2).
+func (s *ControlsStore) RemediationHolds(ctx context.Context) ([]store.HoldAge, error) {
+	rows, err := s.q.RemediationHolds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("remediation holds: %w", err)
+	}
+
+	out := make([]store.HoldAge, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, store.HoldAge{Org: r.Org, Reason: r.Reason, AgeBucket: r.AgeBucket, Held: int(r.Held)})
+	}
+
+	return out, nil
+}

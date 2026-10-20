@@ -192,6 +192,13 @@ func TestControlsChain_DryRunRollsBack(t *testing.T) {
 	if applied, err := postgres.ControlsDryRun(t.Context(), db2); err != nil || len(applied) != 0 {
 		t.Errorf("ControlsDryRun on a migrated database = %v, %v; want nothing pending", applied, err)
 	}
+
+	var indexes int
+	queryRow(t, pgDB.Owner, `SELECT count(*) FROM pg_indexes WHERE indexname = 'control_results_control_status_changed'`, &indexes)
+
+	if indexes != 1 {
+		t.Errorf("00008_results_index: %d control_results_control_status_changed indexes, want 1", indexes)
+	}
 }
 
 // TestControlsChain_RefusesAnRCDatabase pins that the chain cannot be

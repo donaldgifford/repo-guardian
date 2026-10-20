@@ -111,6 +111,12 @@ func (s *ControlsStore) CurrentActivation(ctx context.Context) (version string, 
 
 // RecordServiceRun writes one service_runs row.
 func (s *ControlsStore) RecordServiceRun(ctx context.Context, run *store.ServiceRun) error {
+	return recordServiceRun(ctx, s.q, run)
+}
+
+// recordServiceRun writes a service_runs row through q; both controls
+// roles hold INSERT on it.
+func recordServiceRun(ctx context.Context, q *controlsdb.Queries, run *store.ServiceRun) error {
 	detail := run.Detail
 	if detail == nil {
 		detail = map[string]any{}
@@ -126,7 +132,7 @@ func (s *ControlsStore) RecordServiceRun(ctx context.Context, run *store.Service
 		outcome = outcomeSuccess
 	}
 
-	if err := s.q.InsertServiceRun(ctx, controlsdb.InsertServiceRunParams{
+	if err := q.InsertServiceRun(ctx, controlsdb.InsertServiceRunParams{
 		Kind: string(run.Kind), Outcome: outcome, StartedAt: run.StartedAt, FinishedAt: run.FinishedAt, Detail: b,
 	}); err != nil {
 		return fmt.Errorf("record %s run: %w", run.Kind, err)

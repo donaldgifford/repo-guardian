@@ -109,6 +109,10 @@ type Writer interface {
 	// marker, or creates one.
 	UpsertPRComment(ctx context.Context, number int, marker, body string) error
 
+	// AddPRLabels adds labels to PR number, creating any the repository
+	// lacks; an empty list is a no-op.
+	AddPRLabels(ctx context.Context, number int, labels []string) error
+
 	// UpdateRepository writes the non-nil fields of settings.
 	UpdateRepository(ctx context.Context, settings RepositorySettings) error
 
@@ -131,7 +135,9 @@ type Writer interface {
 }
 
 // ErrPermission is a Reader error for one endpoint the App lacks the
-// permission to read. The rule that needed it is
+// permission to read, and the Writer's error for a commit GitHub
+// forbids (a workflow file without Workflows write). The rule that
+// needed a refused read is
 // unknown{reason=permission}; the rest of the evaluation proceeds and
 // the repository is never parked for it (DESIGN-0032 AR-0032-08).
 var ErrPermission = errors.New("permission denied for this resource")
@@ -237,6 +243,7 @@ type PullRequest struct {
 	AuthorLogin string
 	AuthorType  string // User | Bot
 	CreatedAt   time.Time
+	ClosedAt    time.Time // zero while open
 }
 
 // Commit is one entry of ListCommits. AuthorID is 0 when the git author

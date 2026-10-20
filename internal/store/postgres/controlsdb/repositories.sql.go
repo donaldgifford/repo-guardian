@@ -333,7 +333,7 @@ func (q *Queries) ListOrgRepositories(ctx context.Context, arg ListOrgRepositori
 }
 
 const parkRepository = `-- name: ParkRepository :execrows
-UPDATE repositories SET active = false, park_reason = $1, parked_at = now()
+UPDATE repositories SET active = false, park_reason = $1, parked_at = now(), next_due_at = NULL
 WHERE id = $2 AND (active OR park_reason IS DISTINCT FROM $1)
 `
 
@@ -381,6 +381,22 @@ func (q *Queries) RepositoryAccess(ctx context.Context, repositoryID int64) ([]R
 		return nil, err
 	}
 	return items, nil
+}
+
+const setNextDue = `-- name: SetNextDue :exec
+UPDATE repositories SET next_due_at = $1::timestamptz WHERE id = $2
+`
+
+type SetNextDueParams struct {
+	NextDueAt *time.Time
+	ID        int64
+}
+
+// The evaluation loop's next due time (IMPL-0030 2.8, INV-0023 F3); NULL
+// clears it.
+func (q *Queries) SetNextDue(ctx context.Context, arg SetNextDueParams) error {
+	_, err := q.db.Exec(ctx, setNextDue, arg.NextDueAt, arg.ID)
+	return err
 }
 
 const unparkRepository = `-- name: UnparkRepository :exec

@@ -29,6 +29,9 @@ type EvalStore interface {
 	StageEvaluation(ctx context.Context, st *store.EvaluationStage) error
 	RecordEvaluation(ctx context.Context, checkKey string) (store.RecordOutcome, error)
 	Park(ctx context.Context, repoID int64, reason string) error
+	TrackedPullRequests(ctx context.Context, repoID int64) ([]store.TrackedPR, error)
+	ObservePullRequests(ctx context.Context, obs []store.PRObservation) error
+	SetNextDue(ctx context.Context, repoID int64, at time.Time) error
 }
 
 // EvalPolicy is the loaded controls policy. *policy.Snapshot satisfies
@@ -48,6 +51,8 @@ type EvalRepo interface {
 	Head(ctx context.Context) (branch, sha string, err error)
 	// Reader returns a Reader with file reads pinned to sha.
 	Reader(sha string) control.Reader
+	// Observer reads the repository's pull requests (DESIGN-0032 D24).
+	Observer() control.PRObserver
 }
 
 // EvalClients opens repositories with the Evaluation App's installation
@@ -100,7 +105,7 @@ func countEvaluation(org string, res *workflows.EvaluateResult, err error) {
 	case err != nil:
 	case res.Kind == workflows.CheckChecked:
 		outcome = evalOutcomeEvaluated
-	case res.Kind == workflows.CheckDeferred:
+	case res.Kind == workflows.CheckDeferred, res.Kind == workflows.CheckObserved:
 		return
 	default:
 		outcome = evalOutcomeSkipped
@@ -127,6 +132,10 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 
 	if t.PolicyState != policy.StateManaged || t.InstallationID == 0 {
 		return skipped, nil
+	}
+
+	if in.Observe {
+		return e.observeOnly(ctx, log, t, in)
 	}
 
 	selected := e.selectControls(log, t.Assignments, in)
@@ -161,6 +170,8 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 		return &out.EvaluateResult, nil
 	}
 
+	e.observe(evalCtx, log, in.RepositoryID, repo)
+
 	if err := e.store.StageEvaluation(ctx, &store.EvaluationStage{
 		CheckKey: in.CheckKey, RepositoryID: in.RepositoryID, Trigger: in.Trigger,
 		PolicyVersion: e.policy.Version(), StartedAt: started, Controls: out.staged,
@@ -171,6 +182,47 @@ func (e *Evaluator) evaluate(ctx context.Context, in *workflows.EvaluateInput, t
 	log.Info("evaluation staged", "controls", len(out.staged), "calls", out.Calls)
 
 	return &out.EvaluateResult, nil
+}
+
+// observe reads and records the repository's tracked remediation pull
+// requests (DESIGN-0032 D24). It is best effort: a failure leaves the
+// previous observation in place for the next evaluation to refresh, and
+// never fails or defers the evaluation it rides on.
+func (e *Evaluator) observe(ctx context.Context, log *slog.Logger, repoID int64, repo EvalRepo) {
+	tracked, err := e.store.TrackedPullRequests(ctx, repoID)
+	if err != nil {
+		log.Warn("pull request observation failed", "error", err)
+
+		return
+	}
+
+	obs, err := observePRs(ctx, repo.Observer(), tracked)
+	if err == nil {
+		err = e.store.ObservePullRequests(ctx, obs)
+	}
+
+	if err != nil {
+		log.Warn("pull request observation failed", "tracked", len(tracked), "error", err)
+	}
+}
+
+// observeOnly is a pr_event run: observation and nothing else, so no
+// evaluation column moves (DESIGN-0032 D24).
+func (e *Evaluator) observeOnly(
+	ctx context.Context,
+	log *slog.Logger,
+	t *store.EvaluationTarget,
+	in *workflows.EvaluateInput,
+) (*workflows.EvaluateResult, error) {
+	repo, err := e.github.Repo(ctx, t.InstallationID, t.Org, t.Name)
+	if err != nil {
+		return nil, fmt.Errorf("open %s/%s: %w", t.Org, t.Name, err)
+	}
+
+	obsCtx, usage := ghclient.WithUsage(ctx)
+	e.observe(obsCtx, log, in.RepositoryID, repo)
+
+	return &workflows.EvaluateResult{Kind: workflows.CheckObserved, Calls: usage.Calls(), Rate: toRate(usage.Rate())}, nil
 }
 
 // evaluation is the activity result plus what run staged.
@@ -563,9 +615,20 @@ func (e *Evaluator) ParkRepository(ctx context.Context, in *workflows.ParkReposi
 	return nil
 }
 
+// SetNextDue persists the evaluation loop's next due time; the workflow
+// runs it as a local activity after every schedule (IMPL-0030 2.9).
+func (e *Evaluator) SetNextDue(ctx context.Context, in *workflows.SetNextDueInput) error {
+	if err := e.store.SetNextDue(ctx, in.RepositoryID, in.At); err != nil {
+		return fmt.Errorf("set next due: %w", err)
+	}
+
+	return nil
+}
+
 // Register registers the evaluator activities under their workflows
 // package names, on the evaluation worker only.
 func (e *Evaluator) Register(r Registry) {
+	r.RegisterActivityWithOptions(e.SetNextDue, activity.RegisterOptions{Name: workflows.SetNextDueActivity})
 	r.RegisterActivityWithOptions(e.Evaluate, activity.RegisterOptions{Name: workflows.EvaluateActivity})
 	r.RegisterActivityWithOptions(e.RecordEvaluation, activity.RegisterOptions{Name: workflows.RecordEvaluationActivity})
 	r.RegisterActivityWithOptions(e.ParkRepository, activity.RegisterOptions{Name: workflows.ParkRepositoryActivity})

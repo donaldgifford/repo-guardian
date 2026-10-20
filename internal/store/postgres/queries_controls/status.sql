@@ -33,14 +33,16 @@ ORDER BY s.snapshot_at;
 
 -- name: StatusOperations :one
 -- Repositories checked since the given time, the current (most recently
--- activated, DESIGN-0030 D14) policy version's rollout and the last
--- snapshot.
+-- activated, DESIGN-0030 D14) policy version's rollout, the last
+-- snapshot and the outstanding remediations.
 SELECT (SELECT count(DISTINCT c.repository_id) FROM checks c
         WHERE c.finished_at >= @since::timestamptz AND c.outcome IN ('success', 'skipped'))::int AS checked,
        (SELECT count(*) FROM policy_versions)::int AS policy_versions,
        (SELECT p.rollout_completed_at FROM policy_versions p
         ORDER BY p.activated_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
-       (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot;
+       (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot,
+       (SELECT count(*) FROM remediations m
+        WHERE m.state IN ('reserved', 'open', 'recommended', 'failed'))::int AS remediation_backlog;
 
 -- name: StatusApps :many
 -- Each App's installations, suspended installations and reachable

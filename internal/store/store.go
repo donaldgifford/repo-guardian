@@ -1,6 +1,7 @@
 // Package store defines repo-guardian's persistent state: the Controls
-// interface the evaluation and remediation roles record through, the
-// repository and timeline views the api role reads, and the shared
+// interface the evaluation role records through, the Remediations
+// interface the remediation role reserves, claims and records through,
+// the repository and timeline views the api role reads, and the shared
 // compliance math.
 //
 // The implementation lives in store/postgres, over the controls schema

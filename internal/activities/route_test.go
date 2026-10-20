@@ -54,7 +54,10 @@ func (c *recordingTemporal) ExecuteWorkflow(_ context.Context, o client.StartWor
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.signals = append(c.signals, signal{workflowID: o.ID, name: wf.(string), arg: args[0], started: true, priority: o.Priority.PriorityKey})
+	c.signals = append(
+		c.signals,
+		signal{workflowID: o.ID, name: wf.(string), arg: args[0], started: true, priority: o.Priority.PriorityKey, queue: o.TaskQueue},
+	)
 
 	return &temporalmocks.WorkflowRun{}, nil
 }

@@ -132,7 +132,7 @@ func (r *APIReader) Repositories(
 			items = append(items, apiRepository(&rows[i]))
 		}
 
-		return nil
+		return withPostures(ctx, q, scope, items)
 	})
 	if err != nil {
 		return p, fmt.Errorf("postgres.APIReader.Repositories: %w", err)
@@ -149,6 +149,55 @@ func apiRepository(row *controlsdb.APIRepositoriesRow) store.Repository {
 		PolicyState: derefOr(row.PolicyState), PolicyReason: derefOr(row.PolicyReason),
 		Evaluable: row.Evaluable, Remediable: row.Remediable,
 	}
+}
+
+// withPostures fills each repository's Compliance in one grouped query
+// (IMPL-0030 7.8); a repository with no assignment keeps the zero
+// posture, whose percent and coverage are nil.
+func withPostures(ctx context.Context, q *controlsdb.Queries, scope store.APIScope, items []store.Repository) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	ids := make([]int64, 0, len(items))
+	for i := range items {
+		ids = append(ids, items[i].ID)
+	}
+
+	rows, err := q.APIRepositoryPostures(ctx, controlsdb.APIRepositoryPosturesParams{
+		Ids: ids, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(),
+	})
+	if err != nil {
+		return fmt.Errorf("repository postures: %w", err)
+	}
+
+	byID := make(map[int64]store.ControlPosture, len(rows))
+
+	for i := range rows {
+		row := &rows[i]
+		p := store.ControlPosture{
+			Compliant: int(row.Compliant), NonCompliant: int(row.NonCompliant), Pending: int(row.Pending), Stale: int(row.Stale),
+			UnmeasurableAccessDenied: int(row.UnmeasurableAccessDenied), UnmeasurableSuspended: int(row.UnmeasurableSuspended),
+			UnmeasurableConflict: int(row.UnmeasurableConflict), NotApplicable: int(row.NotApplicable), Unknown: int(row.Unknown),
+			Excluded: int(row.Excluded), Assigned: int(row.Assigned),
+		}
+
+		if p.Percent, err = numericPtr(row.Percent); err != nil {
+			return err
+		}
+
+		if p.Coverage, err = numericPtr(row.Coverage); err != nil {
+			return err
+		}
+
+		byID[row.RepositoryID] = p
+	}
+
+	for i := range items {
+		items[i].Compliance = byID[items[i].ID]
+	}
+
+	return nil
 }
 
 // unlessEpoch reads the queries' "never" (the Unix epoch) as nil.
@@ -189,6 +238,13 @@ func (r *APIReader) Repository(ctx context.Context, scope store.APIScope, id int
 		}
 
 		d.Repository = apiRepository((*controlsdb.APIRepositoriesRow)(row))
+
+		one := []store.Repository{d.Repository}
+		if err := withPostures(ctx, q, scope, one); err != nil {
+			return err
+		}
+
+		d.Repository = one[0]
 
 		checks, err := q.APIRepositoryEvaluations(ctx, controlsdb.APIRepositoryEvaluationsParams{
 			RepositoryID: id, ScopeAll: scope.All(), ScopeOrgs: scope.Orgs(), PageLimit: 1,
@@ -301,7 +357,7 @@ func apiEvent(row *controlsdb.APIRepositoryEventsRow) store.Event {
 	return store.Event{
 		Source: row.Source, ID: row.ID, OccurredAt: row.OccurredAt,
 		ControlID: row.ControlID, RuleID: row.RuleID, FromStatus: row.FromStatus, ToStatus: row.ToStatus,
-		RepositoryKind: derefOr(row.Kind), Detail: row.Detail,
+		Kind: derefOr(row.Kind), Detail: row.Detail,
 	}
 }
 

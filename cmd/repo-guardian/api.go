@@ -51,6 +51,10 @@ func startAPI(
 	status := api.NewStatusPage(statusCfg)
 	go status.Run(ctx)
 
+	// Every api replica publishes the posture gauges (IMPL-0029 OQ8);
+	// dashboards collapse replicas with max by.
+	go api.NewPostureExporter(pgstore.NewControlsStore(pool, pgstore.WithControlsLogger(logger)), logger).Run(ctx)
+
 	opts := &api.Options{
 		Reader: reader, Status: status, StatusRequiresAuth: !cfg.API.StatusPublic, Logger: logger,
 	}

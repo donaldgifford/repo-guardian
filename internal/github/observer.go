@@ -139,7 +139,7 @@ func ControlPullRequest(pr *gh.PullRequest) control.PullRequest {
 		Body:        pr.GetBody(),
 		URL:         pr.GetHTMLURL(),
 		State:       pr.GetState(),
-		Merged:      pr.GetMerged(),
+		Merged:      pr.GetMerged() || pr.MergedAt != nil, // the list endpoint sends merged_at only
 		BaseRef:     pr.GetBase().GetRef(),
 		HeadRef:     pr.GetHead().GetRef(),
 		HeadSHA:     pr.GetHead().GetSHA(),
@@ -148,5 +148,6 @@ func ControlPullRequest(pr *gh.PullRequest) control.PullRequest {
 		AuthorLogin: pr.GetUser().GetLogin(),
 		AuthorType:  pr.GetUser().GetType(),
 		CreatedAt:   pr.GetCreatedAt().Time,
+		ClosedAt:    pr.GetClosedAt().Time,
 	}
 }

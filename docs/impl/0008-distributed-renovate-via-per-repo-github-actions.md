@@ -373,5 +373,5 @@ Full CI pipeline validation and cleanup.
 
 - [DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions](../design/0009-distributed-renovate-via-per-repo-github-actions.md)
 - [RFC-0002: HCL-driven Policy Engine](../rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md)
-- [IMPL-0006: HCL Policy Configuration and Rule Engine](0006-hcl-policy-configuration-and-rule-engine.md)
+- IMPL-0006: HCL Policy Configuration and Rule Engine (no longer in the repository)
 - [IMPL-0007: Additional Rule Types and Ignore Lists](0007-additional-rule-types-and-ignore-lists.md)

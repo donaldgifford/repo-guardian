@@ -220,4 +220,57 @@ spec:
             summary: "most repo-guardian Temporal polls are failing"
             description: "workers cannot reach the Temporal frontend: check the address, mTLS material and the frontend's own health. Nothing evaluates until it recovers."
         {{- end }}
+    {{- /*
+      Remediation holds (IMPL-0030 OQ11), mirrored by hand from the
+      generated catalogue's repo-guardian.remediation group — keep the
+      two in step. foreign_branch, permission and the Remediation App
+      losing a repository alert on their first occurrence; conflict only
+      once held a week; pr_cap, stale_branch and cooldown never alert.
+    */}}
+    - name: repo-guardian.remediation
+      rules:
+        {{- $a := .Values.prometheusRule.alerts -}}
+        {{- /* RemediationAppUnreachable */ -}}
+        {{- $alert := default dict $a.RemediationAppUnreachable -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianRemediationAppUnreachable
+          {{- /* First increment included: increase() cannot see a new series. */}}
+          expr: |
+            increase(repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"}[1h]) > 0
+            or
+            (repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"}
+              unless repo_guardian_remediation_blocked_total{reason=~"remediation_app_no_access|remediation_app_suspended"} offset 1h) > 0
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "the repo-guardian Remediation App cannot reach repositories it is assigned to remediate"
+            description: "assignments in remediate mode were downgraded to evaluate because the Remediation App is not installed on the repository or its installation is suspended. Install or unsuspend the App, or set the org's mode to evaluate."
+        {{- end }}
+        {{- /* RemediationBlocked */ -}}
+        {{- $alert := default dict $a.RemediationBlocked -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianRemediationBlocked
+          expr: |
+            increase(repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}[1h]) > 0
+            or
+            (repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"}
+              unless repo_guardian_remediation_blocked_total{reason=~"foreign_branch|permission"} offset 1h) > 0
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "a repo-guardian remediation is held on a foreign branch or a missing permission"
+            description: "foreign_branch: someone else pushed to the remediation branch, so repo-guardian will not touch it until the branch is restored or deleted. permission: GitHub refused the Remediation App's write; the App lacks a permission the control needs. The logs dashboard names the repositories."
+        {{- end }}
+        {{- /* RemediationConflictHeld */ -}}
+        {{- $alert := default dict $a.RemediationConflictHeld -}}
+        {{- if ne (toString (get $alert "enabled")) "false" }}
+        - alert: RepoGuardianRemediationConflictHeld
+          expr: max by (org) (repo_guardian_remediation_holds{reason="conflict",age_bucket=~"7-30d|30d[+]"}) > 0
+          for: {{ default "1h" (get $alert "for") | quote }}
+          labels:
+            severity: {{ default "warning" (get $alert "severity") | quote }}
+          annotations:
+            summary: "a repo-guardian remediation has been held on a conflict for over a week"
+            description: "two controls own one resource, or a human change keeps conflicting with the remediation. A short conflict resolves itself; a week means the policy needs an owner decision."
+        {{- end }}
 {{- end }}

@@ -81,6 +81,8 @@ func (s *fakeControlsStore) InsertComplianceSnapshot(_ context.Context, at time.
 	return 3, nil
 }
 
+func (*fakeControlsStore) PruneChecks(context.Context, time.Time) (int64, error) { return 0, nil }
+
 // versionResolver is a store.Resolver that only names its version.
 type versionResolver struct{}
 

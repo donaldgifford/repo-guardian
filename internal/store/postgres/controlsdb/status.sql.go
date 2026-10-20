@@ -135,7 +135,9 @@ SELECT (SELECT count(DISTINCT c.repository_id) FROM checks c
        (SELECT count(*) FROM policy_versions)::int AS policy_versions,
        (SELECT p.rollout_completed_at FROM policy_versions p
         ORDER BY p.activated_at DESC, p.version DESC LIMIT 1) AS rollout_completed_at,
-       (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot
+       (SELECT max(cs.snapshot_at) FROM compliance_snapshots cs) AS last_snapshot,
+       (SELECT count(*) FROM remediations m
+        WHERE m.state IN ('reserved', 'open', 'recommended', 'failed'))::int AS remediation_backlog
 `
 
 type StatusOperationsRow struct {
@@ -143,11 +145,12 @@ type StatusOperationsRow struct {
 	PolicyVersions     int32
 	RolloutCompletedAt *time.Time
 	LastSnapshot       interface{}
+	RemediationBacklog int32
 }
 
 // Repositories checked since the given time, the current (most recently
-// activated, DESIGN-0030 D14) policy version's rollout and the last
-// snapshot.
+// activated, DESIGN-0030 D14) policy version's rollout, the last
+// snapshot and the outstanding remediations.
 func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (StatusOperationsRow, error) {
 	row := q.db.QueryRow(ctx, statusOperations, since)
 	var i StatusOperationsRow
@@ -156,6 +159,7 @@ func (q *Queries) StatusOperations(ctx context.Context, since time.Time) (Status
 		&i.PolicyVersions,
 		&i.RolloutCompletedAt,
 		&i.LastSnapshot,
+		&i.RemediationBacklog,
 	)
 	return i, err
 }

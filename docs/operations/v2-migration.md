@@ -1,61 +1,212 @@
-# Migrating from v1 to v2
+# Moving to repo-guardian v2
 
-v2 replaces the Valkey work queue, the leader-elected sweeps and the
-posture gauges with Temporal workflows. It also replaces v1's
-`repo_state`/`rule_state` rows with findings. The cutover reuses the
-same Postgres database, the same webhook URL and secret, and the same
-PR identity, so v2 picks up where v1 stopped. Designs:
-[DESIGN-0025](../design/0025-v2-findings-model-and-v1-data-migration.md)
-(data), [DESIGN-0026](../design/0026-v2-temporal-control-plane-and-role-split.md)
-(runtime and cutover) and
-[DESIGN-0027](../design/0027-v2-read-only-api-business-ui-and-status-page.md) (API).
+v2.0.0 is a **fresh install**. A v1 deployment, or a v2 release
+candidate from before the controls line, is stopped and replaced; it is
+never upgraded in place. The new release starts on an empty database
+and a new Temporal namespace, and the only thing it does to the old
+deployment's work is close its open pull requests once the new ones
+replace them. Rollback is the previous chart pointed back at the
+previous database, which the cutover never reads or modifies.
+
+The design is [DESIGN-0032](../design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md)
+(§ Migration / Rollout Plan, D26–D28); the pull-request tool is
+[rgctl](https://github.com/donaldgifford/repo-guardian/blob/main/docs/operations/rgctl.md).
 
 <!--toc:start-->
-- [Prerequisites](#prerequisites)
+- [Before you start](#before-you-start)
+- [Cutover](#cutover)
+  - [1. Stop every old writer](#1-stop-every-old-writer)
+  - [2. Stop the old Temporal work](#2-stop-the-old-temporal-work)
+  - [3. Record the old pull requests](#3-record-the-old-pull-requests)
+  - [4. Install against a fresh database](#4-install-against-a-fresh-database)
+  - [5. Start the roles and verify evaluation](#5-start-the-roles-and-verify-evaluation)
+  - [6. Close the old pull requests](#6-close-the-old-pull-requests)
+- [Rollback](#rollback)
+- [What is not carried over](#what-is-not-carried-over)
 - [Removed configuration](#removed-configuration)
   - [Environment variables](#environment-variables)
   - [Removed chart values](#removed-chart-values)
   - [HCL](#hcl)
-- [The data migration](#the-data-migration)
-- [Reporting divergences](#reporting-divergences)
-- [Cutover steps](#cutover-steps)
-- [Redelivering webhooks](#redelivering-webhooks)
-- [What resumes, and why](#what-resumes-and-why)
-- [Rollback](#rollback)
+  - [Controls environment variables](#controls-environment-variables)
+  - [Controls chart values](#controls-chart-values)
 <!--toc:end-->
 
-## Prerequisites
+## Before you start
 
-- **v1 on the last 1.x release.** The migration adopts v1's schema only
-  at golang-migrate version 3 with `dirty = false`. Anything else fails
-  with "upgrade to the last v1.x first".
-- **A Temporal cluster** the pods can reach, with a namespace created
-  for repo-guardian (default `repo-guardian`). `contrib/temporal/` pins
-  a tested install. Set `temporal.address`. For mTLS, also set
-  `temporal.tls.existingSecret` (`tls.crt`, `tls.key`, optionally
-  `ca.crt`). For a frontend that authorizes JWTs (Keycloak), set
-  `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` instead,
-  plus `temporal.tls.caSecret` if its certificate comes from a private
-  CA.
-- **`guardian.hcl` reviewed.** `worker_count`, `queue_size` and
-  `schedule_interval` in `guardian {}` are v1 knobs. v2 refuses to load
-  a policy that sets them, so remove them. Everything else in
-  the file is read unchanged.
-- **Values edited.** Every key in [Removed chart
-  values](#removed-chart-values) is gone, and a policy is required
-  (`policy.config` or `policy.existingConfigMap`).
-- **For the API** (optional, `api.enabled`): an OIDC issuer
-  (`api.auth.issuer`), and on external Postgres a `repoguardian_ro`
-  login you create, passed in `api.roDsn.existingSecret`.
-- **Room for the re-check.** Every repository is re-checked across
-  `policyRolloutWindow` (default `24h`) after the swap. Budget for one
-  full-fleet pass of GitHub API calls in that window.
+- **A new database.** An empty Postgres database (or a new CNPG
+  cluster, or the chart's baked one on a new volume) with the owner role
+  and the two application roles, `rg_evaluator` and `rg_remediator`.
+  The chart provisions the roles in `baked` and `cnpg` modes; for an
+  external database create them yourself
+  ([Controls database roles](v2-onboarding.md#controls-database-roles)).
+  Do not point the release at the old database: the controls schema is
+  its own migration chain for an empty database and refuses one that
+  holds the old tables.
+- **A new Temporal namespace** (or the same cluster with a namespace the
+  old deployment never used). The controls roles run their own worker
+  deployments, `repo-guardian-eval` and `repo-guardian-remediate`, so
+  nothing has to drain, but a separate namespace keeps the old
+  executions out of the way of the new ones.
+- **The two GitHub Apps.** The Evaluation App (read-only) and the
+  Remediation App (writes), each with its own webhook URL:
+  `/webhooks/github/eval` and `/webhooks/github/remediate`. The old v1
+  App can be reduced to the Evaluation App's permissions, or replaced
+  ([The two GitHub Apps](v2-onboarding.md#4-the-two-github-apps)). Keys
+  are files mounted from Secrets, never environment values.
+- **A controls policy directory** for `policy.files` or
+  `policy.existingConfigMap`, with every assignment in
+  `mode = "evaluate"` for the first install.
+- **rgctl**, and the private key (or an operator token) of **every old
+  App** that opened pull requests: a v1 deployment's App and, if you
+  ran one, a release candidate's App.
+- **Values edited** for the controls chart: every key under [Removed
+  configuration](#removed-configuration) is gone, and the render fails
+  naming any still set.
+
+## Cutover
+
+Follow the steps in order. The order is the safety: no old writer runs
+while the old pull requests are recorded, and nothing is closed until
+the new install has proved it can see the fleet.
+
+### 1. Stop every old writer
+
+Scale the release candidate's `worker` role (and `all`, if you ran that
+topology) to zero, and scale any v1 Deployment to zero. Confirm no old
+pod runs:
+
+```bash
+kubectl -n <namespace> scale deploy/<release>-repo-guardian-worker --replicas=0
+kubectl -n <namespace> get pods -l app.kubernetes.io/name=repo-guardian
+```
+
+From here until the new ingest is ready, GitHub records the old App's
+webhook deliveries as failed. Nothing needs redelivering: the new
+install evaluates every repository on discovery.
+
+### 2. Stop the old Temporal work
+
+Only a release candidate has Temporal state; skip this for v1. On the
+old namespace, delete the `discovery` and `snapshot` schedules, then
+terminate every running execution on the old task queue, not only the
+named prefixes (`repo/*`, `installation/*`, `policy-rollout/*`,
+`bootstrap/v1`, `discovery/installation/*`, in-flight `webhook/*` and
+any run a schedule started):
+
+```bash
+temporal schedule delete --schedule-id discovery
+temporal schedule delete --schedule-id snapshot
+temporal workflow terminate \
+  --query 'TaskQueue="repo-guardian" AND ExecutionStatus="Running"' \
+  --reason "controls cutover"
+```
+
+### 3. Record the old pull requests
+
+Before anything closes them, list every open repo-guardian pull request
+from GitHub and keep the record. Do this **once per old App**, with
+that App's credentials, for every org it manages: rgctl matches a pull
+request by its author, and each App is its own bot.
+
+```bash
+export RGCTL_APP_ID=<old app id> RGCTL_PRIVATE_KEY_FILE=~/.config/rgctl/<old app>.pem
+rgctl prs list --org <org> --format json --out <app>-<org>.json
+```
+
+Keep the files: step 6 closes exactly what they list, and they are the
+record of what the old deployment left open.
+
+### 4. Install against a fresh database
+
+Install the controls chart into the new database and namespace:
+
+```bash
+helm install repo-guardian oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version <2.x version> -n <namespace> -f values.yaml
+```
+
+The migrate hook Job applies the controls schema to the empty database
+(one chain, `repo-guardian migrate --chain controls`) and activates the
+policy version. On a database that already holds tables it fails on
+its first `CREATE TABLE` rather than adopting them. Set each App's
+webhook URL to its new route on your ingress
+([A public route for webhooks](v2-onboarding.md#5-a-public-route-for-webhooks)).
+
+### 5. Start the roles and verify evaluation
+
+The `evaluator` and `remediator` roles (or `all`) start, and each
+promotes its own build to the current version of its own worker
+deployment at first start; there is nothing to drain. Verify:
+
+- every pod is ready and the migrate Job succeeded;
+- `temporal worker deployment describe --deployment-name repo-guardian-eval`
+  (and `repo-guardian-remediate`) names the image's build as current;
+- `ControlsDiscoveryWorkflow` completed and there is one
+  `evaluation/<id>` workflow per managed repository;
+- `repo-guardian report`, the API's `/api/v1/summary` or the UI shows
+  posture per org, with no `unmeasurable` surprise.
+
+A check that was in flight at step 1 is simply never resumed; the new
+install evaluates that repository on its own schedule.
+
+### 6. Close the old pull requests
+
+Close an org's old pull requests **when that org turns on
+`mode = "remediate"`**, not all at once: while the org is evaluate-only
+the old pull requests keep proposing their fixes, and once per-control
+pull requests replace them the old ones only duplicate them. For each
+org, with the record files from step 3:
+
+```bash
+rgctl prs close --from <app>-<org>.json --yes
+```
+
+rgctl closes exactly the recorded pull requests on v1's three frozen
+branches (`repo-guardian/add-missing-files`,
+`repo-guardian/add-catalog-info`, `repo-guardian/set-custom-properties`)
+and the release candidate's, with a comment pointing at the per-control
+pull requests. It skips a pull request a human has edited and never
+deletes its branch. `--delete-branch` is an opt-in; repo-guardian itself
+never deletes a branch.
+
+## Rollback
+
+Rollback is the previous chart pointed back at the previous database:
+
+1. Scale the new release to zero (or uninstall it).
+2. Deploy the previous chart with its previous values. Its database was
+   never read or modified by the cutover, so it starts where step 1
+   stopped it.
+3. For a release candidate, Temporal needs no step: its build is still
+   the current version of its own `repo-guardian` worker deployment,
+   because the controls builds were promoted on their own deployments.
+   Its workers resume as soon as they start, and its bootstrap
+   recreates the executions terminated at step 2.
+4. Point each old App's webhook back at the old route.
+
+There is no in-place upgrade path from v1 or from the release-candidate
+line, and none back.
+
+## What is not carried over
+
+- **History.** Repository ids, rename and transfer events, findings,
+  check logs and compliance snapshots restart on the new database. Keep
+  the old database (and its values) until you no longer need its
+  history, then archive it with `pg_dump` and drop it.
+- **Executions terminated at step 2**, and any webhook delivered while
+  the old deployment was down.
+- **Old pull requests closed at step 6.** The new install opens one
+  pull request per control on `repo-guardian/<control slug>` in place of
+  each; a closed old one is never reopened.
+- **The old App's identity on new pull requests.** New pull requests
+  are authored by the Remediation App's bot.
 
 ## Removed configuration
 
 ### Environment variables
 
-These are ignored. Every role logs one warning at startup naming each
+These were removed when v2 moved to Temporal, and the controls line
+still ignores them. Every role logs one warning at startup naming each
 one still set (`removed configuration env vars are set and ignored`,
 with `migration` pointing here), so a stale Deployment patch shows up
 in the logs. Remove them:
@@ -89,18 +240,17 @@ Chart 2.x fails the render on each of these, naming the key:
 | `config.scheduleInterval` | `checkInterval` |
 | `config.maxJobAttempts` | none |
 
-New values: `topology` (`split` or `all`), `temporal.*`,
-`checkInterval`, `policyRolloutWindow`, `checksRetention`, `ingest.*`,
-`worker.*` (including optional KEDA), `api.*` and `migrate.freshness`.
-`migrate.enabled` now defaults to `true`. See the chart README.
+The controls line renamed or removed more values since; see [Controls
+chart values](#controls-chart-values). The chart README lists the
+current set.
 
 ### HCL
 
-`guardian { worker_count, queue_size, schedule_interval }` fail load
-with a "Removed argument" error naming each one's replacement. Delete
-them: concurrency is `WORKER_ACTIVITY_CONCURRENCY` and cadence is
-`CHECK_INTERVAL`. No other part of the policy language
-changes; see [v2 at a glance](v2-overview.md#writing-rules-before-you-migrate).
+`guardian.hcl` is not read at all on the controls line: the policy is
+a directory (`enterprise.hcl`, `catalogue/`, `orgs/`, `templates/`).
+Rewrite it as one; [v2 at a glance](v2-overview.md#what-changed-from-guardianhcl)
+maps each v1 rule kind to its control type, and `rgctl config show`
+prints what an old file declares.
 
 ### Controls environment variables
 
@@ -148,192 +298,3 @@ it):
 whole at `GUARDIAN_CONFIG`, so it holds flat keys unless you mount it
 with your own `items` through `extraVolumes`. `templating.vars` stays
 for the templates' `env` helper.
-
-## The data migration
-
-`repo-guardian migrate` runs as the chart's hook Job. On a v1 database
-it:
-
-1. records that the v1 schema is present (`00001_adopt_v1`);
-2. creates the v2 tables (`00002_v2_schema`);
-3. backfills them from v1, in one transaction (`00003_backfill_v1`).
-
-v1's tables are left untouched. That is what makes rollback work.
-
-The migration refuses to run while `repo_state.last_checked_at` was
-written in the last 60 seconds, which catches a v1 replica that is
-still running. `--force-running` overrides it. Only use it on a restored
-copy.
-
-**Adoption rules** (DESIGN-0025 § v1 → v2 migration):
-
-- **Installations** come from `repo_state`'s distinct
-  `(installation_id, owner)` pairs. An id with several owners keeps the
-  most recently checked one and logs the rest.
-- **Repositories** keep `active`, `last_checked_at`, the last outcome
-  and the error.
-  - Parked rows get a park reason. `error` becomes `access_denied`;
-    `skipped` with `archived` or `fork` keeps that reason; anything else
-    is `unknown`.
-  - Two rows that differ only in case keep the most recently checked
-    one and log the rest.
-- **Next due time** is `last_checked_at + freshness`. Rows never checked
-  are spread across one freshness window.
-- **Findings.** `actionable = false` becomes `compliant`.
-  `actionable = true` becomes `non_compliant` with reason
-  `migrated_from_v1`, keeping v1's `actionable_since`. Each repository's
-  first v2 check replaces `migrated_from_v1` with a real reason.
-- **History.** Compliance snapshots carry over. Every finding's history
-  starts with one `created` event at the migration.
-- **Policy version.** It is stored as `v1:<hash>`, which never equals a
-  v2 version, so every repository counts as drifted and is re-checked.
-
-**Rehearse first.** Restore a copy of production into a scratch
-database and preview the counts and collisions without writing:
-
-```bash
-repo-guardian migrate --dsn "$SCRATCH_DSN" --dry-run --force-running
-```
-
-Take a dump before the real run. The migration only adds tables, but a
-dump is the only way back from a bad backfill:
-
-```bash
-pg_dump --format=custom --file=repo-guardian-v1.dump "$STORE_DSN"
-```
-
-## Reporting divergences
-
-GitHub actions are unchanged, but some records change. Each of these
-moves a compliance number on purpose:
-
-| Case | v1 records | v2 records | Effect on compliance % |
-| --- | --- | --- | --- |
-| Foreign PR open for the rule | `actionable=false` (compliant) | `non_compliant` + `foreign_pr` | falls |
-| Branch-protection target branch missing | `actionable=false` (compliant) | `not_applicable` / `branch_missing` | denominator shrinks |
-| Rule out of scope, ignored, gate closed | no row | `not_applicable` row | none (excluded) |
-| Global ignore, policy out of scope, empty repo | rows cleared | `not_applicable` rows | none (excluded) |
-| Gate referee errored | no row | `unknown` / `gate_error` | none (excluded, shown) |
-| File and setting rule share a name | one row, last kind wins | two findings | both counted |
-
-Compliance for a rule is `compliant / (compliant + non_compliant)` over
-active repositories. `not_applicable` and `unknown` are excluded from
-both terms and reported separately. An empty denominator is
-*unmeasured*, never 100%. `repo-guardian migrate verify-shadow`
-classifies these cases when it compares v1 and v2.
-
-## Cutover steps
-
-1. **Install Temporal** and create the namespace.
-2. **Dry-run the migration** against a restored copy (above) and review
-   the counts and collisions.
-3. **Dump the database:** `pg_dump`, as above.
-4. **Scale v1 to zero.** From here until v2's ingest is ready, GitHub
-   records webhook deliveries as failed.
-
-   ```bash
-   kubectl -n repo-guardian scale deploy/repo-guardian --replicas=0
-   ```
-
-5. **Upgrade to chart 2.x** with the edited values and policy:
-
-   ```bash
-   helm upgrade repo-guardian oci://ghcr.io/donaldgifford/charts/repo-guardian \
-     --version <2.x version> -n repo-guardian -f values.yaml
-   ```
-
-   Use the newest 2.x chart; until 2.0.0 is released that is a release
-   candidate (`2.0.0-rc.4` at the time of writing).
-
-   The `pre-upgrade` hook runs `migrate`. The worker then starts
-   `BootstrapWorkflow`, which starts one `RepoWorkflow` per active
-   repository and rolls the policy out across `policyRolloutWindow`.
-6. **Point ingress at the webhook Service.** It keeps the release's full
-   name, so an existing route usually needs no change.
-7. **Verify:**
-   - `kubectl get pods`: ingest and worker are ready, and the migrate Job
-     succeeded.
-   - **The worker's build is the deployment's current version.**
-     Temporal dispatches nothing to a versioned worker until its build
-     is current, and a v2 install left in that state sits idle. Workers
-     promote their own build at startup (log line `temporal: promoted
-     build to the deployment's current version`). Check it with:
-
-     ```bash
-     temporal worker deployment describe --deployment-name repo-guardian
-     ```
-
-     The current version's build ID should equal the image tag. The chart
-     sets it via `TEMPORAL_BUILD_ID` from `worker.buildId`, then
-     `image.tag`, then the chart's appVersion. A worker still not current
-     2 minutes after start fails its `deployment` readiness check, and
-     `/readyz` names the current build.
-   - Temporal UI: `BootstrapWorkflow` completed, and there is one
-     `repo/<id>` workflow per active repository.
-   - `repo-guardian report`, or the API's `/api/v1/summary`, shows the
-     fleet. Expect `migrated_from_v1` reasons to drain across the
-     rollout window.
-8. **Redeliver** the outage window's failed webhooks (below). This is
-   optional.
-9. **Delete v1's Valkey volume.** The upgrade removes the Valkey
-   StatefulSet but not the claim its `volumeClaimTemplates` created, and
-   nothing in it is needed (below):
-
-   ```bash
-   kubectl -n repo-guardian delete pvc data-<release>-valkey-0
-   ```
-
-## Redelivering webhooks
-
-Deliveries that failed while v1 was down are listed under the GitHub
-App's **Advanced → Recent Deliveries**. Redeliver any that matter. v2
-accepts them on the same URL and secret. The redelivery is optional,
-because the rollout re-checks every repository anyway. It just brings
-push-triggered re-checks forward.
-
-## What resumes, and why
-
-- **Webhooks.** `POST /webhooks/github` on the same Service, with the
-  same secret.
-- **Pull requests.** v1's three branches (`repo-guardian/add-missing-files`
-  for file rules, and `repo-guardian/add-catalog-info` and
-  `repo-guardian/set-custom-properties` for the `custom_properties`
-  reconciler), their PR titles, the
-  `<!-- repo-guardian:reconcile-log:v1 -->` marker and its hash tag are
-  unchanged, and tests lock them (`TestPRIdentity_IsFrozen` in the
-  checker and the reconciler). v2's first check finds v1's open PR and
-  updates it.
-- **Parked repositories stay parked.** Bootstrap starts workflows only
-  for active rows, and discovery re-applies v1's un-park rule.
-- **Nothing in Valkey is needed.** Postgres was always the source of
-  truth. In-flight and delayed jobs are dropped, and the rollout
-  re-checks every repository they referenced.
-- **The re-check is paced.** `policyRolloutWindow` spreads it out, and
-  each installation's rate budget bounds it further.
-
-## Rollback
-
-Rollback is supported until a later v2 release drops the v1 tables.
-
-1. Scale v2 to zero (`ingest`, `worker`, and `api` if enabled).
-2. Deploy the last v1 chart against the same database. v1 finds its
-   schema at version 3 and its tables as they were at the swap. Its
-   stale sweep re-checks everything older than freshness, and it adopts
-   any PR v2 opened, because the PR identity is the same.
-3. Abandon the Temporal namespace, or delete it.
-
-Rollback loses everything v2 learned since the swap. If the backfill
-itself was bad, restore the `pg_dump` instead.
-
-**Rolling back between v2 releases** (`helm rollback` to an older 2.x)
-needs one manual step. A worker promotes its build only when it is
-newer, by semver, than the current version. That rule keeps a
-crash-restarting pod of the previous release from pulling a rollout
-backwards, but it also means an older build never takes over on its
-own. Its pods log `a newer build is the deployment's current version`,
-with the command to run:
-
-```bash
-temporal worker deployment set-current-version \
-  --deployment-name repo-guardian --build-id <older image tag>
-```

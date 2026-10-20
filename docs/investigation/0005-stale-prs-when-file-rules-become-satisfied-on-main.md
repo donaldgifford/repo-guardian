@@ -845,7 +845,7 @@ it correctly.
 
 ## References
 
-- [examples/guardian-full.hcl](../../examples/guardian-full.hcl)
+- [examples/guardian-full.hcl](https://github.com/donaldgifford/repo-guardian/blob/main/examples/guardian-full.hcl)
   — the reference config that produced this scenario.
 - [INV-0003](0003-pre-existing-branch-422-on-subsequent-reconciles.md)
   — adjacent stale-branch bug; precedent for the
@@ -856,6 +856,6 @@ it correctly.
 - [PR #79](https://github.com/donaldgifford/repo-guardian/pull/79)
   — the open homelab PR that motivates this investigation.
 - WARN comment at
-  [`internal/checker/engine_policy.go:546-558`](../../internal/checker/engine_policy.go)
+  [`internal/checker/engine_policy.go:546-558`](https://github.com/donaldgifford/repo-guardian/blob/main/internal/checker/engine_policy.go)
   — already acknowledges a closely-related stale-branch class of bug
   (referencing this conversation in PR #71).

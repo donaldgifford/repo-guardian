@@ -178,14 +178,19 @@ human required`.
 
 #### Tasks
 
-- [ ] 1.1 Confirm where the remediation DDL lives (OQ1). If IMPL-0029
+- [x] 1.1 Confirm where the remediation DDL lives (OQ1). If IMPL-0029
   already shipped `remediations`, `remediation_steps`,
   `remediation_events`, both views and the remediator grants in
   `00003_controls_results`, diff them against DESIGN-0032 §Data Model
   and fix drift there; otherwise add them as the OQ1 answer says. The
   DDL is DESIGN-0032's verbatim: the three `CHECK`s on `kind`/`state`,
   `remediations_one_open`, `remediations_slots`, `UNIQUE (remediation_id, seq)`.
-- [ ] 1.2 `remediation_due` view: the DESIGN-0032 predicate over
+  **Done:** IMPL-0029 shipped every table, both views, the RLS policies
+  and the grant matrix in `00003`. One drift: `remediation_maintenance`
+  did not withdraw on an `effective_mode = 'evaluate'` downgrade (1.3).
+  rc databases have applied `00003`, so the fix is the additive
+  `00005_remediation.sql` (`ControlsSchemaVersion` 5), not an edit.
+- [x] 1.2 `remediation_due` view: the DESIGN-0032 predicate over
   `repository_policy_state`, `control_assignments` (active, matching
   epoch, `effective_mode = 'remediate'`), `control_results` (status
   `non_compliant`, remediable, `eval_generation > remediated_generation`
@@ -194,13 +199,15 @@ human required`.
   remediation (`closed_by_user` eligible only when
   `eval_generation > closed_generation` or `next_eligible_at <= now()`).
   Ordered by `ordinal`.
-- [ ] 1.3 `remediation_maintenance` view: rows needing `expire`
+  **Done (IMPL-0029, `00003`):** the view matches; the 1.10 truth table pins it.
+- [x] 1.3 `remediation_maintenance` view: rows needing `expire`
   (`reserved` past `reserved_until`), `withdraw` (open PR or
   recommendation whose assignment is gone, excluded, parked, out of
   org, or `effective_mode = 'evaluate'`), `supersede` (recommendation
   whose `intent_revision` moved) and `close_compliant` (open PR whose
   control reads `compliant`; acted on only after a fresh read, 4.10).
-- [ ] 1.4 Grants: `rg_remediator` INSERT on `remediations`, UPDATE on
+  **Done:** `00003` plus the evaluate-downgrade `withdraw` arm in `00005` (1.1).
+- [x] 1.4 Grants: `rg_remediator` INSERT on `remediations`, UPDATE on
   every column except `observed_head_sha`, `observed_at`,
   `closed_generation`, `next_eligible_at`, DELETE on `reserved` rows
   (a row-level security policy `FOR DELETE TO rg_remediator USING
@@ -210,7 +217,10 @@ human required`.
   UPDATE (`last_remediation_at`) on `repository_policy_state`; INSERT on
   `service_runs`; sequence USAGE. UPDATE, DELETE and TRUNCATE revoked
   for both roles on `remediation_steps` and `remediation_events`.
-- [ ] 1.5 `internal/store/postgres/remediations.go`:
+  **Done (IMPL-0029, `00003`/`00002`/`00001`):** every grant and the
+  reservation-only DELETE policy exist. No sequence grant is needed: the
+  remediation tables use identity keys. The 1.11 grant tests pin it.
+- [x] 1.5 `internal/store/postgres/remediations.go`:
   `ReserveSlot(ctx, repo, control, epoch, opKey, intent, ttl)` (one
   transaction: `SELECT ... FOR UPDATE` on `repository_policy_state`,
   count `open + reserved` through `remediations_slots`, insert
@@ -219,36 +229,66 @@ human required`.
   returning `ErrOperationHeld` when another attempt holds it; the
   transaction stays open for the activity and is released on return);
   `LatestRemediation`, `AppendStep`, `AppendEvent`, `SetIntent`.
-- [ ] 1.6 `RecordRun` (record-is-narrow): `remediated_generation` to
+  Done: `postgres.RemediationStore` (the rg_remediator pool) implements
+  `store.Remediations`; the claim uses `FOR NO KEY UPDATE SKIP LOCKED`
+  so journal inserts (`FOR KEY SHARE` on the parent) commit on their own
+  connection, and writes to the claimed row go through
+  `ClaimedOperation`. A retried reservation returns its own row before
+  the cap check. Pinned by `TestRemediationStore_ReserveSlot` and
+  `TestRemediationStore_ClaimOperation`.
+- [x] 1.6 `RecordRun` (record-is-narrow): `remediated_generation` to
   the generation read at run start, `acknowledged_head_sha` by
   compare-and-set against the head processed, `intent_revision`,
   `last_run_at`, `hold = NULL`; discarded and counted in
   `results_discarded_total{reason="stale_epoch"}` when the assignment
   epoch moved. Idempotent on `operation_key`.
-- [ ] 1.7 `SetHold(ctx, repo, control, epoch, hold)` writing
+  Done: the remediator has no UPDATE on `control_assignments`, so the
+  fence locks the `control_results` row `FOR UPDATE` (withdrawal deletes
+  it) and compares both epochs under that lock; `remediated_generation`
+  is `GREATEST`, so a repeat is a no-op. Call it after `ClaimOperation`
+  returns. `TestRemediationStore_RecordRun`.
+- [x] 1.7 `SetHold(ctx, repo, control, epoch, hold)` writing
   `control_results.hold`/`hold_since`, and the `remediations.hold =
   'permission'` path for blocked cleanup when the result row is gone.
-- [ ] 1.8 `DueRemediations(ctx, batch)` and
+  Done: `hold_since` keeps the start of an unchanged hold; a stale epoch
+  writes nothing; with the result gone only `permission` lands, on the
+  newest remediation. `TestRemediationStore_SetHold`.
+- [x] 1.8 `DueRemediations(ctx, batch)` and
   `MaintenanceCandidates(ctx, batch)` over the two views;
   `ExpireReservations(ctx, now)` returning the count for
   `remediation_reservations_expired_total`.
-- [ ] 1.9 Pool: `REMEDIATOR_DB_POOL_SIZE` (default
+  Done: the caller counts the metric (Phase 6 defines it).
+  `TestRemediationStore_DueAndMaintenance`.
+- [x] 1.9 Pool: `REMEDIATOR_DB_POOL_SIZE` (default
   `REMEDIATOR_CONCURRENCY + 4`); startup refuses a pool smaller than
   the concurrency, since every running operation holds one connection
   for its row lock. `store_pool_wait_seconds{role}` from the pgxpool
   stats.
-- [ ] 1.10 `remediation_due` truth table as SQL against the view
+  Done: `halfSizing` in `cmd/repo-guardian/controls.go`
+  (`TestHalfSizing`); `store_pool_wait_seconds{role}` was already
+  produced by the pool tracer (`observability.InstrumentPostgresConfig`).
+  Chart `remediator.dbPoolSize` comment updated.
+- [x] 1.10 `remediation_due` truth table as SQL against the view
   (DESIGN-0032 Testing Strategy): policy state, assignment state and
   epoch, effective mode and reason, status, remediable, generations
   including the first-evaluation `1 > 0` row, intent revision, latest
   state, observed versus acknowledged head, `closed_generation`,
   `next_eligible_at`.
-- [ ] 1.11 Grant tests through the extended `pgtest` harness, run as
+  Done: `TestRemediationDue_TruthTable` (24 rows, each in a rolled-back
+  owner transaction over one recorded fixture) plus
+  `TestRemediationMaintenance_Actions`, which pins 1.3 and 00005's
+  evaluate-downgrade withdraw.
+- [x] 1.11 Grant tests through the extended `pgtest` harness, run as
   `rg_remediator` and never as the owner: every stated transaction
   succeeds (reservation, claim, step, record, hold, expiry); every
   cross-writer operation fails (remediator writing `eval_generation` or
   `observed_head_sha`, deleting an `open` row, updating a step).
-- [ ] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
+  Done: every `TestRemediationStore_*` runs as `rg_remediator`;
+  `TestRemediationStore_CrossWriterDenied` adds the cross-writer cases
+  beside `TestControlsChain_GrantsHoldAsEachRole`. Deleting an `open` row
+  is not an error under RLS (the policy hides it), so it asserts zero
+  rows affected.
+- [x] 1.12 **Per-role DSNs (INV-0023 F7.1).** `startControlsWorker` in
   `cmd/repo-guardian/controls.go` parses `cfg.StoreDSN` for both halves,
   so the evaluator and remediator connect as whatever `STORE_DSN` names
   and the chart's `STORE_DSN_EVALUATOR`/`_REMEDIATOR` are mounted but
@@ -256,6 +296,12 @@ human required`.
   to `STORE_DSN` only when its own is unset), and log the role it
   connects as. Test: a remediator half refuses to start without a DSN
   it can resolve, and a split render's evaluator gets only its own.
+  Done: `Config.WorkerStoreDSN` (own, else `STORE_DSN` — the fallback
+  also applies to a split role, since `store.controls` defaults off and
+  those pods carry only `STORE_DSN`); ingest refuses all three DSNs;
+  `openHalfPool` logs `dsn_env`/`db_user`. Chart: with `store.controls`
+  on, a split controls pod no longer gets `STORE_DSN` (only the migrate
+  Job keeps the owner's). `TestWorkerStoreDSN`, `controls_store_test.yaml`.
 
 #### Success Criteria
 
@@ -269,13 +315,13 @@ human required`.
 
 #### Tasks
 
-- [ ] 2.1 PR observation in the evaluate activity, through the
+- [x] 2.1 PR observation in the evaluate activity, through the
   Evaluation App's `PRObserver`: `ListPullRequests("repo-guardian/")`
   (paginated to completion; a failed page is an observation error, not
   an empty list) plus `GetPullRequest` for each tracked PR not in the
   open list. Matching is by `remediations.pr_number`, never by branch
   name alone.
-- [ ] 2.2 Observation writes, as `rg_evaluator` and only the columns it
+- [x] 2.2 Observation writes, as `rg_evaluator` and only the columns it
   holds: `observed_head_sha` and `observed_at` on every open tracked PR;
   `state = 'merged'` with `closed_at`; `state = 'closed_by_user'` with
   `closed_generation = eval_generation` and `next_eligible_at =
@@ -283,48 +329,92 @@ human required`.
   `remediation_events` row `observed` with the detail. A PR closed by
   the Remediation App is not reclassified (its row is already
   terminal).
-- [ ] 2.3 `pr_event` trigger: a `pull_request` webhook on a
+  Done (2.1 + 2.2): `activities.observePRs` lists once and reads each
+  tracked PR missing from the list; nothing is called when nothing is
+  tracked. `ControlsStore.TrackedPullRequests`/`ObservePullRequests`
+  guard every write on `state = 'open'`, event state changes and moved
+  heads only, and observation is best effort (a failure logs and never
+  fails the evaluation). `control.PullRequest` gained `ClosedAt`, and
+  `Merged` reads `merged_at` too (the list endpoint omits `merged`).
+  `TestControlsStore_ObservePullRequests` (as `rg_evaluator`, with the
+  remediator-column denials).
+- [x] 2.3 `pr_event` trigger: a `pull_request` webhook on a
   `repo-guardian/` head signals the evaluation with trigger `pr_event`,
   which runs observation only and touches no evaluation column
   (DESIGN-0032 D24). Priority 2.
-- [ ] 2.4 Confirm `control_results.intent_revision` is computed by the
+  Done: ingest routes `pull_request` synchronize/closed/reopened on a
+  `repo-guardian/` head (Evaluation App route only); `ControlsRouter`
+  rechecks a known managed repository with `pr_event` and never
+  discovers. A bare `pr_event` re-check (no paths, not unknown, no policy
+  pending) sets `EvaluateInput.Observe`; Evaluate returns
+  `CheckObserved`, which keeps the schedule and the iteration (also on
+  failure). On a priority tie `coalesce` lets a pr_event give way.
+- [x] 2.4 Confirm `control_results.intent_revision` is computed by the
   evaluator as DESIGN-0032 D23 states (hash of epoch, generation,
   `apply`, effective mode, remediability, control revision); add it if
   IMPL-0029 did not.
-- [ ] 2.5 `StartDueRemediations` activity: at the end of each
+  Done: `intentRevision` in `internal/store/postgres/controls_evaluation.go`
+  hashes exactly D23's inputs; nothing to add.
+- [x] 2.5 `StartDueRemediations` activity: at the end of each
   evaluation, read `remediation_due` for that repository and call
   `client.SignalWithStartWorkflow` once per due control with id
   `remediation/<repository id>/<slug>`, signal `recheck`, task queue
   `repo-guardian-remediate`, priority 3, `WorkflowIDReusePolicy`
   allowing a new run after completion. One activity per evaluation
   whatever the number of due controls (DESIGN-0032 A1).
-- [ ] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
+  Done: on `RemediationStarter` (beside IMPL-0028's `StartRemediations`,
+  kept for the sweep), reading `ControlsStore.DueRemediationsFor`.
+  `RemediateSignal` is now `"recheck"` (nothing ever sent `"remediate"`).
+  `TestStartDueRemediations`.
+- [x] 2.6 Wire `StartDueRemediations` into `EvaluationWorkflow` after
   `Record`; a deferred or discarded evaluation skips it. Behind one
   `workflow.GetVersion(ctx, "remediation-v1", workflow.DefaultVersion, 1)`
   that 2.9 shares.
-- [ ] 2.7 Tests: observation table (open with a new head, merged,
+  Done: `remediationChange` is read once per run in `newEvalLoop`;
+  version 1 runs `StartDueRemediations` after a record that recorded
+  something (or was already final) with bounded retries (`hookOptions`),
+  so a failure is logged and never holds the loop.
+- [x] 2.7 Tests: observation table (open with a new head, merged,
   user-closed, closed by us, a failed second page, a PR authored by
   someone else on a `repo-guardian/` branch, which is ignored);
   signal-with-start into a completing workflow, against the result of
   IMPL-0028's spike; a no-change evaluation starts nothing.
-- [ ] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
+  Done: `TestObservePRs` (the table; a remediator-closed row is never
+  tracked, and the store's `state = 'open'` guard is pinned by
+  `TestControlsStore_ObservePullRequests`), `TestEvaluate_ObserveOnly`,
+  `TestIntegration_StartRemediationsIntoCompletingWorkflow` (100
+  signal-with-starts into a draining stand-in, none lost), and
+  `TestStartDueRemediations` plus the 1.10 truth table for "no change
+  starts nothing".
+- [x] 2.8 **Store.** `store.Controls.SetNextDue(ctx, repositoryID,
   at time.Time)` with a sqlc query, plus an integration test that runs
   as `rg_evaluator` (the grant, not the owner).
-- [ ] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
+  Done: `SetNextDue` (zero clears) on `store.Controls`;
+  `TestControlsStore_SetNextDue`.
+- [x] 2.9 **Workflow (INV-0023 F3).** Write next due per OQ17 on every path that
   calls `scheduleNext` (recorded, failed, skipped). It sits behind the
   same `workflow.GetVersion` change id as 2.6, so `EvaluationWorkflow`
   gains one version marker and one recaptured history, not two. The
   `DefaultVersion` branch keeps today's command order exactly.
-- [ ] 2.10 **Replay.**
+  Done: `scheduleNext` runs the `SetNextDue` local activity
+  (`Evaluator.SetNextDue`, by registered name) on version 1, so every
+  path that schedules writes it. `TestEvaluationWorkflow_RemediationHooks`.
+- [x] 2.10 **Replay.**
   - `TestReplay_CapturedHistories` still passes on
     `evaluation_first_run.json`.
   - Capture a second history on the new version with
     `go test -tags integration -run TestIntegration_OneEvaluation
     ./internal/activities -update-histories` and commit it beside the
     old one. Do not overwrite the old history.
-- [ ] 2.11 **Parked repositories.** A park ends the workflow run, so
+  Done: `TestIntegration_OneEvaluation` now captures
+  `evaluation_remediation_v1.json` (version marker, the start activity,
+  the local activity) and asserts next due and its clearing; both
+  histories replay.
+- [x] 2.11 **Parked repositories.** A park ends the workflow run, so
   `ParkRepository` clears `next_due_at` and the card reads "— parked".
   Integration test.
+  Done: the `ParkRepository` query sets `next_due_at = NULL`;
+  `TestIntegration_OneEvaluation` asserts it after the park.
 
 #### Success Criteria
 
@@ -342,52 +432,52 @@ human required`.
 
 #### Tasks
 
-- [ ] 3.1 `internal/workflows/remediation.go`: `RemediationWorkflow`
+- [x] 3.1 `internal/workflows/remediation.go`: `RemediationWorkflow`
   with a `recheck` signal channel and a `recheckPending` flag. A run
   loops: run one remediation (activities below), drain signals, re-read
   `eval_generation`, `intent_revision` and `observed_head_sha` through
   a `ReadRemediationState` activity, and loop again if any moved or a
   signal arrived; otherwise complete. ContinueAsNew after 100 loops.
-- [ ] 3.2 Register the workflow and its activities only on the
+- [x] 3.2 Register the workflow and its activities only on the
   remediator worker (`repo-guardian-remediate`, worker deployment
   `repo-guardian-remediate`); a depguard or registration test proves
   the evaluator never registers them.
-- [ ] 3.3 Activity options: every remediation activity heartbeats and
+- [x] 3.3 Activity options: every remediation activity heartbeats and
   carries a `ScheduleToClose` timeout; `StartToClose` below it; retry
   policy non-retryable on `ErrOperationHeld`, `ErrStaleEpoch` and
   holds. The activity exits cleanly when `ClaimOperation` returns
   `ErrOperationHeld`.
-- [ ] 3.4 Budget: the remediation run acquires the per-installation
+- [x] 3.4 Budget: the remediation run acquires the per-installation
   budget workflow at id `installation/remediate/<installation id>`
   (the app-dimensioned id from IMPL-0028), with `DefaultLeaseTTL`
   sized to cover the remediation activities' `ScheduleToClose`.
-- [ ] 3.5 Epoch fence helper `fence(ctx, repo, control, epoch)`:
+- [x] 3.5 Epoch fence helper `fence(ctx, repo, control, epoch)`:
   re-reads `effective_mode`, `remediable`, the write set and `epoch`
   and returns `ErrStaleEpoch` when any changed. Called immediately
   before every external write in Phases 4 and 5; a lint-style test
   walks the write call sites and fails if one is not preceded by it.
-- [ ] 3.6 Classification in the run, in order: `github.AsThrottled`
+- [x] 3.6 Classification in the run, in order: `github.AsThrottled`
   (either App) → defer through the controls line's deferral path (a workflow
   timer, never a sleep in an activity); access loss
   → stop with `hold = 'permission'` or let resolution's
   `effective_mode` override take it; then outcomes. A secondary-limit
   403 is a throttle before it is a permission failure.
-- [ ] 3.7 Remediator bot identity: resolve the Remediation App's bot
+- [x] 3.7 Remediator bot identity: resolve the Remediation App's bot
   user id at remediator startup (`GET /app` for the slug, then
   `GET /users/<slug>[bot]` for the id and `type = Bot`), cache it, and
   fail startup when it cannot be resolved. Reuse IMPL-0028's resolver
   if it built one.
-- [ ] 3.8 GitHub fake for remediation (`internal/github/ghfake` or the
+- [x] 3.8 GitHub fake for remediation (`internal/github/ghfake` or the
   package IMPL-0028 created): stateful repositories with real
   three-way merge for update-branch, `createCommitOnBranch`
   `expectedHeadOid` and push semantics, ref create that fails on an
   existing branch, PR authorship by user id and head repository id,
   fork PRs, and a request log so tests can assert no branch delete was
   ever called.
-- [ ] 3.9 Replay: capture a `RemediationWorkflow` history from the
+- [x] 3.9 Replay: capture a `RemediationWorkflow` history from the
   first behaviour test and add it to `internal/workflows/testdata`
   with a replay test, as today's capture does for `EvaluationWorkflow`.
-- [ ] 3.10 Tests (time-skipping environment): a signal during a run
+- [x] 3.10 Tests (time-skipping environment): a signal during a run
   produces one extra loop, not a second run; overlapping attempts of
   one activity act once; a throttle defers without recording.
 
@@ -402,65 +492,65 @@ human required`.
 
 #### Tasks
 
-- [ ] 4.1 Re-read: assignment, result and latest remediation; stop
+- [x] 4.1 Re-read: assignment, result and latest remediation; stop
   unless `needs_remediation` (the `remediation_due` predicate for this
   one row).
-- [ ] 4.2 Find: `GetRef("repo-guardian/<slug>")` and the open PR on it.
+- [x] 4.2 Find: `GetRef("repo-guardian/<slug>")` and the open PR on it.
   Tracked means a `remediations` row with this branch and a PR number.
-- [ ] 4.3 Untracked branch: adopt only when an open PR on it is
+- [x] 4.3 Untracked branch: adopt only when an open PR on it is
   authored by the Remediation App's bot user id with type `Bot` and
   head repository id equal to this repository's. Otherwise hold
   `stale_branch` when the head equals the journaled bot head of a
   `closed_by_user` row, else `foreign_branch`. Commit author text is
   never consulted.
-- [ ] 4.4 No branch: `ReserveSlot`; `ErrPRCap` holds `pr_cap`. Write the
+- [x] 4.4 No branch: `ReserveSlot`; `ErrPRCap` holds `pr_cap`. Write the
   intent (`base_sha` = pinned default-branch head, `branch`,
   `expected_head`, `intent_revision`, `assignment_epoch`) before any
   external step.
-- [ ] 4.5 Tracked PR: verify the head descends from the last journaled
+- [x] 4.5 Tracked PR: verify the head descends from the last journaled
   bot commit (`ListCommits` or compare); otherwise hold `conflict`,
   upsert the sticky comment (OQ9), never force-push. When the default
   branch was renamed, `UpdatePullRequestBase` first.
-- [ ] 4.6 Behind main: `UpdateBranch` with `expected_head_sha` = the
+- [x] 4.6 Behind main: `UpdateBranch` with `expected_head_sha` = the
   observed head. `422` merge conflict → hold `conflict` with the
   comment; `422` head moved → defer; any other `422` → error; `202` →
   defer, and the next run re-pins the head the merge produced.
   Journal `pr_rebased`.
-- [ ] 4.7 Fresh `Evaluate` at the pinned default-branch head through the
+- [x] 4.7 Fresh `Evaluate` at the pinned default-branch head through the
   Remediation App's `Reader` (D22: never stored status).
-- [ ] 4.8 Call the type's `Remediate` (built in IMPL-0029, per its
+- [x] 4.8 Call the type's `Remediate` (built in IMPL-0029, per its
   OQ2) and `control.ValidateChangeSet` on the result, then the
   self-check (evaluate the changed content; refuse when a `Fixed` rule
   does not pass or a passing rule regresses). A change set with nothing
   in `Fixed` is recorded as a recommendation-style no-op on the PR row
   and not retried until the generation moves (DESIGN-0031 D14).
-- [ ] 4.9 Obsolete bot edits: for each path the journal shows the bot
+- [x] 4.9 Obsolete bot edits: for each path the journal shows the bot
   wrote that the current change set no longer owns, revert it only
   where the current blob equals the journaled `blob_sha`; a human's
   edit to the same path is left alone. Reverts join the same commit.
-- [ ] 4.10 Compliant at the fresh read with an open PR: close it as
+- [x] 4.10 Compliant at the fresh read with an open PR: close it as
   `closed_compliant` (sticky comment, `ClosePullRequest`), never delete
   the branch. Drift found by the fresh read keeps it open.
-- [ ] 4.11 New branch: `CreateRef` at `base_sha`, journal
+- [x] 4.11 New branch: `CreateRef` at `base_sha`, journal
   `branch_created`. Commit: `Writer.Commit(branch, expected_head,
   changes, message)`; journal `committed` with every path and its blob
   SHA; `ErrExpectedHeadMismatch` → defer and re-pin.
-- [ ] 4.12 PR: `CreatePullRequest`, or on `422` "already exists" list
+- [x] 4.12 PR: `CreatePullRequest`, or on `422` "already exists" list
   by head and adopt the open one authored by the App; otherwise
   `UpdatePullRequest` with the re-rendered title and body. Labels via
   the PR template. Journal `pr_created`/`pr_updated`; the reserved row
   becomes `open` with `pr_number` and `pr_url`.
-- [ ] 4.13 PR title, body and labels rendered from the evaluation
+- [x] 4.13 PR title, body and labels rendered from the evaluation
   through the control's `pr {}` block and `internal/template`
   (`template.PRVars` with `.Control`, `.Fixed`, `.Manual`, `.Notes`),
   defaults per OQ10; bodies over 65000 characters truncated with the
   existing marker.
-- [ ] 4.14 Recovery: a PR create that failed after the commit is
+- [x] 4.14 Recovery: a PR create that failed after the commit is
   completed by the next attempt, which finds the branch at exactly the
   journaled `committed_sha` under the same `operation_key`.
-- [ ] 4.15 Record (`RecordRun`), then `last_remediation_at`, then the
+- [x] 4.15 Record (`RecordRun`), then `last_remediation_at`, then the
   workflow's loop check (3.1).
-- [ ] 4.16 Behaviour tests, one per DESIGN-0032 Testing Strategy bullet
+- [x] 4.16 Behaviour tests, one per DESIGN-0032 Testing Strategy bullet
   under "Remediation workflow": onboarding opens the PR; a no-change
   evaluation does nothing; human edits plus a main merge; main changes
   the same file (mergeable proposal or `conflict`; retired-rule revert;
@@ -487,35 +577,35 @@ human required`.
 
 #### Tasks
 
-- [ ] 5.1 `recommend` (default): a `kind = 'api'` row in state
+- [x] 5.1 `recommend` (default): a `kind = 'api'` row in state
   `recommended` with `proposal` JSONB (per resource: key, before,
   after). No GitHub write. Uses the slot only for the one-open index,
   not the PR cap.
-- [ ] 5.2 Supersede: a recommendation whose `intent_revision` no longer
+- [x] 5.2 Supersede: a recommendation whose `intent_revision` no longer
   matches becomes `superseded` and a new row runs with the new intent
   (an `apply` toggle with no file change is a new intent, D23).
   `resolved` when the control is compliant at a fresh read.
-- [ ] 5.3 `direct` (D14): per resource in `ChangeSet.API`, fence, read,
+- [x] 5.3 `direct` (D14): per resource in `ChangeSet.API`, fence, read,
   write through `Writer` (`UpdateRepository`, `UpsertRuleset` for
   repository-sourced rulesets by id, `SetCustomProperties`,
   `UpsertLabel`, `DeleteLabel`), read back and compare; journal
   `api_write` with `before` and `after`. All done → `applied`; any
   failure → `failed` with the completed steps; the next run resumes
   from the journal and writes only what is not yet journaled `done`.
-- [ ] 5.4 `workflow` (D15): only for types implementing
+- [x] 5.4 `workflow` (D15): only for types implementing
   `WorkflowApply` (`custom_properties`); the change becomes a PR on the
   Phase 4 path carrying `.github/workflows/repo-guardian-<slug>.yml`,
   with property values only through the IMPL-0020 A2 env-indirection
   shape (`yamlq`, `propenv`). A 403 on the workflow path holds
   `permission` with the Workflows permission named in the note.
-- [ ] 5.5 Per-write gating: a write whose prerequisite read failed is
+- [x] 5.5 Per-write gating: a write whose prerequisite read failed is
   `Blocked` and not attempted, even inside a non-compliant control; a
   property absent from the org schema is `Blocked` while the rest
   syncs.
-- [ ] 5.6 Chart and docs: the Remediation App's permission table gains
+- [x] 5.6 Chart and docs: the Remediation App's permission table gains
   Workflows: write only when a policy has a `workflow` control; the
   chart README notes it.
-- [ ] 5.7 Tests (DESIGN-0032 "Direct API apply"): fail the second of
+- [x] 5.7 Tests (DESIGN-0032 "Direct API apply"): fail the second of
   three writes and resume; mutate a target concurrently; toggle
   `apply` from `recommend` to `direct` without a file change
   (supersede, then apply); restore the Remediation App's access; a
@@ -532,37 +622,37 @@ human required`.
 
 #### Tasks
 
-- [ ] 6.1 `remediation-sweep` schedule (hourly, `repo-guardian-remediate`),
+- [x] 6.1 `remediation-sweep` schedule (hourly, `repo-guardian-remediate`),
   ensured only by remediator pods: `DueRemediations(REMEDIATION_SWEEP_BATCH)`
   → signal-with-start at priority 4; one `service_runs` row per run.
-- [ ] 6.2 Maintenance in the same schedule:
+- [x] 6.2 Maintenance in the same schedule:
   `MaintenanceCandidates(REMEDIATION_MAINTENANCE_BATCH)` dispatching
   `expire` (`ExpireReservations`, metric), `withdraw` (close the PR
   with a comment as `closed_withdrawn`, or end the recommendation as
   `withdrawn`), `supersede`, and `close_compliant` (a fresh read in the
   same activity; close only when it agrees). A refused write holds
   `permission` and is shown as blocked cleanup.
-- [ ] 6.3 `remediation_cleanup_latency_seconds` from the observed
+- [x] 6.3 `remediation_cleanup_latency_seconds` from the observed
   withdrawal or compliance time to the closing write.
-- [ ] 6.4 `controls-discovery-remediate` schedule: lists the
+- [x] 6.4 `controls-discovery-remediate` schedule: lists the
   Remediation App's installations and repositories and refreshes the
   `app = 'remediate'` rows of `app_installations` and
   `app_repository_access` under the row-level policy; a change
   re-resolves the affected repositories (IMPL-0029's resolution
   trigger).
-- [ ] 6.5 Role partitioning test: an evaluator pod never ensures
+- [x] 6.5 Role partitioning test: an evaluator pod never ensures
   `remediation-sweep` or `controls-discovery-remediate`; a remediator
   never ensures the evaluation schedules.
-- [ ] 6.6 Config: `REMEDIATION_RESERVATION_TTL` (default `1h`),
+- [x] 6.6 Config: `REMEDIATION_RESERVATION_TTL` (default `1h`),
   `REMEDIATION_SWEEP_BATCH`, `REMEDIATION_MAINTENANCE_BATCH`,
   `REMEDIATOR_CONCURRENCY`, `REMEDIATOR_DB_POOL_SIZE`, with
   validation tests and chart values.
-- [ ] 6.7 Tests (DESIGN-0032 "Lifecycle maintenance"): withdraw a
+- [x] 6.7 Tests (DESIGN-0032 "Lifecycle maintenance"): withdraw a
   control, exclude and park its repository, remove its org, switch it
   to evaluate, each with a PR or a recommendation outstanding; every
   artifact reaches its terminal state or blocked cleanup with no fresh
   failing result required.
-- [ ] 6.8 **Prune `checks` (INV-0023 F7.2).** `ControlsSnapshotWorkflow`
+- [x] 6.8 **Prune `checks` (INV-0023 F7.2).** `ControlsSnapshotWorkflow`
   (`internal/workflows/controls_service.go`) ignores
   `SnapshotInput.Retention` and its comment says the controls line keeps
   no checks table, which is wrong. Add a `PruneControlsChecks(before)`
@@ -571,7 +661,7 @@ human required`.
   `now − CHECKS_RETENTION`, and fix the comment. Lands with 6.9, so no
   repository reads "never evaluated" after a prune. Integration test as
   the evaluator role.
-- [ ] 6.9 **`last_checked_at` (OQ19).** `RecordEvaluation` writes
+- [x] 6.9 **`last_checked_at` (OQ19).** `RecordEvaluation` writes
   `repositories.last_checked_at` (the controls migration grants
   `rg_evaluator` `UPDATE (last_checked_at)`), and the API's
   `last_evaluated_at` reads that column in place of
@@ -592,21 +682,21 @@ human required`.
 
 #### Tasks
 
-- [ ] 7.1 Metrics in `internal/metrics`: `remediation_runs_total{org,control,result}`,
+- [x] 7.1 Metrics in `internal/metrics`: `remediation_runs_total{org,control,result}`,
   `remediation_prs_open{org,control,age_bucket}` (leader-published from
   the store, queried with `max by`), `remediation_blocked_total{org,reason}`,
   `remediation_reservations_expired_total{org}`,
   `remediation_cleanup_latency_seconds{org}`,
   `store_pool_wait_seconds{role}`. No repository or PR label.
-- [ ] 7.2 Alerts in the generated catalogue (`internal/monitoring/alert`)
+- [x] 7.2 Alerts in the generated catalogue (`internal/monitoring/alert`)
   per OQ11, rare-event ones with `alert.firstOrIncrease`; mirror them in
   the chart PrometheusRule; `make monitoring-generate`,
   `make lint-monitoring`, `make lint-alerts`.
-- [ ] 7.3 Dashboard panels: remediation backlog, open PRs by age,
+- [x] 7.3 Dashboard panels: remediation backlog, open PRs by age,
   blocked by reason, run results; E4 log matchers for hold and
   adoption log lines, with `TestLogLines_AreStillEmittedByTheBinary`
   covering them.
-- [ ] 7.4 API: `/remediations` (filters kind, state, org, control,
+- [x] 7.4 API: `/remediations` (filters kind, state, org, control,
   age, hold; open PRs older than N days; recommendations outstanding;
   blocked cleanup); the remediation object (`kind`, `state`,
   `intent_revision`, `observed_head_sha`, `acknowledged_head_sha`,
@@ -631,7 +721,7 @@ without one) → `make generate-ui-api` → `make lint-api lint-sql`.
 Every new query lives in an `api_*.sql` file so
 `TestAPIQueries_AreScoped` lints its scope predicate.
 
-- [ ] 7.6 **`/compliance/history?aggregate=none|fleet|org|control`**
+- [x] 7.6 **`/compliance/history?aggregate=none|fleet|org|control`**
   (default `none`, today's rows). New queries sum the ten bucket
   columns of `compliance_snapshots` per UTC day (`snapshot_at::date`,
   not the raw timestamp, so per-org snapshot times on one day
@@ -642,7 +732,7 @@ Every new query lives in an `api_*.sql` file so
     `ControlPosture.Plus` on the same fixture;
   - the `org` series agrees with `ControlCompliance` for the latest
     day.
-- [ ] 7.7 **`GET /results`.**
+- [x] 7.7 **`GET /results`.**
   - **Query** `api_results.sql` over `control_results` ⋈
     `control_assignments` ⋈ `repositories` ⋈ `repository_policy_state`,
     with the posture bucket computed by the same `CASE` as
@@ -665,29 +755,29 @@ Every new query lives in an `api_*.sql` file so
     matching the filter. A parity test proves that with no filters,
     `total` for non-compliant equals `Summary.compliance.non_compliant`
     on the fixture.
-- [ ] 7.8 **`Repository.compliance`** (`Posture` over the repository's
+- [x] 7.8 **`Repository.compliance`** (`Posture` over the repository's
   assignments, same bucket `CASE`) on `/repositories` and
   `/repositories/{id}`, in one grouped query per page, not N+1.
   Integration test: one repository with mixed buckets.
-- [ ] 7.9 **`Summary.parked_by_reason` and `Summary.controls_failing`**,
+- [x] 7.9 **`Summary.parked_by_reason` and `Summary.controls_failing`**,
   computed in Go in `GetSummary` from the `store.SummaryView` it
   already reads (`Repositories` per park reason; `Compliance` rows
   with `non_compliant > 0`, counted by distinct control). No new SQL.
   `apitest` cases.
-- [ ] 7.10 **`Summary.finding_age`**: six fixed buckets (`<1d`, `1–7d`,
+- [x] 7.10 **`Summary.finding_age`**: six fixed buckets (`<1d`, `1–7d`,
   `7–30d`, `30–90d`, `90–180d`, `180d+`) of
   `now() − last_changed_at` over results in the `non_compliant`
   bucket, in `api_summary.sql` with the scope predicate. The bucket
   sum equals `Summary.compliance.non_compliant` (test). The fixture
   spans every boundary.
-- [ ] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
+- [x] 7.11 **`Summary.open_prs_by_age`** (`<1d`, `1–7d`, `7–30d`, `30d+`
   of open pull-request remediations by `created_at`).
-- [ ] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
+- [x] 7.12 **`GET /remediations/activity?days=1..90`** (default 14) →
   `[{day, opened, closed}]` (opened by `created_at`, closed by `closed_at`, per UTC day, scoped).
-- [ ] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
+- [x] 7.13 **`/results?pr_stale=`** and `ResultRow.remediation` (state,
   PR number/url, age). `sort=pr_age` joins the `/results` sorts; `pr_stale` is open pull-request
   remediations at least 30 days old.
-- [ ] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed
+- [x] 7.14 **Perf fixture (OQ18).** Extend `TestAPIPerf` to seed
   `rule_results` and 90 days of `compliance_snapshots` at fleet size,
   add `/results` (each filter) and the history aggregates to the
   measured set, and log `EXPLAIN (ANALYZE, BUFFERS)` for `/results`.
@@ -696,11 +786,46 @@ Every new query lives in an `api_*.sql` file so
   status, last_changed_at)`) numbered after Phase 1's, bump
   `ControlsSchemaVersion` with it, and extend the controls dry-run
   test.
-- [ ] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
+  Done: the seed adds one rule result per result (200k, failing where
+  the result does) and 90 days of daily snapshots per org and control
+  (18k rows). The default `/results` EXPLAIN showed a sequential scan
+  over all 200k `control_results`, so `00008_results_index.sql` adds
+  `control_results_control_status_changed` (`ControlsSchemaVersion` 8;
+  the dry-run test asserts the index), and both results queries filter
+  `cr.status` directly when the bucket names a status, which is what
+  lets the planner use it: `bucket=non_compliant` went from 353ms to
+  127ms EXPLAIN ANALYZE (bitmap index scan, 28,571 rows). Measured at
+  20k repositories, 200 requests each, auth off (whole fleet):
+
+  | Endpoint | p50 | p99 |
+  | --- | --- | --- |
+  | `/results?limit=50` | 318.7ms | 342.1ms |
+  | `/results?bucket=non_compliant` | 129.7ms | 145.0ms |
+  | `/results?control=control-3` | 32.2ms | 35.9ms |
+  | `/results?rule=exists&bucket=non_compliant` | 514.1ms | 614.6ms |
+  | `/results?org=org-3` | 29.8ms | 44.5ms |
+  | `/results?decision=baseline` | 209.4ms | 226.4ms |
+  | `/results?sort=since_desc` | 320.9ms | 347.4ms |
+  | `/results?sort=pr_age` | 790.5ms | 1129.6ms |
+  | `/results?pr_stale=true` | 547.3ms | 565.8ms |
+  | `/compliance/history?days=90&aggregate=fleet` | 22.5ms | 37.9ms |
+  | `/compliance/history?days=90&aggregate=org` | 42.2ms | 55.1ms |
+  | `/compliance/history?days=90&aggregate=control` | 28.9ms | 41.1ms |
+  | `/summary` | 478.4ms | 492.1ms |
+  | `/orgs` (unchanged, IMPL-0029 7.4) | 199.2ms | 364.4ms |
+
+  Control, org and the history aggregates meet the 100ms target. The
+  whole-fleet shapes do not: every one computes the posture bucket over
+  the whole population, the first page also counts it (OQ16), and
+  `pr_age`/`pr_stale` add the latest-remediation lateral per row. A
+  scoped caller (one org) reads the 30–45ms shapes. Closing the
+  whole-fleet gap (a materialised bucket column, or dropping the
+  first-page total) is open, the same as `/orgs`.
+- [x] 7.15 **Spec descriptions:** `Event.from_status`/`to_status` document
   rule statuses on rule-level events; `ParkReason` lists `suspended`.
   Bump `info.version` (2.1.0, or with 7.4 if it already did) and document every addition in
   `docs/usage/api.md`.
-- [ ] 7.16 **Held results (OQ20).** Expose the results held before a
+- [x] 7.16 **Held results (OQ20).** Expose the results held before a
   pull request exists (`control_results.hold` in `pr_cap`,
   `foreign_branch`, `stale_branch`, `conflict`) from
   `/remediations?hold=` as rows with `kind = pull_request`, no id and no
@@ -727,41 +852,111 @@ Every new query lives in an `api_*.sql` file so
 
 #### Tasks
 
-- [ ] 8.1 Confirm `TestPRIdentity_IsFrozen` is gone: IMPL-0029 task 7.2
+- [x] 8.1 Confirm `TestPRIdentity_IsFrozen` is gone: IMPL-0029 task 7.2
   retires it with `internal/checker` and `internal/reconciler`. This
   plan only checks that `tools/rgctl` (on `main`) still carries the v1
   literals it needs for cutover steps 3 and 6.
-- [ ] 8.2 Parity-test retirement table: list every remaining parity
+  Done: no Go file on this branch names it (IMPL-0029 7.2 deleted both
+  copies). `tools/rgctl/internal/prs/identity.go` on `main` keeps
+  `DefaultPrefix` (`repo-guardian/`), the three v1 branch names and the
+  reconcile-log marker as literals, which is all steps 3 (`rgctl prs
+  list`) and 6 (`rgctl prs close`) match on. Its comment still says the
+  literals are "frozen by TestPRIdentity_IsFrozen there"; that is
+  stale but lives on `main`, outside this branch.
+- [x] 8.2 Parity-test retirement table: list every remaining parity
   scenario and the Phase 4/5/6 test that replaces it; retire only
   scenarios with a named replacement (DESIGN-0032 Migration).
-- [ ] 8.3 Rewrite `docs/operations/v2-migration.md` as the fresh-install
+  Done: IMPL-0029 7.2 deleted both parity suites after recording a fate
+  for each of their 103 scenarios, so none remain to run. The rows it
+  left "returning with IMPL-0030" now name their replacement, or stay
+  retired with the reason. Test names are in `internal/activities`
+  unless prefixed.
+
+  | Scenario | Replacement or reason |
+  |---|---|
+  | `TestBaseDrift_ExistingPR_BranchUpdatedBeforeSync` | `TestPullRequest_MainChangesTheSameFile` + write `TestUpdateBranch` |
+  | `TestBaseDrift_NoExistingPR_BranchNotUpdated` | `TestPullRequest_OnboardingOpensThePR` (a new branch is cut from main; nothing to update) |
+  | `TestBaseDrift_UpdateError_ReconcileContinues` | `TestRemediate_OperationalErrorRetries` |
+  | `TestCheckRepoPolicy_OpenPRsByRule_PopulatedWithActionableRules` | api `TestPostureExporter_PublishesOpenPRs` (`remediation_prs_open{org,control,age_bucket}`) |
+  | `TestCheckRepo_MissingFiles_ExistingPR` | `TestPullRequest_NoChangeDoesNothing` |
+  | `TestCheckRepo_MissingFiles_ThirdPartyPR` | `TestPullRequest_SpoofedAuthorAndForkRefused`; the `foreign_pr` suppression itself stays retired (`search_terms` dropped) |
+  | `TestForeignPRForRule_CustomTitleDoesNotSelfSuppress` | `TestPullRequest_SpoofedAuthorAndForkRefused` (identity is bot user id plus branch, never the title) |
+  | `TestConvergence_Sweep1_OpensPR` | `TestPullRequest_OnboardingOpensThePR` |
+  | `TestConvergence_Sweep2_OrphanCleanupAndBodyRefresh` | `TestPullRequest_RetiredPathRevertedHumanEditKept` (the retired path is reverted and the title and body re-rendered in the same update) |
+  | `TestConvergence_Sweep3_AutoClosesPR_Default` | `TestPullRequest_CompliantCloseOnlyAfterAFreshRead` + `TestMaintain_CloseCompliantOnlyOnAFreshRead` |
+  | `TestConvergence_RenovateFirst_HandDeletedDependabot_AutoCloses` | `TestPullRequest_CompliantCloseOnlyAfterAFreshRead` |
+  | `TestConvergence_RenovateFirst_IdempotentReSweep_ZeroMutations` | `TestPullRequest_NoChangeDoesNothing` + `TestRemediate_OverlappingAttemptsActOnce` |
+  | `TestConvergence_GenuineOrphanIsStillDeleted` | `TestPullRequest_RetiredPathRevertedHumanEditKept` |
+  | `TestConvergence_RepairScopedToRuleTarget` | `TestPullRequest_RetiredPathRevertedHumanEditKept` (only the control's own retired paths are reverted) |
+  | `TestConvergence_RepairsBranchThatDeletedADefaultBranchFile` | `TestPullRequest_RetiredPathRevertedHumanEditKept` |
+  | `TestConvergence_GetContentsOnBranchError_FailsSafe` | `TestRemediate_OperationalErrorRetries` |
+  | `TestConvergence_Sweep3_AutoCloseDisabled_LeavesPROpen` | retired: v1 behaviour, no replacement — `auto_close_pr` is gone; a compliant close is always on, after a fresh read |
+  | `TestConvergence_OrphanCleanupDisabled_NoDeletion` | retired: v1 behaviour, no replacement — `orphan_cleanup` is gone; files are reverted, never deleted |
+  | `TestConvergence_DeleteFileError_IncrementsCounter_Continues` | retired: v1 behaviour, no replacement — the controls Writer deletes no file outside a commit, and `pr_orphan_left_total` is gone |
+  | `TestConvergence_Bundle_AddAndRemove_RendersBothSections` | retired: v1 behaviour, no replacement — one pull request per control, so there is no bundle |
+  | `TestConvergence_RenovateFirst_BothVariantsDeleted` | retired: v1 behaviour, no replacement — `dependency_updates` owns the renovate-or-dependabot choice as one control |
+  | `TestConvergence_RenovateFirst_RemovesDependabot` | retired: as above |
+  | `TestConvergence_RenovateFirst_GateClosesMidFlight_RestoresDependabot` | retired: as above; there are no `when` gates |
+  | `TestConvergence_RepairDoesNotFightAnActionableAbsentRule` | retired: v1 behaviour, no replacement — no absent mode (DESIGN-0031 D6) |
+  | `TestConvergence_RestoreSkipsPathAnActionableRuleJustWrote` | retired: v1 behaviour, no replacement — one control owns a path (`ValidateChangeSet`, load-time ownership warning), so two never write one file |
+  | `TestPRRefresh_UnchangedText_SkipsPatch` | `TestPullRequest_NoChangeDoesNothing` (no commit, no `UpdatePullRequest`) |
+  | `TestPRRefresh_CRLFBodyFromWebUI_SkipsPatch` | retired: v1 behaviour, no replacement — the body is re-rendered only on a commit, never compared with what GitHub holds |
+- [x] 8.3 Rewrite `docs/operations/v2-migration.md` as the fresh-install
   cutover: DESIGN-0032's six steps, rgctl at steps 3 and 6 once per App
   (per OQ6), a fresh database and Temporal namespace, rollback as the
   previous chart against the previous database, and what is not
   restored. Drop every in-place adopt/backfill/verify-shadow claim.
-- [ ] 8.4 `v2-overview.md` remediation parts: one PR per control on
+- [x] 8.4 `v2-overview.md` remediation parts: one PR per control on
   `repo-guardian/<slug>`, `max_open_prs`, `reopen_after`,
   `search_terms`/foreign-PR dropped, `apply` modes, holds, never
   deleting branches.
-- [ ] 8.5 `v2-onboarding.md` remediation parts: the Remediation App's
+- [x] 8.5 `v2-onboarding.md` remediation parts: the Remediation App's
   permissions and events (Workflows only for `workflow` controls), its
   webhook path, the remediator role, `REMEDIATION_*` and
   `REMEDIATOR_*` config, enabling `mode = "remediate"` for one org.
 - [ ] 8.6 `docs/operations/rgctl.md`: link the cutover runbook's steps
   3 and 6; note one record per App.
-- [ ] 8.7 CLAUDE.md: a remediation contract entry (record-is-narrow
+  `deferred - human required`: `rgctl.md` lives on `main` (with
+  `tools/rgctl`), not on this branch, so the edit is a PR against
+  `main`, outside this IMPL's one PR. The text to add, under a new
+  "At the v2 cutover" heading after "Commands": "The cutover runbook,
+  Moving to repo-guardian v2 (`v2-migration.md`), runs rgctl twice. At
+  step 3, `rgctl prs list --org <org> --format json --out
+  <app>-<org>.json` once **per old App**, with that App's credentials,
+  because identity is the App's bot login: a v1 App and a release
+  candidate's App each need their own record. At step 6, per org once
+  that org turns on `remediate`, `rgctl prs close --from
+  <app>-<org>.json --yes`." The same PR can drop the stale
+  "frozen by TestPRIdentity_IsFrozen there" comment in
+  `internal/prs/identity.go` (8.1).
+- [x] 8.7 CLAUDE.md: a remediation contract entry (record-is-narrow
   via grants, observed/acknowledged heads, epoch fence before every
   write, adopt by bot user id, never delete a branch, never
   force-push, nil-vs-terminal recommendation states) and the
   architecture lines for the new packages.
-- [ ] 8.8 `docz update impl design` and review the regenerated
+- [x] 8.8 `docz update impl design` and review the regenerated
   indices.
+  Done: `docz update impl` and `docz update design` (the CLI now takes
+  one type per call) left both README indices unchanged; every status
+  was already current. The installed docz also wrapped every TOC in
+  `markdownlint-capture`/`-disable MD013`/`-restore` comments across 43
+  unrelated docs; that is tool-version churn, not index content, so it
+  was reverted rather than shipped in this PR.
 
 #### Success Criteria
 
 - `mkdocs build --strict` passes; no operations page describes
   in-place upgrade from v1 or the rc line.
 - A reader can run the fresh install from `v2-migration.md` alone.
+
+Result: `mkdocs build --strict` passes with no warnings. The 14 it
+reported before Phase 8 were links in older docs to files outside
+`docs/` (now GitHub URLs), two links to docs no longer in the
+repository (now plain text) and `docs/README.md` colliding with
+`index.md` (`exclude_docs: /README.md` in `mkdocs.yml`). No
+operations page describes an in-place upgrade: `v2-migration.md` is
+the six-step fresh install, and `migrations.md` and the chart README
+describe the controls chain on an empty database.
 
 ### Phase 9: Remediation rc and the homelab fresh install
 

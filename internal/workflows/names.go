@@ -18,9 +18,8 @@ const (
 	WebhookWorkflowName      = "WebhookWorkflow"
 
 	// RemediationWorkflowName is the per-(repository, control)
-	// remediation run on the remediation queue (DESIGN-0032). IMPL-0030
-	// implements it; the name is fixed now so StartRemediations can
-	// target it.
+	// remediation run on the remediation queue (DESIGN-0032, IMPL-0030
+	// Phase 3).
 	RemediationWorkflowName = "RemediationWorkflow"
 
 	// The controls evaluation workflows (IMPL-0029 Phase 5), on the
@@ -29,6 +28,11 @@ const (
 	ControlsDiscoveryWorkflowName = "ControlsDiscoveryWorkflow"
 	ControlsRolloutWorkflowName   = "ControlsRolloutWorkflow"
 	ControlsSnapshotWorkflowName  = "ControlsSnapshotWorkflow"
+
+	// RemediationSweepWorkflowName and RemediationDiscoveryWorkflowName
+	// are the remediator's service workflows (IMPL-0030 Phase 6).
+	RemediationSweepWorkflowName     = "RemediationSweepWorkflow"
+	RemediationDiscoveryWorkflowName = "RemediationDiscoveryWorkflow"
 )
 
 // Activity names. The activities package registers under these names
@@ -40,6 +44,25 @@ const (
 	// StartRemediationsActivity signal-with-starts the due
 	// RemediationWorkflows, one activity per evaluation (INV-0022 F4).
 	StartRemediationsActivity = "StartRemediations"
+	// StartDueRemediationsActivity reads one repository's due controls
+	// and starts each, once per evaluation (IMPL-0030 2.5).
+	StartDueRemediationsActivity = "StartDueRemediations"
+	// SetNextDueActivity persists an evaluation loop's next due time, as a
+	// local activity (IMPL-0030 2.9, OQ17).
+	SetNextDueActivity = "SetNextDue"
+
+	// The remediation activities (IMPL-0030 Phase 3), registered only on
+	// the remediator worker.
+	RemediateActivity            = "Remediate"
+	ReadRemediationStateActivity = "ReadRemediationState"
+
+	// The remediator's service activities (IMPL-0030 Phase 6).
+	RemediationMaintainActivity           = "RemediationMaintain"
+	RemediationSweepActivity              = "RemediationSweep"
+	RemediationListInstallationsActivity  = "RemediationListInstallations"
+	RemediationRefreshAccessActivity      = "RemediationRefreshAccess"
+	RemediationPruneInstallationsActivity = "RemediationPruneInstallations"
+	RemediationResolveAccessActivity      = "RemediationResolveAccess"
 
 	// The controls evaluation activities (IMPL-0029 Phase 5).
 	EvaluateActivity                  = "Evaluate"
@@ -52,13 +75,19 @@ const (
 	ControlsResolveAllActivity        = "ControlsResolveAll"
 	ControlsSignalAllActivity         = "ControlsSignalAll"
 	ControlsSnapshotActivity          = "ControlsSnapshot"
+	ControlsPruneChecksActivity       = "PruneControlsChecks"
 	ControlsCompleteRolloutActivity   = "ControlsCompleteRollout"
 	ControlsRecordServiceRunActivity  = "ControlsRecordServiceRun"
 )
 
+// RemediationBranchPrefix starts every remediation pull request's head
+// branch. Observation lists by it and ingest routes pull_request events
+// by it; matching a tracked PR is by number, never by branch alone.
+const RemediationBranchPrefix = "repo-guardian/"
+
 // RemediateSignal asks a RemediationWorkflow to run, or to loop once
 // more when it already is (DESIGN-0032 D6).
-const RemediateSignal = "remediate"
+const RemediateSignal = RecheckSignal
 
 // RemediationWorkflowID is remediation/<repository id>/<control slug>:
 // at most one remediation runs per control per repository.
@@ -73,6 +102,11 @@ const (
 	// bootstrap ensures.
 	ControlsDiscoveryScheduleID = "controls-discovery"
 	ControlsSnapshotScheduleID  = "controls-snapshot"
+
+	// RemediationSweepScheduleID and RemediationDiscoveryScheduleID are
+	// the remediator's Schedules, ensured only by remediator pods.
+	RemediationSweepScheduleID     = "remediation-sweep"
+	RemediationDiscoveryScheduleID = "controls-discovery-remediate"
 )
 
 // Signal names accepted by EvaluationWorkflow.

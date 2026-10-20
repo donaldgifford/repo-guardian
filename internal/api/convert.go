@@ -44,6 +44,7 @@ func repositoryOut(r *store.Repository) gen.Repository {
 		Active: r.Active, ParkReason: strPtr(r.ParkReason), ParkedAt: r.ParkedAt, DiscoveredAt: r.DiscoveredAt,
 		NextDueAt: r.NextDueAt, LastEvaluatedAt: r.LastEvaluatedAt,
 		PolicyState: optStr(r.PolicyState), PolicyReason: optStr(r.PolicyReason), Evaluable: r.Evaluable, Remediable: r.Remediable,
+		Compliance: postureOut(&r.Compliance),
 	}
 }
 
@@ -64,22 +65,26 @@ func evaluationOut(c *store.Check) gen.Evaluation {
 func eventOut(e *store.Event) (gen.Event, error) {
 	out := gen.Event{Source: e.Source, Id: e.ID, OccurredAt: e.OccurredAt}
 
-	if e.Source == store.EventSourceRepository {
-		out.Kind = optStr(e.RepositoryKind)
-
-		if len(e.Detail) > 0 {
-			detail := map[string]any{}
-			if err := json.Unmarshal(e.Detail, &detail); err != nil {
-				return out, fmt.Errorf("event %d detail: %w", e.ID, err)
-			}
-
-			out.Detail = &detail
-		}
+	switch e.Source {
+	case store.EventSourceRepository:
+	case store.EventSourceRemediation:
+		out.ControlId = optStr(e.ControlID)
+	default:
+		out.ControlId, out.RuleId, out.FromStatus, out.ToStatus = optStr(e.ControlID), optStr(e.RuleID), e.FromStatus, e.ToStatus
 
 		return out, nil
 	}
 
-	out.ControlId, out.FromStatus, out.ToStatus = optStr(e.ControlID), e.FromStatus, e.ToStatus
+	out.Kind = optStr(e.Kind)
+
+	if len(e.Detail) > 0 {
+		detail := map[string]any{}
+		if err := json.Unmarshal(e.Detail, &detail); err != nil {
+			return out, fmt.Errorf("event %d detail: %w", e.ID, err)
+		}
+
+		out.Detail = &detail
+	}
 
 	return out, nil
 }
@@ -102,6 +107,15 @@ func repositoryControlOut(c *store.RepositoryControl) (gen.RepositoryControl, er
 		}
 
 		out.Rules = append(out.Rules, gen.RuleResult{RuleId: r.RuleID, Status: r.Status, Remediate: r.Remediate, Evidence: ev})
+	}
+
+	if c.Remediation != nil {
+		rem, err := remediationOut(c.Remediation)
+		if err != nil {
+			return out, err
+		}
+
+		out.Remediation = &rem
 	}
 
 	return out, nil

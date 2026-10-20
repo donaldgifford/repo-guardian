@@ -54,6 +54,21 @@ func EvaluationPermissions() []Permission {
 	}
 }
 
+// PermissionResource is the GitHub permission resource a direct write
+// to a resource of kind needs; "" for a kind written by commit.
+func PermissionResource(kind string) string {
+	switch kind {
+	case KindSetting, KindRuleset:
+		return ResourceAdministration
+	case KindLabel:
+		return ResourceIssues
+	case KindProperty:
+		return ResourceCustomProperties
+	default:
+		return ""
+	}
+}
+
 // RemediationPermissions derives the Remediation App's set: Contents and
 // Pull requests write always, plus write on every resource a registered
 // control type remediates (resources) and Workflows write when a type
@@ -68,7 +83,9 @@ func RemediationPermissions(resources []string, workflowApply bool) []Permission
 	}
 
 	for _, r := range resources {
-		set[r] = AccessWrite
+		if r != "" {
+			set[r] = AccessWrite
+		}
 	}
 
 	if workflowApply {

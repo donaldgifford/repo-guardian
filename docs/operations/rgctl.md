@@ -127,6 +127,28 @@ The result record adds a `result` per PR: `planned`, `closed`,
 `branch_deleted`, `already_closed`, `skipped_edited`, `skipped_not_ours` or
 `error` with a message.
 
+## At the v2 cutover
+
+The cutover runbook,
+[Moving to repo-guardian v2](https://github.com/donaldgifford/repo-guardian/blob/v2/docs/operations/v2-migration.md),
+runs rgctl twice:
+
+- **Step 3, record the old pull requests.** Run `rgctl prs list` once **per
+  old App**, with that App's credentials, because a pull request's identity is
+  its App's bot login: a v1 App and a release candidate's App each need their
+  own record.
+
+  ```bash
+  rgctl prs list --org <org> --format json --out <app>-<org>.json
+  ```
+
+- **Step 6, close them.** Per org, once that org turns on
+  `mode = "remediate"`, close exactly what the record lists:
+
+  ```bash
+  rgctl prs close --from <app>-<org>.json --yes
+  ```
+
 ## The cutover shape
 
 The record from the list is the only input to the close, so the close acts on
@@ -142,8 +164,8 @@ rgctl prs close --from acme.json                        # dry run: read the plan
 rgctl prs close --from acme.json --yes --delete-branch --out acme-closed.json
 ```
 
-Edited PRs stay open. At the v2 cutover they are left for the controls engine
-to adopt as tracked PRs.
+Edited PRs stay open for a human to close. v2 does not adopt them: it adopts
+only pull requests its own Remediation App opened.
 
 ## Exit codes
 

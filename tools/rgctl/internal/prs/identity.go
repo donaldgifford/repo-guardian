@@ -14,7 +14,7 @@ import (
 )
 
 // v1's PR identity, copied as literals because rgctl imports nothing from
-// the product module. Sources, frozen by TestPRIdentity_IsFrozen there:
+// the product module. Sources:
 //   - BranchName: internal/checker/engine.go
 //   - CatalogInfoBranchName, PropertiesBranchName:
 //     internal/reconciler/custom_properties.go

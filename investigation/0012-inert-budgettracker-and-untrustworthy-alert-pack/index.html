@@ -1,0 +1,2540 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Inert BudgetTracker and untrustworthy alert pack - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0012-inert-budgettracker-and-untrustworthy-alert-pack" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Inert BudgetTracker and untrustworthy alert pack
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-the-budgettracker-never-gets-a-snapshot-in-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. The BudgetTracker never gets a snapshot in production
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-both-consumers-defer-the-refresh-to-each-other" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Both consumers defer the refresh to each other
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-chart-alerts-get-no-promtool-check-but-promtool-would-not-have-caught-a7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Chart alerts get no promtool check — but promtool would not have caught A7
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-helm-template-yq-promtool-works-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. helm template | yq | promtool works today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e-six-alerts-pair-a-window-shorter-than-their-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Six alerts pair a window shorter than their for
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f-the-chart-and-contrib-alert-packs-are-near-duplicates-with-no-drift-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. The chart and contrib alert packs are near-duplicates with no drift gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g-rate-limit-protection-is-three-layers-and-the-other-two-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. Rate-limit protection is three layers, and the other two work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h-hasfreshsnapshot-is-a-phantom-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H. HasFreshSnapshot is a phantom method
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-in-handler-sleeping-amplifies-duplicates-under-exhaustion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I. In-handler sleeping amplifies duplicates under exhaustion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#j-duplicate-claims-steal-each-others-ack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        J. Duplicate claims steal each other's ack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k-the-nack-contract-was-never-defined-and-the-worker-predates-the-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        K. The nack contract was never defined, and the worker predates the queue
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0012-inert-budgettracker-and-untrustworthy-alert-pack">INV 0012: Inert BudgetTracker and untrustworthy alert pack</h1>
+<p><strong>Status:</strong> Concluded
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-07-25</p>
+<blockquote>
+<p><strong>Scope note.</strong> This investigation outgrew its title. It opened on two
+narrow follow-ups from IMPL-0021 and ended up in the queue's lease
+semantics (findings I–K), because the inert BudgetTracker turned out to
+be a symptom of three rate-limit mechanisms that were never reconciled
+with each other. The title is kept for traceability with PR #171; the
+recommendation is about the queue.</p>
+</blockquote>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#a-the-budgettracker-never-gets-a-snapshot-in-production">A. The BudgetTracker never gets a snapshot in production</a></li>
+<li><a href="#b-both-consumers-defer-the-refresh-to-each-other">B. Both consumers defer the refresh to each other</a></li>
+<li><a href="#c-chart-alerts-get-no-promtool-check--but-promtool-would-not-have-caught-a7">C. Chart alerts get no promtool check — but promtool would not have caught A7</a></li>
+<li><a href="#d-helm-template--yq--promtool-works-today">D. helm template | yq | promtool works today</a></li>
+<li><a href="#e-six-alerts-pair-a-window-shorter-than-their-for">E. Six alerts pair a window shorter than their for</a></li>
+<li><a href="#f-the-chart-and-contrib-alert-packs-are-near-duplicates-with-no-drift-gate">F. The chart and contrib alert packs are near-duplicates with no drift gate</a></li>
+<li><a href="#g-rate-limit-protection-is-three-layers-and-the-other-two-work">G. Rate-limit protection is three layers, and the other two work</a></li>
+<li><a href="#h-hasfreshsnapshot-is-a-phantom-method">H. HasFreshSnapshot is a phantom method</a></li>
+<li><a href="#i-in-handler-sleeping-amplifies-duplicates-under-exhaustion">I. In-handler sleeping amplifies duplicates under exhaustion</a></li>
+<li><a href="#j-duplicate-claims-steal-each-others-ack">J. Duplicate claims steal each other's ack</a></li>
+<li><a href="#k-the-nack-contract-was-never-defined-and-the-worker-predates-the-queue">K. The nack contract was never defined, and the worker predates the queue</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Started as two questions and grew a third, which turned out to be the
+one that matters:</p>
+<ol>
+<li>Is the IMPL-0015 Phase 1 BudgetTracker doing anything in production, and
+   if not, what should happen to it?</li>
+<li>What would it take for the alert pack to be <strong>trustworthy</strong> — meaning a
+   green CI run implies every shipped alert is syntactically valid, can
+   fire under realistic conditions, and is fed by a metric something
+   actually writes?</li>
+<li><em>(emergent, findings G–K)</em> How many ways does repo-guardian manage API
+   rate limits, do they compose, and does the answer to Q1 change once
+   they are counted?</li>
+</ol>
+<p>Q3 subsumes Q1. The short version: there are three mechanisms, they were
+designed against two different execution models three months apart, and
+the oldest one is actively hostile to the newest one's lease semantics.
+Wiring the inert third mechanism would have been the fourth path through
+the same problem.</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<ol>
+<li>The tracker is inert: <code>RefreshFromAPI</code> has no production caller, so
+   every <code>SpendableForEnqueue</code> returns <code>ErrNoSnapshot</code>, both gates fall
+   open, and the four budget gauges are never published. Corollary
+   assumed at the outset: that this leaves rate-limit pressure
+   under-observed.</li>
+<li>Adding promtool coverage for the chart's <code>PrometheusRule</code> would close
+   the alert gap.</li>
+</ol>
+<p>Hypothesis 1's mechanism is confirmed below, but <strong>its corollary is
+refuted</strong> (finding G): two other rate-limit layers work, and the operator
+can already see API pressure without the tracker. <strong>Hypothesis 2 is
+refuted outright</strong> — promtool passes the exact defect INV-0011 A7 fixed.</p>
+<p>Those two refutations are the most useful things in this document. The
+first means the tracker's disposition turns on queue health and
+forward-looking capacity, not on protection. The second means "add
+promtool to CI" is a floor, not the remediation.</p>
+<h2 id="context">Context</h2>
+<p>Both items were found while implementing
+<a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/">IMPL-0021</a>
+and deliberately left unfixed there — each is a behavioral change needing
+its own decision, and IMPL-0021 was already a 17-commit <code>patch</code>.</p>
+<p>INV-0011 finding A7 was "<code>RepoGuardianPropertySchemaMissing</code> pairs
+<code>rate(...[15m]) &gt; 0</code> with <code>for: 30m</code>, so it can never fire." IMPL-0021
+Phase 4 fixed that one alert. The question this investigation exists to
+answer is whether A7 was a one-off or the visible instance of a class, and
+what CI would have to do to catch the class.</p>
+<p><strong>Triggered by:</strong> IMPL-0021 (PR #169), INV-0011 A7, IMPL-0015 Phase 1</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Grep every caller of <code>budget.Tracker.RefreshFromAPI</code> across production
+   and test code; trace what each budget metric's write path depends on.</li>
+<li>Read both budget gates (<code>StaleSweeper</code>, <code>Discoverer</code>) and record what
+   each assumes about who refreshes.</li>
+<li>Check the CI gate for <code>make lint-alerts</code> against the files that
+   actually contain alerts.</li>
+<li>Feed promtool a rule with the exact A7 shape and see whether it
+   complains.</li>
+<li>Try to render and validate the chart's <code>PrometheusRule</code> end to end, to
+   establish whether a CI job is even mechanically possible.</li>
+<li>Script a window-vs-<code>for</code> comparison across both alert files to size the
+   class.</li>
+<li><em>(added mid-investigation)</em> Read the Valkey claim/ack/reaper protocol
+   and the transport limiter together, to work out what actually happens
+   to a lease held by a worker that is sleeping rather than working.</li>
+<li><em>(added mid-investigation)</em> Date the rate limiter, the legacy
+   in-process queue, and the durable queue against each other to test
+   whether the layers were designed for the same execution model.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repo-guardian</td>
+<td><code>main</code> @ <code>f4390bf</code> (post IMPL-0021)</td>
+</tr>
+<tr>
+<td>chart / appVersion</td>
+<td>1.0.0-rc.9 / 1.10.1</td>
+</tr>
+<tr>
+<td>promtool</td>
+<td>mise-managed (<code>prometheus</code> latest)</td>
+</tr>
+<tr>
+<td>helm / yq</td>
+<td>4.2.2 / 4.48.1</td>
+</tr>
+<tr>
+<td><code>RECONCILE_FRESHNESS</code></td>
+<td>24h (default)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="a-the-budgettracker-never-gets-a-snapshot-in-production">A. The BudgetTracker never gets a snapshot in production</h3>
+<p><code>RefreshFromAPI</code> is the only method that writes a snapshot, and every one
+of its 13 call sites is a test:</p>
+<pre><code class="language-console">$ grep -rn &quot;RefreshFromAPI&quot; --include='*.go' . | grep -v _test.go
+internal/budget/budget.go:106:// RefreshFromAPI fetches the current rate-limit budget for
+internal/budget/budget.go:110:func (t *Tracker) RefreshFromAPI(...) error {
+</code></pre>
+<p><code>main.go</code> constructs the tracker (<code>bringUp</code>, ~line 164) and threads it into
+<code>StaleSweeperOptions.Budget</code> and <code>DiscovererOptions.Budget</code>, but nothing
+ever calls <code>RefreshFromAPI</code> on it. Consequences, all verified by reading
+the write paths:</p>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Both budget gates always fall open</td>
+<td><code>SpendableForEnqueue</code> hits <code>!ok</code> on the empty <code>snapshots</code> map → <code>ErrNoSnapshot</code> → both callers <code>return true</code></td>
+</tr>
+<tr>
+<td><code>api_budget_{remaining,spendable,reserve_fraction,utilisation}</code> never published</td>
+<td>all four are written only by <code>publishGauges</code> (called from <code>RefreshFromAPI</code>) or by <code>SpendableForEnqueue</code>'s success path, which is unreachable</td>
+</tr>
+<tr>
+<td><code>api_budget_refresh_total</code> never increments</td>
+<td>incremented inside <code>RefreshFromAPI</code></td>
+</tr>
+<tr>
+<td><code>enqueue_gated_by_budget_total</code> never increments</td>
+<td>both increments sit behind a <code>spendable &lt;= 0</code> branch that requires a snapshot</td>
+</tr>
+<tr>
+<td><code>RepoGuardianBudgetGated</code> can never fire</td>
+<td>its input metric is the counter above</td>
+</tr>
+<tr>
+<td><code>Decrement</code> is a silent no-op</td>
+<td>early-returns on <code>!ok</code> before touching the gauge</td>
+</tr>
+</tbody>
+</table>
+<p>So the entire IMPL-0015 Phase 1 budget feature — 9 metrics, 1 alert, 4 env
+vars, 2 chart values, and the values.schema.json ranges validating them —
+is dead weight at runtime. Nothing is <em>broken</em> by this — falling open is
+the documented fail-safe, and two other rate-limit layers work (finding G,
+which revises this paragraph's first draft, where I had counted one) — but
+operators are tuning <code>DISCOVERY_RESERVE_FRACTION</code> and
+<code>DISCOVERY_ESTIMATED_COST_PER_REPO</code> against a component that never reads
+them, and an empty budget dashboard reads as "healthy" rather than "not
+wired".</p>
+<h3 id="b-both-consumers-defer-the-refresh-to-each-other">B. Both consumers defer the refresh to each other</h3>
+<p>The two gates each document their fall-open path by pointing at the other
+one as the thing that populates the cache:</p>
+<pre><code class="language-go">// internal/checker/sweep.go
+return true // fall open — caller drives refresh elsewhere
+</code></pre>
+<pre><code class="language-go">// internal/scheduler/discoverer.go
+if errors.Is(err, budget.ErrNoSnapshot) {
+    // No snapshot — fall open; the StaleSweeper's leader-driven
+    // refresh path will populate it.
+    return true
+}
+</code></pre>
+<p>There is no StaleSweeper leader-driven refresh path. This is the mechanism
+by which the gap survived review: each side's comment is locally plausible
+and cites a neighbour, and no test covers "who calls RefreshFromAPI",
+because every test calls it directly in setup. Worth noting for its own
+sake — the same shape (two components each deferring to the other, tests
+that stub the seam) will hide the next one too.</p>
+<h3 id="c-chart-alerts-get-no-promtool-check-but-promtool-would-not-have-caught-a7">C. Chart alerts get no promtool check — but promtool would not have caught A7</h3>
+<p>The CI job and the make target are both scoped to <code>contrib/</code>:</p>
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+lint-alerts:
+  if: needs.changes.outputs.alerts == 'true' || needs.changes.outputs.workflows == 'true'
+#   filter → alerts: ['contrib/prometheus/**']
+</code></pre>
+<pre><code class="language-make">lint-alerts:
+    @promtool check rules contrib/prometheus/alerts.yaml
+</code></pre>
+<p>The chart's 9 alerts in <code>charts/repo-guardian/templates/prometheusrule.yaml</code>
+are never checked — that part of the original framing holds. helm-unittest
+asserts rendered strings, not PromQL validity.</p>
+<p><strong>But promtool would not have caught A7.</strong> Fed a rule with the exact
+defective shape:</p>
+<pre><code class="language-console">$ cat /tmp/badrule.yaml
+groups:
+  - name: probe
+    rules:
+      - alert: WindowShorterThanFor
+        expr: increase(some_counter_total[15m]) &gt; 0
+        for: 30m
+$ promtool check rules /tmp/badrule.yaml
+Checking /tmp/badrule.yaml
+  SUCCESS: 1 rules found
+</code></pre>
+<p><code>promtool check rules</code> is a <strong>syntax</strong> checker: PromQL parses, durations
+are well-formed, labels are valid. Fireability is semantic and out of its
+scope. So the honest decomposition is three distinct defect classes, only
+the first of which promtool addresses:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Example</th>
+<th>Caught by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Syntax — malformed PromQL, bad duration, typo'd function</td>
+<td>—</td>
+<td><code>promtool check rules</code></td>
+</tr>
+<tr>
+<td>Semantic fireability — window vs <code>for</code>, window vs the metric's sampling cadence</td>
+<td>A7</td>
+<td><code>promtool test rules</code> with synthetic series, or a custom lint</td>
+</tr>
+<tr>
+<td>Dead input — the metric has no production writer</td>
+<td><code>RepoGuardianBudgetGated</code> (finding A)</td>
+<td>neither; needs a metric-writer audit</td>
+</tr>
+</tbody>
+</table>
+<p>A7 was class 2. <code>RepoGuardianBudgetGated</code> is class 3. Adding promtool to
+CI closes class 1 only — worth doing, but it must not be mistaken for
+closing the gap that motivated this investigation.</p>
+<h3 id="d-helm-template-yq-promtool-works-today">D. <code>helm template | yq | promtool</code> works today</h3>
+<p>Mechanically possible with tools already in <code>mise.toml</code>, verified end to
+end:</p>
+<pre><code class="language-console">$ helm template rg charts/repo-guardian \
+    --set config.appId=1 --set secrets.webhookSecret=x --set secrets.privateKey=y \
+    --set store.dsn=postgres://x --set queue.valkey.dsn=redis://x \
+    --set prometheusRule.enabled=true \
+  | yq 'select(.kind == &quot;PrometheusRule&quot;) | .spec' &gt; /tmp/rr.yaml
+$ promtool check rules /tmp/rr.yaml
+Checking /tmp/rr.yaml
+  SUCCESS: 9 rules found
+</code></pre>
+<p>Two notes for whoever implements it: <code>prometheusRule.enabled</code> defaults to
+<code>false</code>, so the job must set it explicitly or it silently checks nothing
+(the same "0 rules found — SUCCESS" trap this probe hit on the first
+attempt); and the <code>.spec</code> extraction is required because promtool wants a
+bare rules file, not the CRD wrapper.</p>
+<h3 id="e-six-alerts-pair-a-window-shorter-than-their-for">E. Six alerts pair a window shorter than their <code>for</code></h3>
+<p>Scripted comparison across both files:</p>
+<pre><code class="language-text">contrib/prometheus/alerts.yaml: 4
+    RepoGuardianWebhookRejectionsHigh   window [15m], for 30m
+    RepoGuardianRuleNeverApplies        window [1h],  for 6h
+    RepoGuardianStoreQueryErrors        window [5m],  for 10m
+    RepoGuardianBudgetGated             window [15m], for 30m
+charts/.../prometheusrule.yaml: 2
+    RepoGuardianStoreQueryErrors        window [5m],  for 10m
+    RepoGuardianBudgetGated             window [15m], for 30m
+</code></pre>
+<p><strong>This is a smell, not six bugs, and the distinction matters.</strong> For a
+metric that increments continuously while the problem persists,
+<code>rate(...[5m]) &gt; 0 for 10m</code> fires correctly — the expression stays true
+across the pending period. A7 was fatal because its metric samples roughly
+<em>once per 24h</em> (one observation per repo per reconcile, and
+<code>RECONCILE_FRESHNESS</code> defaults to 24h), so the 15m window was empty almost
+always and the condition could not stay true for 30m.</p>
+<p>Each of the six needs judging against its own metric's cadence, not a
+blanket rewrite. <code>RepoGuardianRuleNeverApplies</code> (1h window, 6h <code>for</code>) and
+<code>RepoGuardianStoreQueryErrors</code> (5m/10m) look like the highest-risk of the
+remainder; <code>RepoGuardianBudgetGated</code> is moot until finding A is resolved.</p>
+<h3 id="f-the-chart-and-contrib-alert-packs-are-near-duplicates-with-no-drift-gate">F. The chart and contrib alert packs are near-duplicates with no drift gate</h3>
+<p>8 of the chart's 9 alerts also exist in <code>contrib/prometheus/alerts.yaml</code>
+(<code>RepoGuardianPropertySchemaMissing</code> is chart-only). The chart version is
+the contrib expression with the threshold and <code>for</code> templated:</p>
+<pre><code class="language-yaml"># contrib
+expr: max(repo_guardian_queue_depth{queue=&quot;jobs&quot;}) &gt; 1000
+for: 10m
+# chart
+expr: max(repo_guardian_queue_depth{queue=&quot;jobs&quot;}) &gt; {{ default 1000 (get $alert &quot;threshold&quot;) }}
+for: {{ default &quot;10m&quot; (get $alert &quot;for&quot;) | quote }}
+</code></pre>
+<p>Nothing enforces the correspondence. IMPL-0021's A7 fix landed in the
+chart only, which was correct there (chart-only alert) but means the next
+fix to a shared alert can silently apply to one copy. Whether these should
+be one source with the other generated is a design question, not a defect
+— recorded here so the eventual alert work considers it.</p>
+<h3 id="g-rate-limit-protection-is-three-layers-and-the-other-two-work">G. Rate-limit protection is three layers, and the other two work</h3>
+<p>Finding A called the <code>StaleSweeper</code> reserve gate "a separate, working
+defence." That understated it — there are <strong>two</strong> working layers, and the
+one that most directly answers "are we hammering the API?" is the one this
+investigation nearly missed:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Layer</th>
+<th>Where</th>
+<th>Behaviour under pressure</th>
+<th>Metrics</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Transport limiter</td>
+<td><code>internal/github/ratelimit.go</code>, wrapping <strong>every</strong> client (app + per-installation, <code>client.go:59</code> and <code>:1019</code>)</td>
+<td>pre-emptively <em>sleeps</em> <code>untilReset / remaining</code> per request; retries primary (403 + <code>Remaining: 0</code>) and secondary (<code>Retry-After</code>) limits</td>
+<td><code>github_rate_remaining</code>, <code>github_rate_limit_waits_total{reason}</code>, <code>github_rate_limit_wait_seconds</code></td>
+<td><strong>works</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Sweep reserve gate</td>
+<td><code>StaleSweeper.allowedByRateLimit</code>, IMPL-0011 P5</td>
+<td><em>skips</em> the repo when <code>remaining &lt; reserve × limit</code></td>
+<td><code>rate_limit_remaining</code>, <code>rate_limit_reserve_blocked_total</code></td>
+<td><strong>works</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>BudgetTracker</td>
+<td>IMPL-0015 P1</td>
+<td>would <em>decline the enqueue</em> before work is created</td>
+<td>the 9 <code>api_budget_*</code> / <code>enqueue_gated_by_budget_total</code> metrics</td>
+<td><strong>inert</strong> (finding A)</td>
+</tr>
+</tbody>
+</table>
+<p>Two consequences that change the disposition question:</p>
+<ul>
+<li><strong>The "smashing into API limits" signal already exists.</strong>
+  <code>github_rate_limit_waits_total</code> literally counts throttle events by
+  reason, and <code>RepoGuardianRateLimitLow</code> / <code>RepoGuardianRateLimitThrottling</code>
+  / <code>RepoGuardianRateLimitNearExhaustion</code> all fire off working metrics.
+  Losing layer 3 does not blind the operator to rate-limit pressure.</li>
+<li><strong>The <code>Discoverer</code> is not ungated.</strong> It has no layer-2 equivalent
+  (<code>DiscovererOptions</code> carries <code>Budget</code> but no <code>RateLimit</code>), but layer 1
+  wraps its <code>ListInstallationRepos</code> calls like everything else. Under
+  pressure discovery goes <em>slow</em>, not unbounded.</li>
+</ul>
+<p>What layer 3 uniquely adds is therefore <strong>not</strong> protection or basic
+visibility, but two narrower things:</p>
+<ol>
+<li><em>Forward-looking capacity</em> — <code>api_budget_spendable</code> answers "how many
+   repos can I still afford this hour", which neither reactive layer
+   does, and <code>estimatedCostPerRepo</code> is the knob for calibrating it
+   against observed consumption.</li>
+<li><em>Avoiding layer 1's degenerate mode</em> — layer 1 spreads a depleted
+   budget by sleeping <code>untilReset / remaining</code> <strong>per request</strong>. With a
+   full queue that parks worker goroutines in long sleeps while holding
+   queue leases, which is a throughput collapse plus reaper churn, not a
+   graceful slowdown. Layer 3 prevents the enqueue instead, so the work
+   is never created. This is the strongest argument for wiring it, and
+   it is about <em>queue health</em>, not about the rate limit itself.</li>
+</ol>
+<h3 id="h-hasfreshsnapshot-is-a-phantom-method">H. <code>HasFreshSnapshot</code> is a phantom method</h3>
+<p><code>RefreshFromAPI</code>'s doc comment instructs callers to avoid redundant
+refreshes by calling a method that does not exist:</p>
+<pre><code class="language-go">// Always replaces the existing snapshot; callers that want to avoid
+// redundant refreshes should call HasFreshSnapshot first.
+</code></pre>
+<p><code>Tracker</code> has exactly four methods — <code>RefreshFromAPI</code>,
+<code>SpendableForEnqueue</code>, <code>Decrement</code>, <code>publishGauges</code>. Minor on its own, but
+it matters for the wiring option: the guard the design assumed would keep
+a per-tick refresh cheap has to be written, not just called.</p>
+<h3 id="i-in-handler-sleeping-amplifies-duplicates-under-exhaustion">I. In-handler sleeping amplifies duplicates under exhaustion</h3>
+<p>Finding G.2 named layer 1's degenerate mode in the abstract. Reading the
+lease machinery makes it concrete, and it is worse than "throughput
+collapse". Four defaults collide:</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Default</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JOB_ACK_TIMEOUT</code></td>
+<td>5m</td>
+<td><code>config.go:298</code></td>
+</tr>
+<tr>
+<td><code>REAPER_INTERVAL</code></td>
+<td>1m</td>
+<td><code>config.go:305</code></td>
+</tr>
+<tr>
+<td><code>WORKER_COUNT</code></td>
+<td>5</td>
+<td><code>policy/defaults.go:10</code></td>
+</tr>
+<tr>
+<td>transport sleep when <code>remaining == 0</code></td>
+<td><code>untilReset</code> — <strong>up to 1h</strong></td>
+<td><code>ratelimit.go:126</code></td>
+</tr>
+</tbody>
+</table>
+<p>There is <strong>no handler timeout anywhere</strong> — nothing in <code>internal/worker</code>
+or the Valkey <code>Subscribe</code> loop wraps the job in a <code>context.WithTimeout</code>.
+So a worker that enters the pre-emptive throttle holds its in-flight
+claim for the whole sleep, and the reaper — which cannot distinguish
+"sleeping" from "crashed", and shouldn't have to — resurfaces the job
+every ack timeout:</p>
+<pre><code class="language-text">t=0     worker A claims J, ZADD in-flight (score t0), transport sleeps 50m
+t=5m    reaper: J is older than JOB_ACK_TIMEOUT → LPUSH J, ZREM J  (atomic)
+t=5m    worker B claims J, ZADD in-flight (score t5), also sleeps
+t=10m   reaper requeues J again → worker C …
+</code></pre>
+<p>One duplicate per ack timeout for as long as the sleep lasts: roughly ten
+clones of the same job over a 50-minute exhaustion window, against a pool
+of five worker slots. Every clone that eventually wakes issues <em>more</em> API
+calls against the exhausted budget. It is a positive feedback loop whose
+trigger is exactly the condition layer 3 was designed to prevent.</p>
+<p>Two mitigating facts, for honesty: <code>sleepWithContext</code> does respect
+context cancellation, so SIGTERM aborts the sleep cleanly and the job is
+left in-flight for the reaper — shutdown behaves correctly. And the
+pathological delay needs <code>remaining == 0</code>; the milder branch
+(<code>untilReset / remaining</code>, engaged below <code>RATE_LIMIT_THRESHOLD</code>, default
+0.10) yields seconds per request, which stays inside the ack timeout at
+the default <code>estimatedCostPerRepo</code> of 10 calls per repo. The cliff is
+sharp rather than gradual.</p>
+<h3 id="j-duplicate-claims-steal-each-others-ack">J. Duplicate claims steal each other's ack</h3>
+<p>The in-flight ZSET member is the JSON payload, and <code>Enqueue</code> rewrites
+<code>Job.ID</code> to a SHA-256 of <code>(InstallationID, Owner, Repo)</code> — deterministic
+by design, so duplicate enqueues are visible in dedupe-aware metrics.
+The consequence for finding I's timeline is that workers A and B hold the
+<em>same ZSET member</em>. When A finally wakes and <code>ZREM</code>s, it deletes <strong>B's</strong>
+claim; B is then invisible to the reaper, so if B dies its job is not
+resurfaced. Benign while both do identical idempotent work, but it means
+the in-flight set does not actually track concurrent claims — it tracks
+distinct payloads.</p>
+<p>Also worth recording while in here: <code>reapOnce</code> has <strong>no attempt cap and
+no dead-letter path</strong>. A job that fails forever requeues forever. Not
+currently a problem (engine errors are per-repo and usually transient),
+but it is the other half of an undefined nack contract — see finding K.</p>
+<h3 id="k-the-nack-contract-was-never-defined-and-the-worker-predates-the-queue">K. The nack contract was never defined, and the worker predates the queue</h3>
+<p>The user framing that prompted this section is borne out by the history:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Introduced</th>
+<th>Assumed execution model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/github/ratelimit.go</code></td>
+<td>2026-02-10 (<code>7c777e5</code>)</td>
+<td>in-process buffered channel — blocking a goroutine is free, there is no lease to hold</td>
+</tr>
+<tr>
+<td><code>internal/checker/queue.go</code> (legacy)</td>
+<td>2026-02-08 (<code>11dfb4d</code>)</td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>internal/queue</code>, <code>internal/worker</code></td>
+<td>2026-05-06 (<code>69a5afd</code>, IMPL-0011)</td>
+<td>durable queue, leases, reaper, at-least-once</td>
+</tr>
+</tbody>
+</table>
+<p>The transport limiter's in-handler blocking was correct for the world it
+was written in: sleeping a goroutine that owns nothing but itself costs
+one goroutine. Three months later work became a durable job with a lease
+and a watchdog, and nothing revisited the assumption. Findings I and J
+are the bill for that.</p>
+<p>The deeper gap is that the retry contract was never actually specified.
+<code>queue.Queue</code> is three methods, and the only statement of nack semantics
+is a parenthetical on the interface doc comment:</p>
+<pre><code class="language-go">// A nil return from handler is an implicit ack; an error is a nack
+// (durable implementations may retry; the in-memory implementation
+// logs and drops).
+</code></pre>
+<p>That sentence is now stale on both halves: the in-memory implementation
+was deleted in IMPL-0016, and "may retry" specifies nothing — no delay,
+no backoff, no attempt cap, no distinction between <em>retry this soon</em>
+and <em>retry this later</em>. <code>queue.Job</code> carries no <code>Attempts</code> and no
+<code>AvailableAt</code>. So there is no contract to break here, only one to write.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer to Q1: confirmed — the BudgetTracker is inert.</strong> No production
+code path writes a snapshot, so all nine budget metrics stay unpublished,
+both gates permanently fall open, and <code>RepoGuardianBudgetGated</code> cannot
+fire.</p>
+<p>The severity is lower than it first reads, though, and finding G is why:
+rate-limit protection is <strong>three</strong> layers deep, not two, and the other two
+work. The transport limiter (<code>internal/github/ratelimit.go</code>) wraps every
+API call with pre-emptive throttling and 403 retry; the <code>StaleSweeper</code>
+reserve gate skips repos below the reserve floor. Between them the
+operator can already answer "are we hammering the API?" —
+<code>github_rate_limit_waits_total</code> counts throttle events directly, and three
+alerts fire off working metrics. So this is wasted capability plus a
+misleading empty dashboard, not an unprotected system.</p>
+<p>What is genuinely lost is narrower and worth naming precisely: the
+forward-looking <code>api_budget_spendable</code> view, the ability to calibrate
+<code>estimatedCostPerRepo</code> against real consumption, and — the one that would
+actually bite at fleet scale — protection against layer 1's degenerate
+mode, where a depleted budget parks worker goroutines in per-request
+sleeps while they hold queue leases.</p>
+<p><strong>Answer to Q2: the original framing was wrong.</strong> Chart alerts genuinely
+have no promtool coverage, but promtool does not catch the class of defect
+that motivated the question — it passes A7's exact shape. Trustworthiness
+needs three separate mechanisms, one per class in finding C, and only the
+cheapest is a promtool job.</p>
+<p><strong>Answer to Q3: three mechanisms, they do not compose, and yes it changes
+Q1's answer.</strong> Layer 1 <em>slows</em> (transport, 2026-02-10), layer 2 <em>skips</em>
+(sweep gate, IMPL-0011), layer 3 <em>declines</em> (BudgetTracker, IMPL-0015).
+Layer 1 predates the durable queue by three months and blocks in-handler,
+which was free when work was a buffered channel and is actively harmful
+now that work carries a lease and a watchdog: findings I and J show it
+producing duplicate execution and worker-pool saturation precisely under
+the exhaustion it exists to handle.</p>
+<p>So the honest answer to "should we wire the BudgetTracker" is <strong>no —
+delete it, and fix the queue instead.</strong> Its unique value was keeping
+depleted-budget work out of the queue; a delayed-requeue contract does
+that structurally, and yields better observability as a side effect
+because it measures deferred work rather than modelling it from a
+hand-tuned cost estimate. That reverses this document's own earlier
+recommendation, which is what the investigation was for.</p>
+<h2 id="recommendation">Recommendation</h2>
+<p>Findings I–K change the shape of this. The original framing — "should we
+wire the third rate-limit mechanism?" — asks the wrong question. Three
+mechanisms already exist, they do not compose (layer 1 <em>slows</em>, layer 2
+<em>skips</em>, layer 3 <em>declines</em>), and layer 1's slowing is precisely what
+breaks the job-duration assumption the queue's lease semantics depend on.
+Adding a fourth path is not the fix; consolidating onto one is.</p>
+<p>Split into two efforts. They share only the <code>RepoGuardianBudgetGated</code>
+alert and can proceed independently.</p>
+<p><strong>1. Consolidate rate-limit handling onto a delayed-requeue contract.</strong></p>
+<p>The proposal, which subsumes the BudgetTracker question rather than
+answering it:</p>
+<ul>
+<li><strong>Workers never block on rate limits.</strong> When a job cannot proceed
+  because the installation is throttled, the worker <em>returns the job to
+  the queue with <code>available_at = now + delay</code></em> and frees its slot
+  immediately. Nothing sleeps while holding a lease.</li>
+<li><strong>The queue grows a delayed set.</strong> A <code>queue:delayed</code> ZSET scored by
+  due-time, promoted to <code>queue:jobs</code> by the reaper — which is already
+  leader-elected and already runs on a timer, so the machinery exists.
+  This is the same primitive the in-flight ZSET uses.</li>
+<li><strong>The contract gets written.</strong> <code>queue.Job</code> gains <code>Attempts</code> and
+  <code>AvailableAt</code>; the <code>Queue</code> doc comment stops saying "durable
+  implementations may retry" and starts specifying delay, backoff, and
+  an attempt cap with a terminal disposition (finding J notes there is
+  no cap today). Per finding K there is no existing contract to break —
+  only one to define, and Go's interfaces mean this can land under
+  <code>queue.Queue</code> without disturbing producers.</li>
+<li><strong>The observability falls out of it.</strong> <code>jobs_delayed_total{reason,
+  installation_id}</code> and a <code>queue_delayed_depth</code> gauge answer "are we
+  hitting API limits, how hard, and for whom" with <em>better</em> data than
+  <code>api_budget_spendable</code> would have: they measure work actually deferred
+  rather than a modelled estimate built on a hand-tuned
+  <code>estimatedCostPerRepo</code>. The goal is watching for backpressure and
+  alerting before it matters — realistically never, at the current or
+  planned fleet size, but with data to reason from if it does.</li>
+</ul>
+<p>What that implies for the three existing layers:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Disposition under this proposal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 — transport pre-emptive sleep</td>
+<td><strong>Remove the sleep, keep the accounting.</strong> The 403 retry paths stay (they are transport concerns); the pre-emptive <code>sleepWithContext</code> becomes a typed error the worker translates into a delayed requeue. This alone defuses findings I and J.</td>
+</tr>
+<tr>
+<td>2 — sweep reserve gate</td>
+<td><strong>Probably redundant.</strong> Skipping the enqueue and deferring it converge, except deferral doesn't silently drop the repo until the next sweep. Candidate for removal, but it works today — decide with data, not ahead of it.</td>
+</tr>
+<tr>
+<td>3 — BudgetTracker</td>
+<td><strong>Delete.</strong> Its unique value was G.1 (forward-looking capacity) and G.2 (keeping work out of the queue). The delayed-requeue mechanism delivers G.2 structurally and replaces G.1's modelled estimate with measurement. Wiring it now would be building the fourth path.</td>
+</tr>
+</tbody>
+</table>
+<p>That reverses this document's earlier recommendation to wire it, and the
+reversal is the point: the inert tracker was the symptom that led here,
+but the fix is in the queue, not the tracker.</p>
+<p><strong>Sequencing note.</strong> The unbounded sleep is a live amplification hazard
+independent of any redesign. Capping the transport delay below
+<code>JOB_ACK_TIMEOUT</code> (or adding a handler timeout) is a small change that
+defuses findings I and J on its own and should not wait for the
+consolidation work.</p>
+<p><strong>2. Make the alert pack trustworthy, cheapest class first.</strong></p>
+<ul>
+<li>Extend the <code>alerts</code> paths-filter to <code>charts/repo-guardian/templates/prometheusrule.yaml</code>
+  and add the render-extract-check pipeline from finding D to
+  <code>make lint-alerts</code>. Closes class 1. Low cost, do it regardless of what
+  else is decided.</li>
+<li>Audit the six alerts in finding E against each metric's real emission
+  cadence. Fix the ones that cannot fire; leave the ones that can, with a
+  comment recording why.</li>
+<li>Consider <code>promtool test rules</code> unit tests with synthetic series for the
+  handful of alerts whose fireability actually matters. This is the only
+  mechanism that closes class 2 mechanically, and it is real work — scope
+  it deliberately rather than as a side quest.</li>
+<li>Class 3 (dead input metrics) has no tooling answer proposed here. A
+  cheap approximation: assert every metric named in an alert expression
+  has at least one non-test writer in the Go source. Whether that is worth
+  building is an open question.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/">IMPL-0021</a>
+  — where both items were found and deliberately deferred (Phase 4, Phase 5)</li>
+<li><a href="../0011-tech-debt-cleanup-inventory-post-impl-0019/">INV-0011</a> — finding
+  A7, the single alert this generalizes</li>
+<li><a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/">IMPL-0015</a> —
+  Phase 1, which introduced the BudgetTracker</li>
+<li><a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/">DESIGN-0017</a>
+  — the design the tracker implements</li>
+<li><code>docs/operations/scaling.md</code> § Discoverer + BudgetTracker — the operator
+  documentation currently describing an inert component</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

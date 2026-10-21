@@ -1,0 +1,2094 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Webhook ingress - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#webhook-ingress" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Webhook ingress
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-from-the-baked-sidecar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating from the baked sidecar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-lbc-gateway-api-eks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS LBC + Gateway API (EKS)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tailscale-operator-funnel-homelab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tailscale operator Funnel (homelab)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cloudflare-tunnel-operator-injected-cloudflared-sidecar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloudflare Tunnel — operator-injected cloudflared sidecar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cloudflare-tunnel-community-operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloudflare Tunnel — community operators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ngrok-kubernetes-operator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ngrok Kubernetes operator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development-quick-tunnels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local development: quick tunnels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checkbox-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checkbox contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability-after-the-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability after the removal
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="webhook-ingress">Webhook ingress</h1>
+<p>repo-guardian owns no ingress. As of chart <code>1.0.0</code> / appVersion
+<code>1.14.0</code> (IMPL-0024, DESIGN-0023) the chart ships no Tailscale
+sidecar and the binary ships no IP-allowlist middleware — the app
+listens on a plain HTTP port, validates every webhook delivery's
+HMAC signature, and everything in front of that port belongs to you.
+This document is the options matrix for that front layer, with a
+recipe per option.</p>
+<p>The app-layer security boundary is the <strong>HMAC signature</strong>
+(<code>X-Hub-Signature-256</code>, validated against <code>GITHUB_WEBHOOK_SECRET</code>).
+Source-IP enforcement, where you want it, happens at your edge:
+an ALB security group, a Cloudflare WAF rule, an ngrok traffic
+policy. The in-app allowlist that used to exist was spoofable
+behind every documented proxy topology — see
+<a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/">INV-0016</a>
+Observation 5 — so an edge layer is not a downgrade from it; it is
+the first time the source-IP layer has actually been fail-closed.</p>
+<h2 id="migrating-from-the-baked-sidecar">Migrating from the baked sidecar</h2>
+<p>Upgrading to chart <code>1.0.0</code> from any <code>1.0.0-rc.*</code> release that used
+<code>tailscale.*</code> or <code>webhookIPAllowlist.*</code>:</p>
+<ol>
+<li><strong>Stand up your chosen ingress option first</strong> (pick from the
+   matrix below). The sidecar path dies with the upgrade — for a
+   homelab on Funnel that means the dedicated Tailscale <code>Ingress</code>
+   (or the cloudflared sidecar patch) must be receiving deliveries
+   <em>before</em> you upgrade, then repoint the GitHub App's webhook URL.</li>
+<li><strong>Delete <code>tailscale.*</code> and <code>webhookIPAllowlist.*</code> from your
+   values.</strong> Leaving either in place fails the render loudly:
+   <code>values.schema.json</code> rejects the key naming this document, and
+   the <code>validateRemovedValues</code> helper backs it up on
+   schema-skipping render paths.</li>
+<li><strong>Delete the three <code>guardian.hcl</code> attributes</strong> if you set them:
+   <code>webhook_ip_allowlist</code>, <code>webhook_ip_allowlist_fail_open</code>,
+   <code>trust_proxy_headers</code>. The guardian block's strict decode fails
+   policy load (startup) if they are still present.</li>
+<li><strong>Delete any stale env patches</strong> setting <code>WEBHOOK_IP_ALLOWLIST</code>,
+   <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN</code>, or <code>TRUST_PROXY_HEADERS</code>. Note
+   the asymmetry: removed <em>HCL attributes</em> fail loudly at load, but
+   removed <em>env vars</em> are silently ignored (12-factor env plumbing
+   has no strict mode) — the binary logs one startup <code>slog.Warn</code>
+   naming the stale vars and this document, and that is all. Clean
+   them up so future readers don't think they do something.</li>
+<li><strong>Expect one full-fleet re-enqueue after the upgrade.</strong> Removing
+   the <code>GuardianConfig</code> fields changes the policy-version hash
+   exactly once, so every <code>repo_state</code> row goes drifted and the
+   next stale sweep re-checks the fleet. Harmless and expected —
+   the same class of burst as any policy edit, not a bug.</li>
+<li><strong>Webhook deliveries missed during the cutover are recovered by
+   the stale sweep</strong> — the system tolerates missed webhooks by
+   design (INV-0016 Observation 9). For anything urgent, GitHub's
+   <em>Recent Deliveries</em> view on the App settings page can redeliver
+   individual events.</li>
+</ol>
+<p>Rollback: re-deploy the previous chart+binary pair and restore the
+removed values/attributes. No data migration in either direction.</p>
+<h2 id="options-matrix">Options matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Environment fit</th>
+<th>K8s routing API</th>
+<th>Source-IP enforcement</th>
+<th>Cost</th>
+<th>Validated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS LBC + Gateway API (<code>HTTPRoute</code> → ALB)</td>
+<td>EKS / production</td>
+<td>Gateway API</td>
+<td>SG + GitHub prefix list, fail-closed</td>
+<td>AWS</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Tailscale operator Funnel</td>
+<td>homelab / tailnet clusters</td>
+<td><code>Ingress</code> (class <code>tailscale</code>)</td>
+<td>none — HMAC-only, stated plainly</td>
+<td>free</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel, operator-injected cloudflared sidecar</td>
+<td>homelab / any cluster</td>
+<td>none (edge → pod)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via community operator (cfgate / lexfrei)</td>
+<td>homelab / any cluster</td>
+<td>Gateway API</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via STRRL controller</td>
+<td>homelab / any cluster</td>
+<td><code>Ingress</code> (class <code>cloudflare-tunnel</code>)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok Kubernetes operator</td>
+<td>homelab / any cluster</td>
+<td>Gateway API + <code>Ingress</code></td>
+<td><code>restrict-ips</code> Traffic Policy, fail-closed</td>
+<td>~$20/mo</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok CLI / <code>cloudflared</code> quick tunnel against localhost</td>
+<td>local dev (<code>make run-local</code> + docker-compose dev services)</td>
+<td>n/a</td>
+<td>none (ngrok policy is paid)</td>
+<td>free</td>
+<td>☑ ngrok; ☐ quick tunnel</td>
+</tr>
+</tbody>
+</table>
+<p>There is no crowned winner. The homelab trade is roughly: Funnel is
+free and zero-new-components but HMAC-only; ngrok gives Gateway API
++ a fail-closed edge allowlist for ~$20/mo; Cloudflare Tunnel gives
+the same capability set free with a bring-your-own domain, trading
+the official operator for community ones (or none, with the sidecar
+patch). Production on EKS is the ALB row.</p>
+<p>Every static-allowlist row shares one caveat: <strong>the GitHub <code>hooks</code>
+CIDRs (<code>https://api.github.com/meta</code>) change occasionally, and the
+copy in your SG prefix list / Cloudflare list / ngrok policy needs a
+refresh owner</strong> — a scheduled Lambda/Terraform run or a documented
+manual check. Each recipe notes where that copy lives.</p>
+<h2 id="aws-lbc-gateway-api-eks">AWS LBC + Gateway API (EKS)</h2>
+<p>GA since LBC v2.14.0 (Gateway API v1.3.0): <code>Gateway</code>/<code>HTTPRoute</code>
+provision an ALB directly, with AWS-vended CRDs
+(<code>LoadBalancerConfiguration</code>, <code>TargetGroupConfiguration</code>,
+<code>ListenerRuleConfiguration</code>) carrying the ALB-specific knobs.</p>
+<ul>
+<li><strong>Recipe:</strong> an <code>HTTPRoute</code> for the webhook path targeting the
+  repo-guardian Service; a <code>LoadBalancerConfiguration</code> attaching a
+  security group whose ingress rule references a customer-managed
+  <strong>prefix list</strong> built from the <code>hooks</code> CIDRs in
+  <code>api.github.com/meta</code>. Default-deny otherwise. TLS terminates at
+  the ALB (static or hostname-discovered certificate).</li>
+<li><strong>Source-IP enforcement:</strong> the SG rule — enforced at the true
+  source address, before any HTTP exchange, fail-closed.</li>
+<li><strong>X-Forwarded-For:</strong> the ALB appends the real client IP; ALB
+  access logs are the client-IP evidence. Nothing in the app reads
+  the header anymore.</li>
+<li><strong>CIDR refresh:</strong> the prefix list is the static copy; give it an
+  owner (Terraform/Lambda on a schedule, or a runbook check).</li>
+<li><strong>Observability:</strong> ALB access logs + target-group 5xx/health
+  metrics on the edge side; <code>http_server_request_duration_seconds</code>
+  (webhook route) and <code>webhook_rejected_total{reason="signature"}</code>
+  on the app side answer "is traffic arriving / being rejected".</li>
+</ul>
+<h2 id="tailscale-operator-funnel-homelab">Tailscale operator Funnel (homelab)</h2>
+<p>The operator has <strong>no native Gateway API support</strong>
+(<a href="https://github.com/tailscale/tailscale/issues/10656">tailscale/tailscale#10656</a>);
+Funnel — public exposure — rides only the <code>Ingress</code> class. If the
+cluster otherwise routes through Gateway API, the webhook's public
+path is one small, dedicated <code>Ingress</code> alongside it. Pointing that
+<code>Ingress</code> at the webhook Service directly is simpler than chaining
+through the cluster's Gateway (the chain adds a hop and changes
+nothing about the posture).</p>
+<ul>
+<li><strong>Recipe:</strong> an <code>Ingress</code> with <code>ingressClassName: tailscale</code> and
+  the <code>tailscale.com/funnel: "true"</code> annotation, backend = the
+  repo-guardian Service. The tailnet policy must grant the <code>funnel</code>
+  nodeAttr to the operator's proxy tag (<code>tag:k8s</code> by default —
+  <code>autogroup:member</code> does not cover tagged devices). HA via
+  <code>tailscale.com/proxy-group</code>.</li>
+<li><strong>Source-IP enforcement: none.</strong> The <code>funnel</code> nodeAttr governs
+  which <em>nodes may enable</em> Funnel, not which public clients may
+  connect; there is no public-side IP filtering. On this path the
+  posture is <strong>HMAC-only</strong> — which is exactly what the old baked
+  sidecar delivered too, since it forced the allowlist fail-open.
+  Use the ALB, ngrok, or Cloudflare rows when a fail-closed
+  source-IP layer is required.</li>
+<li><strong>X-Forwarded-For:</strong> undocumented for the operator's proxy on the
+  Funnel path — verify empirically during smoke (checkbox item).
+  Affects log fidelity only; nothing in the app depends on it.</li>
+<li><strong>Observability:</strong> no edge-side request log; the app-side OTEL
+  series are the whole story on this path.</li>
+</ul>
+<h2 id="cloudflare-tunnel-operator-injected-cloudflared-sidecar">Cloudflare Tunnel — operator-injected cloudflared sidecar</h2>
+<p>The sidecar topology without the baggage that got the baked sidecar
+removed: <strong>you</strong> inject it via a kustomize patch on the rendered
+Deployment (the chart stays ingress-agnostic), and remotely-managed
+tunnels keep it stateless — one container, one tunnel-token Secret,
+no volume, no ConfigMap, no RBAC. Ingress rules, DNS, and the WAF
+allowlist all live in the Cloudflare Terraform provider as code.</p>
+<ul>
+<li><strong>Recipe:</strong> create a remotely-managed tunnel + DNS route + WAF
+  rule in Cloudflare (Terraform or dashboard), put the tunnel token
+  in a Secret, and apply this strategic-merge patch on top of the
+  rendered chart:</li>
+</ul>
+<p><code>yaml
+  # kustomize strategic-merge patch: operator-owned cloudflared sidecar.
+  # The tunnel is remotely managed — ingress rules, DNS, and the WAF
+  # allowlist live in Cloudflare (Terraform provider), so the sidecar
+  # is stateless: no volume, no ConfigMap, no RBAC.
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: repo-guardian
+  spec:
+    template:
+      spec:
+        containers:
+          - name: cloudflared
+            # renovate: datasource=docker depName=cloudflare/cloudflared
+            image: docker.io/cloudflare/cloudflared:2026.8.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+            args:
+              - tunnel
+              - --no-autoupdate
+              - run
+            env:
+              - name: TUNNEL_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: cloudflared-tunnel-token
+                    key: token
+            securityContext:
+              runAsNonRoot: true
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 64Mi</code></p>
+<p>Replace the digest with the current one for your pinned tag (the
+  placeholder digest above will not pull); the renovate comment
+  keeps it updated — the supply-chain hygiene the old unpinned
+  Tailscale sidecar lacked. Point the tunnel's ingress rule at
+  <code>http://localhost:8080</code> (the webhook port — edge → sidecar →
+  <code>127.0.0.1</code>, no ClusterIP hop).
+- <strong>HA / rollouts:</strong> per-replica sidecars all register as
+  connectors to the <em>same</em> tunnel — cloudflared's native HA model.
+  A single-replica rollout drops the connector briefly; deliveries
+  missed in that window are recovered by the stale sweep.
+- <strong>Source-IP enforcement:</strong> one free-plan WAF custom rule scoped
+  to the webhook hostname — <code>ip.src in $github_hooks</code> against a
+  reusable IP List, default-block otherwise. Fail-closed at
+  Cloudflare's edge.
+- <strong>X-Forwarded-For / evidence:</strong> Cloudflare sets the standard
+  headers; the client-IP evidence lives in the Cloudflare dashboard
+  (or Logpush).
+- <strong>CIDR refresh:</strong> the IP List is the static copy;
+  API-updatable, so a scheduled job can own it.
+- <strong>Trade:</strong> the route is invisible to the cluster's Gateway API
+  resources (edge → pod bypasses <code>HTTPRoute</code> entirely). For a
+  single app-owned route that is arguably a feature.</p>
+<h2 id="cloudflare-tunnel-community-operators">Cloudflare Tunnel — community operators</h2>
+<p>Cloudflare's own ingress controller is archived; the Kubernetes
+integration is community-run:</p>
+<ul>
+<li><strong>cfgate</strong> — Gateway API-native: <code>CloudflareTunnel</code> /
+  <code>CloudflareDNS</code> / Access CRDs; point a <code>Gateway</code> at the tunnel,
+  attach <code>HTTPRoute</code>s; manages cloudflared pods and DNS.</li>
+<li><strong>lexfrei/cloudflare-tunnel-gateway-controller</strong> — full
+  <code>HTTPRoute</code> semantics via an embedded L7 proxy in a forked
+  cloudflared; assumes exclusive ownership of the tunnel config.</li>
+<li><strong>STRRL/cloudflare-tunnel-ingress-controller</strong> — <code>Ingress</code>-class
+  based (<code>cloudflare-tunnel</code>), the established choice.</li>
+</ul>
+<p>Source-IP enforcement, evidence, and CIDR refresh are identical to
+the sidecar row (same edge). The trade is community-operator
+maturity against the sidecar row's zero-operator simplicity — weigh
+it if you want the webhook route visible in <code>HTTPRoute</code>s.</p>
+<h2 id="ngrok-kubernetes-operator">ngrok Kubernetes operator</h2>
+<p>The operator (successor to the ngrok ingress controller) implements
+both <code>Ingress</code> and the Gateway API. Traffic Policy attaches to
+Gateway API resources via the <code>NgrokTrafficPolicy</code> CRD and the
+<code>extensionRef</code> filter; the <code>restrict-ips</code> action runs in the
+<code>on_tcp_connect</code> phase — denied at the TCP layer, at ngrok's edge,
+before any HTTP exchange.</p>
+<ul>
+<li><strong>Recipe:</strong> operator install + <code>Gateway</code>/<code>HTTPRoute</code> for the
+  webhook path + a <code>NgrokTrafficPolicy</code> with one <code>restrict-ips</code>
+  rule carrying the GitHub <code>hooks</code> CIDRs (a single rule takes the
+  whole list — the free tier's 5-rules-per-policy cap is not a
+  factor).</li>
+<li><strong>Plan gating:</strong> the operator itself is free on every plan.
+  A <em>stable</em> webhook URL (reserved/custom domain) and — per the
+  pricing grid — Traffic Policy are Pay-as-you-go (~$20/mo base;
+  policy units are negligible at webhook volume). Free keeps
+  working for testing exactly as always.</li>
+<li><strong>X-Forwarded-For / evidence:</strong> ngrok sets the standard headers;
+  the ngrok inspector is the client-IP evidence.</li>
+<li><strong>CIDR refresh:</strong> the policy document is the static copy; give it
+  an owner.</li>
+<li><strong>Observability:</strong> ngrok's edge dashboard/inspector plus the
+  app-side OTEL series.</li>
+</ul>
+<h2 id="local-development-quick-tunnels">Local development: quick tunnels</h2>
+<p>For <code>make run-local</code> (binary + docker-compose Postgres/Valkey):</p>
+<pre><code class="language-bash">ngrok http 8080                  # the habitual path — validated ☑
+cloudflared tunnel --url http://localhost:8080   # free, no account (trycloudflare.com) — ☐
+</code></pre>
+<p>Point a test App's webhook URL at the printed public URL. No
+source-IP layer on either (ngrok's policy is paid; quick tunnels
+have none) — HMAC-only, which is fine for a test App with a
+throwaway secret.</p>
+<h2 id="checkbox-contract">Checkbox contract</h2>
+<p>A <strong>Validated</strong> box in the matrix is checked only after the option
+has carried a <strong>real GitHub App webhook delivery end-to-end</strong> —
+GitHub → edge → pod → 202, visible in the App's <em>Recent
+Deliveries</em> view and the app's own metrics — not after the
+manifests merely applied cleanly. The ngrok local-dev row is the
+only one checked today, from years of testing use. Funnel's
+X-Forwarded-For behaviour is part of its validation pass
+(empirical, undocumented upstream). When you validate a row, check
+the box in this file and note anything surprising in the row's
+section.</p>
+<h2 id="observability-after-the-removal">Observability after the removal</h2>
+<p>There is <strong>no in-app client-IP telemetry</strong> (DESIGN-0023 OQ5): the
+deleted allowlist was the only consumer of <code>X-Forwarded-For</code>, and
+otelhttp metrics stay IP-free by design (label cardinality). Each
+row above names where its edge's client-IP evidence lives. On the
+app side:</p>
+<ul>
+<li><code>http_server_request_duration_seconds</code> (webhook route) — is
+  traffic arriving.</li>
+<li><code>webhook_rejected_total{reason="signature"}</code> — deliveries failing
+  HMAC validation: a burst means a wrong or rotated webhook secret,
+  <strong>not</strong> an unwanted-source problem; that signal lives at your
+  edge layer now.</li>
+<li>The E4 evidence dashboard answers "which repository", never
+  "which caller".</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

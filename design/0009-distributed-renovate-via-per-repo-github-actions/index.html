@@ -1,0 +1,3502 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0008-additional-rule-types-and-ignore-lists/">
+      
+      
+        <link rel="next" href="../../impl/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Distributed Renovate via Per-Repo GitHub Actions - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0009-distributed-renovate-via-per-repo-github-actions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Distributed Renovate via Per-Repo GitHub Actions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-serial-execution-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Serial Execution Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repo-guardian-as-the-distribution-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repo-guardian as the Distribution Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependabot-vs-renovate-rate-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependabot vs Renovate Rate Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-state-central-runner-serial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current State (Central Runner, Serial)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposed-state-per-repo-parallel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposed State (Per-Repo, Parallel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-renovate-workflow-template-managed-by-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Renovate Workflow Template (managed by repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-renovate-config-managed-by-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Renovate Config (managed by repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-org-preset-repo-renovate-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Org Preset Repo (renovate-config)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-github-app-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. GitHub App Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repo-guardian-hcl-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repo-guardian HCL Policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rate-limit-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate Limit Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github-actions-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Actions Minutes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API / Interface Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-new-api-surface-for-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No New API Surface for v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github-app-permissions-renovate-app-not-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub App Permissions (Renovate App, Not repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparison-to-alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison to Alternatives
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comparison to Alternatives">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-reconsider-renovate-ee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Reconsider Renovate EE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration / Rollout Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-pilot-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 -- Pilot (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-controlled-rollout-4-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 -- Controlled Rollout (4 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-full-rollout-ongoing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 -- Full Rollout (ongoing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resolved Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions-minutes-runner-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions Minutes / Runner Capacity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconcile-pr-approval-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconcile PR Approval Policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Versioning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cron-vs-staggered-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Cron vs Staggered Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Work
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Future Work">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coordinated-dispatch-via-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinated Dispatch via repo-guardian
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trigger-endpoint-and-slack-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trigger Endpoint and Slack Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-property-driven-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Property-Driven Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#durable-state-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Durable State Store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-serial-execution-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Serial Execution Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repo-guardian-as-the-distribution-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repo-guardian as the Distribution Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependabot-vs-renovate-rate-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependabot vs Renovate Rate Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-state-central-runner-serial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current State (Central Runner, Serial)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposed-state-per-repo-parallel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposed State (Per-Repo, Parallel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-renovate-workflow-template-managed-by-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Renovate Workflow Template (managed by repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-renovate-config-managed-by-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Renovate Config (managed by repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-org-preset-repo-renovate-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Org Preset Repo (renovate-config)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-github-app-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. GitHub App Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repo-guardian-hcl-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repo-guardian HCL Policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rate-limit-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate Limit Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github-actions-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Actions Minutes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API / Interface Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-new-api-surface-for-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No New API Surface for v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#github-app-permissions-renovate-app-not-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub App Permissions (Renovate App, Not repo-guardian)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparison-to-alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison to Alternatives
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comparison to Alternatives">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-reconsider-renovate-ee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Reconsider Renovate EE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration / Rollout Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-pilot-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 -- Pilot (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-controlled-rollout-4-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 -- Controlled Rollout (4 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-full-rollout-ongoing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 -- Full Rollout (ongoing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resolved Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#actions-minutes-runner-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions Minutes / Runner Capacity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconcile-pr-approval-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconcile PR Approval Policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Versioning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cron-vs-staggered-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Cron vs Staggered Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Work
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Future Work">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coordinated-dispatch-via-repo-guardian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinated Dispatch via repo-guardian
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trigger-endpoint-and-slack-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trigger Endpoint and Slack Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-property-driven-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Property-Driven Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#durable-state-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Durable State Store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0009-distributed-renovate-via-per-repo-github-actions">DESIGN 0009: Distributed Renovate via Per-Repo GitHub Actions</h1>
+<p><strong>Status:</strong> Draft
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-03-15</p>
+<h2 id="overview">Overview</h2>
+<p>Rather than running a single central Renovate process that iterates through
+repositories serially, this approach distributes Renovate execution across
+individual repositories via a standardized GitHub Actions workflow managed
+by repo-guardian. Each repository runs its own Renovate job independently,
+achieving native parallelism through GitHub Actions without requiring
+Renovate Enterprise Edition.</p>
+<p>For v1, repo-guardian treats the Renovate workflow and config as <strong>just
+another set of managed files</strong> -- no different from CODEOWNERS or
+Dependabot config. If they're missing, PR them in. If they drift, detect
+it. The workflow includes a <code>schedule</code> trigger so repos run Renovate
+independently. Coordinated dispatch, trigger endpoints, and durable state
+are future work.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li>Distribute Renovate execution across repositories via per-repo GitHub
+  Actions workflows</li>
+<li>Achieve native parallelism without Renovate Enterprise Edition</li>
+<li>Use repo-guardian's existing file rules to manage workflow and config
+  files as enforced resources</li>
+<li>Authenticate via a dedicated Renovate GitHub App with per-org rate
+  limit budgets</li>
+<li>Share configuration through an org-level Renovate preset repository</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li>Coordinated dispatch from repo-guardian (future work)</li>
+<li>Trigger endpoints or Slack integration (future work)</li>
+<li>Durable job state, external queue, or database (future work)</li>
+<li>Template variable substitution or per-repo template rendering</li>
+<li>Replacing Renovate Enterprise Edition for organizations that need
+  webhook-driven immediacy or smart merge control</li>
+<li>Building a self-hosted Renovate server/worker architecture</li>
+</ul>
+<h2 id="background">Background</h2>
+<h3 id="the-serial-execution-problem">The Serial Execution Problem</h3>
+<p>At 10,000+ repositories across multiple GitHub organizations, serial
+Renovate execution is not viable:</p>
+<ul>
+<li>At ~30-60 seconds per repo, a single Renovate process takes 80-170
+  hours to cycle through all repositories</li>
+<li>By the time a full cycle completes, early repos are days stale</li>
+<li>This is the primary differentiator Mend uses to justify Renovate
+  Enterprise Edition ($50K-$250K+/year), which adds a Server + Worker
+  architecture for parallel execution</li>
+</ul>
+<h3 id="repo-guardian-as-the-distribution-mechanism">repo-guardian as the Distribution Mechanism</h3>
+<p>We already have repo-guardian -- a system that enforces the presence of
+standard files across all repositories. The distribution problem (getting
+a CI file into every repo and keeping it in sync) is already solved via
+the HCL policy engine, file rules, and reconciler system.</p>
+<h3 id="dependabot-vs-renovate-rate-limits">Dependabot vs Renovate Rate Limits</h3>
+<p>Dependabot is a first-party GitHub product. It runs on GitHub's own
+infrastructure, does not consume Actions minutes, and does not count
+against API rate limits. GitHub manages scheduling and parallelism
+internally, so a shared cron schedule (e.g., Sunday 6am) is fine.</p>
+<p>Renovate running as a GitHub Action is different -- every run consumes
+your Actions minutes and your GitHub App's API rate limit budget. At
+scale, this matters. Each repo's Renovate run authenticates independently
+via the GitHub App, so rate limit consumption is distributed across org
+installations rather than concentrated in a single process.</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="architecture">Architecture</h3>
+<h4 id="current-state-central-runner-serial">Current State (Central Runner, Serial)</h4>
+<pre><code>renovate-runner repo
+└── 1 GitHub Actions job
+    └── 1 Renovate process
+        ├── repo-001  (t=0s)
+        ├── repo-002  (t=45s)
+        ├── repo-003  (t=90s)
+        │   ...
+        └── repo-10000  (t=~170hrs)
+</code></pre>
+<h4 id="proposed-state-per-repo-parallel">Proposed State (Per-Repo, Parallel)</h4>
+<pre><code>repo-001/.github/workflows/renovate.yml
+└── GitHub Actions job
+    └── docker run renovate/renovate
+        └── RENOVATE_REPOSITORIES=org/repo-001  ← scoped to this repo only
+
+repo-002/.github/workflows/renovate.yml
+└── GitHub Actions job
+    └── docker run renovate/renovate
+        └── RENOVATE_REPOSITORIES=org/repo-002  ← scoped to this repo only
+
+...
+
+repo-10000/.github/workflows/renovate.yml
+└── GitHub Actions job
+    └── docker run renovate/renovate
+        └── RENOVATE_REPOSITORIES=org/repo-10000  ← scoped to this repo only
+</code></pre>
+<p>Each container is a completely hermetic Renovate process. No autodiscover,
+no central coordinator, no shared state. GitHub Actions is the scheduler
+and runner -- Renovate itself has zero awareness of other repositories in
+the org.</p>
+<p>All runs share the <strong>org-level Renovate preset</strong> hosted in a dedicated
+config repo. The GitHub App token is distributed as an organization-level
+secret, available automatically to all repositories without per-repo
+configuration.</p>
+<p>repo-guardian's role is simple: <strong>ensure the workflow and config files
+exist and are correct in every repo.</strong> This is the same thing it does
+for CODEOWNERS, Dependabot, and every other managed file.</p>
+<h3 id="components">Components</h3>
+<h4 id="1-renovate-workflow-template-managed-by-repo-guardian">1. Renovate Workflow Template (managed by repo-guardian)</h4>
+<pre><code class="language-yaml"># .github/workflows/renovate.yml
+# Managed by repo-guardian — do not edit manually
+name: Renovate
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Weekly, Monday 3am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  renovate:
+    name: Renovate Dependency Updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Run Renovate
+        run: |
+          docker run --rm \
+            -e RENOVATE_TOKEN \
+            -e RENOVATE_REPOSITORIES \
+            -e RENOVATE_CONFIG_FILE \
+            -e LOG_LEVEL \
+            renovate/renovate:latest  # TODO: pin to specific version
+        env:
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_CONFIG_FILE: renovate.json
+          LOG_LEVEL: info
+</code></pre>
+<p>Key points:</p>
+<ul>
+<li><strong>Docker-based execution</strong> -- Renovate CLI runs directly in a container,
+  not via the <code>renovatebot/github-action</code> wrapper. Each job is a
+  completely isolated, hermetic Renovate process.</li>
+<li><strong>No <code>autodiscover</code></strong> -- <code>RENOVATE_REPOSITORIES</code> is set to
+  <code>${{ github.repository }}</code>, scoping this Renovate process to exactly
+  one repo. The container has zero awareness of any other repository in
+  the org.</li>
+<li><strong>Token generation</strong> -- <code>actions/create-github-app-token@v1</code> generates
+  a short-lived installation token from the GitHub App credentials. The
+  raw private key never reaches the Renovate container.</li>
+<li><strong>Static template</strong> -- identical content for every repo, no per-repo
+  variable substitution</li>
+<li>Credentials come from org-level secrets -- no per-repo secret management</li>
+<li><code>schedule</code> trigger runs weekly -- all repos share the same cron, GitHub
+  Actions runner queue naturally distributes execution over time</li>
+<li><code>workflow_dispatch</code> allows manual triggers from the Actions UI or
+  GitHub API for on-demand runs</li>
+</ul>
+<h4 id="2-renovate-config-managed-by-repo-guardian">2. Renovate Config (managed by repo-guardian)</h4>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://docs.renovateapp.com/renovate-schema.json&quot;,
+  &quot;extends&quot;: [&quot;github&gt;YOUR_ORG/renovate-config&quot;]
+}
+</code></pre>
+<p>Repositories may add per-repo overrides beneath <code>extends</code>, but the org
+preset is always the base. repo-guardian validates this structure via
+content assertions and can flag non-compliant overrides.</p>
+<h4 id="3-org-preset-repo-renovate-config">3. Org Preset Repo (<code>renovate-config</code>)</h4>
+<p>A dedicated repository in each GitHub org hosts the shared preset:</p>
+<pre><code>renovate-config/
+└── default.json
+</code></pre>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://docs.renovateapp.com/renovate-schema.json&quot;,
+  &quot;extends&quot;: [&quot;config:recommended&quot;],
+  &quot;timezone&quot;: &quot;America/New_York&quot;,
+  &quot;schedule&quot;: [&quot;before 6am on Monday&quot;],
+  &quot;prHourlyLimit&quot;: 4,
+  &quot;prConcurrentLimit&quot;: 10,
+  &quot;labels&quot;: [&quot;dependencies&quot;],
+  &quot;automerge&quot;: false,
+  &quot;packageRules&quot;: [
+    {
+      &quot;matchUpdateTypes&quot;: [&quot;minor&quot;, &quot;patch&quot;],
+      &quot;matchCurrentVersion&quot;: &quot;!/^0/&quot;,
+      &quot;automerge&quot;: true
+    },
+    {
+      &quot;matchUpdateTypes&quot;: [&quot;major&quot;],
+      &quot;automerge&quot;: false,
+      &quot;labels&quot;: [&quot;dependencies&quot;, &quot;major-update&quot;]
+    }
+  ]
+}
+</code></pre>
+<h4 id="4-github-app-authentication">4. GitHub App Authentication</h4>
+<p>A dedicated <strong>Renovate GitHub App</strong> is installed across all orgs. This is
+the authentication mechanism for all Renovate runs -- not a PAT.</p>
+<p><strong>Why a GitHub App over a PAT:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>PAT</th>
+<th>GitHub App</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rate limit</td>
+<td>5,000 req/hr (shared with user)</td>
+<td>15,000 req/hr per org installation</td>
+</tr>
+<tr>
+<td>Identity</td>
+<td>Your personal user</td>
+<td>Bot account (<code>renovate[bot]</code>)</td>
+</tr>
+<tr>
+<td>Expiry</td>
+<td>Requires rotation</td>
+<td>Key rotation only, no expiry</td>
+</tr>
+<tr>
+<td>Auditability</td>
+<td>Attributed to your user</td>
+<td>Clearly attributed to the app</td>
+</tr>
+<tr>
+<td>Multi-org</td>
+<td>One PAT across all orgs</td>
+<td>Install per org, separate rate limit budgets</td>
+</tr>
+</tbody>
+</table>
+<p>At 10,000+ repos with many concurrent runs, the <strong>per-org 15,000 req/hr
+rate limit</strong> is what makes this architecture viable. Each org installation
+gets its own budget -- parallel runs in org-A don't consume org-B's rate
+limit.</p>
+<p><strong>App permissions required:</strong></p>
+<ul>
+<li>Contents: Read &amp; Write</li>
+<li>Pull requests: Read &amp; Write</li>
+<li>Issues: Read &amp; Write</li>
+<li>Metadata: Read</li>
+<li>Workflows: Read &amp; Write (required to manage the workflow file itself)</li>
+</ul>
+<p><strong>Secret distribution:</strong></p>
+<p>Both secrets are set at the <strong>organization level</strong> in GitHub, making them
+automatically available to all repositories without any per-repo
+configuration:</p>
+<ul>
+<li><code>RENOVATE_APP_ID</code> -- the GitHub App's numeric ID</li>
+<li><code>RENOVATE_APP_PRIVATE_KEY</code> -- the App's PEM private key</li>
+</ul>
+<h3 id="repo-guardian-hcl-policy">repo-guardian HCL Policy</h3>
+<p>Two file rules manage the Renovate files using the existing policy engine:</p>
+<pre><code class="language-hcl">rule &quot;file&quot; &quot;renovate_workflow&quot; {
+  check    = &quot;exact&quot;
+  paths    = [&quot;.github/workflows/renovate.yml&quot;]
+  target   = &quot;.github/workflows/renovate.yml&quot;
+  template = &quot;renovate-workflow&quot;
+
+  reconcile &quot;workflow_sync&quot; {
+    watch = true
+  }
+}
+
+rule &quot;file&quot; &quot;renovate_config&quot; {
+  check    = &quot;contains&quot;
+  paths    = [&quot;renovate.json&quot;]
+  target   = &quot;renovate.json&quot;
+  template = &quot;renovate-config&quot;
+
+  assertion {
+    pattern = &quot;github&gt;.*renovate-config&quot;
+    message = &quot;renovate.json must extend org preset&quot;
+  }
+}
+</code></pre>
+<p><strong>How this maps to existing repo-guardian behavior:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File missing</td>
+<td><code>check = "exact"</code> / <code>check = "contains"</code> detects absence, creates PR with template</td>
+</tr>
+<tr>
+<td>File drifted from template</td>
+<td><code>check = "exact"</code> on workflow detects content mismatch, creates PR</td>
+</tr>
+<tr>
+<td>Config missing org preset</td>
+<td><code>assertion</code> with regex pattern validates content</td>
+</tr>
+<tr>
+<td>Someone edits managed workflow</td>
+<td><code>reconcile "workflow_sync"</code> with <code>watch = true</code> triggers re-check on push</td>
+</tr>
+<tr>
+<td>Repo should be excluded</td>
+<td><code>ignore {}</code> block (global or per-rule) with glob patterns</td>
+</tr>
+<tr>
+<td>Dry run / audit only</td>
+<td><code>dry_run = true</code> in <code>guardian {}</code> block -- logs what would happen, no changes</td>
+</tr>
+</tbody>
+</table>
+<p>No new enforcement modes, template versioning, or config formats are
+needed. The existing HCL policy engine, check modes, assertions, and
+reconciler system handle all of this.</p>
+<h3 id="rate-limit-analysis">Rate Limit Analysis</h3>
+<p>With a GitHub App installed per org:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rate limit per org installation</td>
+<td>15,000 req/hr</td>
+</tr>
+<tr>
+<td>Estimated API calls per Renovate run</td>
+<td>50-150 (varies by repo size and dep count)</td>
+</tr>
+<tr>
+<td>Concurrent runs (worst case, same cron)</td>
+<td>All repos in org</td>
+</tr>
+<tr>
+<td>GitHub Actions runner queue</td>
+<td>Naturally distributes start times</td>
+</tr>
+</tbody>
+</table>
+<p>All repos sharing the same cron sounds like a thundering herd, but in
+practice GitHub Actions doesn't start all workflows simultaneously. The
+runner queue distributes execution based on runner availability. Each
+repo's Renovate run authenticates independently via the GitHub App, so
+API calls are spread over the duration of all runs, not concentrated at
+the start.</p>
+<p>For orgs where this becomes a real problem, the future dispatch
+coordination (see Future Work) provides a controlled throttle.</p>
+<h3 id="github-actions-minutes">GitHub Actions Minutes</h3>
+<p>GitHub Enterprise Cloud includes <strong>50,000 Actions minutes/month</strong> per org
+by default (verify your contract).</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Estimate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repos per org</td>
+<td>~2,000 avg (5 orgs, 10k total)</td>
+</tr>
+<tr>
+<td>Avg run duration</td>
+<td>2-3 minutes</td>
+</tr>
+<tr>
+<td>Cadence</td>
+<td>Weekly</td>
+</tr>
+<tr>
+<td>Minutes/org/month</td>
+<td>2,000 x 2.5 x 4 = <strong>20,000 min/month</strong></td>
+</tr>
+<tr>
+<td>% of 50k budget</td>
+<td><strong>40%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>This leaves 60% of your Actions budget available for other workflows. If
+specific repos need an on-demand Renovate run, <code>workflow_dispatch</code> can
+be triggered manually from the GitHub Actions UI.</p>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<h3 id="no-new-api-surface-for-v1">No New API Surface for v1</h3>
+<p>v1 requires no new endpoints, no new GitHub client methods, and no new
+permissions beyond what repo-guardian already has. The renovate workflow
+and config are managed as standard file rules through the existing policy
+engine.</p>
+<h3 id="github-app-permissions-renovate-app-not-repo-guardian">GitHub App Permissions (Renovate App, Not repo-guardian)</h3>
+<p>The <strong>Renovate GitHub App</strong> (separate from repo-guardian's App) needs:</p>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Access</th>
+<th>Required For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contents</code></td>
+<td>Read &amp; Write</td>
+<td>Reading repo, creating branches</td>
+</tr>
+<tr>
+<td><code>pull_requests</code></td>
+<td>Read &amp; Write</td>
+<td>Creating/updating Renovate PRs</td>
+</tr>
+<tr>
+<td><code>issues</code></td>
+<td>Read &amp; Write</td>
+<td>Dependency dashboard issue</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>Read</td>
+<td>Repository metadata</td>
+</tr>
+<tr>
+<td><code>workflows</code></td>
+<td>Read &amp; Write</td>
+<td>Managing workflow files</td>
+</tr>
+</tbody>
+</table>
+<p>repo-guardian's own GitHub App permissions are unchanged.</p>
+<h2 id="data-model">Data Model</h2>
+<p>No database or persistent storage changes. repo-guardian treats the
+Renovate files identically to all other managed files -- no special state
+tracking.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Unit tests</strong> for <code>renovate.json</code> assertion -- validate that the
+  <code>contains</code> check catches missing org preset references</li>
+<li><strong>Integration tests</strong> -- repo-guardian engine with renovate file rules,
+  mock GitHub client, verify correct PR content and assertion evaluation</li>
+<li><strong>Manual validation</strong> -- pilot org with ~200 repos, observe Renovate
+  run behavior, rate limit headroom, PR quality</li>
+</ul>
+<h2 id="failure-modes">Failure Modes</h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Impact</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Renovate run fails in one repo</td>
+<td>That repo misses an update cycle</td>
+<td>Next scheduled run self-heals; no impact on other repos</td>
+</tr>
+<tr>
+<td>GitHub App private key expires/rotates</td>
+<td>All runs fail org-wide</td>
+<td>Key rotation runbook; monitor via GitHub App expiry alerts</td>
+</tr>
+<tr>
+<td>repo-guardian reconcile PR not merged</td>
+<td>Repo stays on old template</td>
+<td>PR remains open; next check cycle is idempotent</td>
+</tr>
+<tr>
+<td>Actions minutes exhausted</td>
+<td>No runs until next billing cycle</td>
+<td>Alert at 80% consumption; adjust cadence</td>
+</tr>
+</tbody>
+</table>
+<h2 id="comparison-to-alternatives">Comparison to Alternatives</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>This Approach</th>
+<th>Central Runner (Serial)</th>
+<th>Renovate EE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Parallelism</strong></td>
+<td>Native (one runner per repo)</td>
+<td>Serial</td>
+<td>Worker pool</td>
+</tr>
+<tr>
+<td><strong>Cost</strong></td>
+<td>$0 (Actions included)</td>
+<td>$0</td>
+<td>$50K-$250K+/yr</td>
+</tr>
+<tr>
+<td><strong>Cycle time (10k repos)</strong></td>
+<td>Minutes (runner queue)</td>
+<td>80-170 hours</td>
+<td>Minutes</td>
+</tr>
+<tr>
+<td><strong>Rate limits</strong></td>
+<td>Per-org App budget</td>
+<td>Single process, low usage</td>
+<td>Managed by Mend</td>
+</tr>
+<tr>
+<td><strong>Operational complexity</strong></td>
+<td>Low (repo-guardian manages files)</td>
+<td>Low</td>
+<td>High (Kubernetes infra)</td>
+</tr>
+<tr>
+<td><strong>Config drift risk</strong></td>
+<td>Low (repo-guardian reconciles)</td>
+<td>None</td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong>Webhook-driven runs</strong></td>
+<td>Manual dispatch only</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Dependency Dashboard</strong></td>
+<td>Per repo</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Smart Merge Control</strong></td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Support SLA</strong></td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-reconsider-renovate-ee">When to Reconsider Renovate EE</h3>
+<p>This approach covers 95% of the value at 0% of the cost. Consider EE if:</p>
+<ul>
+<li><strong>Webhook-driven immediacy is required</strong> -- EE reacts to repo events in
+  near-realtime. This approach is cron-driven plus manual dispatch.</li>
+<li><strong>Smart Merge Control is needed</strong> -- EE's ML-based merge confidence
+  scoring is not replicable with the open-source CLI.</li>
+<li><strong>Actions minutes become a constraint</strong> -- If other workflows consume
+  your Actions budget, a self-hosted EE deployment on your own compute
+  avoids the minutes problem entirely.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<h3 id="phase-1-pilot-2-weeks">Phase 1 -- Pilot (2 weeks)</h3>
+<ul>
+<li>Select one non-critical org with ~200 repos</li>
+<li>Add renovate file rules to <code>guardian.hcl</code> with <code>dry_run = true</code></li>
+<li>Review compliance report -- which repos are missing files</li>
+<li>Manually apply template to 10 repos, trigger via GitHub Actions UI</li>
+<li>Observe run behavior, logs, PR quality</li>
+<li>Validate rate limit headroom via GitHub API rate limit monitoring</li>
+</ul>
+<h3 id="phase-2-controlled-rollout-4-weeks">Phase 2 -- Controlled Rollout (4 weeks)</h3>
+<ul>
+<li>Disable <code>dry_run</code>, repo-guardian creates PRs for missing files</li>
+<li>Monitor: Actions minutes consumption, rate limit usage, PR merge rate,
+  noise level</li>
+<li>Tune <code>default.json</code> preset (schedule, PR limits, automerge rules) based
+  on feedback</li>
+<li>Expand to a second org</li>
+</ul>
+<h3 id="phase-3-full-rollout-ongoing">Phase 3 -- Full Rollout (ongoing)</h3>
+<ul>
+<li>Enable across all orgs</li>
+<li>Onboard remaining orgs in waves of ~1,000 repos per week</li>
+<li>Monitor and tune</li>
+</ul>
+<h2 id="open-questions">Open Questions</h2>
+<ul>
+<li>Determine which repo types are excluded (archived, forks, template
+  repos) -- likely handled by existing <code>skip_forks</code> and <code>skip_archived</code>
+  flags plus ignore lists</li>
+</ul>
+<h2 id="resolved-decisions">Resolved Decisions</h2>
+<h3 id="actions-minutes-runner-capacity">Actions Minutes / Runner Capacity</h3>
+<p>Assume sufficient GitHub Enterprise Cloud minutes, or use ARC (Actions
+Runner Controller) self-hosted runners on existing Kubernetes
+infrastructure. Minutes budget is not a constraint for planning purposes.</p>
+<h3 id="reconcile-pr-approval-policy">Reconcile PR Approval Policy</h3>
+<p>Reconcile PRs from repo-guardian <strong>always require human approval</strong> -- no
+auto-merge. This applies to both <code>renovate.yml</code> workflow updates and
+<code>renovate.json</code> config updates pushed by repo-guardian.</p>
+<h3 id="template-versioning">Template Versioning</h3>
+<p>Not needed as a separate concept. repo-guardian's templates live in git.
+When a template changes and is deployed, the weekly scheduler re-checks
+all repos. <code>check = "exact"</code> detects drift from the current template and
+creates a PR. Git is the source of truth for template versions.</p>
+<h3 id="shared-cron-vs-staggered-scheduling">Shared Cron vs Staggered Scheduling</h3>
+<p>v1 uses a shared cron schedule across all repos. GitHub Actions runner
+queue naturally distributes execution. If this becomes a bottleneck at
+scale, coordinated dispatch via repo-guardian's work queue is available
+as a future optimization (see Future Work).</p>
+<h2 id="future-work">Future Work</h2>
+<h3 id="coordinated-dispatch-via-repo-guardian">Coordinated Dispatch via repo-guardian</h3>
+<p>If the shared cron approach causes rate limit or runner queue issues at
+scale, repo-guardian can take over dispatch coordination:</p>
+<ul>
+<li>Remove the <code>schedule</code> trigger from the workflow template</li>
+<li>Add a dispatch job type to repo-guardian's work queue</li>
+<li>The scheduler enqueues dispatch jobs, workers call <code>workflow_dispatch</code>
+  via the GitHub API</li>
+<li>Worker concurrency provides natural throttling</li>
+<li>Requires <code>actions: write</code> permission on repo-guardian's GitHub App and
+  a new <code>DispatchWorkflow</code> method on the GitHub client interface</li>
+</ul>
+<p>This adds complexity to the scheduler, work queue, and job model. It
+should only be pursued if the shared cron approach proves insufficient.</p>
+<h3 id="trigger-endpoint-and-slack-integration">Trigger Endpoint and Slack Integration</h3>
+<p>A stateless HTTP endpoint for on-demand single-repo dispatch:</p>
+<pre><code>POST /api/v1/trigger/{owner}/{repo}/renovate
+</code></pre>
+<p>This becomes the integration point for a Slack app:</p>
+<pre><code>/guardian renovate run org/repo-name
+/guardian renovate run org/repo-name --all   # trigger all repos in org
+/guardian renovate status org/repo-name      # last run status + PR count
+</code></pre>
+<p>This is not Renovate-specific -- it's a <strong>repo-guardian control plane</strong>
+exposed via Slack. The same command surface applies to any workflow
+repo-guardian manages:</p>
+<pre><code>/guardian run renovate org/repo-name
+/guardian run license-check org/repo-name
+/guardian status org/repo-name              # full compliance status
+/guardian audit org/repo-name               # list all managed file violations
+/guardian sync org/repo-name                # trigger reconcile PR
+</code></pre>
+<p>This should be scoped as a separate project. It requires the dispatch
+coordination capability above and benefits from durable state.</p>
+<h3 id="custom-property-driven-scheduling">Custom Property-Driven Scheduling</h3>
+<p>GitHub repository custom properties can signal desired Renovate cadence:</p>
+<pre><code>Property name:  renovate-schedule
+Type:           Single select
+Allowed values: daily | 3x-weekly | weekly | custom
+Default:        weekly
+</code></pre>
+<p>repo-guardian reads this property at dispatch time and adjusts frequency
+accordingly. This requires the coordinated dispatch capability and the
+ability to read custom properties FROM GitHub (the reverse direction from
+the current custom properties reconciler, which writes TO GitHub from
+catalog-info.yaml).</p>
+<p>Other candidates for property-driven behavior:</p>
+<ul>
+<li><code>renovate-automerge-policy</code> -- auto-merge low-risk template updates</li>
+<li><code>codeowners-policy</code> -- enforcement strictness of CODEOWNERS file</li>
+<li><code>branch-protection-profile</code> -- which branch protection preset to apply</li>
+<li><code>sbom-scan</code> -- enable/disable SBOM generation workflow</li>
+</ul>
+<h3 id="durable-state-store">Durable State Store</h3>
+<p>When the following requirements emerge, add external state:</p>
+<ul>
+<li><strong>Redis</strong> -- durable job queue with at-least-once delivery, dispatch
+  cycle tracking</li>
+<li><strong>PostgreSQL</strong> -- job history, dispatch audit trail, repo compliance
+  status over time</li>
+<li><strong>Web UI</strong> -- admin dashboard for dispatch cycles, repo status,
+  manual triggers, configuration</li>
+</ul>
+<p>This is explicitly not part of v1. v1 priorities are file compliance
+enforcement and catalog-info.yaml custom properties reconciliation.
+Everything else is a fancy file checker that puts stuff in repos.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/">RFC-0002: HCL-driven Policy Engine</a></li>
+<li><a href="../0006-hcl-policy-configuration-and-rule-engine/">DESIGN-0006: HCL Policy Configuration</a></li>
+<li><a href="../0007-reconciler-interface-and-push-event-handler/">DESIGN-0007: Reconciler Interface</a></li>
+<li><a href="../0008-additional-rule-types-and-ignore-lists/">DESIGN-0008: Additional Rule Types and Ignore Lists</a></li>
+<li><a href="https://github.com/renovatebot/github-action">Renovate GitHub Action</a></li>
+<li><a href="https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/rate-limits-for-github-apps">GitHub App Rate Limits</a></li>
+<li><a href="https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event">GitHub Workflow Dispatch API</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

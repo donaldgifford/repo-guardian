@@ -1,0 +1,2940 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0003-github-webhook-ip-allowlist-middleware/">
+      
+      
+        <link rel="next" href="../0005-hcl-policy-configuration-and-rule-engine/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Helm Chart for repo-guardian - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0004-helm-chart-for-repo-guardian" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Helm Chart for repo-guardian
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-chart-scaffold-and-core-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Chart Scaffold and Core Templates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Chart Scaffold and Core Templates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-tailscale-sidecar-and-servicemonitor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Tailscale Sidecar and ServiceMonitor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Tailscale Sidecar and ServiceMonitor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-helm-unittest-test-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: helm-unittest Test Suite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: helm-unittest Test Suite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-ci-values-and-chart-testing-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: CI Values and chart-testing Config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: CI Values and chart-testing Config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-makefile-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Makefile Targets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Makefile Targets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-helm-docs-readme-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: helm-docs README Generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: helm-docs README Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-ci-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: CI Workflows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: CI Workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-documentation-and-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Documentation and Cleanup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Documentation and Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-chart-scaffold-and-core-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Chart Scaffold and Core Templates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Chart Scaffold and Core Templates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-tailscale-sidecar-and-servicemonitor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Tailscale Sidecar and ServiceMonitor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Tailscale Sidecar and ServiceMonitor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-helm-unittest-test-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: helm-unittest Test Suite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: helm-unittest Test Suite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-ci-values-and-chart-testing-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: CI Values and chart-testing Config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: CI Values and chart-testing Config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-makefile-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Makefile Targets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Makefile Targets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-helm-docs-readme-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: helm-docs README Generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: helm-docs README Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-ci-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: CI Workflows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: CI Workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-documentation-and-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Documentation and Cleanup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Documentation and Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0004-helm-chart-for-repo-guardian">IMPL 0004: Helm Chart for repo-guardian</h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-03-14</p>
+<h2 id="objective">Objective</h2>
+<p>Replace the Kustomize-based deployment with a Helm chart that packages all
+repo-guardian Kubernetes resources, supports dev/prod/Tailscale scenarios via
+values, and integrates chart testing and release tooling.</p>
+<p><strong>Implements:</strong> DESIGN-0005</p>
+<h2 id="scope">Scope</h2>
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li>Helm chart with all templates (deployment, service, configmap, secret, etc.)</li>
+<li>Tailscale sidecar toggle via values</li>
+<li>helm-unittest test suite</li>
+<li>Makefile targets for helm operations</li>
+<li>CI workflows for chart linting, testing, and release</li>
+<li>OCI registry push support</li>
+<li>helm-docs generated README</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li>Removing Kustomize overlays (future work after validation)</li>
+<li>Helm Operator / Flux HelmRelease CRDs</li>
+<li>Third-party subcharts (Prometheus, Grafana)</li>
+</ul>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase builds on the previous one. A phase is complete when all its tasks
+are checked off and its success criteria are met.</p>
+<hr />
+<h3 id="phase-1-chart-scaffold-and-core-templates">Phase 1: Chart Scaffold and Core Templates</h3>
+<p>Create the chart directory structure, Chart.yaml, values.yaml, and the core
+Kubernetes resource templates.</p>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[x] Create <code>charts/repo-guardian/Chart.yaml</code> (apiVersion v2, type application)</li>
+<li>[x] Create <code>charts/repo-guardian/.helmignore</code></li>
+<li>[x] Create <code>charts/repo-guardian/values.yaml</code> with helm-docs annotations covering all sections:</li>
+<li><code>replicaCount</code>, <code>image</code>, <code>imagePullSecrets</code>, <code>nameOverride</code>, <code>fullnameOverride</code></li>
+<li><code>serviceAccount</code> (create, annotations, name)</li>
+<li><code>podAnnotations</code>, <code>podLabels</code>, <code>podSecurityContext</code>, <code>securityContext</code></li>
+<li><code>service</code> (type, httpPort, metricsPort)</li>
+<li><code>resources</code>, <code>livenessProbe</code>, <code>readinessProbe</code></li>
+<li><code>config</code> (appId, org, port, metricsPort, logLevel, dryRun, workerCount, queueSize, scheduleInterval, skipForks, skipArchived)</li>
+<li><code>secrets</code> (create, existingSecret, webhookSecret, privateKey, privateKeyAsFile)</li>
+<li><code>templates</code> (codeowners, dependabot, renovate)</li>
+<li><code>webhookIPAllowlist</code> (enabled, failOpen, trustProxyHeaders)</li>
+<li><code>nodeSelector</code>, <code>tolerations</code>, <code>affinity</code></li>
+<li><code>extraEnv</code>, <code>extraVolumes</code>, <code>extraVolumeMounts</code></li>
+<li>[x] Create <code>charts/repo-guardian/templates/_helpers.tpl</code> (name, fullname, labels, selectorLabels, serviceAccountName, secretName)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/deployment.yaml</code> (app container, all config/secrets env vars, webhookIPAllowlist env vars, volume mounts, probes, nodeSelector, tolerations, affinity, extraEnv, extraVolumes, extraVolumeMounts)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/service.yaml</code> (ClusterIP, http + metrics ports)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/serviceaccount.yaml</code> (conditional on <code>serviceAccount.create</code>)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/configmap.yaml</code> (template file overrides for CODEOWNERS, dependabot, renovate)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/secret.yaml</code> (conditional on <code>secrets.create</code>, existingSecret reference when create=false, file mount and env var modes for private key)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/NOTES.txt</code> (post-install instructions)</li>
+<li>[x] Verify <code>helm lint charts/repo-guardian</code> passes</li>
+<li>[x] Verify <code>helm template charts/repo-guardian</code> renders correctly</li>
+</ul>
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li><code>helm lint charts/repo-guardian</code> passes with no errors</li>
+<li><code>helm template repo-guardian charts/repo-guardian</code> renders all resources</li>
+<li>Default values match current Kustomize base configuration</li>
+<li>Private key file mount and env var modes both render correctly</li>
+</ul>
+<hr />
+<h3 id="phase-2-tailscale-sidecar-and-servicemonitor">Phase 2: Tailscale Sidecar and ServiceMonitor</h3>
+<p>Add optional Tailscale Funnel sidecar injection and Prometheus ServiceMonitor.</p>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[x] Add Tailscale sidecar container to <code>deployment.yaml</code> (conditional on <code>tailscale.enabled</code>, using <code>tailscale.image</code>, <code>tailscale.hostname</code>, <code>tailscale.userspace</code>, <code>tailscale.authKeySecret</code>)</li>
+<li>[x] Create <code>charts/repo-guardian/templates/tailscale-configmap.yaml</code> with Funnel serve config (proxy 443 -&gt; 127.0.0.1:8080, conditional on <code>tailscale.enabled</code>)</li>
+<li>[x] Add Tailscale state emptyDir volume and serve-config volume mount</li>
+<li>[x] Create <code>charts/repo-guardian/templates/tailscale-rbac.yaml</code> with Role + RoleBinding (conditional on <code>tailscale.enabled</code> and <code>tailscale.rbac.create</code>)</li>
+<li>[x] Set <code>TRUST_PROXY_HEADERS=true</code> and <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true</code> automatically when Tailscale is enabled</li>
+<li>[x] Create <code>charts/repo-guardian/templates/servicemonitor.yaml</code> (conditional on <code>serviceMonitor.enabled</code>, with <code>serviceMonitor.interval</code> and <code>serviceMonitor.labels</code>)</li>
+<li>[x] Verify Tailscale sidecar renders with <code>helm template --set tailscale.enabled=true</code></li>
+<li>[x] Verify ServiceMonitor renders with <code>helm template --set serviceMonitor.enabled=true</code></li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li>Tailscale sidecar only appears when <code>tailscale.enabled=true</code></li>
+<li>RBAC resources only appear when <code>tailscale.rbac.create=true</code></li>
+<li>ServiceMonitor only appears when <code>serviceMonitor.enabled=true</code></li>
+<li><code>helm lint</code> still passes with Tailscale and ServiceMonitor enabled</li>
+</ul>
+<hr />
+<h3 id="phase-3-helm-unittest-test-suite">Phase 3: helm-unittest Test Suite</h3>
+<p>Write unit tests for all templates to validate rendering logic.</p>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[x] Create <code>charts/repo-guardian/tests/deployment_test.yaml</code> (replica count, image tag, env vars, volume mounts, Tailscale sidecar, probes)</li>
+<li>[x] Create <code>charts/repo-guardian/tests/service_test.yaml</code> (port mappings, service type)</li>
+<li>[x] Create <code>charts/repo-guardian/tests/configmap_test.yaml</code> (template content, custom overrides)</li>
+<li>[x] Create <code>charts/repo-guardian/tests/secret_test.yaml</code> (create vs existing, file mount vs env var)</li>
+<li>[x] Create <code>charts/repo-guardian/tests/serviceaccount_test.yaml</code> (conditional creation, annotations)</li>
+<li>[x] Create <code>charts/repo-guardian/tests/servicemonitor_test.yaml</code> (conditional creation, interval, labels)</li>
+<li>[x] Run <code>helm unittest charts/repo-guardian</code> and verify all tests pass</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li>All helm-unittest tests pass</li>
+<li>Tests cover conditional rendering (enabled/disabled toggles)</li>
+<li>Tests cover both private key modes (file mount and env var)</li>
+<li>Tests cover Tailscale sidecar injection</li>
+</ul>
+<hr />
+<h3 id="phase-4-ci-values-and-chart-testing-config">Phase 4: CI Values and chart-testing Config</h3>
+<p>Set up chart-testing configuration and CI values for kind cluster installs.</p>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[x] Create <code>charts/repo-guardian/ci/ci-values.yaml</code> (busybox image, disabled probes, test secrets)</li>
+<li>[x] Create <code>ct.yaml</code> (chart-dirs, target-branch, lint-conf)</li>
+<li>[x] Create <code>charts/.yamllint.yml</code> (chart-specific yamllint config)</li>
+<li>[x] Verify <code>ct lint --config ct.yaml --all</code> passes</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li><code>ct lint --config ct.yaml --all</code> passes</li>
+<li><code>ci-values.yaml</code> allows chart installation without real GitHub credentials</li>
+</ul>
+<hr />
+<h3 id="phase-5-makefile-targets">Phase 5: Makefile Targets</h3>
+<p>Add helm-related targets to the existing single Makefile (per DESIGN-0005 Q4
+decision — no modular split).</p>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[x] Add <code>helm-lint</code> target</li>
+<li>[x] Add <code>helm-template</code> target (default values)</li>
+<li>[x] Add <code>helm-template-ci</code> target (CI values)</li>
+<li>[x] Add <code>helm-package</code> target</li>
+<li>[x] Add <code>helm-unittest</code> target</li>
+<li>[x] Add <code>helm-test</code> target (lint + unittest)</li>
+<li>[x] Add <code>helm-ct-lint</code> target</li>
+<li>[x] Add <code>helm-ct-list-changed</code> target</li>
+<li>[x] Add <code>helm-ct-install</code> target</li>
+<li>[x] Add <code>helm-docs</code> target</li>
+<li>[x] Add <code>helm-diff-check</code> target</li>
+<li>[x] Add <code>helm-cr-package</code> target</li>
+<li>[x] Add <code>helm-push</code> target (OCI registry)</li>
+<li>[x] Verify all targets work locally</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li>All Makefile targets execute without errors</li>
+<li><code>make helm-test</code> runs lint and unittest end-to-end</li>
+</ul>
+<hr />
+<h3 id="phase-6-helm-docs-readme-generation">Phase 6: helm-docs README Generation</h3>
+<p>Generate the chart README automatically from values annotations.</p>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] Create <code>charts/repo-guardian/README.md.gotmpl</code> (optional, for custom README structure)</li>
+<li>[x] Run <code>helm-docs</code> and verify generated README</li>
+<li>[x] Verify all values are documented in the generated table</li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li><code>helm-docs</code> generates a complete README with all values documented</li>
+<li>README includes chart description, usage instructions, and values table</li>
+</ul>
+<hr />
+<h3 id="phase-7-ci-workflows">Phase 7: CI Workflows</h3>
+<p>Add GitHub Actions workflows for chart linting, testing, and release.</p>
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[x] Add helm-unittest job to <code>.github/workflows/ci.yml</code></li>
+<li>[x] Add helm chart-testing job to <code>.github/workflows/ci.yml</code> (ct lint + ct install)</li>
+<li>[x] Add helm lint step to existing lint job in CI</li>
+<li>[x] Create <code>.github/workflows/chart-release.yml</code> (chart-releaser to GitHub Pages)</li>
+<li>[x] Add OCI registry push job to chart-release workflow (conditional on <code>HELM_OCI_REGISTRY</code> var)</li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li>CI runs helm-unittest on every push</li>
+<li>CI runs ct lint on chart changes</li>
+<li>Chart release workflow publishes to GitHub Pages</li>
+<li>OCI push job is skipped when <code>HELM_OCI_REGISTRY</code> is not set</li>
+</ul>
+<hr />
+<h3 id="phase-8-documentation-and-cleanup">Phase 8: Documentation and Cleanup</h3>
+<p>Update project documentation and verify everything is consistent.</p>
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[x] Update <code>README.md</code> with Helm deployment instructions</li>
+<li>[x] Mark <code>deploy/</code> Kustomize overlays as deprecated in docs</li>
+<li>[x] Update <code>CLAUDE.md</code> with Helm chart architecture notes</li>
+<li>[x] Verify <code>make ci</code> still passes (existing Go CI unaffected)</li>
+<li>[x] Verify <code>make helm-test</code> passes</li>
+</ul>
+<h4 id="success-criteria_7">Success Criteria</h4>
+<ul>
+<li>README includes Helm install/upgrade instructions</li>
+<li>Kustomize deprecation is documented</li>
+<li>All CI checks pass (Go + Helm)</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open Questions</h2>
+<p><em>All resolved.</em></p>
+<ol>
+<li>
+<p>~~<strong>Schedule interval in values.yaml</strong>~~: <strong>Resolved.</strong> First-class field.
+   Add <code>config.scheduleInterval</code> to <code>values.yaml</code> (default <code>168h</code>). It's one of
+   the most common per-environment overrides.</p>
+</li>
+<li>
+<p>~~<strong>Tailscale state persistence</strong>~~: <strong>Resolved.</strong> Keep <code>emptyDir</code> only for
+   now. Defer <code>kubeSecret</code>-backed persistent state to a future iteration.</p>
+</li>
+<li>
+<p>~~<strong>Extra env vars and volumes</strong>~~: <strong>Resolved.</strong> Yes, include <code>extraEnv</code>,
+   <code>extraVolumes</code>, and <code>extraVolumeMounts</code> escape hatches. Easier to add now
+   than retrofit later.</p>
+</li>
+<li>
+<p>~~<strong>Namespace</strong>~~: <strong>Resolved.</strong> Follow Helm convention. No default namespace
+   in values or templates. Users pass <code>--namespace</code> at install time.</p>
+</li>
+<li>
+<p>~~<strong><code>appVersion</code> tracking</strong>~~: <strong>Resolved.</strong> Manual bump. Chart version and
+   appVersion are independent release artifacts. Bump <code>appVersion</code> in
+   <code>Chart.yaml</code> when referencing a new app release.</p>
+</li>
+</ol>
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code></td>
+<td>Create</td>
+<td>Chart metadata</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/.helmignore</code></td>
+<td>Create</td>
+<td>Helm ignore patterns</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code></td>
+<td>Create</td>
+<td>Default values with helm-docs annotations</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/_helpers.tpl</code></td>
+<td>Create</td>
+<td>Template helpers</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/deployment.yaml</code></td>
+<td>Create</td>
+<td>Deployment with optional Tailscale sidecar</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/service.yaml</code></td>
+<td>Create</td>
+<td>ClusterIP service</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/serviceaccount.yaml</code></td>
+<td>Create</td>
+<td>Optional ServiceAccount</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/configmap.yaml</code></td>
+<td>Create</td>
+<td>Template file overrides</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/secret.yaml</code></td>
+<td>Create</td>
+<td>GitHub App credentials</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/servicemonitor.yaml</code></td>
+<td>Create</td>
+<td>Optional Prometheus ServiceMonitor</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/NOTES.txt</code></td>
+<td>Create</td>
+<td>Post-install notes</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/tests/*.yaml</code></td>
+<td>Create</td>
+<td>helm-unittest test cases</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/ci/ci-values.yaml</code></td>
+<td>Create</td>
+<td>CI install values</td>
+</tr>
+<tr>
+<td><code>ct.yaml</code></td>
+<td>Create</td>
+<td>chart-testing config</td>
+</tr>
+<tr>
+<td><code>charts/.yamllint.yml</code></td>
+<td>Create</td>
+<td>Chart yamllint config</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>Modify</td>
+<td>Add helm targets</td>
+</tr>
+<tr>
+<td><code>.github/workflows/ci.yml</code></td>
+<td>Modify</td>
+<td>Add helm-unittest and ct jobs</td>
+</tr>
+<tr>
+<td><code>.github/workflows/chart-release.yml</code></td>
+<td>Create</td>
+<td>Chart release workflow</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Modify</td>
+<td>Add Helm deployment docs</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code></td>
+<td>Modify</td>
+<td>Add Helm chart notes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan</h2>
+<ul>
+<li>[x] helm-unittest for all templates (conditional rendering, values overrides)</li>
+<li>[x] <code>ct lint</code> for YAML and Chart.yaml validation</li>
+<li>[ ] <code>ct install</code> in kind cluster with CI values (requires kind cluster)</li>
+<li>[x] <code>helm template</code> with default and custom values</li>
+<li>[ ] <code>helm diff</code> for upgrade preview validation (requires deployed release)</li>
+</ul>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>Helm 3.19+ (managed via mise)</li>
+<li>helm-unittest plugin</li>
+<li>helm-cr, helm-ct, helm-diff, helm-docs (managed via mise)</li>
+<li>GitHub Pages branch (<code>gh-pages</code>) for chart-releaser</li>
+<li>ECR repository for OCI push (optional, production only)</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0005-helm-chart-for-repo-guardian/">DESIGN-0005: Helm Chart for repo-guardian</a></li>
+<li><a href="https://github.com/donaldgifford/server-price-tracker">server-price-tracker Helm chart</a></li>
+<li><a href="https://github.com/helm-unittest/helm-unittest">helm-unittest documentation</a></li>
+<li><a href="https://github.com/helm/chart-releaser-action">chart-releaser-action</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

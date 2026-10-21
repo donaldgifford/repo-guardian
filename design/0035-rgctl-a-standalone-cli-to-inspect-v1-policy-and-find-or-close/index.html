@@ -1,0 +1,2535 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close-repo-guardian-pull-requests" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#identity-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#closing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closing PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-a-v1-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading a v1 policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging and output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-and-exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output and exit codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guarantees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guarantees
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Open Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-where-does-the-tool-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: Where does the tool live?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-what-is-it-called" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: What is it called?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-which-command-line-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: Which command-line framework?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq4-how-does-an-org-scan-find-prs-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ4: How does an org scan find PRs by default?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq5-what-happens-to-a-pr-a-human-has-pushed-to" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ5: What happens to a PR a human has pushed to?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq6-which-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ6: Which credentials?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq7-is-the-branch-deleted-when-a-pr-is-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ7: Is the branch deleted when a PR is closed?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq8-how-much-of-the-v1-policy-does-config-show-understand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ8: How much of the v1 policy does config show understand?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq9-how-is-it-distributed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ9: How is it distributed?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq10-what-does-the-default-pointer-comment-say" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ10: What does the default pointer comment say?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close-repo-guardian-pull-requests">DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#shape">Shape</a></li>
+<li><a href="#commands">Commands</a></li>
+<li><a href="#identity-rule">Identity rule</a></li>
+<li><a href="#finding-prs">Finding PRs</a></li>
+<li><a href="#closing-prs">Closing PRs</a></li>
+<li><a href="#reading-a-v1-policy">Reading a v1 policy</a></li>
+<li><a href="#logging-and-output">Logging and output</a></li>
+<li><a href="#output-and-exit-codes">Output and exit codes</a></li>
+<li><a href="#guarantees">Guarantees</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#oq1-where-does-the-tool-live">OQ1: Where does the tool live?</a></li>
+<li><a href="#oq2-what-is-it-called">OQ2: What is it called?</a></li>
+<li><a href="#oq3-which-command-line-framework">OQ3: Which command-line framework?</a></li>
+<li><a href="#oq4-how-does-an-org-scan-find-prs-by-default">OQ4: How does an org scan find PRs by default?</a></li>
+<li><a href="#oq5-what-happens-to-a-pr-a-human-has-pushed-to">OQ5: What happens to a PR a human has pushed to?</a></li>
+<li><a href="#oq6-which-credentials">OQ6: Which credentials?</a></li>
+<li><a href="#oq7-is-the-branch-deleted-when-a-pr-is-closed">OQ7: Is the branch deleted when a PR is closed?</a></li>
+<li><a href="#oq8-how-much-of-the-v1-policy-does-config-show-understand">OQ8: How much of the v1 policy does config show understand?</a></li>
+<li><a href="#oq9-how-is-it-distributed">OQ9: How is it distributed?</a></li>
+<li><a href="#oq10-what-does-the-default-pointer-comment-say">OQ10: What does the default pointer comment say?</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p><code>rgctl</code> is a small Go command-line tool that answers two operator questions repo-guardian itself cannot answer once it is switched off: <em>which pull requests did repo-guardian leave open in this org or repository</em>, and <em>what did its v1 policy file say</em>. It reads a v1 <code>guardian.hcl</code>, lists the orgs, rules, reconcilers and PR templates it declares, scans an org or a repository for open pull requests authored by the App on <code>repo-guardian/*</code> branches, prints them with their links, records them as JSON, and on request closes them with a pointer comment.</p>
+<p>It lives outside the engine on purpose, as its own Go module under <code>tools/</code>. Turning v1 off in an org leaves its pull requests open, and v2 does not reap them: the controls model opens one branch per control and ends the frozen-identity adoption that let v1 and v2 recognise each other's PRs (DESIGN-0032 D4, D27). The cutover runbook already needs this tool twice, to record every open repo-guardian PR before anything closes it (step 3) and to close v1's PRs with a pointer comment after the new release is up (step 6). The v1 packages that know how those PRs were made are scheduled for deletion, so the tool depends on none of them: it talks to GitHub through go-github and reads HCL through hclparse, and a lint rule keeps it that way.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li><strong>Inventory open repo-guardian PRs</strong> for one repository, one org, or every org a v1 policy names, with repository, number, branch, title, age, URL and whether a human has pushed to the branch.</li>
+<li><strong>Record and close.</strong> Write the inventory as JSON, and close exactly the recorded PRs with a pointer comment, idempotently, with a dry run as the default.</li>
+<li><strong>Show what a v1 policy says</strong> without the v1 loader: orgs, <code>guardian {}</code> knobs, rules by kind with paths and check mode, reconcilers, PR templates.</li>
+<li><strong>Outlive v1.</strong> Its own Go module under <code>tools/</code>, no requirement on the parent module, no import of <code>internal/</code>, no database. The binary installs from any tag or from <code>main</code> and keeps building after v2 fast-forwards <code>main</code>.</li>
+<li><strong>Be safe to point at production.</strong> Act only on PRs authored by the configured App login, never on a PR a human has pushed to unless asked, never on a branch that is not <code>repo-guardian/*</code>.</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li>Evaluating or remediating anything. <code>rgctl</code> never creates a PR, never commits, never edits policy.</li>
+<li>Reading or writing repo-guardian's database. The record is a file, not a table.</li>
+<li>Replacing <code>repo-guardian evaluate</code> or <code>policy validate</code>. <code>config show</code> describes a v1 file; it does not validate it against the v1 schema.</li>
+<li>Managing GitHub App installations, secrets or webhooks.</li>
+<li>Closing PRs from other tools. The author and branch rules are deliberately narrow.</li>
+<li>An interactive terminal UI. A bubbletea front end for interactive searches is attractive, and deferred to v2, where it can run against the API instead of against GitHub directly (D12).</li>
+</ul>
+<h2 id="background">Background</h2>
+<p><strong>How a v1 PR is recognisable.</strong> v1 opens PRs from an installation token, so GitHub records the author as the App's bot account, <code>&lt;app slug&gt;[bot]</code>. The head branch is one of three fixed names pinned by <code>TestPRIdentity_IsFrozen</code>: <code>repo-guardian/add-missing-files</code> (the engine, title <code>chore: add missing repo configuration files</code>), <code>repo-guardian/add-catalog-info</code> (<code>chore: add catalog-info.yaml</code>) and <code>repo-guardian/set-custom-properties</code> (<code>chore: set repository custom properties</code>). Titles and bodies are operator-templated since IMPL-0012, so they are not identity. The sticky reconcile-log comment carries the marker <code>&lt;!-- repo-guardian:reconcile-log:v1 --&gt;</code> on its first line, which is a strong confirmation but absent on PRs that never had a second reconcile. The controls model keeps the <code>repo-guardian/</code> prefix with one branch per control (<code>repo-guardian/&lt;control slug&gt;</code>), so the same two facts, App author plus branch prefix, identify repo-guardian PRs on both lines.</p>
+<p><strong>Why v2 will not clean up after v1.</strong> On the current <code>v2</code> line the frozen literals let the two engines adopt each other's PRs. DESIGN-0032 ends that: per-control branches, a tracked-PR model keyed by the Remediation App's own login, a fresh database at cutover with no in-place upgrade path (D27). Its runbook step 3 records every open repo-guardian PR from GitHub so a write whose record was lost is found by exact identity, and step 6 closes v1's PRs with a comment pointing at the per-control PRs, adopting any PR a human has edited instead of closing it. Both steps are this tool.</p>
+<p><strong>What GitHub search can do.</strong> The issues-and-pull-requests search accepts <code>is:pr is:open org:&lt;org&gt; author:app/&lt;slug&gt; head:&lt;branch&gt;</code>; <code>author:app/</code> selects an integration account, and <code>head:</code> matches branch names <em>beginning with</em> the given text, so <code>head:repo-guardian/</code> selects every repo-guardian branch in one query per org. Search is limited to 30 requests per minute, returns at most 1000 results per query in pages of 100, and may return <code>incomplete_results = true</code> on timeout. A search hit is an index entry, not the PR: before anything acts on it the tool reads the PR itself.</p>
+<p><strong>Precedent in this repository.</strong> <code>cmd/rg-burst</code> is a side binary in <code>cmd/</code> with its own build tag, inside the product module; there is no nested module yet. <code>.golangci.yml</code> on the <code>v2</code> line uses <code>depguard</code> three times to keep packages apart (workflow code may not import the engine, the API may not import the GitHub client); <code>main</code> has no <code>depguard</code> configuration yet. <code>cmd/repo-guardian</code> parses flags with the standard library and dispatches subcommands by hand; the maintainer's standard for new tools is cobra. <code>internal/github/client_test.go</code> mocks the GitHub API with <code>httptest.Server</code>.</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="shape">Shape</h3>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph tool[&quot;tools/rgctl, its own Go module (never requires the parent module)&quot;]
+        main[&quot;main.go: flags, dispatch, exit codes&quot;]
+        cfg[&quot;internal/v1config: loose HCL decode&quot;]
+        gh[&quot;internal/ghapi: App or token auth, search, verify, close&quot;]
+        prs[&quot;internal/prs: identity rule, classification, record file&quot;]
+        main --&gt; cfg
+        main --&gt; prs
+        prs --&gt; gh
+    end
+    hcl[&quot;guardian.hcl&quot;] --&gt; cfg
+    gh --&gt; api[&quot;GitHub REST: search, pulls, issues, git refs, apps&quot;]
+    prs --&gt; rec[&quot;open-prs.json&quot;]
+    rec --&gt; prs
+    lint[&quot;module boundary: tools/rgctl/go.mod has no require on the parent, plus depguard&quot;] -.-&gt; tool
+</code></pre>
+<p><code>tools/rgctl</code> is a separate Go module (<code>module github.com/donaldgifford/repo-guardian/tools/rgctl</code>) with its own <code>go.mod</code>, so it has its own dependency set and none of them enter the product's <code>go.mod</code>: go-github v68, ghinstallation v2, hcl v2, <code>spf13/cobra</code> (D7) and <code>charmbracelet/log</code> (D15). A directory under the repository's import-path prefix could still import <code>internal/</code> (Go's internal rule is by path prefix, not by module), which is why the guard is the module boundary: the tool's <code>go.mod</code> never requires <code>github.com/donaldgifford/repo-guardian</code>, so an <code>internal/</code> import fails to resolve at all, and a depguard rule in the tool's own lint run says why. <code>tools/rgctl/internal/...</code> is importable only from under <code>tools/rgctl</code>, so the tool's packages are private to it.</p>
+<h3 id="commands">Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rgctl config show &lt;guardian.hcl&gt;</code></td>
+<td>prints the orgs in <code>scope</code>, the <code>guardian {}</code> knobs, every <code>rule</code> by kind with its paths, check mode and reconcilers, <code>ignore</code> patterns and <code>defaults.pr</code>; <code>--format json</code> for scripting</td>
+</tr>
+<tr>
+<td><code>rgctl prs list</code></td>
+<td>finds open repo-guardian PRs in <code>--repo org/name</code>, <code>--org org</code>, or every org of <code>--config guardian.hcl</code>; table by default, <code>--format json</code> writes the record</td>
+</tr>
+<tr>
+<td><code>rgctl prs close</code></td>
+<td>closes the PRs in <code>--from open-prs.json</code>, or the result of the same selection flags as <code>list</code>; dry run unless <code>--yes</code>; comment, then close, then optionally delete the branch</td>
+</tr>
+<tr>
+<td><code>rgctl version</code></td>
+<td>build info</td>
+</tr>
+</tbody>
+</table>
+<p>Selection flags shared by <code>list</code> and <code>close</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--repo org/name</code></td>
+<td>one repository, listed through the Pull Requests API</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--org org</code></td>
+<td>one org, through search then verification</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--config path</code></td>
+<td>every org in the file's <code>scope { orgs }</code>; without a <code>scope</code> block the installations of the App, since legacy mode applies to every installed org</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--branch name</code></td>
+<td>restrict to one head branch, repeatable; default is the prefix <code>repo-guardian/</code></td>
+<td>prefix</td>
+</tr>
+<tr>
+<td><code>--exhaustive</code></td>
+<td>list every repository and its open PRs instead of searching, for the final cutover pass or when search reports incomplete results</td>
+<td>off</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>also close PRs with commits by someone other than the App; their branch is still never deleted</td>
+<td>off</td>
+</tr>
+<tr>
+<td><code>--format table \| json</code></td>
+<td>output</td>
+<td>table</td>
+</tr>
+</tbody>
+</table>
+<p>Auth flags, read from flags or environment, never from positional arguments:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Env</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--app-id</code></td>
+<td><code>RGCTL_APP_ID</code></td>
+<td>the GitHub App id; with the key, installation tokens are minted per org</td>
+</tr>
+<tr>
+<td><code>--private-key-file</code></td>
+<td><code>RGCTL_PRIVATE_KEY_FILE</code></td>
+<td>path to the App's PEM; the value is a path, the key is never a flag</td>
+</tr>
+<tr>
+<td><code>--token</code> is not a flag</td>
+<td><code>GH_TOKEN</code></td>
+<td>a personal or fine-grained token for an operator; then <code>--bot-login</code> names the App account to match</td>
+</tr>
+<tr>
+<td><code>--bot-login</code></td>
+<td><code>RGCTL_BOT_LOGIN</code></td>
+<td><code>&lt;slug&gt;[bot]</code>; discovered from <code>GET /app</code> under App auth, required under token auth</td>
+</tr>
+<tr>
+<td><code>--github-host</code></td>
+<td><code>RGCTL_GITHUB_HOST</code></td>
+<td>GitHub Enterprise Server base URL, default <code>github.com</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="identity-rule">Identity rule</h3>
+<p>A pull request is repo-guardian's when, read from the Pull Requests API, all of these hold:</p>
+<ol>
+<li>it is open;</li>
+<li>its author login equals the configured bot login (<code>&lt;slug&gt;[bot]</code>), compared case-insensitively;</li>
+<li>its head branch starts with <code>repo-guardian/</code> (or equals one of the <code>--branch</code> names);</li>
+<li>its head repository is the repository itself, not a fork.</li>
+</ol>
+<p>The reconcile-log marker on a comment is reported when present (<code>reconcile_log: true</code>) but is not required, because a PR that was reconciled once has no comment. Title is never used. A PR is <strong>edited</strong> when any commit on it has an author or committer login other than the bot, or a commit whose GitHub author is unresolved and whose committer is not the bot. The committer <code>web-flow</code> is never counted: GitHub records every Contents API write with that committer, so it is on the App's own commits, and a human editing in the web UI is still the author (found by the IMPL-0027 homelab smoke, where all 21 PRs read as edited until this was added); the tool lists commits until it finds the first such commit, so the cost is one page for a clean PR.</p>
+<h3 id="finding-prs">Finding PRs</h3>
+<pre><code class="language-mermaid">flowchart TD
+    sel[&quot;selection: repo, org, or orgs from config&quot;] --&gt; mode{&quot;mode&quot;}
+    mode -- &quot;repo&quot; --&gt; pulls[&quot;GET pulls state=open per page&quot;]
+    mode -- &quot;org, default&quot; --&gt; search[&quot;search: is:pr is:open org:X author:app/slug head:repo-guardian/&quot;]
+    mode -- &quot;org, exhaustive&quot; --&gt; repos[&quot;list repositories: installation repos under App auth, org repos under token auth&quot;]
+    repos --&gt; pulls
+    search --&gt; incomplete{&quot;incomplete_results or 1000 hits&quot;}
+    incomplete -- &quot;yes&quot; --&gt; warn[&quot;warn and suggest --exhaustive, continue&quot;]
+    incomplete -- &quot;no&quot; --&gt; verify
+    warn --&gt; verify[&quot;GET pulls/number for every hit&quot;]
+    pulls --&gt; rule
+    verify --&gt; rule{&quot;identity rule&quot;}
+    rule -- &quot;not ours&quot; --&gt; drop[&quot;drop, counted in summary&quot;]
+    rule -- &quot;ours&quot; --&gt; edited{&quot;commits by anyone but the bot&quot;}
+    edited -- &quot;yes&quot; --&gt; e[&quot;record as edited&quot;]
+    edited -- &quot;no&quot; --&gt; c[&quot;record as clean&quot;]
+    e --&gt; out[&quot;table or JSON record&quot;]
+    c --&gt; out
+</code></pre>
+<p>Search is the default for an org because it is one request per page of 100 PRs rather than one per repository, which matters at twenty-plus orgs. Every hit is then read through the Pull Requests API, so the index can only add work, never a wrong action: a stale hit for a PR that has since closed is dropped at verification. The two search limits are surfaced, not hidden: <code>incomplete_results</code> and a 1000th hit both produce a warning naming <code>--exhaustive</code>, and the summary line says how many hits were verified, dropped, clean and edited. The 30-per-minute search budget is respected by pacing search calls, and both auth modes use go-github's rate-limit handling for the core API.</p>
+<p><code>--exhaustive</code> lists repositories, through the installation's repository list under App auth (which is also the set v1 could see) or the org's repository list under token auth, and reads each repository's open PRs. It is the authoritative pass for the cutover and the fallback when search is incomplete.</p>
+<h3 id="closing-prs">Closing PRs</h3>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Selected
+    Selected --&gt; Skipped: not ours, or edited without --force
+    Selected --&gt; Planned: ours
+    Planned --&gt; Planned: dry run, printed
+    Planned --&gt; Commented: --yes, POST comment
+    Commented --&gt; Closed: PATCH state=closed
+    Closed --&gt; BranchDeleted: --delete-branch
+    Closed --&gt; [*]
+    BranchDeleted --&gt; [*]
+    Planned --&gt; Skipped: already closed when re-read
+</code></pre>
+<p><code>prs close</code> re-reads every PR immediately before acting, so a record from <code>prs list</code> that has gone stale is handled rather than trusted: a PR closed by a human in the meantime is reported as already closed and skipped. The order is comment, then close, then branch, so a failure leaves a PR that still explains itself. Each step is idempotent on re-run: a comment whose first line is the tool's marker <code>&lt;!-- rgctl:closed-by-migration:v1 --&gt;</code> is not posted twice, a closed PR is not closed again, a missing branch is not an error. The default comment names the tool and the date and says the repository is now managed by the per-control PRs of repo-guardian v2; <code>--comment</code> replaces it. The branch is deleted only with <code>--delete-branch</code>, and never for an edited PR even with <code>--force</code>, because a human's commits are on it.</p>
+<p><code>--from open-prs.json</code> is the cutover shape: the record written by step 3 is the only input to step 6, so the close pass acts on exact identities rather than on a fresh search that might see a different set.</p>
+<h3 id="reading-a-v1-policy">Reading a v1 policy</h3>
+<p><code>config show</code> decodes the file with <code>hclparse</code> and a body schema that names what it understands, <code>locals</code>, <code>guardian</code>, <code>ignore</code>, <code>scope</code>, <code>defaults</code> and <code>rule &lt;type&gt; &lt;name&gt;</code>, using <code>PartialContent</code> so a block or attribute it does not know is listed under <em>unrecognised</em> rather than failing. Attribute values are rendered as their source text, not evaluated: there is no evaluation context, <code>locals</code> are shown as declared, and a <code>file()</code> or interpolation is shown verbatim. The output is structured as:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>orgs</td>
+<td><code>scope.orgs</code>, or "every installed org (legacy mode)" when there is no <code>scope</code> block</td>
+</tr>
+<tr>
+<td>guardian</td>
+<td>every attribute of <code>guardian {}</code> as written, so a <code>dry_run = true</code> or <code>auto_close_pr = false</code> is visible</td>
+</tr>
+<tr>
+<td>rules</td>
+<td>one row per <code>rule</code>: type, name, enabled, paths, check mode, template, scope, ignore patterns, <code>when</code> gate, reconcilers with their types and <code>watch</code></td>
+</tr>
+<tr>
+<td>pr</td>
+<td><code>defaults.pr</code> and any per-rule or per-reconciler <code>pr</code> block, title and body as source text, labels</td>
+</tr>
+<tr>
+<td>ignore</td>
+<td>global patterns</td>
+</tr>
+<tr>
+<td>unrecognised</td>
+<td>anything the schema did not name, with its source location</td>
+</tr>
+</tbody>
+</table>
+<p>This is deliberately a reader, not a loader. The v1 loader's strict decode, merge order, env overrides and validation stay in <code>internal/policy</code> and are not reproduced; when they are deleted the reader keeps working because it never depended on them.</p>
+<h3 id="logging-and-output">Logging and output</h3>
+<p>Human-facing output is a <code>log/slog</code> logger backed by <code>charmbracelet/log</code>'s handler: levelled, timestamped, coloured when stdout is a terminal, plain when it is not or when <code>NO_COLOR</code> or <code>--no-color</code> is set, <code>--log-level</code> for verbosity (D15). Progress lines ("org acme: 3 pages, 212 hits, 209 verified, 3 dropped") and every planned or performed action are logged, so a dry run reads as a plan and a <code>--yes</code> run reads as a journal. The table and the log both go to stdout. The one exception is the JSON record: when <code>--format json</code> writes to stdout rather than to <code>--out &lt;path&gt;</code>, the log moves to stderr for that run so the record stays parseable with a plain redirect.</p>
+<h3 id="output-and-exit-codes">Output and exit codes</h3>
+<p>The table is for a person; <code>--format json</code> is the record, written to <code>--out &lt;path&gt;</code> or to stdout. Exit codes follow the convention the controls CLI adopts (DESIGN-0033 AR-0033-07): <code>0</code> nothing found or every planned action done, <code>1</code> open repo-guardian PRs found (<code>list</code>) or PRs skipped as edited (<code>close</code>), <code>2</code> usage or configuration error, <code>3</code> operational failure (auth, rate limit exhausted, API error). A runbook can therefore gate on <code>rgctl prs list --org X; test $? -eq 0</code>.</p>
+<h3 id="guarantees">Guarantees</h3>
+<ul>
+<li>Nothing is written without <code>--yes</code>, and nothing is ever written by <code>list</code> or <code>config show</code>.</li>
+<li>No PR is touched whose author is not the configured bot login, whatever its branch.</li>
+<li>No PR with a human commit is touched without <code>--force</code>, and its branch is never deleted.</li>
+<li>Every write is preceded by a fresh read of the PR.</li>
+<li>The tool never holds a database connection, never reads repo-guardian's own config env vars, and imports nothing under <code>internal/</code>.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<ul>
+<li><strong>New binary</strong> <code>rgctl</code> from <code>tools/rgctl</code>, with <code>tools/rgctl/internal/{v1config,ghapi,prs}</code> as its private packages.</li>
+<li><strong>Module.</strong> <code>tools/rgctl/go.mod</code> with its own dependencies; the product's <code>go.mod</code> is untouched. The module never requires the parent module, which is asserted by <code>make lint-rgctl</code> (a grep on <code>go.mod</code> for the parent path fails the build) and by a depguard rule in the tool's own <code>.golangci.yml</code> denying <code>github.com/donaldgifford/repo-guardian/internal</code>, probed once with a deliberate bad import.</li>
+<li><strong>Make.</strong> <code>build-rgctl</code>, <code>lint-rgctl</code> and <code>test-rgctl</code> run inside the module directory; <code>make lint</code>, <code>make test</code> and <code>make ci</code> include them, since <code>go test ./...</code> from the root does not descend into a nested module. Renovate picks up the second <code>go.mod</code> on its own.</li>
+<li><strong>Install.</strong> No goreleaser entry on this line: <code>go install github.com/donaldgifford/repo-guardian/tools/rgctl@main</code> (or a <code>tools/rgctl/vX.Y.Z</code> tag if one is ever cut) (D13). When it becomes first-class in v2 it moves into the product module and gets a <code>builds:</code> entry (the package directory, never a file).</li>
+<li><strong>CI.</strong> The <code>go</code> paths filter (<code>**/*.go</code>, <code>go.mod</code>) already matches the module's files; the Make targets above are what put it in the existing jobs.</li>
+<li><strong>Docs.</strong> <code>docs/operations/rgctl.md</code> with the three commands and the cutover usage; DESIGN-0032's runbook steps 3 and 6 gain a pointer to this tool.</li>
+</ul>
+<h2 id="data-model">Data Model</h2>
+<p>There is no database. The record file written by <code>prs list --format json</code> and read by <code>prs close --from</code> is:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema_version</code></td>
+<td>int</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>generated_at</code></td>
+<td>RFC 3339</td>
+<td>when the list ran</td>
+</tr>
+<tr>
+<td><code>selection</code></td>
+<td>object</td>
+<td>the flags that produced it: repo, org, config path, branches, exhaustive</td>
+</tr>
+<tr>
+<td><code>bot_login</code></td>
+<td>string</td>
+<td>the App login matched</td>
+</tr>
+<tr>
+<td><code>prs[].repository</code></td>
+<td>string</td>
+<td><code>org/name</code></td>
+</tr>
+<tr>
+<td><code>prs[].number</code></td>
+<td>int</td>
+<td>PR number</td>
+</tr>
+<tr>
+<td><code>prs[].url</code></td>
+<td>string</td>
+<td>HTML URL</td>
+</tr>
+<tr>
+<td><code>prs[].head_branch</code></td>
+<td>string</td>
+<td>head ref</td>
+</tr>
+<tr>
+<td><code>prs[].head_sha</code></td>
+<td>string</td>
+<td>head at listing time, compared at close time and reported if moved</td>
+</tr>
+<tr>
+<td><code>prs[].title</code></td>
+<td>string</td>
+<td>as seen</td>
+</tr>
+<tr>
+<td><code>prs[].created_at</code>, <code>prs[].updated_at</code></td>
+<td>RFC 3339</td>
+<td>from the PR</td>
+</tr>
+<tr>
+<td><code>prs[].edited</code></td>
+<td>bool</td>
+<td>a commit by someone other than the bot</td>
+</tr>
+<tr>
+<td><code>prs[].edited_by</code></td>
+<td>[]string</td>
+<td>the logins found, when edited</td>
+</tr>
+<tr>
+<td><code>prs[].reconcile_log</code></td>
+<td>bool</td>
+<td>the v1 sticky comment marker was present</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>object</td>
+<td>hits, verified, dropped, clean, edited, incomplete</td>
+</tr>
+</tbody>
+</table>
+<p><code>prs close</code> writes the same shape plus a <code>result</code> per PR: <code>planned</code>, <code>commented</code>, <code>closed</code>, <code>branch_deleted</code>, <code>already_closed</code>, <code>skipped_edited</code>, <code>skipped_not_ours</code>, <code>error</code> with a message.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>GitHub API mocks</strong> with <code>httptest.Server</code>, the pattern of <code>internal/github/client_test.go</code>, covering: search pages and a 1000th hit, <code>incomplete_results</code>, a stale hit that verifies as closed, a hit whose author is not the bot, a fork head, a PR with a human commit on page two, close idempotency (marker comment present, PR already closed, branch already gone), and the comment-close-delete order under a failure at each step.</li>
+<li><strong>Identity rule table test</strong> over author, branch, state and head-repository combinations, including case differences in the login.</li>
+<li><strong>Config reader goldens</strong>: every v1 example in <code>examples/</code> and the chart's default policy decode to a golden JSON; a file with an unknown block lands it under <code>unrecognised</code> with a location; a file that does not parse exits <code>2</code> with the HCL diagnostic.</li>
+<li><strong>Exit code tests</strong> for each of the four codes.</li>
+<li><strong>Lint probe</strong>, once: add <code>import _ "github.com/donaldgifford/repo-guardian/internal/policy"</code> to <code>tools/rgctl/main.go</code>, confirm <code>make lint</code> fails with the rule's message, remove it.</li>
+<li><strong>Homelab smoke</strong> (human): <code>prs list --org &lt;org&gt;</code> against the homelab installation, compare with the GitHub UI, then <code>prs close --from</code> on one throwaway PR with <code>--yes</code>.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<ol>
+<li>Land <code>rgctl</code> on <code>main</code> so it is installable with <code>go install</code> at any later tag, before anyone turns v1 off anywhere.</li>
+<li>Use it whenever v1 is removed from an org: <code>prs list --org X --format json &gt; X.json</code>, review, <code>prs close --from X.json --yes</code>.</li>
+<li>At the v2.0.0 cutover it is runbook steps 3 and 6 (DESIGN-0032): the step-3 record is the step-6 input. Edited PRs are left for the controls engine to adopt as tracked PRs.</li>
+<li>After v2 fast-forwards <code>main</code>, the tool keeps building because it never imported the deleted packages; the lint rule is what makes that true rather than lucky.</li>
+<li>In v2 the in-app CLI, and later a TUI, replace it as a fast follow, running against repo-guardian's API rather than against GitHub; <code>rgctl</code> then either becomes that first-class tool with a goreleaser entry or is retired (D12, D13).</li>
+</ol>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li><strong>D1 Identity is author plus branch prefix</strong> — a PR is repo-guardian's when the App's bot login authored it and its head branch starts with <code>repo-guardian/</code>; titles and bodies are operator-templated and the reconcile-log marker is absent on first-reconcile PRs, so neither can be required. The same two facts hold for v2's per-control branches, so the tool is not v1-only.</li>
+<li><strong>D2 Search finds, the Pull Requests API decides</strong> — every search hit is re-read before it is listed and again before it is acted on; the index is a shortcut, never evidence.</li>
+<li><strong>D3 Dry run is the default and every write re-reads first</strong> — <code>--yes</code> is required to act, and comment, close and branch deletion are each idempotent so a re-run after a partial failure is safe.</li>
+<li><strong>D4 The tool imports nothing under <code>internal/</code></strong> — enforced by the module boundary (no requirement on the parent module) and restated by <code>depguard</code>, probed once; this is the whole reason it can outlive v1.</li>
+<li><strong>D5 The record file is the cutover contract</strong> — step 3 writes it, step 6 reads it, and the close pass acts on exact identities rather than on a fresh search.</li>
+<li><strong>D6 <code>tools/rgctl</code> as its own Go module, named <code>rgctl</code></strong> — in this repository but outside the product module: its own <code>go.mod</code> that never requires the parent, its own dependencies, <code>go install</code>-able on its own, movable later. The module boundary is the guard; depguard restates it (OQ1 amended and OQ2, resolved 2026-10-05).</li>
+<li><strong>D7 cobra</strong> — the maintainer's standard for new command-line tools; completion and help for free, one new dependency (OQ3, resolved 2026-10-05).</li>
+<li><strong>D8 Search first, verify always</strong> — org scans search then read every hit through the Pull Requests API; <code>--exhaustive</code> is the opt-in full walk (OQ4, resolved 2026-10-05, restating D2).</li>
+<li><strong>D9 Edited PRs need <code>--force</code></strong> — a PR with a commit by anyone other than the App is skipped and reported; <code>--force</code> closes it anyway; its branch is never deleted. The cutover leaves edited PRs for the controls engine to adopt (OQ5, resolved 2026-10-05).</li>
+<li><strong>D10 App key or operator token</strong> — both credential shapes; the bot login is discovered under App auth and required under token auth (OQ6, resolved 2026-10-05).</li>
+<li><strong>D11 Branch deletion is opt-in</strong> — <code>--delete-branch</code>, never for an edited PR (OQ7, resolved 2026-10-05).</li>
+<li><strong>D12 A loose reader, and a bounded lifetime</strong> — <code>config show</code> renders what the file says without the v1 loader. The tool exists to troubleshoot v1 and to cut over to v2; in v2 an in-app CLI, and later a bubbletea TUI, replace it against the API as a fast follow (OQ8, resolved 2026-10-05).</li>
+<li><strong>D13 <code>go install</code> only on this line</strong> — no goreleaser entry until the tool is first-class in v2 (OQ9, resolved 2026-10-05).</li>
+<li><strong>D14 A default pointer comment</strong> — fixed text behind the tool's marker line, <code>--comment</code> to replace it (OQ10, resolved 2026-10-05).</li>
+<li><strong>D15 Human-readable logs through <code>charmbracelet/log</code></strong> — an <code>slog</code> handler, coloured on a terminal, on stdout beside the table; on stderr only while a JSON record is being written to stdout (2026-10-05).</li>
+</ul>
+<h2 id="open-questions">Open Questions</h2>
+<h3 id="oq1-where-does-the-tool-live">OQ1: Where does the tool live?</h3>
+<p><strong>Resolved 2026-10-05: other.</strong> <code>tools/rgctl</code> as its own Go module: the same repository as (a), but outside the product module, so <code>go install</code> works on its own, its dependencies stay out of the product's <code>go.mod</code>, and it can be moved or retired without touching v1 or v2 (D6).</p>
+<ul>
+<li>(a) ✅ recommended: <code>cmd/rgctl</code> in this repository, private packages under <code>cmd/rgctl/internal</code>, guarded by the <code>depguard</code> rule. One repository, one release pipeline, the dependencies already present, and the lint rule makes the "outlives v1" promise mechanical.</li>
+<li>(b) A separate repository (<code>repo-guardian-tools</code>). Cleaner separation, but a second goreleaser, signing and renovate setup for one small binary, and nothing stops it importing this module later.</li>
+<li>(c) A <code>prs</code> subcommand of <code>cmd/repo-guardian</code>. Rejected by the premise: it would be deleted with the v1 code or rewritten with the controls CLI.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq2-what-is-it-called">OQ2: What is it called?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> <code>rgctl</code> (D6).</p>
+<ul>
+<li>(a) ✅ recommended: <code>rgctl</code>. Short, does not collide with <code>rg</code> (ripgrep) or the user's <code>forge</code>, and reads as "repo-guardian control" beside <code>kubectl</code>.</li>
+<li>(b) <code>rg-prs</code>. Says what it does today, but <code>config show</code> and any later subcommand do not fit the name.</li>
+<li>(c) <code>repo-guardian-cli</code>. Unambiguous and long.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq3-which-command-line-framework">OQ3: Which command-line framework?</h3>
+<p><strong>Resolved 2026-10-05: (b).</strong> cobra is the standard for new tools here (D7).</p>
+<ul>
+<li>(a) ✅ recommended: the standard library <code>flag</code> package with hand-written subcommand dispatch, as <code>cmd/repo-guardian</code> does. Three subcommands and a dozen flags do not need a framework, and no new dependency enters <code>go.mod</code>.</li>
+<li>(b) <code>spf13/cobra</code>. Completion and help for free, one more dependency and a different style from the main binary.</li>
+<li>(c) <code>urfave/cli</code>. Same trade as (b).</li>
+<li>other:</li>
+</ul>
+<h3 id="oq4-how-does-an-org-scan-find-prs-by-default">OQ4: How does an org scan find PRs by default?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> Search then verify, <code>--exhaustive</code> opt-in (D8).</p>
+<ul>
+<li>(a) ✅ recommended: search first, verify every hit through the Pull Requests API, <code>--exhaustive</code> as an opt-in that lists every repository. One request per 100 PRs instead of one per repository, with the index's two failure modes (timeout, 1000-result cap) surfaced as warnings that name the fallback.</li>
+<li>(b) Exhaustive by default, search never. Always correct, but one request per repository per org, which at twenty-plus orgs is thousands of calls for a handful of PRs.</li>
+<li>(c) Search only, no verification. Fewer calls, but a stale index hit could be acted on.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq5-what-happens-to-a-pr-a-human-has-pushed-to">OQ5: What happens to a PR a human has pushed to?</h3>
+<p><strong>Resolved 2026-10-05: other.</strong> As (a), with the flag named <code>--force</code>: edited PRs are skipped and reported, <code>--force</code> closes them, their branch is never deleted (D9).</p>
+<ul>
+<li>(a) ✅ recommended: skipped and reported, with <code>--include-edited</code> to close it anyway and its branch never deleted. This matches DESIGN-0032's runbook, which adopts edited PRs as tracked PRs rather than closing them.</li>
+<li>(b) Closed like any other, with the comment. Simpler, but discards human work that v2 would otherwise pick up.</li>
+<li>(c) Commented but never closed, even with a flag. Safest, and leaves the operator doing the close by hand.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq6-which-credentials">OQ6: Which credentials?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> Both (D10).</p>
+<ul>
+<li>(a) ✅ recommended: both an App id plus private-key file (installation tokens per org, bot login discovered from <code>GET /app</code>, repository set equal to what v1 could see) and a <code>GH_TOKEN</code> operator token (then <code>--bot-login</code> is required). App auth is the natural cutover shape; token auth is what an operator reaches for on a laptop.</li>
+<li>(b) App auth only. One code path, but every use needs the key file.</li>
+<li>(c) Token only. Simplest, but the closing comment and the close itself are attributed to a person, and listing an org's repositories needs the token's own org access.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq7-is-the-branch-deleted-when-a-pr-is-closed">OQ7: Is the branch deleted when a PR is closed?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> Opt-in with <code>--delete-branch</code> (D11).</p>
+<ul>
+<li>(a) ✅ recommended: only with <code>--delete-branch</code>, and never for an edited PR. Closing is reversible, deleting a branch is not, and GitHub keeps a closed PR's branch restorable only while the PR exists.</li>
+<li>(b) Always delete. Tidier, and the default most people want at cutover, but one flag away either way.</li>
+<li>(c) Never delete. Leaves <code>repo-guardian/*</code> branches behind in every repository.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq8-how-much-of-the-v1-policy-does-config-show-understand">OQ8: How much of the v1 policy does <code>config show</code> understand?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> A loose reader is enough: the tool is a troubleshooting and cutover aid for the v1 line, replaced in v2 by the in-app CLI and TUI as a fast follow (D12).</p>
+<ul>
+<li>(a) ✅ recommended: a loose reader, the six top-level block types and the attributes of <code>rule</code> and <code>reconcile</code> blocks, with everything else listed as unrecognised and no evaluation. Enough to answer "what orgs, what rules, what mode" from any v1 file, and nothing to keep in step with the v1 schema.</li>
+<li>(b) A vendored copy of the v1 schema and merge rules. Exact, but a second copy of code that is being deleted.</li>
+<li>(c) No <code>config show</code>; orgs come from <code>--org</code> flags only. Smaller, and loses the "what did v1 say" answer the tool is partly for.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq9-how-is-it-distributed">OQ9: How is it distributed?</h3>
+<p><strong>Resolved 2026-10-05: (b).</strong> <code>go install</code> only; the tool moves into goreleaser when it is first-class in v2 (D13).</p>
+<ul>
+<li>(a) ✅ recommended: a second <code>builds:</code> entry in <code>.goreleaser.yml</code>, shipped, signed and attached to the same release as <code>repo-guardian</code>, plus <code>go install github.com/donaldgifford/repo-guardian/tools/rgctl@&lt;tag&gt;</code>.</li>
+<li>(b) <code>go install</code> only. No release work, but no signed artifact and a Go toolchain required on the operator's machine.</li>
+<li>(c) Its own release cadence and tags. Only worth it if the tool moves to its own repository (OQ1 b).</li>
+<li>other:</li>
+</ul>
+<h3 id="oq10-what-does-the-default-pointer-comment-say">OQ10: What does the default pointer comment say?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> Fixed default text, <code>--comment</code> to replace it (D14).</p>
+<ul>
+<li>(a) ✅ recommended: a fixed text naming the tool, the date and that the repository is now managed by repo-guardian v2's per-control PRs, overridable with <code>--comment</code>, always preceded by the tool's marker line so a re-run never posts twice.</li>
+<li>(b) <code>--comment</code> required, no default. Forces the operator to write something accurate, and makes the cutover command longer.</li>
+<li>(c) No comment, just close. Leaves readers of the closed PR with no explanation.</li>
+<li>other:</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>DESIGN-0032 Evaluation and remediation workflows: cutover runbook (steps 3 and 6), D4, D26, D27.</li>
+<li>DESIGN-0029 D8 and D11: cutover is a reset on a fresh database.</li>
+<li>DESIGN-0033 AR-0033-07: evaluate CLI exit codes, reused here.</li>
+<li><code>internal/checker/engine.go</code> (<code>BranchName</code>, <code>PRTitle</code>), <code>internal/reconciler/custom_properties.go</code> (<code>PropertiesBranchName</code>, <code>CatalogInfoBranchName</code>), <code>internal/checker/drift.go</code> (<code>reconcileLogMarker</code>), <code>TestPRIdentity_IsFrozen</code>.</li>
+<li>GitHub docs: searching issues and pull requests (<code>author:app/</code>, <code>head:</code> prefix match); REST search (30 requests per minute, 1000 results per query, <code>incomplete_results</code>).</li>
+<li><code>.golangci.yml</code> on the <code>v2</code> line: the three existing <code>depguard</code> rules; CLAUDE.md note that <code>**/internal/workflows/*.go</code> was the glob form that matched.</li>
+<li><code>cmd/rg-burst</code>: precedent for a side binary in this repository; <code>tools/rgctl</code> differs by being its own module.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

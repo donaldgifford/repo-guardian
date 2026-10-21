@@ -1,0 +1,3124 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0004-helm-chart-for-repo-guardian/">
+      
+      
+        <link rel="next" href="../0006-reconciler-interface-and-push-event-handler/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>HCL Policy Configuration and Rule Engine - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0005-hcl-policy-configuration-and-rule-engine" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              HCL Policy Configuration and Rule Engine
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-go-types-and-hcl-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Go Types and HCL Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Go Types and HCL Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-built-in-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Built-in Defaults
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Built-in Defaults">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-hcl-parser-and-config-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: HCL Parser and Config Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: HCL Parser and Config Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-config-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Config Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Config Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-yaml-path-evaluator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: YAML Path Evaluator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: YAML Path Evaluator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-content-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Content Assertions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Content Assertions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-rule-engine-refactor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Rule Engine Refactor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Rule Engine Refactor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-main-wiring-and-config-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Main Wiring and Config Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Main Wiring and Config Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-helm-chart-policy-configmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Helm Chart Policy ConfigMap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Helm Chart Policy ConfigMap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-go-types-and-hcl-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Go Types and HCL Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Go Types and HCL Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-built-in-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Built-in Defaults
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Built-in Defaults">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-hcl-parser-and-config-loader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: HCL Parser and Config Loader
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: HCL Parser and Config Loader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-config-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Config Validation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Config Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-yaml-path-evaluator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: YAML Path Evaluator
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: YAML Path Evaluator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-content-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Content Assertions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Content Assertions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-rule-engine-refactor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Rule Engine Refactor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Rule Engine Refactor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-main-wiring-and-config-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Main Wiring and Config Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Main Wiring and Config Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-helm-chart-policy-configmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: Helm Chart Policy ConfigMap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: Helm Chart Policy ConfigMap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="impl-0005-hcl-policy-configuration-and-rule-engine">IMPL 0005: HCL Policy Configuration and Rule Engine</h1>
+<p><strong>Status:</strong> Completed
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-03-15</p>
+<h2 id="objective">Objective</h2>
+<p>Implement the <code>internal/policy</code> package that parses HCL configuration files
+into typed Go structs, and refactor the hardcoded <code>FileRule</code> registry into a
+config-driven rule engine with three check modes (<code>exists</code>, <code>contains</code>,
+<code>exact</code>) and typed content assertions.</p>
+<p><strong>Implements:</strong> DESIGN-0006</p>
+<h2 id="scope">Scope</h2>
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li>HCL parser using <code>hashicorp/hcl/v2</code> for <code>guardian.hcl</code></li>
+<li>Go types: <code>PolicyConfig</code>, <code>GuardianConfig</code>, <code>FileRuleConfig</code>,
+  <code>AssertionConfig</code>, <code>PRConfig</code></li>
+<li>Config loading: single file and directory of <code>.hcl</code> files</li>
+<li>Config merge: built-in defaults → HCL → env var overrides</li>
+<li>Validation at load time with clear error messages</li>
+<li>Three check modes: <code>exists</code>, <code>contains</code>, <code>exact</code></li>
+<li>Content assertions: <code>pattern</code>, <code>not_pattern</code>, <code>yaml_path</code> +
+  <code>contains</code>/<code>equals</code></li>
+<li>Minimal YAML path evaluator (dot paths + array wildcards)</li>
+<li>Refactor <code>main.go</code> wiring to use <code>PolicyConfig</code></li>
+<li>Backward compatibility when no HCL config is present</li>
+<li>Helm chart <code>policy</code> ConfigMap support</li>
+<li><code>GUARDIAN_CONFIG</code> env var</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li>Reconciler interface and types (IMPL-0006)</li>
+<li>Push event handler (IMPL-0006)</li>
+<li>Ignore lists (IMPL-0007)</li>
+<li><code>rule "setting"</code> and <code>rule "branch_protection"</code> types (IMPL-0007)</li>
+<li>Additional reconciler implementations (IMPL-0007)</li>
+</ul>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase builds on the previous one. A phase is complete when all its tasks
+are checked off and its success criteria are met.</p>
+<hr />
+<h3 id="phase-1-go-types-and-hcl-schema">Phase 1: Go Types and HCL Schema</h3>
+<p>Establish the foundational Go types and HCL schema definition. No parsing
+logic yet -- just the data structures that everything else builds on.</p>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/types.go</code> with all Go types:
+  <code>PolicyConfig</code>, <code>GuardianConfig</code>, <code>FileRuleConfig</code>, <code>CheckMode</code> constants,
+  <code>PRConfig</code>, <code>AssertionConfig</code></li>
+<li>[x] Add placeholder fields for future types: <code>IgnoreConfig</code>,
+  <code>ReconcilerConfig</code> (empty structs, filled in IMPL-0006/0007)</li>
+<li>[x] Add <code>hashicorp/hcl/v2</code> and <code>hashicorp/hcl/v2/hclsimple</code> to <code>go.mod</code></li>
+<li>[x] Add HCL struct tags to all types for schema binding</li>
+<li>[x] Write unit tests validating Go type construction and zero-value
+  defaults</li>
+</ul>
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li><code>go build ./...</code> succeeds</li>
+<li><code>make lint</code> passes</li>
+<li>Types compile with correct HCL struct tags</li>
+<li>Tests cover type construction</li>
+</ul>
+<hr />
+<h3 id="phase-2-built-in-defaults">Phase 2: Built-in Defaults</h3>
+<p>Create the default policy config that mirrors current hardcoded behavior,
+ensuring backward compatibility when no HCL config is present.</p>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/defaults.go</code> with <code>BuiltinDefaults() *PolicyConfig</code></li>
+<li>[x] Map current <code>rules.DefaultRules</code> to <code>FileRuleConfig</code> structs
+  (CODEOWNERS, Dependabot, Renovate)</li>
+<li>[x] Map current <code>config.Config</code> defaults to <code>GuardianConfig</code> fields</li>
+<li>[x] Write unit tests asserting built-in defaults match current
+  <code>DefaultRules</code> and <code>config.Load()</code> defaults exactly</li>
+<li>[x] Write comparison test: <code>BuiltinDefaults().FileRules</code> produces the same
+  rule names, paths, targets, and enabled states as <code>rules.DefaultRules</code></li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li><code>BuiltinDefaults()</code> returns a config equivalent to current hardcoded
+  behavior</li>
+<li>All three default rules (CODEOWNERS, Dependabot, Renovate) are represented</li>
+<li>All <code>GuardianConfig</code> fields have defaults matching current env var defaults</li>
+<li><code>make test</code> passes</li>
+</ul>
+<hr />
+<h3 id="phase-3-hcl-parser-and-config-loader">Phase 3: HCL Parser and Config Loader</h3>
+<p>Implement the core <code>Load</code> function that reads HCL files, merges with
+defaults, applies env var overrides, and validates the result.</p>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/loader.go</code> with
+  <code>Load(path string) (*PolicyConfig, error)</code></li>
+<li>[x] Implement single-file loading (<code>.hcl</code> file)</li>
+<li>[x] Implement directory loading (all <code>*.hcl</code> files, lexicographic order)</li>
+<li>[x] Implement env var override layer for <code>GuardianConfig</code> fields (use
+  same env var names as current <code>config.Config</code>)</li>
+<li>[x] Implement merge logic: built-in defaults, then HCL overrides</li>
+<li>[x] Handle <code>GUARDIAN_CONFIG</code> unset or path not found → return
+  <code>BuiltinDefaults()</code></li>
+<li>[x] Support HCL variables and <code>locals {}</code> blocks</li>
+<li>[x] Write unit tests:</li>
+<li>Valid HCL file parses correctly</li>
+<li>Directory with multiple <code>.hcl</code> files merges correctly</li>
+<li>Duplicate rule names across files produce validation error</li>
+<li>Env var overrides take precedence over HCL values</li>
+<li>Missing config path returns built-in defaults</li>
+<li>HCL syntax errors produce clear error messages</li>
+<li><code>locals {}</code> blocks resolve correctly</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li><code>Load("/path/to/guardian.hcl")</code> returns correct <code>PolicyConfig</code></li>
+<li><code>Load("/path/to/dir/")</code> loads and merges all <code>.hcl</code> files</li>
+<li><code>Load("")</code> returns built-in defaults</li>
+<li>Env vars override HCL values</li>
+<li><code>make test</code> passes</li>
+</ul>
+<hr />
+<h3 id="phase-4-config-validation">Phase 4: Config Validation</h3>
+<p>Add comprehensive validation at load time to catch configuration errors
+early with clear, actionable error messages.</p>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/validate.go</code> with
+  <code>Validate(cfg *PolicyConfig) error</code></li>
+<li>[x] Validate <code>FileRuleConfig</code>:</li>
+<li><code>check</code> must be one of <code>exists</code>, <code>contains</code>, <code>exact</code></li>
+<li><code>paths</code> must be non-empty</li>
+<li><code>target</code> must be non-empty</li>
+<li><code>template</code> must be non-empty</li>
+<li>Assertions require <code>check = "contains"</code></li>
+<li><code>pattern</code> and <code>yaml_path</code> are mutually exclusive</li>
+<li><code>yaml_path</code> requires either <code>contains</code> or <code>equals</code></li>
+<li><code>message</code> is required for all assertions</li>
+<li>[x] Validate <code>GuardianConfig</code>:</li>
+<li><code>worker_count</code> &gt; 0</li>
+<li><code>queue_size</code> &gt; 0</li>
+<li><code>rate_limit_threshold</code> between 0.0 and 1.0</li>
+<li><code>log_level</code> is one of debug, info, warn, error</li>
+<li>[x] Validate no duplicate rule names (same type + name)</li>
+<li>[x] Write unit tests for each validation rule with both valid and invalid
+  inputs</li>
+<li>[x] Write unit tests for error message clarity (errors should name the
+  field and explain the constraint)</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li>All invalid configs produce clear, specific error messages</li>
+<li>Valid configs pass validation without error</li>
+<li>Validation runs as part of <code>Load()</code> before returning</li>
+<li><code>make test</code> and <code>make lint</code> pass</li>
+</ul>
+<hr />
+<h3 id="phase-5-yaml-path-evaluator">Phase 5: YAML Path Evaluator</h3>
+<p>Build the minimal YAML path evaluator for content assertions on structured
+files. Uses <code>gopkg.in/yaml.v3</code> (already in <code>go.mod</code>).</p>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/yamlpath.go</code> with
+  <code>EvaluateYAMLPath(content string, path string) ([]string, error)</code></li>
+<li>[x] Support dot-separated paths: <code>spec.owner</code>, <code>metadata.name</code></li>
+<li>[x] Support literal slashes in keys:
+  <code>metadata.annotations.jira/project-key</code></li>
+<li>[x] Support array wildcards: <code>updates[*].package-ecosystem</code></li>
+<li>[x] Return all matching values as <code>[]string</code></li>
+<li>[x] Return clear errors for invalid YAML or invalid path expressions</li>
+<li>[x] Write table-driven unit tests covering:</li>
+<li>Simple dot paths</li>
+<li>Nested dot paths</li>
+<li>Keys containing slashes</li>
+<li>Array wildcard paths</li>
+<li>Non-existent paths (empty result, no error)</li>
+<li>Invalid YAML content</li>
+<li>Invalid path syntax</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li>All YAML path expressions from DESIGN-0006 table work correctly</li>
+<li>No external YAML path library dependency (just <code>gopkg.in/yaml.v3</code>)</li>
+<li><code>make test</code> and <code>make lint</code> pass</li>
+</ul>
+<hr />
+<h3 id="phase-6-content-assertions">Phase 6: Content Assertions</h3>
+<p>Implement the assertion evaluation engine that runs when <code>check = "contains"</code>
+and the file exists.</p>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] Create <code>internal/policy/assertion.go</code> with
+  <code>(a *AssertionConfig) Evaluate(content string, filePath string) error</code></li>
+<li>[x] Implement <code>pattern</code> assertion: compile regex, match against content</li>
+<li>[x] Implement <code>not_pattern</code> assertion: compile regex, fail if matched</li>
+<li>[x] Implement <code>yaml_path</code> + <code>contains</code> assertion: evaluate path, check
+  if any value contains the string</li>
+<li>[x] Implement <code>yaml_path</code> + <code>equals</code> assertion: evaluate path, check
+  if any value equals the string</li>
+<li>[x] Return error with <code>message</code> field when assertion fails</li>
+<li>[x] Pre-compile regexes at config load time (not per-evaluation)</li>
+<li>[x] Write unit tests:</li>
+<li>Regex match passes and fails</li>
+<li>Regex not_pattern passes and fails</li>
+<li>YAML path contains passes and fails</li>
+<li>YAML path equals passes and fails</li>
+<li>Multiple assertions all pass</li>
+<li>Multiple assertions with one failure</li>
+<li>Clear error messages include the assertion <code>message</code> field</li>
+</ul>
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li>All assertion types evaluate correctly</li>
+<li>Assertions return user-friendly failure messages</li>
+<li>Regexes are validated at config load time</li>
+<li><code>make test</code> and <code>make lint</code> pass</li>
+</ul>
+<hr />
+<h3 id="phase-7-rule-engine-refactor">Phase 7: Rule Engine Refactor</h3>
+<p>Refactor <code>internal/checker/engine.go</code> to use <code>PolicyConfig</code> instead of the
+hardcoded <code>rules.Registry</code>. Implement the three check modes.</p>
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[x] Modify <code>checker.Engine</code> to accept <code>*policy.PolicyConfig</code> instead of
+  <code>*rules.Registry</code></li>
+<li>[x] Refactor <code>CheckRepo</code> to iterate over <code>PolicyConfig.FileRules</code></li>
+<li>[x] Implement <code>exists</code> mode: same as current behavior (check file
+  existence, PR if missing)</li>
+<li>[x] Implement <code>contains</code> mode: check existence → if present, run
+  assertions → if assertions fail, create PR to replace with template</li>
+<li>[x] Implement <code>exact</code> mode: check existence → if present, compare against
+  template → YAML semantic comparison for <code>.yml</code>/<code>.yaml</code> files, byte
+  comparison otherwise → create PR if mismatch</li>
+<li>[x] Add YAML semantic diff helper (parse both, compare parsed structures)</li>
+<li>[x] Update <code>findMissingFiles</code> to handle the new check modes</li>
+<li>[x] Preserve existing metrics (<code>files_missing_total</code>, <code>prs_created_total</code>,
+  etc.)</li>
+<li>[x] Maintain backward compatibility: when using built-in defaults, behavior
+  is identical to current</li>
+<li>[x] Write unit tests:</li>
+<li><code>exists</code> mode: file missing → PR created</li>
+<li><code>exists</code> mode: file present → no action</li>
+<li><code>contains</code> mode: file missing → PR created</li>
+<li><code>contains</code> mode: file present, assertions pass → no action</li>
+<li><code>contains</code> mode: file present, assertions fail → PR created</li>
+<li><code>exact</code> mode: file missing → PR created</li>
+<li><code>exact</code> mode: file matches template → no action</li>
+<li><code>exact</code> mode: file differs from template → PR created</li>
+<li><code>exact</code> mode: YAML files use semantic comparison</li>
+<li>Backward compatibility with <code>BuiltinDefaults()</code></li>
+</ul>
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li>All three check modes work correctly</li>
+<li>Existing tests continue to pass</li>
+<li>Backward compatibility with default rules</li>
+<li>Metrics are preserved</li>
+<li><code>make test</code> and <code>make lint</code> pass</li>
+</ul>
+<hr />
+<h3 id="phase-8-main-wiring-and-config-integration">Phase 8: Main Wiring and Config Integration</h3>
+<p>Update <code>cmd/repo-guardian/main.go</code> to load policy config and wire it through
+the application. Trim <code>config.Config</code> to only hold credentials.</p>
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[x] Add <code>GUARDIAN_CONFIG</code> to <code>config.Config</code> (path to HCL file/dir)</li>
+<li>[x] Call <code>policy.Load()</code> in <code>main.go</code> after <code>config.Load()</code></li>
+<li>[x] Pass <code>PolicyConfig.Guardian</code> fields to components that currently read
+  from <code>config.Config</code> (engine, scheduler, queue)</li>
+<li>[x] Remove operational fields from <code>config.Config</code> that are now in
+  <code>GuardianConfig</code> (keep credentials-only)</li>
+<li>[x] Update <code>checker.NewEngine</code> signature to accept <code>*policy.PolicyConfig</code></li>
+<li>[x] Update <code>scheduler.NewScheduler</code> to use <code>GuardianConfig</code> fields</li>
+<li>[x] Update <code>checker.NewQueue</code> to use <code>GuardianConfig.QueueSize</code></li>
+<li>[x] Log the config source at startup (HCL file path or "built-in defaults")</li>
+<li>[x] Write integration test: <code>config.Load()</code> + <code>policy.Load()</code> → engine
+  creation → no errors</li>
+</ul>
+<h4 id="success-criteria_7">Success Criteria</h4>
+<ul>
+<li><code>main.go</code> compiles and runs with both HCL config and without</li>
+<li>Existing env vars continue to work as overrides</li>
+<li>Credential config remains env-var-only</li>
+<li><code>make ci</code> passes (lint + test + build)</li>
+</ul>
+<hr />
+<h3 id="phase-9-helm-chart-policy-configmap">Phase 9: Helm Chart Policy ConfigMap</h3>
+<p>Add Helm chart support for mounting the HCL policy file via ConfigMap.</p>
+<h4 id="tasks_8">Tasks</h4>
+<ul>
+<li>[x] Add <code>policy.config</code> and <code>policy.existingConfigMap</code> to <code>values.yaml</code></li>
+<li>[x] Create <code>templates/policy-configmap.yaml</code> (rendered when
+  <code>policy.config</code> is set)</li>
+<li>[x] Update <code>templates/deployment.yaml</code> to mount policy ConfigMap at
+  <code>/etc/repo-guardian/guardian.hcl</code></li>
+<li>[x] Set <code>GUARDIAN_CONFIG</code> env var in deployment when policy ConfigMap is
+  present</li>
+<li>[x] Write helm-unittest tests:</li>
+<li>Policy ConfigMap renders correctly with inline config</li>
+<li>Policy ConfigMap not rendered when <code>policy.config</code> is empty</li>
+<li>External ConfigMap used when <code>policy.existingConfigMap</code> is set</li>
+<li>Deployment volume mount present when policy is configured</li>
+<li><code>GUARDIAN_CONFIG</code> env var set correctly</li>
+<li>[x] Update <code>ci/ci-values.yaml</code> if needed for chart-testing</li>
+</ul>
+<h4 id="success-criteria_8">Success Criteria</h4>
+<ul>
+<li><code>helm template</code> renders correctly with policy config</li>
+<li><code>helm template</code> renders correctly without policy config (backward compat)</li>
+<li>helm-unittest tests pass</li>
+<li><code>make lint</code> passes (includes chart linting)</li>
+</ul>
+<hr />
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/policy/types.go</code></td>
+<td>Create</td>
+<td>Go types with HCL struct tags</td>
+</tr>
+<tr>
+<td><code>internal/policy/defaults.go</code></td>
+<td>Create</td>
+<td>Built-in defaults matching current behavior</td>
+</tr>
+<tr>
+<td><code>internal/policy/loader.go</code></td>
+<td>Create</td>
+<td>HCL parser, file/dir loading, env var merge</td>
+</tr>
+<tr>
+<td><code>internal/policy/validate.go</code></td>
+<td>Create</td>
+<td>Config validation with clear errors</td>
+</tr>
+<tr>
+<td><code>internal/policy/yamlpath.go</code></td>
+<td>Create</td>
+<td>Minimal YAML path evaluator</td>
+</tr>
+<tr>
+<td><code>internal/policy/assertion.go</code></td>
+<td>Create</td>
+<td>Content assertion evaluation</td>
+</tr>
+<tr>
+<td><code>internal/policy/types_test.go</code></td>
+<td>Create</td>
+<td>Type construction tests</td>
+</tr>
+<tr>
+<td><code>internal/policy/defaults_test.go</code></td>
+<td>Create</td>
+<td>Default equivalence tests</td>
+</tr>
+<tr>
+<td><code>internal/policy/loader_test.go</code></td>
+<td>Create</td>
+<td>Parser and loader tests</td>
+</tr>
+<tr>
+<td><code>internal/policy/validate_test.go</code></td>
+<td>Create</td>
+<td>Validation tests</td>
+</tr>
+<tr>
+<td><code>internal/policy/yamlpath_test.go</code></td>
+<td>Create</td>
+<td>YAML path evaluator tests</td>
+</tr>
+<tr>
+<td><code>internal/policy/assertion_test.go</code></td>
+<td>Create</td>
+<td>Assertion evaluation tests</td>
+</tr>
+<tr>
+<td><code>internal/checker/engine.go</code></td>
+<td>Modify</td>
+<td>Refactor to use PolicyConfig</td>
+</tr>
+<tr>
+<td><code>internal/checker/engine_test.go</code></td>
+<td>Modify</td>
+<td>Add check mode tests</td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Modify</td>
+<td>Add GUARDIAN_CONFIG, trim operational fields</td>
+</tr>
+<tr>
+<td><code>cmd/repo-guardian/main.go</code></td>
+<td>Modify</td>
+<td>Wire policy.Load() into startup</td>
+</tr>
+<tr>
+<td><code>go.mod</code></td>
+<td>Modify</td>
+<td>Add hashicorp/hcl/v2</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code></td>
+<td>Modify</td>
+<td>Add policy.config section</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/policy-configmap.yaml</code></td>
+<td>Create</td>
+<td>Policy ConfigMap template</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/deployment.yaml</code></td>
+<td>Modify</td>
+<td>Mount policy ConfigMap</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan</h2>
+<ul>
+<li>[ ] Unit tests for all exported functions in <code>internal/policy/</code></li>
+<li>[ ] Table-driven tests for YAML path evaluator</li>
+<li>[ ] Table-driven tests for assertion evaluation</li>
+<li>[ ] Table-driven tests for config validation</li>
+<li>[ ] Integration tests: HCL file → PolicyConfig → engine</li>
+<li>[ ] Backward compatibility tests: no HCL → identical behavior</li>
+<li>[ ] Helm-unittest tests for policy ConfigMap</li>
+</ul>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li><code>hashicorp/hcl/v2</code> — HCL parser (new dependency)</li>
+<li><code>gopkg.in/yaml.v3</code> — already in go.mod, used for YAML path evaluator</li>
+<li>DESIGN-0006 — design document (completed)</li>
+</ul>
+<h2 id="resolved-questions">Resolved Questions</h2>
+<ol>
+<li>
+<p><strong>Config trimming scope:</strong> Fully trim <code>config.Config</code> of operational
+   fields in Phase 8. No compatibility shim — clean cut. <code>config.Config</code>
+   keeps only credentials (<code>GitHubAppID</code>, private key, webhook secret).</p>
+</li>
+<li>
+<p><strong>HCL library choice:</strong> Use <code>hclsimple</code> as the primary parsing API.
+   Both <code>hclsimple</code> and <code>gohcl</code> are subpackages of <code>github.com/hashicorp/hcl/v2</code>
+   — single dependency. Pull in other parts of the library as needed
+   (e.g., <code>hclparse</code> for better diagnostics).</p>
+</li>
+<li>
+<p><strong>Regex compilation caching:</strong> Use a separate compiled assertion type.
+   Regexes are compiled at config load time into a distinct type — compile
+   errors are caught early, and the type is independently testable and
+   mockable.</p>
+</li>
+</ol>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0006-hcl-policy-configuration-and-rule-engine/">DESIGN-0006: HCL Policy Configuration and Rule Engine</a></li>
+<li><a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/">RFC-0002: HCL-driven Policy Engine</a></li>
+<li>Current rule registry: <code>internal/rules/registry.go</code></li>
+<li>Current config: <code>internal/config/config.go</code></li>
+<li>Current checker engine: <code>internal/checker/engine.go</code></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

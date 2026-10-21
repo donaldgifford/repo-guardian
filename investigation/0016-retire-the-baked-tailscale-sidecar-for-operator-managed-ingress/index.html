@@ -1,0 +1,2595 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Retire the baked Tailscale sidecar for operator-managed ingress - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Retire the baked Tailscale sidecar for operator-managed ingress
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a New Rule to Repo Guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-the-tailscale-surface-is-chart-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1: the Tailscale surface is chart-only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-the-binary-is-already-ingress-agnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2: the binary is already ingress-agnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-the-sidecar-path-disables-the-ip-allowlist-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3: the sidecar path disables the IP-allowlist layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-the-sidecar-is-unversioned-and-unaudited" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4: the sidecar is unversioned and unaudited
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 5: the allowlist middleware is bypassable behind every documented proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-7-aws-lbc-gateway-api-support-is-ga" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 7: AWS LBC Gateway API support is GA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-8-the-ngrok-operator-is-gateway-api-native-with-edge-ip-restrictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-9-cloudflare-tunnel-offers-the-ngrok-capability-set-without-the-domain-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 9: Cloudflare Tunnel offers the ngrok capability set without the domain gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress">INV 0016: Retire the baked Tailscale sidecar for operator-managed ingress</h1>
+<p><strong>Status:</strong> Concluded
+<strong>Author:</strong> Donald Gifford
+<strong>Date:</strong> 2026-08-14</p>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#observation-1-the-tailscale-surface-is-chart-only">Observation 1: the Tailscale surface is chart-only</a></li>
+<li><a href="#observation-2-the-binary-is-already-ingress-agnostic">Observation 2: the binary is already ingress-agnostic</a></li>
+<li><a href="#observation-3-the-sidecar-path-disables-the-ip-allowlist-layer">Observation 3: the sidecar path disables the IP-allowlist layer</a></li>
+<li><a href="#observation-4-the-sidecar-is-unversioned-and-unaudited">Observation 4: the sidecar is unversioned and unaudited</a></li>
+<li><a href="#observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy">Observation 5: the allowlist middleware is bypassable behind every documented proxy</a></li>
+<li><a href="#observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only">Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only</a></li>
+<li><a href="#observation-7-aws-lbc-gateway-api-support-is-ga">Observation 7: AWS LBC Gateway API support is GA</a></li>
+<li><a href="#observation-8-the-ngrok-operator-is-gateway-api-native-with-edge-ip-restrictions">Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions</a></li>
+<li><a href="#observation-9-cloudflare-tunnel-offers-the-ngrok-capability-set-without-the-domain-gate">Observation 9: Cloudflare Tunnel offers the ngrok capability set without the domain gate</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Can every Tailscale-specific surface in the chart and code be deleted
+outright — sidecar container, serve-config ConfigMap, RBAC, values
+block, and the env fork it drives — with ingress instead <em>documented</em>
+as operator-owned paths:</p>
+<ol>
+<li>the <strong>Tailscale Kubernetes operator</strong> for the Talos homelab
+   (dev/test),</li>
+<li><strong>AWS Load Balancer Controller with the Gateway API</strong> for EKS
+   (production), and</li>
+<li><strong>ngrok</strong> as the documented webhook-testing path (we have used it
+   repeatedly for exactly that),</li>
+</ol>
+<p>without losing any capability the sidecar provides today?</p>
+<p>And the second half, which follows from the first: once ingress is
+explicitly outside the app's scope, should the <strong>webhook IP-allowlist
+middleware</strong> (<code>internal/webhook/allowlist.go</code>) go with it? Source-IP
+enforcement moves to the layer that actually sees the true source
+address — an ALB security-group rule against a GitHub prefix list, a
+Tailscale ACL, an ngrok IP policy — HMAC remains the app-layer
+boundary, and the OTEL instrumentation added in IMPL-0023 is how we
+observe whichever edge the operator chose.</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>Yes to both, and the removal is a security <em>improvement</em>, not a
+trade. Four reasons, each grounded in the inventory below:</p>
+<ul>
+<li>The binary's webhook handling is ingress-agnostic: HMAC validation
+  works identically behind any proxy. Nothing in Go knows Tailscale
+  exists.</li>
+<li>The sidecar is pure chart machinery — a second container, its state
+  volume, a serve-config ConfigMap, and RBAC — that the chart must
+  version, patch, and reason about, duplicating exactly what the
+  Tailscale operator exists to own.</li>
+<li>Enabling the sidecar today <strong>hard-forces the IP allowlist to
+  fail-open</strong>, so the "two-layer defense" from SECURITY.md is really
+  one layer on the Funnel path.</li>
+<li>The allowlist middleware itself is <strong>spoofable behind every proxy we
+  document</strong> (Observation 5): with <code>TRUST_PROXY_HEADERS=true</code> it
+  validates the leftmost — client-controlled — <code>X-Forwarded-For</code>
+  entry. Edge-layer enforcement acts on the true L3/L4 source address
+  and cannot be header-spoofed; moving the check there is strictly
+  stronger, not a concession.</li>
+</ul>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> operator request, post-IMPL-0023 (v1.13.0 / chart
+1.0.0-rc.12).</p>
+<p>The sidecar dates from the project's earliest webhook-testing needs:
+INV-0001 validated Tailscale Funnel as a way to receive GitHub webhooks
+without public ingress, and DESIGN-0003 turned that into the baked
+sidecar the chart still ships. Both predate the Helm chart being the
+only supported deployment surface (IMPL-0014) and predate any
+production EKS target. The deployment story is now split — Talos
+homelab for dev/test, EKS for production — and neither is served well
+by a hand-rolled sidecar: the homelab wants the Tailscale operator
+(which owns auth-key lifecycle, state, and upgrades), and EKS wants
+native AWS ingress (ALB via the Load Balancer Controller), where a
+Funnel would be an anti-pattern.</p>
+<p>The direction also matches the chart's own precedent: IMPL-0016
+removed the baked memory backends in favor of the real thing; this
+removes a baked network path in favor of the platform's real ingress.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>~~Inventory every Tailscale reference in code and chart, with the
+   blast radius of each.~~ Done — Findings below.</li>
+<li>~~Verify the <strong>Tailscale operator</strong> covers the sidecar's one real
+   feature (public HTTPS ingress to the webhook port via Funnel) —
+   specifically via the <strong>Gateway API</strong>, because that is what the
+   homelab runs: confirm the operator's GatewayClass +
+   <code>Gateway</code>/<code>HTTPRoute</code> support and its maturity, that it can front a
+   plain HTTP backend with Funnel enabled, and what it does about
+   client IPs in <code>X-Forwarded-For</code>. If the operator's Gateway API
+   support is missing or immature, document the
+   <code>Ingress</code>-class-<code>tailscale</code> + Funnel-annotation path as the
+   interim, mirroring step 3's fallback shape.~~ Done against current
+   docs 2026-08-15 — Observation 6. One remainder: the operator docs
+   are silent on forwarded-header behavior; verify <code>X-Forwarded-For</code>
+   empirically during the migration smoke.</li>
+<li>~~Verify <strong>AWS Load Balancer Controller + Gateway API</strong> maturity:
+   the controller's Gateway API implementation (L7
+   <code>Gateway</code>/<code>HTTPRoute</code> → ALB) went through beta during 2025 — pin
+   the exact controller version and GA status at write-time, and
+   whether <code>HTTPRoute</code> + target-group binding covers the webhook path
+   with TLS termination at the ALB. If L7 Gateway support is not yet
+   GA, document the stock <code>Ingress</code>-class-<code>alb</code> path as the
+   interim.~~ Done 2026-08-15 — Observation 7: GA, no interim path
+   needed.</li>
+<li>Map <strong>edge-layer source-IP enforcement per path</strong>, replacing the
+   in-app allowlist: ALB security-group rule referencing a
+   customer-managed prefix list built from <code>api.github.com/meta</code>
+   <code>hooks</code> CIDRs (and how that list stays current); the equivalent for
+   the Tailscale operator/Funnel path (ACL, or accept that Funnel is
+   public and HMAC-only); ngrok's IP-restriction policy for the
+   testing path. Verify each against current provider docs, not
+   memory.</li>
+<li>Inventory the <strong>middleware removal blast radius</strong> —
+   ~~done, Observation 5~~ — and decide the disposition of each
+   dependent: the orphaned <code>webhook_rejected_total</code> metric and its
+   alert, the E4 log matcher, the three config knobs across env + HCL
+   (strict decode makes attribute removal a breaking config change),
+   and SECURITY.md's two-layer narrative.</li>
+<li>Draft the removal + docs plan: which chart objects and binary
+   surfaces go, what the values-schema rejection message says (the
+   IMPL-0016 <code>deprecatedBackends</code> pattern), what
+   <code>docs/operations/ingress.md</code> (or similar) must contain for each of
+   the three paths — including which OTEL/edge signals replace the
+   deleted allowlist metric for "someone is knocking" visibility —
+   and which historical docs (INV-0001, DESIGN-0003, DESIGN-0004) get
+   superseded pointers. Decide the chart version bump — removing
+   <code>tailscale.*</code> and <code>webhookIPAllowlist.*</code> values is breaking for
+   anyone setting them.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chart</td>
+<td><code>1.0.0-rc.12</code></td>
+</tr>
+<tr>
+<td>appVersion</td>
+<td><code>1.13.0</code></td>
+</tr>
+<tr>
+<td>helm</td>
+<td>4.2.2</td>
+</tr>
+<tr>
+<td>Dev/test target</td>
+<td>Talos k8s (homelab, tailnet-connected)</td>
+</tr>
+<tr>
+<td>Production target</td>
+<td>EKS</td>
+</tr>
+<tr>
+<td>Sidecar image today</td>
+<td><code>ghcr.io/tailscale/tailscale:latest</code> (unpinned)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="observation-1-the-tailscale-surface-is-chart-only">Observation 1: the Tailscale surface is chart-only</h3>
+<p>The complete inventory, verified by sweep on 2026-08-14:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Location</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Values block</td>
+<td><code>values.yaml</code> <code>tailscale:</code> (~15 lines)</td>
+<td><code>enabled</code>, <code>image</code>, <code>hostname</code>, <code>userspace</code>, <code>authKeySecret</code>, <code>rbac.create</code></td>
+</tr>
+<tr>
+<td>Sidecar container</td>
+<td><code>templates/deployment.yaml</code> (~25 lines)</td>
+<td><code>TS_AUTHKEY</code>/<code>TS_HOSTNAME</code>/<code>TS_STATE_DIR</code>/<code>TS_USERSPACE</code>/<code>TS_SERVE_CONFIG</code> env + mounts</td>
+</tr>
+<tr>
+<td>Env fork</td>
+<td><code>templates/deployment.yaml</code></td>
+<td><code>tailscale.enabled</code> overrides the <code>webhookIPAllowlist.*</code> values — see Observation 3</td>
+</tr>
+<tr>
+<td>Volumes</td>
+<td><code>templates/deployment.yaml</code></td>
+<td><code>tailscale-state</code> emptyDir + serve-config ConfigMap mount</td>
+</tr>
+<tr>
+<td>Serve config</td>
+<td><code>templates/tailscale-configmap.yaml</code> (30 lines)</td>
+<td>Funnel on <code>:443</code> → proxy to <code>127.0.0.1:&lt;port&gt;</code>, <code>AllowFunnel: true</code></td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td><code>templates/tailscale-rbac.yaml</code> (29 lines)</td>
+<td>Role/RoleBinding for tailscale state Secrets</td>
+</tr>
+<tr>
+<td>Chart tests</td>
+<td><code>tests/deployment_test.yaml</code></td>
+<td>sidecar render assertions</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><code>SECURITY.md</code>, <code>docs/operations/ent-setup.md</code>, chart README, E4 panel description</td>
+<td>prose references</td>
+</tr>
+</tbody>
+</table>
+<p>Notably absent: <code>values.schema.json</code> has <strong>no</strong> <code>tailscale</code> entry — the
+block was never schema-validated, so a typo'd <code>tailscale.enable=true</code>
+already silently deploys nothing. The auth-key Secret is
+operator-supplied (<code>tailscale-auth</code>), so no Secret template is
+involved.</p>
+<h3 id="observation-2-the-binary-is-already-ingress-agnostic">Observation 2: the binary is already ingress-agnostic</h3>
+<p><code>grep -ri tailscale internal/ cmd/</code> matches <strong>only comments</strong> (the E4
+dashboard's webhook-panel description and doc references). The two
+runtime mechanisms the sidecar path leans on are both generic:</p>
+<ul>
+<li><code>TRUST_PROXY_HEADERS</code> — reads <code>X-Forwarded-For</code> when the direct peer
+  is a proxy. An ALB sets the same header; so does the Tailscale
+  operator's ingress proxy. Nothing to remove, nothing to add.</li>
+<li>The webhook IP allowlist — validates the <em>effective</em> client IP
+  against GitHub's published hook ranges. Works identically behind any
+  proxy that forwards the real client IP.</li>
+</ul>
+<p>So no binary change is <em>required</em> by the sidecar removal itself. The
+one binary change now in scope is deliberate and additive to the
+question, not forced by it: deleting the allowlist middleware
+(Observation 5), which takes <code>TRUST_PROXY_HEADERS</code> with it — the
+allowlist constructor is that knob's only consumer.</p>
+<h3 id="observation-3-the-sidecar-path-disables-the-ip-allowlist-layer">Observation 3: the sidecar path disables the IP-allowlist layer</h3>
+<p><code>templates/deployment.yaml:103-113</code>: when <code>tailscale.enabled=true</code> the
+chart ignores <code>webhookIPAllowlist.failOpen</code> and <code>trustProxyHeaders</code>
+and hard-sets <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN=true</code> +
+<code>TRUST_PROXY_HEADERS=true</code>. The two-layer webhook defense (IP
+allowlist → HMAC) documented in SECURITY.md is therefore a single
+layer (HMAC only, in practice) on exactly the deployment shape that
+exposes the webhook to the public internet via Funnel. The chart's
+own default path already concedes what Observation 5 then confirms
+from the code: the in-app IP layer isn't doing the job, and the layer
+that can — the edge — is outside the chart's scope.</p>
+<h3 id="observation-4-the-sidecar-is-unversioned-and-unaudited">Observation 4: the sidecar is unversioned and unaudited</h3>
+<p><code>tailscale.image</code> defaults to <code>ghcr.io/tailscale/tailscale:latest</code> —
+unpinned, no renovate annotation, invisible to the image-scanning that
+covers the main container, and mutable under every pod restart. The
+operator-managed replacement moves that supply-chain surface to a
+component with its own upgrade lifecycle, which is where it belongs.</p>
+<h3 id="observation-5-the-allowlist-middleware-is-bypassable-behind-every-documented-proxy">Observation 5: the allowlist middleware is bypassable behind every documented proxy</h3>
+<p>Verified in code on 2026-08-15. <code>allowlist.go.extractIP</code> takes the
+<strong>leftmost</strong> <code>X-Forwarded-For</code> entry when <code>TRUST_PROXY_HEADERS=true</code>
+(<code>strings.Cut(xff, ",")</code> → first element). The leftmost entry is the
+one the <em>client</em> supplies; proxies <strong>append</strong> the true source address
+to the end of an inbound chain rather than stripping it (ALB's
+documented behavior, and the common default elsewhere). So behind any
+of the three documented paths, a caller who sends
+<code>X-Forwarded-For: 140.82.112.1</code> presents a GitHub hooks-range IP and
+walks through the check. The middleware genuinely enforces only on
+direct-exposure deployments — a shape no documented path uses. It is
+not a weak second layer; on proxied paths it is not a layer at all.</p>
+<p>Edge enforcement does not share this flaw: a security-group rule or
+provider ACL matches the L3/L4 source address of the actual
+connection, which no header can forge.</p>
+<p>Removal blast radius, verified by sweep:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Location</th>
+<th>Disposition question</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Middleware + meta fetcher</td>
+<td><code>internal/webhook/allowlist.go</code> (207 LOC) + <code>allowlist_test.go</code> (304 LOC)</td>
+<td>delete; also removes the <code>api.github.com/meta</code> outbound dependency, its 24h refresh goroutine, and the fail-open/fail-closed semantics</td>
+</tr>
+<tr>
+<td>Wiring</td>
+<td><code>cmd/repo-guardian/main.go.wrapWebhookAllowlist</code></td>
+<td>delete</td>
+</tr>
+<tr>
+<td>Env knobs</td>
+<td><code>WEBHOOK_IP_ALLOWLIST</code>, <code>WEBHOOK_IP_ALLOWLIST_FAIL_OPEN</code>, <code>TRUST_PROXY_HEADERS</code> (<code>internal/config</code>)</td>
+<td>delete — the allowlist is <code>TRUST_PROXY_HEADERS</code>'s only consumer</td>
+</tr>
+<tr>
+<td>HCL attrs</td>
+<td><code>webhook_ip_allowlist</code>, <code>webhook_ip_allowlist_fail_open</code>, <code>trust_proxy_headers</code> on <code>guardian {}</code></td>
+<td>strict decode (INV-0010) means removal makes existing configs <strong>fail load</strong>. Decided 2026-08-15: straight removal with a migration note — the loud load failure is exactly what strict mode is for; no deprecation shim. Note the asymmetry: a stale raw env var on the Deployment is silently ignored, only the HCL and chart-values surfaces fail loudly</td>
+</tr>
+<tr>
+<td>Metric</td>
+<td><code>webhook_rejected_total{reason}</code></td>
+<td>the allowlist is its <strong>only producer</strong> — the HMAC 401 path increments nothing — so removal orphans it and <code>RepoGuardianWebhookRejectionsHigh</code> becomes an alert that cannot fire (the INV-0012 finding-A shape). Its description already overpromises: "signature failures" never reach this counter today</td>
+</tr>
+<tr>
+<td>E4 dashboard</td>
+<td><code>dashboard/e4.go</code> <code>logRejectedIP</code> matcher + webhook-panel description</td>
+<td>must change in the same PR — <code>TestLogLines_AreStillEmittedByTheBinary</code> fails the build if a matched log line stops being emitted (the drift gate working as designed)</td>
+</tr>
+<tr>
+<td>Chart</td>
+<td><code>webhookIPAllowlist.*</code> values + deployment env wiring + the tailscale env fork</td>
+<td>delete; values-schema rejection for the removed keys</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td>SECURITY.md two-layer narrative, DESIGN-0004</td>
+<td>rewrite / supersede</td>
+</tr>
+</tbody>
+</table>
+<p>The observability replacement is already in place from IMPL-0023:
+otelhttp on the webhook route records status-code-labelled request
+metrics, so a 401 spike ("someone is knocking with a bad signature")
+is visible without any bespoke counter, and each edge has its own
+native telemetry (ALB access logs, Tailscale, the ngrok dashboard).
+Whether <code>webhook_rejected_total</code> should be deleted outright or
+repointed at the HMAC path (reason=<code>signature</code>) is a step-6 decision.</p>
+<h3 id="observation-6-the-tailscale-operator-has-no-native-gateway-api-support-and-funnel-is-ingress-class-only">Observation 6: the Tailscale operator has no native Gateway API support, and Funnel is Ingress-class-only</h3>
+<p>Verified against current Tailscale docs on 2026-08-15:</p>
+<ul>
+<li><strong>No native Gateway API.</strong> The operator exposes workloads via
+  <code>Ingress</code> (<code>ingressClassName: tailscale</code>, L7) and <code>Service</code>
+  (<code>loadBalancerClass: tailscale</code> or <code>tailscale.com/expose</code>, L3).
+  Gateway API support is an open feature request
+  (<a href="https://github.com/tailscale/tailscale/issues/10656">tailscale/tailscale#10656</a>,
+  open since Dec 2023). Tailscale's official Gateway API story is a
+  BYOD pattern — Envoy Gateway (or similar) implements
+  <code>Gateway</code>/<code>HTTPRoute</code>, and the operator merely provisions the
+  gateway's LoadBalancer Service onto the tailnet — and that pattern
+  is <strong>tailnet-only</strong>: no public exposure, no Funnel.</li>
+<li><strong>Funnel — the sidecar's one real feature — rides only the
+  <code>Ingress</code> class.</strong> Public exposure requires <code>ingressClassName:
+  tailscale</code> + the <code>tailscale.com/funnel: "true"</code> annotation, plus a
+  tailnet-policy <code>nodeAttrs</code> grant of the <code>funnel</code> attribute to the
+  operator's proxy tag (<code>tag:k8s</code> by default — <code>autogroup:member</code>
+  does not cover tagged devices). HA is available via
+  <code>tailscale.com/proxy-group</code>.</li>
+<li><strong>Consequence for the homelab:</strong> the cluster's Gateway API setup
+  carries everything <em>except</em> this route. The webhook's public path
+  is one small, dedicated <code>Ingress</code> object alongside the Gateway API
+  resources — or ngrok when just testing. This is an operator-side
+  deployment fact to document in <code>docs/operations/ingress.md</code>, not a
+  chart concern.</li>
+<li><strong>No source-IP restriction on Funnel.</strong> The <code>funnel</code> nodeAttr
+  governs which <em>nodes may enable</em> Funnel, not which public clients
+  may connect; the docs offer no public-side IP filtering. So the
+  Funnel path is HMAC-only — exactly today's effective posture, since
+  the sidecar already forces the allowlist fail-open (Observation 3).
+  No regression, but <code>ingress.md</code> must say it plainly: on Funnel, the
+  edge-enforcement layer is "none"; use the ALB or ngrok path when a
+  source-IP layer is required.</li>
+<li><strong>Forwarded headers are undocumented</strong> for the operator's proxy on
+  the Funnel path. Client-IP visibility must be verified empirically
+  during the migration smoke; nothing in the app depends on it
+  post-removal (the allowlist was the only <code>X-Forwarded-For</code>
+  consumer), so this affects log/telemetry fidelity only.</li>
+<li><strong>Chaining Funnel through the cluster's Gateway is possible but
+  buys little.</strong> The Funnel <code>Ingress</code> can point its backend at the
+  <code>cilium-gateway-*</code> Service the Gateway controller creates, so
+  routing logic stays in <code>HTTPRoute</code>s — but the tailscale <code>Ingress</code>
+  object still exists (Funnel requires it), the path gains a hop, and
+  the source-IP posture is unchanged (still none). Known Cilium
+  interop gotchas if chained on Talos: the L7 <code>Ingress</code> path avoids
+  the socket-LB DNAT bypass problem that bites L4
+  <code>loadBalancerClass</code> exposure, and <code>bpf.hostLegacyRouting=true</code> has
+  been needed where Talos's <code>forwardKubeDNSToHost</code> breaks eBPF host
+  routing. For a single webhook route, pointing the Funnel <code>Ingress</code>
+  directly at the webhook Service is the simpler recommendation.</li>
+</ul>
+<h3 id="observation-7-aws-lbc-gateway-api-support-is-ga">Observation 7: AWS LBC Gateway API support is GA</h3>
+<p>Verified 2026-08-15. AWS announced general availability of Gateway
+API support in the Load Balancer Controller (2026-03): L7
+(<code>ALBGatewayAPI</code>) provisions ALBs from <code>Gateway</code>/<code>HTTPRoute</code> (and
+<code>GRPCRoute</code>) with controller <strong>v2.14.0+</strong>, built against Gateway API
+v1.3.0; L4 (<code>NLBGatewayAPI</code>) covers <code>TCPRoute</code>/<code>UDPRoute</code>/<code>TLSRoute</code>.
+TLS termination at the ALB with static or hostname-discovered
+certificates is supported, and AWS-vended CRDs
+(<code>LoadBalancerConfiguration</code>, <code>TargetGroupConfiguration</code>,
+<code>ListenerRuleConfiguration</code>) carry the ALB-specific knobs — including
+the security-group attachment where the GitHub prefix-list rule
+lives. So the EKS path is exactly the Question's shape with no
+interim: <code>HTTPRoute</code> → ALB, SG rule referencing a customer-managed
+prefix list built from <code>api.github.com/meta</code> <code>hooks</code>, fail-closed at
+the true source address. (Step-6 detail: the meta <code>hooks</code> CIDRs
+change occasionally; the prefix-list refresh needs an owner —
+scheduled Lambda/Terraform or a documented manual check.)</p>
+<h3 id="observation-8-the-ngrok-operator-is-gateway-api-native-with-edge-ip-restrictions">Observation 8: the ngrok operator is Gateway API-native with edge IP restrictions</h3>
+<p>Verified 2026-08-15, prompted by Observation 6's Funnel gaps. The
+ngrok Kubernetes Operator (the successor to their ingress controller)
+implements <strong>both <code>Ingress</code> and the Gateway API</strong>, translating them
+into ngrok cloud/agent endpoints. Traffic Policy attaches to Gateway
+API resources via the <code>NgrokTrafficPolicy</code> CRD and the <code>extensionRef</code>
+filter, and the <code>restrict-ips</code> action runs in the <code>on_tcp_connect</code>
+phase — the connection is denied at the TCP layer, before any HTTP
+exchange, at ngrok's edge.</p>
+<p>That combination is exactly what the Tailscale path cannot offer:
+<strong>public webhook ingress declared as Gateway API resources, with a
+fail-closed source-IP allowlist (GitHub's <code>hooks</code> CIDRs) enforced at
+the edge.</strong> Which means ngrok is not just the testing path — it is a
+candidate <em>first-class</em> homelab ingress for the webhook route, and
+the DESIGN should weigh three homelab options rather than assuming
+Funnel:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Gateway API?</th>
+<th>Source-IP layer</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Funnel <code>Ingress</code> → webhook Service</td>
+<td>no (dedicated <code>Ingress</code>)</td>
+<td>none (HMAC-only)</td>
+<td>zero new components; posture equals today's</td>
+</tr>
+<tr>
+<td>Funnel <code>Ingress</code> → Cilium Gateway chain</td>
+<td>routing yes, exposure no</td>
+<td>none (HMAC-only)</td>
+<td>extra hop; interop gotchas (Obs. 6)</td>
+</tr>
+<tr>
+<td>ngrok operator + <code>Gateway</code>/<code>HTTPRoute</code> + <code>restrict-ips</code></td>
+<td>yes</td>
+<td>fail-closed at ngrok's edge</td>
+<td>new operator + external dependency; plan gating below</td>
+</tr>
+</tbody>
+</table>
+<p>Same CIDR-freshness caveat as the ALB prefix list: the allowlist in
+the <code>NgrokTrafficPolicy</code> is a static copy of <code>api.github.com/meta</code>
+<code>hooks</code> and needs a refresh owner.</p>
+<p><strong>Plan gating, verified against ngrok's own pages 2026-08-15</strong> (the
+two official sources disagree in places; both cited in References):</p>
+<ul>
+<li><strong>The Kubernetes Operator itself is free on every plan</strong> — the
+  free-plan-limits doc lists it under "Features included for free on
+  all plans." Gateway API support is part of the operator, not a
+  plan line item.</li>
+<li><strong>Traffic Policy is ambiguous on Free.</strong> The pricing page's plan
+  grid shows Traffic Policy only from Pay-as-you-go up ($20/mo base,
+  metered at $0.10 per 100k Traffic Policy Units); the
+  free-plan-limits doc, however, lists "Traffic policy rules (per
+  policy): 5" as a <em>free-tier limit</em>, implying some Traffic Policy
+  works on Free. Whether <code>restrict-ips</code> specifically runs on Free is
+  unverified — one empirical check (attach the policy on a free
+  account) settles it. Note the 5-rule cap is not a blocker either
+  way: the whole GitHub allowlist is a single <code>restrict-ips</code> rule
+  with multiple CIDRs.</li>
+<li><strong>Free-tier operational limits bite regardless:</strong> 1 GB / 20k HTTP
+  requests per month, no reserved or custom domains (only one
+  auto-assigned dev domain), and an interstitial on browser HTML
+  traffic (API/webhook POSTs are unaffected — consistent with our
+  testing history). A GitHub App needs a <em>stable</em> webhook URL, and
+  reserved/custom domains are paid.</li>
+<li><strong>Practical read:</strong> for testing, Free keeps working exactly as we
+  have always used it. As a <em>first-class</em> homelab ingress with the
+  fail-closed allowlist and a stable domain, budget Pay-as-you-go
+  (~$20/mo base; Traffic Policy Units are negligible at webhook
+  volume). The DESIGN's homelab decision is therefore: is the
+  fail-closed IP layer + Gateway API-native declaration worth
+  ~$20/mo over the free-but-HMAC-only Funnel path? (Observation 9
+  reframes this: Cloudflare Tunnel offers the same capability set
+  free, trading the official operator for community ones.)</li>
+</ul>
+<h3 id="observation-9-cloudflare-tunnel-offers-the-ngrok-capability-set-without-the-domain-gate">Observation 9: Cloudflare Tunnel offers the ngrok capability set without the domain gate</h3>
+<p>Verified 2026-08-15, prompted by Observation 8's finding that the
+stable domain is ngrok's real paid gate:</p>
+<ul>
+<li><strong>The tunnel is free and inbound-less.</strong> <code>cloudflared</code> makes an
+  outbound-only connection from the cluster; no public IP, no
+  LoadBalancer. A bring-your-own domain on Cloudflare's free plan
+  gives the stable webhook URL — exactly the item that pushed ngrok
+  to Pay-as-you-go.</li>
+<li><strong>Fail-closed source-IP allowlist at the edge, on the free plan.</strong>
+  Free includes 5 WAF custom rules (plus the Free Managed Ruleset),
+  IP Access Rules (up to 50,000 per account), and reusable IP Lists
+  referencable as <code>ip.src in $list</code>. The GitHub <code>hooks</code> allowlist is
+  a single custom rule scoped to the webhook hostname — comfortably
+  under the 4,096-character expression limit — with default-block for
+  everything else. Same CIDR-refresh-ownership caveat as the ALB
+  prefix list and ngrok policy; Cloudflare Lists are API-updatable.</li>
+<li><strong>The Kubernetes Gateway API story is community-run, not
+  vendor-official.</strong> Cloudflare's own ingress controller is archived.
+  Current options: <strong>cfgate</strong> (Gateway API-native operator —
+  <code>CloudflareTunnel</code>/<code>CloudflareDNS</code>/Access CRDs, point a <code>Gateway</code>
+  at the tunnel, attach <code>HTTPRoute</code>s; manages cloudflared pods and
+  DNS), <strong>lexfrei/cloudflare-tunnel-gateway-controller</strong> (full
+  <code>HTTPRoute</code> semantics via an embedded L7 proxy in a forked
+  cloudflared; assumes exclusive ownership of tunnel config), and
+  <strong>STRRL's cloudflare-tunnel-ingress-controller</strong> (<code>Ingress</code>-class
+  based, the established choice). A plain cloudflared <code>Deployment</code>
+  with static ingress rules also works with zero operators — for a
+  single webhook route that may be the honest minimum.</li>
+<li><strong>The operator-injected sidecar variant deserves its own line,
+  because it is NOT the thing this investigation removes.</strong> The
+  objection to the baked Tailscale sidecar was chart ownership (the
+  values surface, env forks, unpinned image) plus Tailscale's
+  specific baggage (state volume, serve-config ConfigMap, RBAC for
+  state Secrets, the forced fail-open) — not the sidecar topology.
+  A cloudflared sidecar the <em>operator</em> adds via kustomize patch on
+  the rendered Deployment (the homelab already consumes the chart
+  through kustomize+helm in ArgoCD) keeps the chart fully
+  ingress-agnostic and carries none of that baggage: remotely-managed
+  tunnels mean the sidecar is <strong>stateless</strong> — one container, one
+  tunnel-token Secret, no volume, no ConfigMap, no RBAC — with
+  ingress rules, DNS, and the WAF allowlist all living in the
+  Cloudflare Terraform provider as code. Topology properties:
+  webhook traffic goes edge → sidecar → <code>127.0.0.1:&lt;port&gt;</code> with no
+  ClusterIP hop; per-replica sidecars all register as connectors to
+  the <em>same</em> tunnel, which is cloudflared's native HA model; a
+  single-replica rollout drops the connector briefly, and a webhook
+  delivery missed in that window is recovered by the stale sweep —
+  the system is already designed to tolerate missed webhooks. The
+  trade: the route is invisible to the cluster's Gateway API
+  resources (edge-to-pod bypasses <code>HTTPRoute</code> entirely), which for a
+  single app-owned route is arguably a feature.</li>
+<li><strong>Testing is covered too:</strong> <code>cloudflared tunnel --url</code> quick
+  tunnels (<code>trycloudflare.com</code>) are free without an account, though
+  ngrok remains the habit and both belong in the testing section of
+  <code>ingress.md</code>.</li>
+</ul>
+<p>The homelab comparison, superseding Observation 8's table:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Gateway API?</th>
+<th>Source-IP layer</th>
+<th>Cost</th>
+<th>Main caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Funnel <code>Ingress</code> → webhook Service</td>
+<td>no</td>
+<td>none (HMAC-only)</td>
+<td>free</td>
+<td>posture equals today's</td>
+</tr>
+<tr>
+<td>ngrok operator + <code>NgrokTrafficPolicy</code></td>
+<td>yes, official operator</td>
+<td>fail-closed at edge</td>
+<td>~$20/mo</td>
+<td>domain + policy are paid</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel + community operator</td>
+<td>yes, community operators</td>
+<td>fail-closed at edge (free WAF)</td>
+<td>free (owned domain)</td>
+<td>community-operator maturity; vendor's own controller archived</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel as operator-injected cloudflared sidecar (kustomize patch)</td>
+<td>n/a — edge → pod, bypasses cluster routing</td>
+<td>fail-closed at edge (free WAF)</td>
+<td>free (owned domain)</td>
+<td>route invisible to <code>HTTPRoute</code>s; stateless, zero operators, config-as-code via Terraform provider</td>
+</tr>
+</tbody>
+</table>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> yes, with one asterisk on the homelab path. The
+hypothesis is confirmed by Observations 1–7: the Tailscale surface is
+chart-only, the middleware's blast radius is fully mapped and the
+middleware is spoofable on every proxied path, the EKS path is fully
+served by the now-GA LBC Gateway API implementation, and the
+Tailscale operator covers the Funnel capability — but via its
+<code>Ingress</code> class, not Gateway API (which the operator does not
+natively implement). The homelab therefore keeps one dedicated
+<code>Ingress</code>-class-<code>tailscale</code> + Funnel object for the webhook route
+alongside its Gateway API resources, and the Funnel path's
+edge-enforcement layer is honestly "none" (HMAC-only), which is
+already today's effective posture. Observations 8–9 add two homelab
+options that close even that gap with a fail-closed edge allowlist:
+the ngrok operator (official, Gateway API-native, ~$20/mo for the
+stable domain + policy) and Cloudflare Tunnel (free with an owned
+domain and free WAF allowlisting, but community-maintained Kubernetes
+operators). Remaining before the DESIGN: empirical <code>X-Forwarded-For</code>
+verification on the Funnel path (telemetry fidelity only) and
+CIDR-refresh ownership for whichever static allowlists get exercised
+(ALB prefix list, ngrok policy, Cloudflare list — the last is
+API/Terraform-updatable). The former open items about <em>picking</em> a
+homelab option are resolved by the Recommendation's matrix decision:
+nothing is picked; per-option validation (including the ngrok
+free-tier <code>restrict-ips</code> question and community-operator maturity)
+happens when a box in the matrix gets checked, not before.</p>
+<h2 id="recommendation">Recommendation</h2>
+<p>Decided 2026-08-15: <code>docs/operations/ingress.md</code> is an <strong>options
+matrix, not a prescription</strong>. Every discovered path is listed with
+what it works with and a per-option validation checkbox, filled in
+as options actually get exercised; the doc deliberately does not
+crown a winner — deployments choose. The DESIGN therefore covers:</p>
+<p>(a) the chart removal — breaking, values-schema rejection for
+<code>tailscale.*</code> and <code>webhookIPAllowlist.*</code> with a migration pointer,
+the IMPL-0016 <code>deprecatedBackends</code> message pattern; (b) the
+middleware removal — HMAC becomes the sole app-layer defense, the
+three config knobs go (HCL strict-decode migration note required),
+the orphaned metric/alert and E4 matcher are dispositioned per
+Observation 5; (c) <code>docs/operations/ingress.md</code> as the matrix below,
+plus each option's recipe and the OTEL signals that replace the
+deleted allowlist telemetry; and (d) supersession notes on INV-0001,
+DESIGN-0003, and DESIGN-0004, plus the chart version bump.</p>
+<p>Draft of the matrix (<code>ingress.md</code> inherits and maintains this;
+status boxes get checked only after an option is exercised against a
+real GitHub App delivery):</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Environment fit</th>
+<th>K8s routing API</th>
+<th>Source-IP enforcement</th>
+<th>Cost</th>
+<th>Validated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS LBC + Gateway API (<code>HTTPRoute</code> → ALB)</td>
+<td>EKS / production</td>
+<td>Gateway API</td>
+<td>SG + GitHub prefix list, fail-closed</td>
+<td>AWS</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Tailscale operator Funnel</td>
+<td>homelab / tailnet clusters</td>
+<td><code>Ingress</code> (class <code>tailscale</code>)</td>
+<td>none — HMAC-only, stated plainly</td>
+<td>free</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel, operator-injected cloudflared sidecar</td>
+<td>homelab / any cluster</td>
+<td>none (edge → pod)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via community operator (cfgate / lexfrei)</td>
+<td>homelab / any cluster</td>
+<td>Gateway API</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel via STRRL controller</td>
+<td>homelab / any cluster</td>
+<td><code>Ingress</code> (class <code>cloudflare-tunnel</code>)</td>
+<td>CF WAF allowlist, fail-closed</td>
+<td>free + owned domain</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok Kubernetes operator</td>
+<td>homelab / any cluster</td>
+<td>Gateway API + <code>Ingress</code></td>
+<td><code>restrict-ips</code> Traffic Policy, fail-closed</td>
+<td>~$20/mo</td>
+<td>☐</td>
+</tr>
+<tr>
+<td>ngrok CLI / <code>cloudflared</code> quick tunnel against localhost</td>
+<td>local dev (<code>make run-local</code> + docker-compose dev services)</td>
+<td>n/a</td>
+<td>none (ngrok policy is paid)</td>
+<td>free</td>
+<td>☑ ngrok (long-standing webhook-testing use); ☐ quick tunnel</td>
+</tr>
+</tbody>
+</table>
+<p>The docker-compose row is deliberate: local development is a
+first-class "deployment" for webhook work, and it is the one row
+with existing validation history.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../0001-tailscale-funnel-for-webhook-testing/">INV-0001</a> — the Funnel's origin (webhook testing)</li>
+<li><a href="../../design/0003-tailscale-integration-research/">DESIGN-0003</a> — the sidecar's design</li>
+<li><a href="../../design/0004-github-webhook-ip-allowlist-middleware/">DESIGN-0004</a> — the allowlist middleware now slated for removal</li>
+<li><code>SECURITY.md</code> §Reverse proxies — the two-layer webhook defense</li>
+<li><a href="../../impl/0016-deprecate-memory-backend/">IMPL-0016</a> — precedent: remove the baked thing, document the real thing</li>
+<li>Tailscale Kubernetes operator: <a href="https://tailscale.com/kb/1236/kubernetes-operator">https://tailscale.com/kb/1236/kubernetes-operator</a></li>
+<li>Tailscale operator cluster ingress (Ingress class): <a href="https://tailscale.com/kb/1439/kubernetes-operator-cluster-ingress">https://tailscale.com/kb/1439/kubernetes-operator-cluster-ingress</a></li>
+<li>Tailscale operator Funnel exposure: <a href="https://tailscale.com/docs/kubernetes-operator/ingress/expose-workload-to-internet">https://tailscale.com/docs/kubernetes-operator/ingress/expose-workload-to-internet</a></li>
+<li>Tailscale BYOD Gateway API pattern (tailnet-only, Envoy Gateway): <a href="https://tailscale.com/docs/solutions/kubernetes-operator-byod-gateway-api">https://tailscale.com/docs/solutions/kubernetes-operator-byod-gateway-api</a></li>
+<li>Operator Gateway API feature request: <a href="https://github.com/tailscale/tailscale/issues/10656">https://github.com/tailscale/tailscale/issues/10656</a></li>
+<li>AWS Load Balancer Controller: <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/">https://kubernetes-sigs.github.io/aws-load-balancer-controller/</a></li>
+<li>LBC Gateway API guide: <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/gateway/gateway/">https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/gateway/gateway/</a></li>
+<li>LBC Gateway API GA announcement (2026-03): <a href="https://aws.amazon.com/blogs/networking-and-content-delivery/aws-load-balancer-controller-adds-general-availability-support-for-kubernetes-gateway-api/">https://aws.amazon.com/blogs/networking-and-content-delivery/aws-load-balancer-controller-adds-general-availability-support-for-kubernetes-gateway-api/</a></li>
+<li>Gateway API: <a href="https://gateway-api.sigs.k8s.io/">https://gateway-api.sigs.k8s.io/</a></li>
+<li>GitHub hook IP ranges (<code>hooks</code> key): <a href="https://api.github.com/meta">https://api.github.com/meta</a></li>
+<li>ngrok IP restrictions (Traffic Policy): <a href="https://ngrok.com/docs/traffic-policy/actions/restrict-ips/">https://ngrok.com/docs/traffic-policy/actions/restrict-ips/</a></li>
+<li>ngrok Kubernetes operator Gateway API support: <a href="https://ngrok.com/blog/introducing-support-for-kubernetes-gateway-api-in-ngrok-kubernetes-operator">https://ngrok.com/blog/introducing-support-for-kubernetes-gateway-api-in-ngrok-kubernetes-operator</a></li>
+<li>ngrok Traffic Policy on Gateway API (<code>NgrokTrafficPolicy</code> + <code>extensionRef</code>): <a href="https://ngrok.com/blog/policy-support-in-gateway-api">https://ngrok.com/blog/policy-support-in-gateway-api</a></li>
+<li>ngrok k8s IP-restriction guide: <a href="https://ngrok.com/docs/k8s/guides/how-to/restrict-ips">https://ngrok.com/docs/k8s/guides/how-to/restrict-ips</a></li>
+<li>ngrok pricing (plan grid): <a href="https://ngrok.com/pricing">https://ngrok.com/pricing</a></li>
+<li>ngrok free-plan limits (operator free on all plans; 5 traffic-policy rules): <a href="https://ngrok.com/docs/pricing-limits/free-plan-limits">https://ngrok.com/docs/pricing-limits/free-plan-limits</a></li>
+<li>Cloudflare Tunnel: <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/</a></li>
+<li>Cloudflare IP Access Rules: <a href="https://developers.cloudflare.com/waf/tools/ip-access-rules/">https://developers.cloudflare.com/waf/tools/ip-access-rules/</a></li>
+<li>Cloudflare allowlist-only custom-rule recipe: <a href="https://developers.cloudflare.com/waf/custom-rules/use-cases/allow-traffic-from-ips-in-allowlist/">https://developers.cloudflare.com/waf/custom-rules/use-cases/allow-traffic-from-ips-in-allowlist/</a></li>
+<li>cfgate (Gateway API-native Cloudflare Tunnel operator): <a href="https://github.com/cfgate/cfgate">https://github.com/cfgate/cfgate</a></li>
+<li>lexfrei/cloudflare-tunnel-gateway-controller: <a href="https://github.com/lexfrei/cloudflare-tunnel-gateway-controller">https://github.com/lexfrei/cloudflare-tunnel-gateway-controller</a></li>
+<li>STRRL cloudflare-tunnel-ingress-controller: <a href="https://github.com/STRRL/cloudflare-tunnel-ingress-controller">https://github.com/STRRL/cloudflare-tunnel-ingress-controller</a></li>
+<li>Cilium Gateway API: <a href="https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/">https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

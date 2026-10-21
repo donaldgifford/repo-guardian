@@ -102,6 +102,7 @@ nav:
         - 'INV-0021: Controls model assumptions A1 to A23 against the v2 code': investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md
         - 'INV-0022: Controls designs against the v2 code, GitHub and Temporal': investigation/0022-controls-designs-against-the-v2-code-github-and-temporal.md
         - 'INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification': investigation/0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md
+        - 'INV-0024: Icon set for the UI': investigation/0024-icon-set-for-the-ui.md
     - Plans:
         - Overview: plan/README.md
     - RFCs:

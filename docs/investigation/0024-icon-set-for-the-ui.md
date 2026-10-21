@@ -1,6 +1,6 @@
 ---
 id: INV-0024
-title: "Lucide icons for the UI"
+title: "Icon set for the UI"
 status: Open
 author: Donald Gifford
 created: 2026-10-21
@@ -8,7 +8,7 @@ created: 2026-10-21
 
 <!-- markdownlint-disable-file MD025 MD041 -->
 
-# INV-0024: Lucide icons for the UI
+# INV-0024: Icon set for the UI
 
 <!--toc:start-->
 <!-- markdownlint-capture -->
@@ -19,11 +19,12 @@ created: 2026-10-21
 - [Approach](#approach)
 - [Environment](#environment)
 - [Findings](#findings)
-  - [F1: devl.dev uses stock Lucide](#f1-devldev-uses-stock-lucide)
-  - [F2: the mapping is one to one](#f2-the-mapping-is-one-to-one)
-  - [F3: the look barely moves](#f3-the-look-barely-moves)
-  - [F4: the licence asks for one notice](#f4-the-licence-asks-for-one-notice)
-  - [F5: the cost is small](#f5-the-cost-is-small)
+  - [F1: devl.dev uses Lucide, which is ISC](#f1-devldev-uses-lucide-which-is-isc)
+  - [F2: Tabler is the closest MIT set](#f2-tabler-is-the-closest-mit-set)
+  - [F3: the mapping is one to one](#f3-the-mapping-is-one-to-one)
+  - [F4: the look barely moves](#f4-the-look-barely-moves)
+  - [F5: MIT still asks for one notice](#f5-mit-still-asks-for-one-notice)
+  - [F6: the cost is small](#f6-the-cost-is-small)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
@@ -33,19 +34,20 @@ created: 2026-10-21
 <!--docz:question:start-->
 ## Question
 
-Should the UI replace its hand-drawn inline SVG icons with Lucide
-(`lucide-react`), and what does the mockup look like if it does?
+Should the UI replace its hand-drawn inline SVG icons with a maintained
+icon set under MIT or Apache-2.0, which set, and what does the mockup
+look like with it?
 
 <!--docz:question:end-->
 
 <!--docz:hypothesis:start-->
 ## Hypothesis
 
-Yes. The hand-drawn set already follows Lucide's grammar (24px grid, no
-fill, `currentColor` stroke, round caps and joins), so the swap should
-barely change the look, cost a few KB, and remove the need to draw every
-new icon by hand as remediation adds states (pull requests, holds,
-conflicts, permissions).
+Yes. The hand-drawn set already uses the common outline grammar (24px
+grid, no fill, `currentColor` stroke, round caps and joins), so a set
+in that style should barely change the look. It would remove the need
+to draw every new icon by hand as remediation adds states (pull
+requests, holds, conflicts, permissions).
 
 <!--docz:hypothesis:end-->
 
@@ -66,19 +68,24 @@ reference is wrong: DESIGN-0036's OQ4 is about where History and Policy
 sit in the navigation, and the design never decides an icon approach.
 The current set has no recorded decision behind it.
 
+**Constraint (2026-10-21):** the set must be MIT or Apache-2.0 licensed.
+Lucide, the first candidate, is ISC and is ruled out.
+
 <!--docz:context:end-->
 
 <!--docz:approach:start-->
 ## Approach
 
 1. Check what devl.dev uses, from its served HTML.
-2. Map each mockup `ICON` key to the nearest Lucide icon, preferring a
-   name that matches its label where one exists.
-3. Draw the mockup with `lucide-static` SVG bodies at one pinned version,
+2. Shortlist maintained outline sets under MIT or Apache-2.0 and pick the
+   one closest to the current look.
+3. Map each mockup `ICON` key to the nearest icon in that set, preferring
+   a name that matches its label where one exists.
+4. Draw the mockup with that set's SVG bodies at one pinned version,
    keep the old map as `ICON_CUSTOM`, and add a switch for set
-   (`?icons=custom|lucide`) and stroke (`?stroke=2|1.8`) so the two can
-   be compared in place.
-4. Check the licence terms and what the repository must ship.
+   (`?icons=custom`) and stroke (`?stroke=2|1.8`) so the two can be
+   compared in place.
+5. Check what the licence asks the repository to ship.
 
 <!--docz:approach:end-->
 
@@ -87,8 +94,8 @@ The current set has no recorded decision behind it.
 
 | Component | Version / Value |
 | --------- | --------------- |
-| `lucide-static` (mockup SVG bodies) | 1.61.0 |
-| `lucide-react` (proposed for the SPA) | same release line |
+| `@tabler/icons` (mockup SVG bodies) | 3.49.0, MIT |
+| `@tabler/icons-react` (proposed for the SPA) | 3.49.0, MIT |
 | Mockup | `ui/design/repo-guardian-mockup.html`, branch `docs/inv-lucide-icons` |
 
 <!--docz:environment:end-->
@@ -96,74 +103,86 @@ The current set has no recorded decision behind it.
 <!--docz:findings:start-->
 ## Findings
 
-### F1: devl.dev uses stock Lucide
+### F1: devl.dev uses Lucide, which is ISC
 
 Every UI icon on devl.dev carries lucide-react's
 `class="lucide lucide-<name>"` marker: `layout-grid`, `rows-3`, `search`,
-`shuffle`, `sun` and `arrow-up-right`, all at Lucide's default stroke of
-2 and sized 12–16px. Its other 18 SVGs are custom 80×60 card
-illustrations, not icons.
+`shuffle`, `sun` and `arrow-up-right`, all at stroke 2 and 12–16px. Its
+other 18 SVGs are custom card illustrations. Lucide is ISC, outside the
+MIT/Apache-2.0 constraint, so the look is the reference but the set is
+not a candidate.
 
-### F2: the mapping is one to one
+### F2: Tabler is the closest MIT set
 
-| Mockup key | Used for | Lucide icon |
+| Set | Licence | Size | Fit |
+| --- | --- | --- | --- |
+| **Tabler Icons** | MIT | ~5,000 outline | 24px grid, stroke 2, round caps and joins, `currentColor`: the same grammar as today and as Lucide. Actively maintained, with a tree-shaken React package (`@tabler/icons-react`). |
+| Feather | MIT | ~290 | The closest shapes (Lucide forked from it), but unmaintained since 2021 and too small for remediation's states. |
+| Heroicons | MIT | ~300 | Smaller, and its 1.5 stroke and geometry read differently. |
+| Phosphor | MIT | ~1,500 × 6 weights | Good, but its geometry moves further from the mockup. |
+| Iconoir | MIT | ~1,600 | Stroke 1.5, thinner than today's 1.8. |
+| Material Symbols | Apache-2.0 | ~3,000 | A Google look, variable-font first; a different visual language. |
+
+### F3: the mapping is one to one
+
+| Mockup key | Used for | Tabler icon |
 | --- | --- | --- |
 | `grid` | Fleet | `layout-grid` |
-| `list` | Controls | `list-checks` |
-| `boxes` | Orgs | `building-2` |
+| `list` | Controls | `list-check` |
+| `boxes` | Orgs | `building` |
 | `activity` | Findings | `activity` |
-| `wrench` | Remediations | `wrench` |
-| `repo` | Repositories | `folder-git-2` |
+| `wrench` | Remediations | `tool` |
+| `repo` | Repositories | `folder-code` |
 | `chart` | History | `chart-line` |
 | `file` | Policy | `file-text` |
 | `check` | Status page | `circle-check` |
-| `book` | Documentation | `book-open` |
+| `book` | Documentation | `book` |
 | `shield` | brand mark | `shield-check` |
 | `search` | Search | `search` |
 | `clock` | time zone | `clock` |
 | `ext` | outbound links | `arrow-up-right` |
 
-The SPA's `menu` maps to `menu`. Two keys get a better name than a
-straight copy: Controls takes `list-checks` (a list of checks, not a
-plain list) and Orgs takes `building-2` (an organisation, not a parcel).
-`git-pull-request`, `circle-alert` and `scroll-text` are on hand for the
-remediation views and as alternatives for Findings and Policy.
+The SPA's `menu` maps to `menu-2`, and `git-pull-request` is on hand for
+the remediation views. Controls takes `list-check` and Orgs `building`,
+names that fit their labels better than a straight copy of today's
+shapes. Each Tabler SVG opens with an invisible
+`<path stroke="none" d="M0 0h24v24H0z"/>` bounding box; the mockup drops
+it, and `@tabler/icons-react` renders it harmlessly.
 
-### F3: the look barely moves
+### F4: the look barely moves
 
-Side by side at 1440×900, the two sets read alike: same size, colour and
-weight class. Lucide's shapes are slightly more detailed (rounded grid
-cells, the check inside a circle, a shield with a check). At stroke 2
-they are a touch heavier than today's 1.8; `?stroke=1.8` matches the old
-weight exactly. lucide-react takes `strokeWidth` per icon, or once on the
-`Icon` wrapper.
+Side by side at 1440×900, Tabler and the current set read alike: same
+size, colour and weight class. Tabler's shapes are slightly more detailed
+(rounded grid cells, the check inside a circle, a shield with a check).
+At stroke 2 they are a touch heavier than today's 1.8; `?stroke=1.8`
+matches the old weight. `@tabler/icons-react` takes `stroke` per icon,
+or once on the `Icon` wrapper.
 
-### F4: the licence asks for one notice
+### F5: MIT still asks for one notice
 
-Lucide is ISC. Its terms require the copyright and permission notice to
-appear in all copies or substantial portions, which here means the
-built UI image, since it bundles the SVG paths. That holds for any
-distribution, not because repo-guardian is Apache-2.0: ISC is
-compatible with Apache-2.0, and shipping the notice is enough. Lucide's
-`LICENSE` also carries the MIT notice for icons derived from Feather.
-`ui/THIRD_PARTY_NOTICES.md` already exists for this, so the change is
-one entry quoting both notices.
+MIT requires its copyright and permission notice in all copies or
+substantial portions of the software, the same as ISC. The built UI
+image bundles Tabler's SVG paths, so the notice ships with it. That is
+one entry in `ui/THIRD_PARTY_NOTICES.md` quoting Tabler's MIT licence
+(Copyright (c) 2020-2026 Paweł Kuna). An Apache-2.0 set would ask for
+the same, plus any NOTICE file it carries. MIT is compatible with the
+project's Apache-2.0 licence.
 
-### F5: the cost is small
+### F6: the cost is small
 
-lucide-react exports one component per icon and is tree-shaken, so
-only imported icons ship, each well under 1KB. The icons are inline SVG
-components with no icon font and no runtime fetch, so the UI's CSP and
-the `dist/` CSP check are unaffected.
+`@tabler/icons-react` exports one component per icon and is tree-shaken,
+so only imported icons ship, each well under 1KB. The icons are inline
+SVG components with no icon font and no runtime fetch, so the UI's CSP
+and the `dist/` CSP check are unaffected.
 
 <!--docz:findings:end-->
 
 <!--docz:conclusion:start-->
 ## Conclusion
 
-**Answer:** Yes. Lucide matches the current look, covers every icon the
-UI uses today with room for remediation's states, and needs only one
-notice entry.
+**Answer:** Yes, with Tabler Icons (MIT). It matches the current look and
+devl.dev's, covers every icon the UI uses today with room for
+remediation's states, and needs only one notice entry.
 
 <!--docz:conclusion:end-->
 
@@ -172,16 +191,15 @@ notice entry.
 
 1. Review the mockup on this branch: open
    `ui/design/repo-guardian-mockup.html` and use the switch in the
-   bottom-right corner (Lucide or Custom, stroke 2 or 1.8). Decide the
-   stroke: 2 (Lucide's default, as devl.dev uses it) or 1.8 (today's
-   weight).
+   bottom-right corner (Tabler or Custom, stroke 2 or 1.8). Decide the
+   stroke: 2 (Tabler's default) or 1.8 (today's weight).
 2. On acceptance, drop `ICON_CUSTOM` and the switch from the mockup and
    keep the chosen stroke.
-3. Then a small IMPL task: add `lucide-react`, turn the `icons` map in
-   `icons.tsx` into name → Lucide component behind the same `<Icon name>`
-   API (callers and the `aria-hidden` handling unchanged), add the
-   Lucide entry to `ui/THIRD_PARTY_NOTICES.md`, and fix the comment that
-   cites DESIGN-0036 OQ4.
+3. Then a small IMPL task: add `@tabler/icons-react`, turn the `icons`
+   map in `icons.tsx` into name → Tabler component behind the same
+   `<Icon name>` API (callers and the `aria-hidden` handling unchanged),
+   add Tabler's MIT notice to `ui/THIRD_PARTY_NOTICES.md`, and fix the
+   comment that cites DESIGN-0036 OQ4.
 
 <!--docz:recommendation:end-->
 
@@ -191,7 +209,7 @@ notice entry.
 - DESIGN-0036: frontend design cleanup and refresh (no icon decision)
 - `ui/web/src/components/icons.tsx`
 - `ui/design/repo-guardian-mockup.html`
-- <https://lucide.dev>, licence: <https://github.com/lucide-icons/lucide/blob/main/LICENSE>
-- <https://www.devl.dev/>
+- <https://tabler.io/icons>, licence: <https://github.com/tabler/tabler-icons/blob/main/LICENSE>
+- <https://www.devl.dev/> (the look reference; Lucide, ISC)
 
 <!--docz:references:end-->

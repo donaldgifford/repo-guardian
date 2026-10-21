@@ -1,7 +1,7 @@
 ---
 id: INV-0024
 title: "Icon set for the UI"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-10-21
 ---
@@ -96,7 +96,7 @@ Lucide, the first candidate, is ISC and is ruled out.
 | --------- | --------------- |
 | `@tabler/icons` (mockup SVG bodies) | 3.49.0, MIT |
 | `@tabler/icons-react` (proposed for the SPA) | 3.49.0, MIT |
-| Mockup | `ui/design/repo-guardian-mockup.html`, branch `docs/inv-lucide-icons` |
+| Mockup | `ui/design/repo-guardian-mockup.html` |
 
 <!--docz:environment:end-->
 
@@ -180,26 +180,33 @@ and the `dist/` CSP check are unaffected.
 <!--docz:conclusion:start-->
 ## Conclusion
 
-**Answer:** Yes, with Tabler Icons (MIT). It matches the current look and
-devl.dev's, covers every icon the UI uses today with room for
-remediation's states, and needs only one notice entry.
+**Answer:** Yes, with Tabler Icons (MIT) at stroke 2. It matches the
+current look and devl.dev's, covers every icon the UI uses today with
+room for remediation's states, and needs only one notice entry.
+
+**Decided 2026-10-21:** Tabler, stroke 2. The two strokes were
+indistinguishable side by side, so the set's default wins: it is what
+`@tabler/icons-react` renders with no override. The mockup now draws
+only Tabler at stroke 2; the comparison switch and the hand-drawn
+`ICON_CUSTOM` map are gone.
 
 <!--docz:conclusion:end-->
 
 <!--docz:recommendation:start-->
 ## Recommendation
 
-1. Review the mockup on this branch: open
-   `ui/design/repo-guardian-mockup.html` and use the switch in the
-   bottom-right corner (Tabler or Custom, stroke 2 or 1.8). Decide the
-   stroke: 2 (Tabler's default) or 1.8 (today's weight).
-2. On acceptance, drop `ICON_CUSTOM` and the switch from the mockup and
-   keep the chosen stroke.
-3. Then a small IMPL task: add `@tabler/icons-react`, turn the `icons`
-   map in `icons.tsx` into name → Tabler component behind the same
-   `<Icon name>` API (callers and the `aria-hidden` handling unchanged),
-   add Tabler's MIT notice to `ui/THIRD_PARTY_NOTICES.md`, and fix the
-   comment that cites DESIGN-0036 OQ4.
+A small IMPL task for the SPA:
+
+1. Add `@tabler/icons-react` to `ui/package.json`.
+2. Turn the `icons` map in `ui/web/src/components/icons.tsx` into
+   name → Tabler component behind the same `<Icon name>` API, using the
+   mapping in F3 plus `menu` → `menu-2`. Callers and the `aria-hidden`
+   handling stay as they are; the stroke is Tabler's default 2.
+3. Add Tabler's MIT notice to `ui/THIRD_PARTY_NOTICES.md`.
+4. Replace the comment that cites DESIGN-0036 OQ4 with a pointer to this
+   investigation.
+5. Re-render `status.png` and any screenshots in the pinned Playwright
+   image.
 
 <!--docz:recommendation:end-->
 

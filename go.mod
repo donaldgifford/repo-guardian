@@ -1,6 +1,6 @@
 module github.com/donaldgifford/repo-guardian
 
-go 1.26.9
+go 1.26.10
 
 // The UI's npm dependencies can ship Go sources (flatted does); they are
 // not part of this module.

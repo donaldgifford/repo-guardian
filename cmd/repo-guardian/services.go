@@ -48,9 +48,15 @@ func (s *serviceStarter) ensureSchedules(ctx context.Context, role config.Role) 
 	return nil
 }
 
+// legacyScheduleIDs are the rc's Schedules. Their workflows left the
+// binary in IMPL-0029 Phase 7, so a namespace upgraded from an rc kept
+// them firing runs no worker can take; the evaluator removes them.
+var legacyScheduleIDs = []string{"discovery", "snapshot"}
+
 // schedules returns the Schedules role owns: those to ensure and those
 // to remove. The evaluator owns controls-discovery (removed when
-// DISCOVERY_ENABLED=false) and controls-snapshot; the remediator owns
+// DISCOVERY_ENABLED=false), controls-snapshot and the removal of the
+// rc's legacyScheduleIDs; the remediator owns
 // remediation-sweep and controls-discovery-remediate (IMPL-0030 6.1,
 // 6.4), the latter under the same DISCOVERY_ENABLED gate.
 func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedule, remove []string) {
@@ -58,6 +64,7 @@ func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedul
 
 	switch role {
 	case config.RoleEvaluator:
+		remove = append(remove, legacyScheduleIDs...)
 		discovery = temporal.Schedule{
 			ID: workflows.ControlsDiscoveryScheduleID, Workflow: workflows.ControlsDiscoveryWorkflowName,
 			Args: []any{&workflows.DiscoveryInput{}},
@@ -79,12 +86,12 @@ func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedul
 	}
 
 	if !s.cfg.DiscoveryEnabled {
-		return ensure, []string{discovery.ID}
+		return ensure, append(remove, discovery.ID)
 	}
 
 	discovery.Every = s.cfg.DiscoveryInterval
 
-	return append([]*temporal.Schedule{s.schedule(&discovery)}, ensure...), nil
+	return append([]*temporal.Schedule{s.schedule(&discovery)}, ensure...), remove
 }
 
 // remediationSweepInterval is the remediation-sweep cadence (IMPL-0030

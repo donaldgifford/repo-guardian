@@ -15,6 +15,7 @@ holds the rc line's `migrations_v2` chain: the two share table names.
 | `00006_remediation_due_no_row.sql` | IMPL-0030 | remediation_due: a control with no remediation row is due on its generation alone (no NULL intent comparison) |
 | `00007_last_checked_at.sql` | IMPL-0030 | grants `rg_evaluator` `UPDATE (last_checked_at)` on repositories: `RecordEvaluation` stamps it, so the checks prune never loses a last evaluation |
 | `00008_results_index.sql` | IMPL-0030 | indexes `control_results (control_id, status, last_changed_at)` for `/results`, after `TestAPIPerf` showed a sequential scan (7.14) |
+| `00009_role_schema_grants.sql` | issue #232 | grants `rg_evaluator`/`rg_remediator` `USAGE` on schema `public` and `SELECT` on `goose_controls_version`, which `RequireControlsSchema` reads as each worker's own role; CNPG's `managed.roles` granted neither |
 
 Run it as the schema owner (no `CREATEROLE`). `rg_evaluator` and
 `rg_remediator` must exist first: the chain grants to them and never

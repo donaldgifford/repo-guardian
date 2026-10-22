@@ -22,7 +22,7 @@ FROM oven/bun:1.3.14-distroless
 WORKDIR /app
 COPY --from=deps /src/node_modules ./node_modules
 COPY --from=build /src/dist ./dist
-COPY package.json tsconfig.json ./
+COPY package.json tsconfig.json THIRD_PARTY_NOTICES.md ./
 COPY server ./server
 
 # The root filesystem is read-only in the chart: Bun must not try to

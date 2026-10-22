@@ -27,6 +27,7 @@ func TestServiceStarter_SchedulesPerRole(t *testing.T) {
 
 	evaluation := []string{workflows.ControlsDiscoveryScheduleID, workflows.ControlsSnapshotScheduleID}
 	remediation := []string{workflows.RemediationDiscoveryScheduleID, workflows.RemediationSweepScheduleID}
+	legacy := []string{"discovery", "snapshot"}
 
 	ids := func(ss []*temporal.Schedule) []string {
 		out := make([]string, 0, len(ss))
@@ -43,8 +44,8 @@ func TestServiceStarter_SchedulesPerRole(t *testing.T) {
 		ensure    []string
 		remove    []string
 	}{
-		{role: config.RoleEvaluator, discovery: true, ensure: evaluation},
-		{role: config.RoleEvaluator, ensure: evaluation[1:], remove: evaluation[:1]},
+		{role: config.RoleEvaluator, discovery: true, ensure: evaluation, remove: legacy},
+		{role: config.RoleEvaluator, ensure: evaluation[1:], remove: append(slices.Clone(legacy), evaluation[0])},
 		{role: config.RoleRemediator, discovery: true, ensure: remediation},
 		{role: config.RoleRemediator, ensure: remediation[1:], remove: remediation[:1]},
 		{role: config.RoleIngest, discovery: true},

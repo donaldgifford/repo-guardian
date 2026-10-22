@@ -292,7 +292,8 @@ func registerRemediation(
 
 	activities.NewRemediationServices(&activities.RemediationServicesConfig{
 		Remediator: rem, Store: st, GitHub: app, Temporal: tc,
-		RemediateQueue: tcfg.RemediateTaskQueue, EvalQueue: tcfg.EvalTaskQueue, Logger: logger,
+		RemediateQueue: tcfg.RemediateTaskQueue, EvalQueue: tcfg.EvalTaskQueue,
+		SweepSpacing: cfg.Remediation.SweepSpacing, Logger: logger,
 	}).Register(w)
 
 	return nil

@@ -138,6 +138,8 @@ spec:
               value: {{ $v.remediator.sweepBatch | quote }}
             - name: REMEDIATION_MAINTENANCE_BATCH
               value: {{ $v.remediator.maintenanceBatch | quote }}
+            - name: REMEDIATION_SWEEP_SPACING
+              value: {{ $v.remediator.sweepSpacing | quote }}
             {{- end }}
             {{- /* Each controls role's discovery schedule shares the gate. */}}
             {{- if or (include "repo-guardian.roleHasEvalKey" $r) (include "repo-guardian.roleHasRemediateKey" $r) }}

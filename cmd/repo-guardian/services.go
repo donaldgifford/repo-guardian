@@ -76,7 +76,7 @@ func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedul
 	case config.RoleRemediator:
 		discovery = temporal.Schedule{ID: workflows.RemediationDiscoveryScheduleID, Workflow: workflows.RemediationDiscoveryWorkflowName}
 		ensure = append(ensure, s.schedule(&temporal.Schedule{
-			ID: workflows.RemediationSweepScheduleID, Every: remediationSweepInterval, Workflow: workflows.RemediationSweepWorkflowName,
+			ID: workflows.RemediationSweepScheduleID, Every: workflows.RemediationSweepInterval, Workflow: workflows.RemediationSweepWorkflowName,
 			Args: []any{&workflows.RemediationSweepInput{
 				SweepBatch: s.cfg.Remediation.SweepBatch, MaintenanceBatch: s.cfg.Remediation.MaintenanceBatch,
 			}},
@@ -93,11 +93,6 @@ func (s *serviceStarter) schedules(role config.Role) (ensure []*temporal.Schedul
 
 	return append([]*temporal.Schedule{s.schedule(&discovery)}, ensure...), remove
 }
-
-// remediationSweepInterval is the remediation-sweep cadence (IMPL-0030
-// 6.1): a withdrawn control's PR closes, and an expired reservation's
-// slot frees, within one interval.
-const remediationSweepInterval = time.Hour
 
 // schedule puts sc on the role's queue at the schedule priority.
 func (s *serviceStarter) schedule(sc *temporal.Schedule) *temporal.Schedule {

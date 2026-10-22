@@ -34,6 +34,15 @@ FROM control_results`, kind, state, cols["reserved_until"], cols["observed_head_
 		cols["closed_generation"], cols["next_eligible_at"], cols["intent_revision"])
 }
 
+// hold holds the control's result for reason, since ago.
+func hold(reason, ago string) string {
+	return fmt.Sprintf(`UPDATE control_results SET hold = '%s', hold_since = now() - interval '%s'`, reason, ago)
+}
+
+// journaled records a done commit step on every remediation.
+const journaled = `INSERT INTO remediation_steps (remediation_id, operation_key, seq, kind, status, committed_sha, occurred_at)
+SELECT id, operation_key, 1, 'committed', 'done', 'c1', now() FROM remediations`
+
 // viewCase is one row of a view truth table: SQL applied to the base
 // fixture inside a rolled-back owner transaction, then the view read.
 type viewCase struct {
@@ -85,7 +94,8 @@ func runViewTable(t *testing.T, dsn string, cases []viewCase, read string) {
 // Strategy): remediation_due over policy state, assignment state and
 // epoch, effective mode, status, remediable, generations (the first
 // evaluation's 1 > 0 included), intent revision, latest state, observed
-// versus acknowledged head, closed_generation and next_eligible_at. The
+// versus acknowledged head, closed_generation, next_eligible_at, a
+// reservation and the result's hold (00010). The
 // base fixture is a managed repository whose codeowners result is
 // non_compliant at generation 1 with a failing remediable rule and no
 // remediation yet.
@@ -137,7 +147,16 @@ func TestRemediationDue_TruthTable(t *testing.T) {
 			caught, remediationRow("pull_request", "closed_by_user", map[string]string{"next_eligible_at": "now() - interval '1 minute'"}),
 		}},
 		{name: "failed resumes", want: "codeowners", setup: []string{caught, remediationRow("api", "failed", nil)}},
-		{name: "reserved", setup: []string{remediationRow("pull_request", "reserved", nil)}},
+		// 00010 (issue #235): a reservation resumes from its journal.
+		{name: "reserved resumes", want: "codeowners", setup: []string{caught, remediationRow("pull_request", "reserved", nil)}},
+		{name: "held foreign_branch, fresh", setup: []string{hold("foreign_branch", "1 hour")}},
+		{name: "held stale_branch, fresh", setup: []string{hold("stale_branch", "23 hours")}},
+		{name: "held permission, fresh", setup: []string{hold("permission", "1 hour")}},
+		{name: "held foreign_branch, a day old", want: "codeowners", setup: []string{hold("foreign_branch", "25 hours")}},
+		{name: "held pr_cap retries", want: "codeowners", setup: []string{hold("pr_cap", "1 hour")}},
+		{name: "held conflict, head pushed", want: "codeowners", setup: []string{
+			caught, remediationRow("pull_request", "open", map[string]string{"observed_head_sha": "'h2'"}), hold("conflict", "1 hour"),
+		}},
 		{name: "recommended", setup: []string{remediationRow("api", "recommended", nil)}},
 		{name: "applied, generation advanced", want: "codeowners", setup: []string{remediationRow("api", "applied", nil)}},
 	}
@@ -159,6 +178,7 @@ func TestRemediationMaintenance_Actions(t *testing.T) {
 	}
 
 	open := remediationRow("pull_request", "open", nil)
+	expired := remediationRow("pull_request", "reserved", map[string]string{"reserved_until": "now() - interval '1 minute'"})
 
 	cases := []viewCase{
 		{name: "open, nothing to do", setup: []string{open}},
@@ -166,6 +186,14 @@ func TestRemediationMaintenance_Actions(t *testing.T) {
 			remediationRow("pull_request", "reserved", map[string]string{"reserved_until": "now() - interval '1 minute'"}),
 		}},
 		{name: "reservation live", setup: []string{remediationRow("pull_request", "reserved", nil)}},
+		// 00010 (issue #235): the journal ties the branch to us.
+		{name: "journaled reservation expired, still failing", setup: []string{expired, journaled}},
+		{name: "journaled reservation expired, now compliant", want: "expire", setup: []string{
+			expired, journaled, `UPDATE control_results SET status = 'compliant'`,
+		}},
+		{name: "journaled reservation expired, withdrawn", want: "expire", setup: []string{
+			expired, journaled, `UPDATE control_assignments SET state = 'excluded'`,
+		}},
 		{name: "assignment withdrawn", want: "withdraw", setup: []string{open, `UPDATE control_assignments SET state = 'excluded'`}},
 		{name: "repository excluded", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'excluded'`}},
 		{name: "repository parked", want: "withdraw", setup: []string{open, `UPDATE repository_policy_state SET state = 'parked'`}},

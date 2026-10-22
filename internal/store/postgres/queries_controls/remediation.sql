@@ -152,9 +152,22 @@ LIMIT @batch;
 -- name: ExpireReservations :many
 -- The remediator's one DELETE (RLS remediations_expire): a reservation
 -- whose run never opened its pull request frees the slot. One org per
--- freed reservation, for remediation_reservations_expired_total.
+-- freed reservation, for remediation_reservations_expired_total. A
+-- reservation whose journal records a branch or commit is kept while
+-- its control is still assigned for remediation and failing: the
+-- journal is what ties the branch to us, and the run resumes it (issue
+-- #235; remediation_maintenance's expire arm is the same rule).
 DELETE FROM remediations m
 WHERE m.state = 'reserved' AND m.reserved_until < @now::timestamptz
+  AND NOT (
+    EXISTS (SELECT 1 FROM remediation_steps s
+            WHERE s.remediation_id = m.id AND s.status = 'done' AND s.kind IN ('branch_created', 'committed'))
+    AND EXISTS (SELECT 1 FROM control_assignments ca
+                JOIN repository_policy_state ps ON ps.repository_id = ca.repository_id
+                JOIN control_results cr ON (cr.repository_id, cr.control_id) = (ca.repository_id, ca.control_id)
+                WHERE (ca.repository_id, ca.control_id) = (m.repository_id, m.control_id)
+                  AND ca.state = 'active' AND ca.effective_mode = 'remediate'
+                  AND ps.state = 'managed' AND cr.status = 'non_compliant'))
 RETURNING (SELECT r.org FROM repositories r WHERE r.id = m.repository_id)::text AS org;
 
 -- name: TrackedPullRequests :many

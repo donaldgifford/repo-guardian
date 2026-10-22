@@ -35,10 +35,10 @@ const ControlsVersionTable = "goose_controls_version"
 // ControlsSchemaVersion is the controls chain version this binary was
 // built for: 00001_core (IMPL-0028), IMPL-0029's 00002 to 00004 and
 // IMPL-0030's 00005_remediation, 00006_remediation_due_no_row,
-// 00007_last_checked_at and 00008_results_index, and 00009_role_schema_grants
-// (issue #232). Roles pass it to RequireControlsSchema so a pod never serves
-// against an older schema.
-const ControlsSchemaVersion = 9
+// 00007_last_checked_at and 00008_results_index, 00009_role_schema_grants
+// (issue #232) and 00010_remediation_resume (issue #235). Roles pass it
+// to RequireControlsSchema so a pod never serves against an older schema.
+const ControlsSchemaVersion = 10
 
 // OpenDB opens a database/sql handle over pgx for goose. The caller
 // owns the returned handle and must close it.

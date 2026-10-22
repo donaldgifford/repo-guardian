@@ -12,10 +12,12 @@ import (
 // causeMaxRunes clips error text carried in workflow history.
 const causeMaxRunes = 1024
 
-// Deferral backoff when a throttle has no usable reset: base 30s
-// doubling per consecutive deferral to a 30m cap (IMPL-0022 OQ3).
+// Deferral backoff when a throttle has no usable reset: base 1m
+// doubling per consecutive deferral to a 30m cap (IMPL-0022 OQ3). A
+// secondary rate limit without Retry-After lands here, and GitHub asks
+// for at least a minute before retrying one (issue #235).
 const (
-	backoffBase = 30 * time.Second
+	backoffBase = time.Minute
 	backoffCap  = 30 * time.Minute
 )
 

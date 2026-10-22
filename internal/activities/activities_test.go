@@ -28,8 +28,8 @@ func TestDeferUntil(t *testing.T) {
 		want      time.Duration
 	}{
 		{"future reset", now.Add(10 * time.Minute), 3, 10 * time.Minute},
-		{"stale reset backs off from 30s", now.Add(-time.Minute), 0, 30 * time.Second},
-		{"backoff doubles", time.Time{}, 2, 2 * time.Minute},
+		{"stale reset backs off from 1m", now.Add(-time.Minute), 0, time.Minute},
+		{"backoff doubles", time.Time{}, 2, 4 * time.Minute},
 		{"backoff caps at 30m", time.Time{}, 20, 30 * time.Minute},
 	}
 

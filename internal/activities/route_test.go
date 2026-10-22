@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+	"time"
 
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -22,6 +23,7 @@ type signal struct {
 	started    bool
 	priority   int
 	queue      string
+	delay      time.Duration
 }
 
 // recordingTemporal records signals; the embedded mock panics on
@@ -41,7 +43,9 @@ func (c *recordingTemporal) SignalWithStartWorkflow(
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.signals = append(c.signals, signal{workflowID: id, name: name, arg: arg, started: true, priority: o.Priority.PriorityKey, queue: o.TaskQueue})
+	c.signals = append(c.signals, signal{
+		workflowID: id, name: name, arg: arg, started: true, priority: o.Priority.PriorityKey, queue: o.TaskQueue, delay: o.StartDelay,
+	})
 
 	return &temporalmocks.WorkflowRun{}, nil
 }

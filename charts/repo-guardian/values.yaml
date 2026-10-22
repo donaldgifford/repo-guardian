@@ -220,6 +220,13 @@ remediator:
   # -- Due remediations one hourly `remediation-sweep` starts
   # (REMEDIATION_SWEEP_BATCH).
   sweepBatch: 500
+  # -- Gap between two remediations one sweep starts on the same
+  # installation (REMEDIATION_SWEEP_SPACING). A pull request costs about
+  # four of GitHub's 500 content-creating requests an hour, so 30s
+  # (about 120 runs an hour) keeps a first enablement under the secondary
+  # rate limit; starts past the hour wait for the next sweep. "0s" starts
+  # them all at once.
+  sweepSpacing: 30s
   # -- Lifecycle candidates (expire, withdraw, supersede,
   # close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH).
   maintenanceBatch: 200

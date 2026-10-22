@@ -830,3 +830,42 @@ func TestRateLimitTransport_BucketsAreSeparate(t *testing.T) {
 		t.Errorf("core call after graphql exhaustion = %v, want nil", err)
 	}
 }
+
+// TestRateLimitDelay_SecondaryIsNotThePrimaryReset is issue #235: a
+// limited response with primary budget left and no Retry-After waits a
+// minute, not until X-RateLimit-Reset (the primary window, up to an hour
+// away); one with the primary budget spent waits for the reset.
+func TestRateLimitDelay_SecondaryIsNotThePrimaryReset(t *testing.T) {
+	t.Parallel()
+
+	reset := strconv.FormatInt(time.Now().Add(50*time.Minute).Unix(), 10)
+
+	tests := []struct {
+		name      string
+		header    map[string]string
+		min, max  time.Duration
+		secondary bool
+	}{
+		{"secondary, no Retry-After", map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Reset": reset}, time.Minute, time.Minute, true},
+		{"secondary, Retry-After", map[string]string{"X-RateLimit-Remaining": "4321", "Retry-After": "90"}, 90 * time.Second, 90 * time.Second, true},
+		{"primary spent", map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": reset}, 49 * time.Minute, 50 * time.Minute, false},
+		{"no remaining header", map[string]string{"X-RateLimit-Reset": reset}, 49 * time.Minute, 50 * time.Minute, false},
+	}
+
+	var tr rateLimitTransport
+
+	for _, tt := range tests {
+		resp := &http.Response{Header: http.Header{}}
+		for k, v := range tt.header {
+			resp.Header.Set(k, v)
+		}
+
+		if got := tr.rateLimitDelay(resp); got < tt.min || got > tt.max {
+			t.Errorf("rateLimitDelay(%s) = %v, want [%v, %v]", tt.name, got, tt.min, tt.max)
+		}
+
+		if got := tr.rateLimitReason(resp) == "secondary"; got != tt.secondary {
+			t.Errorf("rateLimitReason(%s) secondary = %v, want %v", tt.name, got, tt.secondary)
+		}
+	}
+}

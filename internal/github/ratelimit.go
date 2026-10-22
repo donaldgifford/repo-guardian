@@ -396,6 +396,12 @@ func (t *rateLimitTransport) graphQLThrottle(resp *http.Response) *ThrottledErro
 	return nil
 }
 
+// secondaryRetryAfter is the wait for a secondary rate limit that names
+// none: GitHub's guidance is at least one minute. X-RateLimit-Reset on
+// such a response is the primary window's and can be an hour away; a
+// remediation that waited for it outlived its reservation (issue #235).
+const secondaryRetryAfter = time.Minute
+
 // rateLimitDelay computes how long to wait before retrying.
 func (*rateLimitTransport) rateLimitDelay(resp *http.Response) time.Duration {
 	// Secondary rate limit — Retry-After header (seconds).
@@ -404,6 +410,11 @@ func (*rateLimitTransport) rateLimitDelay(resp *http.Response) time.Duration {
 		if err == nil && seconds > 0 {
 			return time.Duration(seconds) * time.Second
 		}
+	}
+
+	// A limit with primary budget left is a secondary limit.
+	if isSecondary(resp) {
+		return secondaryRetryAfter
 	}
 
 	// Primary rate limit — wait until X-RateLimit-Reset.
@@ -423,11 +434,20 @@ func (*rateLimitTransport) rateLimitDelay(resp *http.Response) time.Duration {
 
 // rateLimitReason returns a label for the type of rate limit encountered.
 func (*rateLimitTransport) rateLimitReason(resp *http.Response) string {
-	if resp.Header.Get("Retry-After") != "" {
+	if resp.Header.Get("Retry-After") != "" || isSecondary(resp) {
 		return "secondary"
 	}
 
 	return "primary"
+}
+
+// isSecondary reports a limited response that still shows primary
+// budget: X-RateLimit-Remaining present and not zero. GitHub sends the
+// header on every API response, so its absence says nothing.
+func isSecondary(resp *http.Response) bool {
+	remaining := resp.Header.Get("X-RateLimit-Remaining")
+
+	return remaining != "" && remaining != "0"
 }
 
 // sleepWithContext sleeps for the given duration, returning early if the

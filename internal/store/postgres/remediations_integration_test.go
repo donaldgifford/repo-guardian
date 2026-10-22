@@ -313,9 +313,11 @@ func TestRemediationStore_SetHold(t *testing.T) {
 }
 
 // TestRemediationStore_DueAndMaintenance is IMPL-0030 1.8: a failing,
-// remediable result is due; a reservation takes it out of due; once past
-// reserved_until it is an expire candidate and ExpireReservations frees
-// it, after which it is due again. The full truth table is task 1.10.
+// remediable result is due, and stays due while reserved so its run
+// resumes (issue #235); once past reserved_until a reservation with no
+// journaled branch or commit is an expire candidate and
+// ExpireReservations frees it, while a journaled one is kept. The full
+// truth table is task 1.10.
 func TestRemediationStore_DueAndMaintenance(t *testing.T) {
 	f := newRemediationFixture(t)
 	ctx := t.Context()
@@ -338,9 +340,31 @@ func TestRemediationStore_DueAndMaintenance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 0 {
-		t.Errorf("DueRemediations with a reservation = %+v, want none", due)
+	if due, _ := f.r.DueRemediations(ctx, 10); len(due) != 1 {
+		t.Errorf("DueRemediations with a reservation = %+v, want codeowners to resume", due)
 	}
+
+	row, err := f.r.LatestRemediation(ctx, f.repoID, "codeowners")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	step, err := f.r.AppendStep(ctx, &store.RemediationStep{
+		RemediationID: row.ID, OperationKey: "op-1", Kind: "branch_created", Status: "done",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if m, err := f.r.MaintenanceCandidates(ctx, 10); err != nil || len(m) != 0 {
+		t.Errorf("MaintenanceCandidates with a journaled branch = %+v, %v; want none", m, err)
+	}
+
+	if orgs, err := f.r.ExpireReservations(ctx, time.Now()); err != nil || len(orgs) != 0 {
+		t.Fatalf("ExpireReservations with a journaled branch = %v, %v; want it kept", orgs, err)
+	}
+
+	run(t, f.dsns.Owner, fmt.Sprintf(`DELETE FROM remediation_steps WHERE seq = %d`, step))
 
 	m, err := f.r.MaintenanceCandidates(ctx, 10)
 	if err != nil || len(m) != 1 || m[0].Action != store.MaintenanceExpire || m[0].State != store.StateReserved {

@@ -16,6 +16,7 @@ holds the rc line's `migrations_v2` chain: the two share table names.
 | `00007_last_checked_at.sql` | IMPL-0030 | grants `rg_evaluator` `UPDATE (last_checked_at)` on repositories: `RecordEvaluation` stamps it, so the checks prune never loses a last evaluation |
 | `00008_results_index.sql` | IMPL-0030 | indexes `control_results (control_id, status, last_changed_at)` for `/results`, after `TestAPIPerf` showed a sequential scan (7.14) |
 | `00009_role_schema_grants.sql` | issue #232 | grants `rg_evaluator`/`rg_remediator` `USAGE` on schema `public` and `SELECT` on `goose_controls_version`, which `RequireControlsSchema` reads as each worker's own role; CNPG's `managed.roles` granted neither |
+| `00010_remediation_resume.sql` | issue #235 | `remediation_due` takes a reserved row (its run resumes from the journal) and backs a held result off for a day, except `pr_cap` and `conflict`; `remediation_maintenance` and `ExpireReservations` keep a journaled reservation while its control is still assigned for remediation and failing |
 
 Run it as the schema owner (no `CREATEROLE`). `rg_evaluator` and
 `rg_remediator` must exist first: the chain grants to them and never

@@ -104,6 +104,7 @@ tests:
         reservationTTL: 30m
         sweepBatch: 50
         maintenanceBatch: 20
+        sweepSpacing: 10s
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -114,6 +115,9 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: REMEDIATION_MAINTENANCE_BATCH, value: "20"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_SWEEP_SPACING, value: 10s}
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: DISCOVERY_INTERVAL, value: 1h}
@@ -127,6 +131,14 @@ tests:
     set:
       remediator:
         sweepBatch: 0
+    asserts:
+      - failedTemplate: {}
+
+  - it: refuses a sweep spacing that is not a duration
+    template: templates/deployment.yaml
+    set:
+      remediator:
+        sweepSpacing: 30
     asserts:
       - failedTemplate: {}
 

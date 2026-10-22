@@ -88,6 +88,9 @@ func (s *RemediationStarter) StartRemediations(ctx context.Context, starts []wor
 				Priority:  workflows.TaskPriority(st.Priority, st.InstallationID),
 				// A finished remediation starts afresh on the next signal.
 				WorkflowIDReusePolicy: enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE,
+				// A sweep's pacing (issue #235); a running workflow
+				// takes the signal at once.
+				StartDelay: st.StartDelay,
 			},
 			workflows.RemediationWorkflowName,
 			&workflows.RemediationInput{

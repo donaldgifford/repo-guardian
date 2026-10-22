@@ -92,3 +92,50 @@ func TestIntegration_StartRemediationsIntoCompletingWorkflow(t *testing.T) {
 
 	eventually(t, time.Minute, func() bool { return consumed.Load() == senders*perSender })
 }
+
+// TestIntegration_StartRemediationsHonoursStartDelay is issue #235: the
+// server accepts a sweep's StartDelay on signal-with-start, and the
+// start's own signal does not cut it short.
+func TestIntegration_StartRemediationsHonoursStartDelay(t *testing.T) {
+	srv := temporaltest.Start(t)
+
+	const (
+		queue = "repo-guardian-remediate-delay-it"
+		delay = 2 * time.Second
+	)
+
+	ran := make(chan time.Time, 1)
+
+	w := worker.New(srv.Client, queue, worker.Options{})
+	w.RegisterWorkflowWithOptions(standInRemediation, workflow.RegisterOptions{Name: workflows.RemediationWorkflowName})
+	w.RegisterActivityWithOptions(func(context.Context, int) error {
+		ran <- time.Now()
+
+		return nil
+	}, activity.RegisterOptions{Name: "count"})
+
+	if err := w.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(w.Stop)
+
+	starter := activities.NewRemediationStarter(srv.Client, queue, nil)
+	start := []workflows.RemediationStart{{
+		RepositoryID: 9, Control: "codeowners", InstallationID: 7, Priority: workflows.PriorityRollout, StartDelay: delay,
+	}}
+
+	began := time.Now()
+	if err := starter.StartRemediations(t.Context(), start); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case at := <-ran:
+		if got := at.Sub(began); got < delay {
+			t.Errorf("remediation ran %v after its start, want at least %v", got, delay)
+		}
+	case <-time.After(time.Minute):
+		t.Fatal("remediation never ran")
+	}
+}

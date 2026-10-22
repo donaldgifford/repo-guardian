@@ -109,6 +109,12 @@ const (
 	RemediationDiscoveryScheduleID = "controls-discovery-remediate"
 )
 
+// RemediationSweepInterval is the remediation-sweep cadence (IMPL-0030
+// 6.1): a withdrawn control's PR closes, and an expired reservation's
+// slot frees, within one interval. A sweep paces its starts inside it
+// (issue #235).
+const RemediationSweepInterval = time.Hour
+
 // Signal names accepted by EvaluationWorkflow.
 const (
 	RecheckSignal       = "recheck"

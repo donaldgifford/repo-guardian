@@ -669,7 +669,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
-| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"maintenanceBatch":200,"replicas":1,"reservationTTL":"1h","resources":{},"sweepBatch":500}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"maintenanceBatch":200,"replicas":1,"reservationTTL":"1h","resources":{},"sweepBatch":500,"sweepSpacing":"30s"}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
 | remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
 | remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means concurrency + 4; the remediator refuses to start with fewer connections than `concurrency`, since every running remediation holds one for its row lock. |
 | remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
@@ -684,6 +684,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | remediator.reservationTTL | string | `"1h"` | How long a reserved pull-request slot waits for its PR before the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL). |
 | remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | remediator.sweepBatch | int | `500` | Due remediations one hourly `remediation-sweep` starts (REMEDIATION_SWEEP_BATCH). |
+| remediator.sweepSpacing | string | `"30s"` | Gap between two remediations one sweep starts on the same installation (REMEDIATION_SWEEP_SPACING). A pull request costs about four of GitHub's 500 content-creating requests an hour, so 30s (about 120 runs an hour) keeps a first enablement under the secondary rate limit; starts past the hour wait for the next sweep. "0s" starts them all at once. |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |

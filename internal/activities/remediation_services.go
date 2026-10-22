@@ -46,7 +46,11 @@ type RemediationServicesConfig struct {
 	Temporal       client.Client
 	RemediateQueue string
 	EvalQueue      string
-	Logger         *slog.Logger
+	// SweepSpacing is the gap between two runs one sweep starts on the
+	// same installation (REMEDIATION_SWEEP_SPACING); 0 starts them all
+	// at once.
+	SweepSpacing time.Duration
+	Logger       *slog.Logger
 }
 
 // RemediationServices are the activities behind the remediator's sweep,
@@ -83,6 +87,13 @@ func (s *RemediationServices) Register(r Registry) {
 // (IMPL-0030 6.1): the controls an evaluation left due, say because its
 // start failed or the slot was full.
 //
+// The starts are paced per installation (issue #235): the nth on one
+// installation is delayed n × SweepSpacing, so a first enablement with
+// every non-compliant repository due at once stays under GitHub's
+// secondary rate limit. Starts that would land past the next sweep are
+// left due for it: that sweep's signal would cut a pending start delay
+// short.
+//
 // PERF: one RemediationTarget read per due row for its installation;
 // at the default batch of 500 that is one hourly round trip each.
 func (s *RemediationServices) Sweep(ctx context.Context, batch int) (*workflows.SweepResult, error) {
@@ -92,6 +103,7 @@ func (s *RemediationServices) Sweep(ctx context.Context, batch int) (*workflows.
 	}
 
 	starts := make([]workflows.RemediationStart, 0, len(due))
+	perInstallation := make(map[int64]int)
 
 	for _, d := range due {
 		t, err := s.cfg.Store.RemediationTarget(ctx, d.RepositoryID, d.ControlID)
@@ -103,8 +115,17 @@ func (s *RemediationServices) Sweep(ctx context.Context, batch int) (*workflows.
 			continue
 		}
 
+		n := perInstallation[t.InstallationID]
+		delay := time.Duration(n) * s.cfg.SweepSpacing
+
+		if delay >= workflows.RemediationSweepInterval {
+			continue
+		}
+
+		perInstallation[t.InstallationID] = n + 1
 		starts = append(starts, workflows.RemediationStart{
 			RepositoryID: d.RepositoryID, Control: d.ControlID, InstallationID: t.InstallationID, Priority: workflows.PriorityRollout,
+			StartDelay: delay,
 		})
 	}
 

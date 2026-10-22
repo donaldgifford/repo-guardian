@@ -367,7 +367,10 @@ remediator never ensures the evaluation schedules):
 | `controls-discovery-remediate` | `discovery.interval` | refreshes the Remediation App's access rows (above) |
 
 Maintenance handles up to `remediator.maintenanceBatch` rows per sweep.
-It frees reservations older than `remediator.reservationTTL`, closes a
+It frees reservations older than `remediator.reservationTTL` that never
+touched GitHub (one whose branch or commit is journaled is kept, and the
+next run resumes it, while its control is still assigned and failing),
+closes a
 withdrawn control's pull request as `closed_withdrawn` (with a comment;
 the branch is kept) and ends its recommendation as `withdrawn`,
 supersedes a recommendation whose intent moved, and closes a PR or
@@ -378,11 +381,25 @@ therefore closes within one sweep with no evaluation running, and a
 crashed reservation frees its slot within `reservationTTL` plus one
 sweep.
 
+A result held on `foreign_branch`, `stale_branch` or `permission` is
+retried once a day rather than every sweep; `pr_cap` and `conflict`
+retry every sweep, since a slot can free or a fix land at any time.
+
+The sweep paces its starts per installation, `remediator.sweepSpacing`
+apart (default 30s). Enabling `remediate` on a control makes every
+non-compliant repository due at once, and GitHub's secondary rate limit
+allows about 500 content-creating requests an hour (a pull request costs
+about four: branch, commit, PR, labels). At 30s one installation opens
+about 120 pull requests an hour; the rest stay due for the next sweep.
+Lower `remediator.sweepBatch` or raise `sweepSpacing` if other tools
+share the App's limit.
+
 | Value | Variable | Default |
 | --- | --- | --- |
 | `remediator.reservationTTL` | `REMEDIATION_RESERVATION_TTL` | `1h` |
 | `remediator.sweepBatch` | `REMEDIATION_SWEEP_BATCH` | `500` |
 | `remediator.maintenanceBatch` | `REMEDIATION_MAINTENANCE_BATCH` | `200` |
+| `remediator.sweepSpacing` | `REMEDIATION_SWEEP_SPACING` | `30s` |
 
 #### Registering and installing
 
@@ -758,6 +775,7 @@ Do this for one organisation, watch it, then widen it.
      reservationTTL: 1h                   # REMEDIATION_RESERVATION_TTL
      sweepBatch: 500                      # REMEDIATION_SWEEP_BATCH
      maintenanceBatch: 200                # REMEDIATION_MAINTENANCE_BATCH
+     sweepSpacing: 30s                    # REMEDIATION_SWEEP_SPACING
    ```
 
    In `split` the chart renders the `remediator` Deployment only now,

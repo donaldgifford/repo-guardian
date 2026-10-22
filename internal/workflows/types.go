@@ -105,12 +105,15 @@ type AcquireInput struct {
 
 // RemediationStart is one remediation an evaluation found due: the
 // repository, the control (its slug), the installation for the task's
-// fairness key, and the start priority.
+// fairness key, and the start priority. StartDelay holds a new run back
+// so a sweep spreads its writes (issue #235); a running remediation
+// takes the signal at once.
 type RemediationStart struct {
 	RepositoryID   int64
 	Control        string
 	InstallationID int64
 	Priority       Priority
+	StartDelay     time.Duration `json:",omitempty"`
 }
 
 // StartDueRemediationsInput is the StartDueRemediations activity input:

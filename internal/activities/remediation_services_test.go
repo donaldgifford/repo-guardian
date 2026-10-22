@@ -4,8 +4,10 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"maps"
 	"strings"
 	"testing"
+	"time"
 
 	"go.temporal.io/sdk/activity"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -62,6 +64,53 @@ func TestSweep_StartsDueRemediationsAtRolloutPriority(t *testing.T) {
 	if len(tc.signals) != 1 || tc.signals[0].workflowID != workflows.RemediationWorkflowID(9, "codeowners") ||
 		tc.signals[0].priority != int(workflows.PriorityRollout) || tc.signals[0].queue != "remediate" {
 		t.Errorf("signals = %+v, want codeowners started at priority 4 on the remediation queue", tc.signals)
+	}
+}
+
+// TestSweep_PacesStartsPerInstallation is issue #235: the nth start on
+// one installation waits n spacings, another installation's starts are
+// paced on their own, and a start that would land past the next sweep
+// is left due for it.
+func TestSweep_PacesStartsPerInstallation(t *testing.T) {
+	t.Parallel()
+
+	other := remediable()
+	other.InstallationID = 8
+
+	st := &sweepStore{targets: map[string]*store.RemediationTarget{"codeowners": remediable(), "other": other}}
+	for i := range 5 {
+		st.due = append(st.due, store.DueRemediation{RepositoryID: int64(i + 1), ControlID: "codeowners"})
+	}
+
+	st.due = append(st.due, store.DueRemediation{RepositoryID: 99, ControlID: "other"})
+
+	tc := &recordingTemporal{Client: temporalmocks.NewClient(t)}
+	s := NewRemediationServices(&RemediationServicesConfig{
+		Store: st, Temporal: tc, RemediateQueue: "remediate", SweepSpacing: 20 * time.Minute, Logger: slog.New(slog.DiscardHandler),
+	})
+
+	res, err := s.Sweep(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Due != 6 || res.Started != 4 {
+		t.Errorf("Sweep = %+v, want 6 due and 4 started (three per hour on installation 7, one on 8)", res)
+	}
+
+	got := make(map[string]time.Duration, len(tc.signals))
+	for _, sg := range tc.signals {
+		got[sg.workflowID] = sg.delay
+	}
+
+	want := map[string]time.Duration{
+		workflows.RemediationWorkflowID(1, "codeowners"): 0,
+		workflows.RemediationWorkflowID(2, "codeowners"): 20 * time.Minute,
+		workflows.RemediationWorkflowID(3, "codeowners"): 40 * time.Minute,
+		workflows.RemediationWorkflowID(99, "other"):     0,
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("start delays = %v, want %v", got, want)
 	}
 }
 

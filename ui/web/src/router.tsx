@@ -12,6 +12,8 @@ import { HistoryView, parseHistorySearch } from "./views/history";
 import { OrgsView, OrgView } from "./views/orgs";
 import { parseOrgsSearch } from "./views/orgs/tree";
 import { PolicyView } from "./views/policy";
+import { RemediationsView } from "./views/remediations";
+import { parseRemediationsSearch } from "./views/remediations/model";
 import { parseRepositoriesSearch, parseRepositorySearch, RepositoriesView, RepositoryView } from "./views/repositories";
 import { StatusView } from "./views/status";
 
@@ -52,6 +54,7 @@ const repositoryRoute = createRoute({
   validateSearch: parseRepositorySearch,
   component: RepositoryView,
 });
+const remediationsRoute = createRoute({ getParentRoute: () => appRoute, path: "/remediations", validateSearch: parseRemediationsSearch, component: RemediationsView });
 const historyRoute = createRoute({ getParentRoute: () => appRoute, path: "/history", validateSearch: parseHistorySearch, component: HistoryView });
 const policyRoute = createRoute({ getParentRoute: () => appRoute, path: "/policy", component: PolicyView });
 
@@ -59,7 +62,7 @@ export { appRoute };
 
 const routeTree = rootRoute.addChildren([
   statusRoute,
-  appRoute.addChildren([fleetRoute, controlsRoute, controlRoute, findingsRoute, orgsRoute, orgRoute, repositoriesRoute, repositoryRoute, historyRoute, policyRoute]),
+  appRoute.addChildren([fleetRoute, controlsRoute, controlRoute, findingsRoute, orgsRoute, orgRoute, repositoriesRoute, repositoryRoute, remediationsRoute, historyRoute, policyRoute]),
 ]);
 
 export const router = createRouter({ routeTree, defaultErrorComponent: ProblemView });

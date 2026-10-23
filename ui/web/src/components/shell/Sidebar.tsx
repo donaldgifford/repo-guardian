@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 
-import { useOrg, useSummary, useUIConfig } from "../../api/queries";
+import { useOrg, useRemediationEnabled, useRemediationOverview, useSummary, useUIConfig } from "../../api/queries";
 import { addPosture } from "../../lib/posture";
+import { kpis } from "../../views/remediations/model";
 import { cn } from "../../lib/utils";
 import { Icon } from "../icons";
 import { useOrgScope } from "../page/OrgScope";
@@ -20,11 +21,24 @@ function FindingsCount() {
   return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
 }
 
+// RemediationsCount is the Remediations entry's badge: the outstanding
+// remediations (reserved, open, recommended, failed) in scope — the
+// fleet's from /summary, an org's counted from its listing — and blank
+// without the Remediation App.
+function RemediationsCount() {
+  const org = useOrgScope();
+  const enabled = useRemediationEnabled();
+  const summary = useSummary();
+  const overview = useRemediationOverview(org, enabled === true && org !== undefined);
+  if (enabled !== true) return null;
+  const n = org === undefined ? summary.data?.remediation_backlog : overview.data ? kpis(overview.data.rows, overview.data.held).outstanding : undefined;
+  return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
+}
+
 // NavCount renders an entry's badge (the mockup's `<em>`), or nothing
-// while the count is unknown. The remediations count lands with its
-// page (IMPL-0032 6.1).
+// while the count is unknown.
 function NavCount({ badge }: { badge: NavBadge }) {
-  return badge === "findings" ? <FindingsCount /> : null;
+  return badge === "findings" ? <FindingsCount /> : <RemediationsCount />;
 }
 
 // SidebarNav is the list itself: groups with small uppercase labels,

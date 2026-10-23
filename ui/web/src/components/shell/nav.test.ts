@@ -15,10 +15,10 @@ test("every in-app entry has a route and the business group leads", () => {
   expect(NAV[0]?.group).toBe("BUSINESS");
 });
 
-test("Findings and Remediations carry their badges; Remediations stays hidden until its route lands", () => {
+test("Findings and Remediations carry their badges and every entry is routed", () => {
   expect(NAV.filter((n) => n.badge).map((n) => [n.to, n.badge, n.hidden ?? false])).toEqual([
     ["/findings", "findings", false],
-    ["/remediations", "remediations", true],
+    ["/remediations", "remediations", false],
   ]);
-  expect(navItems(undefined).map((n) => n.to)).toEqual(["/", "/findings", "/controls", "/orgs", "/repositories", "/history", "/policy", "/status"]);
+  expect(navItems(undefined).map((n) => n.to)).toEqual(["/", "/findings", "/controls", "/orgs", "/repositories", "/remediations", "/history", "/policy", "/status"]);
 });

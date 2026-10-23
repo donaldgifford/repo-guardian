@@ -166,6 +166,7 @@ export interface RemediationFilter {
   kind?: string;
   state?: Schemas["RemediationState"];
   org?: string;
+  control?: string;
   hold?: Schemas["Hold"][];
 }
 
@@ -175,6 +176,35 @@ export const openPullRequestsCap = 1_000;
 
 export function fetchAllRemediations(f: RemediationFilter, cap: number): Promise<{ rows: Schemas["Remediation"][]; truncated: boolean }> {
   return fetchPages((q) => unwrap(api.GET("/remediations", { params: { query: { ...f, ...q } } })), cap);
+}
+
+export const remediationPageSize = 50;
+
+// useRemediations pages /remediations by cursor for the Remediations
+// view; `older_than_days` is the age chip.
+export function useRemediations(f: RemediationFilter & { older_than_days?: number }, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ["remediations", f],
+    queryFn: ({ pageParam }) => unwrap(api.GET("/remediations", { params: { query: { ...f, limit: remediationPageSize, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor,
+    enabled,
+  });
+}
+
+// useRemediationOverview is the scope's remediations and its branch-held
+// results (listed only under a hold filter), capped, for the page's
+// KPIs and the nav count under an org scope.
+export function useRemediationOverview(org: string | undefined, enabled = true) {
+  const scoped = org ? { org } : {};
+  return useQuery({
+    queryKey: ["remediation-overview", org ?? ""],
+    queryFn: async () => {
+      const [all, held] = await Promise.all([fetchAllRemediations(scoped, openPullRequestsCap), fetchAllRemediations({ ...scoped, hold: ["pr_cap", "foreign_branch", "stale_branch", "conflict"] }, openPullRequestsCap)]);
+      return { rows: all.rows, held: held.rows, truncated: all.truncated || held.truncated };
+    },
+    enabled,
+  });
 }
 
 // useOpenPullRequests lists the open pull-request remediations in an

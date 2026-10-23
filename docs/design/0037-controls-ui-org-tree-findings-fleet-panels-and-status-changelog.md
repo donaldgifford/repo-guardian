@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0037
 title: "Controls UI: org tree, findings, fleet panels and status changelog"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-18
 ---

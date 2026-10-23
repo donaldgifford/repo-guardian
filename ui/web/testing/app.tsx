@@ -16,15 +16,19 @@ export const testConfig: UIConfig = { issuer: "https://idp.example.com", public_
 
 export interface SeededCache {
   config?: UIConfig;
+  me?: Schemas["Me"];
+  orgs?: Schemas["OrgList"];
 }
 
 export function seededClient(seed: SeededCache = {}): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(["ui-config"], seed.config ?? testConfig);
+  if (seed.me) client.setQueryData(["me"], seed.me);
+  if (seed.orgs) client.setQueryData(["orgs"], seed.orgs);
   return client;
 }
 
-const APP_PATHS = ["/", "/controls", "/orgs", "/repositories", "/history", "/policy", "/status"] as const;
+const APP_PATHS = ["/", "/controls", "/controls/$id", "/orgs", "/orgs/$org", "/repositories", "/repositories/$id", "/findings", "/remediations", "/history", "/policy", "/status"] as const;
 
 // testRouter renders `element` at every app path, with the Outlet-less
 // layout the shell pieces expect, starting at `initial`.

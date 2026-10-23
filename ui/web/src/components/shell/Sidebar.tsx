@@ -1,10 +1,45 @@
 import { Link } from "@tanstack/react-router";
 
-import { useUIConfig } from "../../api/queries";
+import { useOrg, useRemediationEnabled, useRemediationOverview, useSummary, useUIConfig } from "../../api/queries";
+import { addPosture } from "../../lib/posture";
+import { kpis } from "../../views/remediations/model";
 import { cn } from "../../lib/utils";
 import { Icon } from "../icons";
+import { useOrgScope } from "../page/OrgScope";
 import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";
-import { GROUP_LABELS, navGroups, navItems } from "./nav";
+import { GROUP_LABELS, type NavBadge, navGroups, navItems } from "./nav";
+
+// FindingsCount is the Findings entry's badge: the non-compliant
+// assignments in scope, the same number the Findings page reports as M
+// — the fleet's from /summary, or an org's baseline plus org-added
+// postures when `?org=` is set.
+function FindingsCount() {
+  const org = useOrgScope();
+  const summary = useSummary();
+  const scoped = useOrg(org ?? "", org !== undefined);
+  const n = org === undefined ? summary.data?.compliance.non_compliant : scoped.data ? addPosture(scoped.data.baseline, scoped.data.org_added).non_compliant : undefined;
+  return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
+}
+
+// RemediationsCount is the Remediations entry's badge: the outstanding
+// remediations (reserved, open, recommended, failed) in scope — the
+// fleet's from /summary, an org's counted from its listing — and blank
+// without the Remediation App.
+function RemediationsCount() {
+  const org = useOrgScope();
+  const enabled = useRemediationEnabled();
+  const summary = useSummary();
+  const overview = useRemediationOverview(org, enabled === true && org !== undefined);
+  if (enabled !== true) return null;
+  const n = org === undefined ? summary.data?.remediation_backlog : overview.data ? kpis(overview.data.rows, overview.data.held).outstanding : undefined;
+  return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
+}
+
+// NavCount renders an entry's badge (the mockup's `<em>`), or nothing
+// while the count is unknown.
+function NavCount({ badge }: { badge: NavBadge }) {
+  return badge === "findings" ? <FindingsCount /> : <RemediationsCount />;
+}
 
 // SidebarNav is the list itself: groups with small uppercase labels,
 // each entry an icon and a label; the current item sits on panel-2
@@ -30,6 +65,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 >
                   <Icon name={n.icon} className="size-[15px] flex-none" />
                   <span>{n.label}</span>
+                  {n.badge ? <NavCount badge={n.badge} /> : null}
                 </Link>
               ) : (
                 <a key={n.label} href={n.href} target="_blank" rel="noopener noreferrer" className={item} onClick={onNavigate}>

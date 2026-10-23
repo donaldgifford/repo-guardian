@@ -15,6 +15,12 @@ Every PR must carry exactly one semver label — `major`, `minor`,
 `patch`, or `dont-release`. The release workflow uses these to
 auto-tag the binary release on merge to `main`.
 
+A PR that bumps the chart's `appVersion` (a release or an rc) also adds
+an entry at the top of `ui/CHANGELOG.yaml` and runs
+`cd ui && bun run gen:changelog`; `make lint-ui` fails when the newest
+entry is not the chart's `appVersion`. The status page renders the
+newest five entries as its Changelog card.
+
 ## Commit messages
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/).

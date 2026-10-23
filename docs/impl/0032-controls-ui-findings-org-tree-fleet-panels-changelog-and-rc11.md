@@ -1,7 +1,7 @@
 ---
 id: IMPL-0032
 title: "Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-18
 ---
@@ -244,38 +244,38 @@ merges: task 2.6 regenerates the client from its spec.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 **CSV.** Restore `lib/csv.ts` and `csv.test.ts` from
+- [x] 2.1 **CSV.** Restore `lib/csv.ts` and `csv.test.ts` from
   `7ad928f^` with only `csvCell`, `tableCsv` and `downloadCsv`; drop the
   findings-era `columns`/`findingsCsv`. Add an `ExportButton` (page,
   filter and date in the filename) and put it on every existing table
   card: controls, control by-org, orgs, org controls, exclusions,
   repositories, evaluation log and events.
-- [ ] 2.2 **Range tabs on `?days=`.** Restore
+- [x] 2.2 **Range tabs on `?days=`.** Restore
   `components/page/RangeTabs.tsx` on `?days=` with numeric values 1, 7,
   30 and 90 (default per OQ5). The search validators parse a number, so
   the History numeric-search rule holds. Add `validateSearch` to the
   fleet, control, org and history routes, and drop the old `trendFrom`
   import. Include a unit test for the parse.
-- [ ] 2.3 **Header org scope (OQ3).** Restore
+- [x] 2.3 **Header org scope (OQ3).** Restore
   `components/page/OrgScope.tsx` as the page-header popover writing
   `?org=`, on Fleet, Controls, control detail, Findings, Remediations
   and History. Hooks pass `org` through to the API.
-- [ ] 2.4 **⌘K palette (DESIGN-0037 OQ9).** Restore
+- [x] 2.4 **⌘K palette (DESIGN-0037 OQ9).** Restore
   `components/shell/CommandPalette.tsx` and `palette.test.tsx` on the
   surviving `ui/command.tsx`, over `/repositories?q=` (debounced),
   `/controls` and `/orgs`, and bind ⌘K/Ctrl-K with
   `useKeyboardShortcut`. The top-bar Search button opens it.
-- [ ] 2.5 **Client paging.** `useRepositories` in
+- [x] 2.5 **Client paging.** `useRepositories` in
   `ui/web/src/api/queries.ts` becomes a `useInfiniteQuery` taking
   `org`, `active` and `q` (the tree, the Parked tab and the palette use
   it). It replaces today's single `limit: 100` fetch.
-- [ ] 2.6 **Client and gating.** `make generate-ui-api` against
+- [x] 2.6 **Client and gating.** `make generate-ui-api` against
   IMPL-0030's spec. Add `useRemediationEnabled()` (true when
   `Status.apps` has `remediate`) and a `GatedPanel` that renders "Remediation
   is not enabled on this deployment" without it and the caller's empty
   state ("No open pull requests") with it. Unit-test the decision table;
   e2e covers both states (8.7, OQ6).
-- [ ] 2.7 **Nav.** `nav.ts` gains a `badge` field and the `/findings`
+- [x] 2.7 **Nav.** `nav.ts` gains a `badge` field and the `/findings`
   and `/remediations` paths, each hidden until its phase lands the
   route. Then add the IMPL-0031 6.3 keyboard pass on the current pages:
   tab order, visible focus, and Escape closing popovers.
@@ -305,14 +305,14 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **Hook and route.** Add `useResults(filter)` as a
+- [x] 3.1 **Hook and route.** Add `useResults(filter)` as a
   `useInfiniteQuery` over `/results`, with "Load more" and "N loaded
   of M" from `total`. Add the `/app/findings` route with
   `validateSearch` for `control`, `rule`, `org`, `decision`,
   `pr_stale`, `sort` and `open`, and an `/app/findings` crumb entry.
   The page always asks for the non-compliant bucket, and the nav entry
   un-hides with the `Summary.compliance.non_compliant` count badge.
-- [ ] 3.2 **Filter chips** (restore `components/filters/*` from
+- [x] 3.2 **Filter chips** (restore `components/filters/*` from
   `7ad928f^`, reworked):
   - Control comes from `/controls`, and Rule enables once a control is
     chosen, listing that control's rule ids.
@@ -320,7 +320,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   - Stale PR, through `GatedPanel`'s decision: disabled with
     "remediation not enabled" without the remediate App.
   - Changing the control clears the rule.
-- [ ] 3.3 **Table:** columns Repository (name, org beneath), Control
+- [x] 3.3 **Table:** columns Repository (name, org beneath), Control
   (slug, version, non-baseline decision), Failing rules (red badges plus
   the first failing rule's evidence headline from `describeEvidence`),
   Remediation (state, PR link, age, stale badge; `—` with the gated
@@ -328,7 +328,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   the sort toggle (`since_asc`, `since_desc`, `pr_age` with the App)
   and Export, which pages `/results` up to 10,000 rows with a notice
   when the cap cuts the export short (DESIGN-0037 OQ6).
-- [ ] 3.4 **Finding drawer** (restore `views/findings/drawer.tsx` on
+- [x] 3.4 **Finding drawer** (restore `views/findings/drawer.tsx` on
   `DetailDrawer`), opened by `?open=<repository_id>/<control>`. It
   shows:
   - status, remediation (linking to the Remediations drawer) and last
@@ -343,7 +343,9 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
 
   Escape and the scrim close it. A11y names come from the repository
   and control.
-- [ ] 3.5 **Control detail cards:**
+  The remediation link into the Remediations drawer lands with that
+  route (6.1); the drawer shows the remediation state inline until then.
+- [x] 3.5 **Control detail cards:**
   - **Top failing rules:** a bar list of the control's findings by
     failing rule from `/results?control=`. Each row links to
     `/findings?control=&rule=`.
@@ -352,7 +354,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   - **"Findings for this control"** button.
   - **The compliance chart** switches to `aggregate=control` with the
     delta over the range.
-- [ ] 3.6 **Unit tests:** filter ↔ URL round trip, rule chip enablement,
+- [x] 3.6 **Unit tests:** filter ↔ URL round trip, rule chip enablement,
   the drawer id parse, the export cap notice, the gated Remediation
   column.
 
@@ -365,7 +367,10 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   round-trip through the URL.
 - `M` equals the nav badge for the same scope.
 - The drawer deep link survives a reload, and Re-evaluate returns 202
-  in e2e.
+  in e2e. *(2026-10-23: the e2e api runs without a Temporal client, so
+  the POST answers 501 and the button disappears, the repository page's
+  existing contract; the spec asserts that. A 202 needs a Temporal dev
+  server in `e2e/stack.ts`, which 8.1/8.2 own.)*
 - The control page's Oldest findings opens the same drawer.
 
 <!--docz:criteria:end-->
@@ -379,7 +384,7 @@ As the mockup's `#/orgs` draws it (OQ4).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 **Rework `components/ui/group-grid.tsx`:**
+- [x] 4.1 **Rework `components/ui/group-grid.tsx`:**
   - child rows render in the same `<tbody>` (no nested table), so
     columns align;
   - each cell carries its own numerator and denominator, and the
@@ -389,24 +394,24 @@ As the mockup's `#/orgs` draws it (OQ4).
     unmeasured cell renders "no data", never 0% or 100%.
 
   Rewrite `tables.test.tsx` for the new contract.
-- [ ] 4.2 **Load children on expand.** Each org's children come from
+- [x] 4.2 **Load children on expand.** Each org's children come from
   `/repositories?org=&active=true` (keyset, "Load more" inside the
   group, "showing N of M"). Collapsed groups fetch nothing.
   Expand all / Collapse all.
-- [ ] 4.3 **Columns:** Org / repository, Tracked (org: active
+- [x] 4.3 **Columns:** Org / repository, Tracked (org: active
   repositories; repository: assignments), Compliant, Non-compliant,
   Open PRs (`OrgSummary.open_prs`; repository rows from the
   repository's open pull-request remediations, gated) and Parked. The
   page subtitle says the counts are assignments, as the mockup words
   it. The footer sums the visible org rows with `addPosture`.
-- [ ] 4.4 **Toolbar:** KPI chips (Tracked, Non-compliant, Parked), tabs
+- [x] 4.4 **Toolbar:** KPI chips (Tracked, Non-compliant, Parked), tabs
   Compliance / Parked / PR activity, the repository filter (`?q=`,
   applied to loaded children) and Export.
   - The **Parked** tab lists parked repositories with reason and
     parked-at, grouped by org (`/repositories?org=&active=false`).
   - The **PR activity** tab lists open pull requests per org with age
     from `/remediations?kind=pull_request&state=open`, gated.
-- [ ] 4.5 **Unit tests:** footer sums equal the `/orgs` totals; the
+- [x] 4.5 **Unit tests:** footer sums equal the `/orgs` totals; the
   shading denominator excludes non-measured buckets; "no data" renders
   for an excluded repository.
 
@@ -432,7 +437,7 @@ panels.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 **Compliance card:**
+- [x] 5.1 **Compliance card:**
   - KPI strip: Tracked; Compliant % with a delta in points over the
     range; Non-compliant with `controls_failing`; Parked with its
     reason count; Snapshots and cadence.
@@ -440,22 +445,22 @@ panels.
     choose what the area chart draws from `aggregate=fleet`. The pill
     choice persists as `?series=`.
   - Fewer than two points renders no delta.
-- [ ] 5.2 **Finding age:** `DistBar` over `Summary.finding_age` with the
+- [x] 5.2 **Finding age:** `DistBar` over `Summary.finding_age` with the
   "N% under 30d" pill and a link to `/findings?sort=since_asc`.
-- [ ] 5.3 **Worst controls:** the five lowest measured percentages from
+- [x] 5.3 **Worst controls:** the five lowest measured percentages from
   `/controls`, each with its delta from `aggregate=control`.
-- [ ] 5.4 **Parked by reason:** `BarList` over `Summary.parked_by_reason`.
-- [ ] 5.5 **Compliance by control:** the table gains N/A, %, and a
+- [x] 5.4 **Parked by reason:** `BarList` over `Summary.parked_by_reason`.
+- [x] 5.5 **Compliance by control:** the table gains N/A, %, and a
   sparkline from one `aggregate=control` request (not one per row).
-- [ ] 5.6 **Orgs card:** with one org in scope it becomes Exclusions by
+- [x] 5.6 **Orgs card:** with one org in scope it becomes Exclusions by
   reason from `OrgDetail.exclusions`. Export on both.
-- [ ] 5.7 **Assignments** stays (rc.11's bucket card).
-- [ ] 5.8 **Open PRs by age** (`Summary.open_prs_by_age`, "N over
+- [x] 5.7 **Assignments** stays (rc.11's bucket card).
+- [x] 5.8 **Open PRs by age** (`Summary.open_prs_by_age`, "N over
   threshold → `/findings?pr_stale=true`") and **PR throughput (14d)**
   (`/remediations/activity`), both through `GatedPanel`.
-- [ ] 5.9 **Org detail:** the compliance chart switches to
+- [x] 5.9 **Org detail:** the compliance chart switches to
   `aggregate=org`.
-- [ ] 5.10 **Unit tests:** delta with 0, 1 and 2+ points; the `?series=`
+- [x] 5.10 **Unit tests:** delta with 0, 1 and 2+ points; the `?series=`
   parse; the two gated panels in all three states.
 
 <!--docz:tasks:end-->
@@ -482,7 +487,7 @@ This is IMPL-0030's former task 7.5 (DESIGN-0037 §Remediations view).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 6.1 **Hook and route.** `useRemediations(filter)` as a
+- [x] 6.1 **Hook and route.** `useRemediations(filter)` as a
   `useInfiniteQuery` over `/remediations`; the `/app/remediations`
   route with `validateSearch` for `view`, `kind`, `state`, `org`,
   `control`, `hold`, `older_than` and `open`, and its crumb (the open
@@ -490,37 +495,45 @@ This is IMPL-0030's former task 7.5 (DESIGN-0037 §Remediations view).
   is `GatedPanel`'s "not enabled" state and the nav count is blank;
   with it the nav entry shows the outstanding count (reserved, open,
   recommended, failed).
-- [ ] 6.2 **Holds as sentences.** `lib/holds.ts` maps `pr_cap`,
+- [x] 6.2 **Holds as sentences.** `lib/holds.ts` maps `pr_cap`,
   `foreign_branch`, `stale_branch`, `conflict` and `permission` to
   DESIGN-0037's sentences, with a `hold` tone row in `toneFor` and a
   `HoldBadge`. An unknown hold renders its code, never blank. Unit test
   every value.
-- [ ] 6.3 **Remediation state tones.** A `remediation` tone row over the
+- [x] 6.3 **Remediation state tones.** A `remediation` tone row over the
   schema's states (`open` info, `merged`/`closed_compliant`/`resolved`/
   `applied` ok, `recommended` warn, `failed` bad, the rest mute) and a
   `RemediationBadge` (state, PR number link, age, stale at 30 days),
   shared by Findings, the drawer and the repository page.
-- [ ] 6.4 **Page.** KPIs (Open PRs with the stale count,
+- [x] 6.4 **Page.** KPIs (Open PRs with the stale count,
   Recommendations, Held with a count per reason, Failed applies), the
   segmented views All / Open PRs / Recommendations / Held / Failed,
   filter chips for kind, state, org, control, hold and age, the table
   (Repository, Control, Kind, State, Hold with its sentence, Age,
   Updated) and Export, as the mockup draws them.
-- [ ] 6.5 **Drawer** (`?open=<remediation id>`): state, the pull request
+- [x] 6.5 **Drawer** (`?open=<remediation id>`): state, the pull request
   and its `repo-guardian/<control>` branch, hold with its sentence,
   age, the proposal for a recommendation, the steps journal for a
   direct apply, the result's timeline, and links to the finding and the
   repository. Escape and the scrim close it.
-- [ ] 6.6 **Repository remediation panel.** Each control card on the
+- [x] 6.6 **Repository remediation panel.** Each control card on the
   repository page shows `RemediationBadge`, the hold sentence, the
   apply steps when there are any, and "details →" to the drawer.
-- [ ] 6.7 **Status backlog.** The status page's operations strip gains
+- [x] 6.7 **Status backlog.** The status page's operations strip gains
   the Remediation backlog cell when the remediate App is installed.
   `TestStatus_PrivacyGuard` is IMPL-0030's to extend; this task only
   renders the number.
-- [ ] 6.8 **Unit tests:** filter ↔ URL round trip, the view presets, the
+- [x] 6.8 **Unit tests:** filter ↔ URL round trip, the view presets, the
   drawer id parse, every state and hold rendering against API fixtures
   (IMPL-0030 7.5's success criterion, carried).
+
+  2026-10-23: the base e2e seed has the Remediation App and no
+  remediations, so the Phase 6 Playwright coverage is the page's
+  content state, views, chips, deep link and axe; the seeded rows and
+  their round-trip specs are 8.1/8.2. There is no
+  `GET /remediations/{id}`, so the drawer key is the id, or
+  `<repository id>/<control>` for a held result (which has none), and a
+  deep link the table has not loaded is resolved by paging the list.
 
 <!--docz:tasks:end-->
 
@@ -547,17 +560,22 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 7.1 **The changelog file.** `CHANGELOG.yaml` at the location OQ1
+- [x] 7.1 **The changelog file.** `CHANGELOG.yaml` at the location OQ1
   chooses, seeded from rc.8 to the current rc (rc.8: fleet history
   refetch fix; rc.9: design refresh; rc.10: repository page polish;
   rc.11: controls evaluation; rc.12: the INV-0023 fixes (OQ7); and
   IMPL-0030's) with closed-set tags. Add the `tag` tone row (`new` ok,
   `improved` info, `fixed` warn, `breaking` bad, areas outline).
-- [ ] 7.2 **Into the bundle** per OQ2. The UI also needs its own
+- [x] 7.2 **Into the bundle** per OQ2. The UI also needs its own
   version at build time (a `VITE_` define from `package.json` or the
   chart appVersion) so the card marks the running release without
   reading `/status`.
-- [ ] 7.3 **The check.** `ui/scripts/check-changelog.ts`, added to the
+
+  2026-10-23: the bundle's version is the generated JSON's `running`
+  field, the newest entry's version, which the gate makes the chart
+  `appVersion`; no `VITE_` define, since the Docker build context is
+  `ui/` and the chart is not in it.
+- [x] 7.3 **The check.** `ui/scripts/check-changelog.ts`, added to the
   `lint-ui` chain, fails when:
   - the newest entry's `version` is not
     `charts/repo-guardian/Chart.yaml` `appVersion`;
@@ -566,17 +584,22 @@ the audit.
   - a version repeats.
 
   It has a `bun test` file with failing fixtures for each rule.
-- [ ] 7.4 **CI.** In `.github/workflows/ci.yml`, the `ui` paths filter
+- [x] 7.4 **CI.** In `.github/workflows/ci.yml`, the `ui` paths filter
   gains `charts/repo-guardian/Chart.yaml` and the changelog path, so a
   release-bump PR runs the gate. Verify it with a dry PR diff in the
   task note.
-- [ ] 7.5 **The card.** The status page's Changelog card shows the newest
+- [x] 7.5 **The card.** The status page's Changelog card shows the newest
   five, "All releases" to the GitHub releases page, and a "running"
   badge on the bundle's version. The card makes no API call, so
   `TestStatus_PrivacyGuard` is untouched.
-- [ ] 7.6 **Release process.** Document the release-bump step (add an
+- [x] 7.6 **Release process.** Document the release-bump step (add an
   entry with the chart bump) in CLAUDE.md §Release and
   `docs/operations/` where the rc procedure lives.
+
+  2026-10-23: the rc procedure lives in CLAUDE.md's v2-branch
+  "Pre-releases only" bullet and CONTRIBUTING.md's release labels, not
+  under `docs/operations/`; both gained the step, as did
+  `ui/README.md`.
 
 <!--docz:tasks:end-->
 
@@ -597,7 +620,7 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 8.1 **Seed.** `ui/e2e/seed.sql` grows:
+- [x] 8.1 **Seed.** `ui/e2e/seed.sql` grows:
   - several controls with failing rules and distinct evidence kinds,
     and an `error` rule;
   - parked repositories with three reasons;
@@ -610,7 +633,16 @@ the audit.
     each hold reason.
 
   globex stays invisible to ada.
-- [ ] 8.2 **Specs** in `ui/e2e/ui.spec.ts`. Each one asserts globex never
+
+  2026-10-23: acme grew mobile, docs, infra, data, ops, tools (active),
+  old-fork (fork) and vault (access_denied, keeping a failing result)
+  beside legacy (archived), and sandbox (excluded by the org layer);
+  `labels@1` is acme's org-added control with its own evidence kind;
+  mobile's codeowners has a `valid` rule in error and its renovate a
+  `config` rule with a second kind; `last_changed_at` sits at 12h, 3d,
+  15d, 45d, 120d and 200d; the eight remediations and the four
+  branch-held results are listed in the seed's header.
+- [x] 8.2 **Specs** in `ui/e2e/ui.spec.ts`. Each one asserts globex never
   appears:
   - Findings filters round-trip, and the drawer deep link and
     Re-evaluate work.
@@ -621,25 +653,47 @@ the audit.
     works, and a hold reads as its sentence.
   - The repository remediation panel and the status backlog cell.
   - The changelog card.
-- [ ] 8.3 **Axe.** `a11y.spec.ts` loops over `/findings`,
+
+  2026-10-23: all in `ui.spec.ts`, each ending in `expectNoGlobex`.
+  Numbers that the seed moves (the fleet percent, the org's tracked
+  count, the backlog) are read from the API in the spec rather than
+  pinned. Found on the way: a numeric `?open=` was JSON-quoted by the
+  router and a hand-typed `?open=12` was dropped by the validator —
+  `open` is now a number for an id (`openSearch`) and the spec asserts
+  `open=\d+`.
+- [x] 8.3 **Axe.** `a11y.spec.ts` loops over `/findings`,
   `/findings?open=`, `/orgs` (expanded), `/remediations`,
   `/remediations?open=`, the fleet, and the status page with the
   changelog.
-- [ ] 8.4 **Screenshots.** Re-render the snapshots in the pinned
+
+  2026-10-23: the list, plus the finding and remediation drawers each
+  opened by a row click and by a `?open=` deep link (sign in first; the
+  modal aria-hides the page).
+- [x] 8.4 **Screenshots.** Re-render the snapshots in the pinned
   Playwright image and copy `status.png` to `docs/usage/img/ui/` again.
   Add the findings, orgs and remediations pages to the visual spec if
   IMPL-0031's OQ5 still allows it.
-- [ ] 8.5 **Docs:**
+
+  2026-10-23: `status.png` re-rendered (backlog cell, changelog card)
+  and copied to `docs/usage/img/ui/`; OQ5 only fixes the rendering
+  environment, so `findings.png`, `orgs.png` (expanded) and
+  `remediations.png` joined the visual spec, signed in through the mock
+  issuer. CI wiring of the visual spec stays deferred as before.
+- [x] 8.5 **Docs:**
   - `docs/usage/ui.md`: the Findings page, the tree, the fleet panels,
     the Remediations view, export and the changelog;
   - `ui/README.md`;
   - CLAUDE.md: the DESIGN-0037 UI contracts (findings = bucket
     `non_compliant`; gated panels decide from `Status.apps`; holds are
     sentences in `lib/holds.ts`; the changelog gate).
-- [ ] 8.6 **Close the related docs.** Mark INV-0023 Concluded with each
+- [x] 8.6 **Close the related docs.** Mark INV-0023 Concluded with each
   finding's outcome (F3, F7.1 and F7.2 pointing at IMPL-0030), and set
   DESIGN-0037 to Implemented (`docz update`).
-- [ ] 8.7 **The "not enabled" stack (OQ6).** `ui/e2e/seed-no-remediate.sql`
+
+  2026-10-23: INV-0023 Concluded with an outcome table under its
+  conclusion; DESIGN-0037 Implemented; `docz update` run per type (it
+  takes one type at a time) and its unrelated TOC churn reverted.
+- [x] 8.7 **The "not enabled" stack (OQ6).** `ui/e2e/seed-no-remediate.sql`
   (the base seed without the remediate App's installations, access rows
   and remediations), loaded into a second database in the same Postgres
   container, and a Playwright project `no-remediation` whose
@@ -649,6 +703,16 @@ the audit.
   page, and asserts every gated panel reads "Remediation is not
   enabled", the Remediations nav count is blank and the status backlog
   cell is absent. `e2e/teardown.ts` sweeps both databases.
+
+  2026-10-23: `seed-no-remediate.sql` is a delta applied after
+  `seed.sql` (deletes the App's installation, access rows,
+  remediations and the maintenance/sweep runs; downgrades acme's
+  effective mode to evaluate; clears the branch holds), loaded into
+  `repoguardian_norem` in the same container (the roles are
+  cluster-wide, the schema grant per database); the second api role
+  and BFF sit one port up (`:18081`, `:3101`); the `chromium` project
+  ignores the spec and `no-remediation` matches only it. Both
+  databases share the one labelled container the teardown sweeps.
 
 <!--docz:tasks:end-->
 
@@ -670,13 +734,13 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 9.1 Merge into `v2`, cut `v2.0.0-rc.N` by hand with its
+- [ ] 9.1 `deferred - human required` Merge into `v2`, cut `v2.0.0-rc.N` by hand with its
   changelog entry, and dispatch `ghcr.yml`.
-- [ ] 9.2 Deploy to the homelab. Walk Findings (filters, drawer,
+- [ ] 9.2 `deferred - human required` Deploy to the homelab. Walk Findings (filters, drawer,
   re-evaluate), the Orgs tree, Fleet, Remediations, the palette, and
   the status changelog against the mockup. File divergences as tasks
   here.
-- [ ] 9.3 Confirm the Keycloak group split still scopes `/results`,
+- [ ] 9.3 `deferred - human required` Confirm the Keycloak group split still scopes `/results`,
   `/remediations` and the tree (carries IMPL-0031 8.3).
 
 <!--docz:tasks:end-->

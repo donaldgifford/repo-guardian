@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
 import { cn } from "../../lib/utils";
 import { heatOpacity } from "../../lib/viewmodel";
@@ -8,11 +8,19 @@ export type GridTone = "ok" | "bad" | "warn" | "mute" | "info";
 export interface GridColumn {
   key: string;
   header: ReactNode;
-  // tone shades the cell when the column is in `heat`.
+  // tone shades a measured cell when the column is in `heat`.
   tone: GridTone;
-  // percent prints the cell's share of the row's total beside the count.
-  percent?: boolean;
+  // align is right for numbers (the default) and left for text cells.
+  align?: "left" | "right";
 }
+
+// GridCell is one number with its own denominator (DESIGN-0037 OQ4):
+// `of` is what the share and the shade divide by — for a posture, the
+// measured assignments (compliant + non_compliant), never the buckets
+// that measure nothing. `of` 0 or null is "no data"; `of` undefined is
+// a plain count with no share. A ReactNode cell is rendered as given
+// (a gated "—").
+export type GridCell = { n: number; of?: number | null } | number | ReactNode;
 
 export interface GridRow {
   key: string;
@@ -20,10 +28,27 @@ export interface GridRow {
   // sub is the muted line under the label ("87% compliant · 3 parked").
   sub?: ReactNode;
   badge?: ReactNode;
-  cells: Readonly<Record<string, number>>;
-  // total is the row's denominator for shares and heat (tracked repos).
-  total: number;
+  cells: Readonly<Record<string, GridCell>>;
 }
+
+// GridChildren is what an expanded row shows: its rows in the same
+// table body, so columns align, and a footer line ("showing 20 of 134 ·
+// Load more") the caller supplies.
+export interface GridChildren {
+  parent: string;
+  rows: readonly GridRow[];
+  loading?: boolean;
+  empty?: ReactNode;
+  footer?: ReactNode;
+}
+
+// GridContext hands the columns and the heat set to GridChildRows, so a
+// child component (one that fetches on expand) renders rows without
+// the caller plumbing them through.
+const GridContext = createContext<{
+  columns: readonly GridColumn[];
+  heat: readonly string[];
+}>({ columns: [], heat: [] });
 
 const tones: Record<GridTone, string> = {
   ok: "var(--color-ok)",
@@ -33,155 +58,185 @@ const tones: Record<GridTone, string> = {
   info: "var(--color-info)",
 };
 
-// gridTotals sums every column and every total across rows: the
-// closing totals row and the CSV footer share this arithmetic.
-export function gridTotals(rows: readonly GridRow[], columns: readonly GridColumn[]): GridRow {
-  const cells: Record<string, number> = {};
-  for (const c of columns) cells[c.key] = rows.reduce((n, r) => n + (r.cells[c.key] ?? 0), 0);
-  return { key: "__total", label: "Total", cells, total: rows.reduce((n, r) => n + r.total, 0) };
+// share is the cell's fraction of its denominator, null when unmeasured.
+export function share(cell: { n: number; of?: number | null }): number | null {
+  if (cell.of === undefined || cell.of === null || cell.of <= 0) return null;
+  return cell.n / cell.of;
 }
 
 // heatStyle is the cell background: the column tone at heatOpacity of
 // the cell's share. Text stays foreground; the number is always read.
 export function heatStyle(count: number, total: number, tone: GridTone): { background: string } | undefined {
   const op = heatOpacity(count, total);
-  return op === 0 ? undefined : { background: `color-mix(in srgb, ${tones[tone]} ${Math.round(op * 100)}%, transparent)` };
+  return op === 0
+    ? undefined
+    : {
+        background: `color-mix(in srgb, ${tones[tone]} ${Math.round(op * 100)}%, transparent)`,
+      };
 }
 
-function Cell({ row, col, heat }: { row: GridRow; col: GridColumn; heat: boolean }) {
-  const n = row.cells[col.key] ?? 0;
-  const pct = col.percent && row.total > 0 ? Math.round((100 * n) / row.total) : null;
-  const shade = heat ? Math.round(100 * heatOpacity(n, row.total)) : 0;
+const isCount = (c: GridCell): c is { n: number; of?: number | null } => typeof c === "object" && c !== null && "n" in c;
+
+const base = "px-[10px] py-[9px] tabular-nums whitespace-nowrap";
+const numeric = `${base} text-right`;
+
+function Cell({ cell, col, heat }: { cell: GridCell | undefined; col: GridColumn; heat: boolean }) {
+  if (col.align === "left") return <td className={`${base} text-left`}>{isCount(cell) ? cell.n.toLocaleString() : cell}</td>;
+  if (cell === undefined) return <td className={numeric} />;
+  if (typeof cell === "number") return <td className={numeric}>{cell.toLocaleString()}</td>;
+  if (!isCount(cell)) return <td className={numeric}>{cell}</td>;
+  if (cell.of === undefined) return <td className={numeric}>{cell.n.toLocaleString()}</td>;
+  const s = share(cell);
+  if (s === null) {
+    return (
+      <td className={cn(numeric, "text-muted-foreground")} data-measured="false">
+        no data
+      </td>
+    );
+  }
+  const shade = heat ? Math.round(100 * heatOpacity(cell.n, cell.of ?? 0)) : 0;
   return (
-    <td className="px-[10px] py-[9px] text-right tabular-nums" style={heat ? heatStyle(n, row.total, col.tone) : undefined} data-heat={heat ? col.key : undefined} data-shade={shade > 0 ? shade : undefined}>
-      {n.toLocaleString()}
+    <td className={numeric} style={heat ? heatStyle(cell.n, cell.of ?? 0, col.tone) : undefined} data-heat={heat ? col.key : undefined} data-shade={shade > 0 ? shade : undefined}>
+      {cell.n.toLocaleString()}
       {/* The share keeps full foreground on a shaded cell: muted ink on the tint fails AA. */}
-      {pct !== null ? <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{pct}%</span> : null}
+      <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{Math.round(100 * s)}%</span>
     </td>
   );
 }
 
-// GroupGrid is the expandable grid (DESIGN-0036 §Orgs): parent rows
-// with a chevron, child rows the caller renders through `children`
-// (lazily, so expansion can fetch), heat-shaded numeric columns, and a
-// totals row. Open state is the caller's (Orgs keeps it in `?open=`).
+function Label({ row, depth }: { row: GridRow; depth: 0 | 1 }) {
+  return (
+    <span className="min-w-0">
+      <span className={cn("flex items-center gap-2 font-mono", depth === 0 && "font-medium")}>
+        {row.label}
+        {row.badge}
+      </span>
+      {row.sub !== undefined ? <span className="block text-xs text-muted-foreground">{row.sub}</span> : null}
+    </span>
+  );
+}
+
+// GroupGrid is the expandable grid (DESIGN-0036 §Orgs, DESIGN-0037
+// OQ4): parent rows with a chevron, child rows the caller supplies
+// through `children` (lazily, so expansion can fetch) in the same body,
+// heat-shaded measured columns, and a footer row the caller sums. Open
+// state is the caller's (Orgs keeps it in `?open=`).
 export function GroupGrid({
+  label,
   columns,
   rows,
   heat,
   open,
   onToggle,
   children,
+  footer,
   "aria-label": ariaLabel,
   className,
 }: {
+  // label heads the first column ("Org / repository").
+  label: ReactNode;
   columns: readonly GridColumn[];
   rows: readonly GridRow[];
   // heat names the columns currently shaded.
   heat: readonly string[];
   open: readonly string[];
   onToggle: (key: string) => void;
+  // children renders an expanded row's body: a GridChildRows, or a
+  // component that fetches and then renders one.
   children: (row: GridRow) => ReactNode;
+  // footer is the closing row: a label and a cell per column key.
+  footer?: { label: ReactNode; cells: Readonly<Record<string, GridCell>> };
   "aria-label": string;
   className?: string;
 }) {
-  const total = gridTotals(rows, columns);
   return (
     <div className={cn("w-full overflow-x-auto", className)}>
       <table className="w-full text-[13px]" aria-label={ariaLabel}>
         <thead>
           <tr className="border-b border-border">
             <th scope="col" className="h-8 px-[10px] text-left text-[11px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
-              Org
+              {label}
             </th>
             {columns.map((c) => (
-              <th key={c.key} scope="col" className="h-8 px-[10px] text-right text-[11px] font-semibold tracking-[0.04em] whitespace-nowrap text-muted-foreground uppercase">
+              <th key={c.key} scope="col" className={cn("h-8 px-[10px] text-[11px] font-semibold tracking-[0.04em] whitespace-nowrap text-muted-foreground uppercase", c.align === "left" ? "text-left" : "text-right")}>
                 {c.header}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const expanded = open.includes(row.key);
-            return [
-              <tr key={row.key} className="border-b border-border hover:bg-panel-2" data-row={row.key}>
-                <td className="px-[10px] py-[9px]">
-                  {/* The toggle is the chevron alone: the label may be a
+          <GridContext.Provider value={{ columns, heat }}>
+            {rows.map((row) => {
+              const expanded = open.includes(row.key);
+              return [
+                <tr key={row.key} className="border-b border-border hover:bg-panel-2" data-row={row.key}>
+                  <td className="px-[10px] py-[9px]">
+                    {/* The toggle is the chevron alone: the label may be a
                       link, and a control inside a control is unreachable
                       to assistive tech (axe nested-interactive). */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      aria-controls={`grid-children-${row.key}`}
-                      aria-label={`${expanded ? "Collapse" : "Expand"} ${row.key}`}
-                      onClick={() => onToggle(row.key)}
-                      className={cn("inline-block w-3 flex-none text-muted-foreground transition-transform hover:text-foreground", expanded && "rotate-90")}
-                    >
-                      <span aria-hidden="true">▸</span>
-                    </button>
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2 font-mono font-medium">
-                        {row.label}
-                        {row.badge}
-                      </span>
-                      {row.sub !== undefined ? <span className="block text-xs text-muted-foreground">{row.sub}</span> : null}
-                    </span>
-                  </div>
-                </td>
-                {columns.map((c) => (
-                  <Cell key={c.key} row={row} col={c} heat={heat.includes(c.key)} />
-                ))}
-              </tr>,
-              expanded ? (
-                <tr key={`${row.key}-children`} id={`grid-children-${row.key}`} className="border-b border-border" data-children={row.key}>
-                  <td colSpan={columns.length + 1} className="bg-background p-0">
-                    {children(row)}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Collapse" : "Expand"} ${row.key}`}
+                        onClick={() => onToggle(row.key)}
+                        className={cn("inline-block w-3 flex-none text-muted-foreground transition-transform hover:text-foreground", expanded && "rotate-90")}
+                      >
+                        <span aria-hidden="true">▸</span>
+                      </button>
+                      <Label row={row} depth={0} />
+                    </div>
                   </td>
-                </tr>
-              ) : null,
-            ];
-          })}
-          <tr className="font-semibold" data-row="__total">
-            <td className="px-[10px] py-[9px]">Total</td>
-            {columns.map((c) => (
-              <Cell key={c.key} row={total} col={c} heat={false} />
-            ))}
-          </tr>
+                  {columns.map((c) => (
+                    <Cell key={c.key} cell={row.cells[c.key]} col={c} heat={heat.includes(c.key)} />
+                  ))}
+                </tr>,
+                expanded ? children(row) : null,
+              ];
+            })}
+          </GridContext.Provider>
+          {footer ? (
+            <tr className="font-semibold" data-row="__footer">
+              <td className="px-[10px] py-[9px]">{footer.label}</td>
+              {columns.map((c) => (
+                <Cell key={c.key} cell={footer.cells[c.key]} col={c} heat={false} />
+              ))}
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </div>
   );
 }
 
-// GridChildRows renders child rows with the parent's columns inside an
-// expanded row; the caller's render prop feeds it loaded data.
-export function GridChildRows({ rows, columns, heat, loading = false, empty = "Nothing here." }: { rows: readonly GridRow[]; columns: readonly GridColumn[]; heat: readonly string[]; loading?: boolean; empty?: ReactNode }) {
-  if (loading) {
-    return <p className="px-[10px] py-2 text-xs text-muted-foreground">Loading…</p>;
-  }
-  if (rows.length === 0) {
-    return <p className="px-[10px] py-2 text-xs text-muted-foreground">{empty}</p>;
-  }
+// GridChildRows is an expanded group's body: a note while loading or
+// empty, else one indented row per child and the caller's footer line.
+// It renders table rows, so it must sit inside a GroupGrid.
+export function GridChildRows({ parent, rows, loading = false, empty = "Nothing here.", footer }: GridChildren) {
+  const { columns, heat } = useContext(GridContext);
+  const span = columns.length + 1;
+  const note = (text: ReactNode, key: string) => (
+    <tr key={key} className="border-b border-border" data-children={parent}>
+      <td colSpan={span} className="bg-background py-2 pr-[10px] pl-[34px] text-xs text-muted-foreground">
+        {text}
+      </td>
+    </tr>
+  );
+  if (loading) return note("Loading…", "__loading");
+  if (rows.length === 0) return note(empty, "__empty");
   return (
-    <table className="w-full text-[13px]">
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.key} className="border-b border-border last:border-0 hover:bg-panel-2" data-child={r.key}>
-            <td className="py-[7px] pr-[10px] pl-[34px]">
-              <span className="flex items-center gap-2">
-                {r.label}
-                {r.badge}
-              </span>
-              {r.sub !== undefined ? <span className="block text-xs text-muted-foreground">{r.sub}</span> : null}
-            </td>
-            {columns.map((c) => (
-              <Cell key={c.key} row={r} col={c} heat={heat.includes(c.key)} />
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      {rows.map((r) => (
+        <tr key={r.key} className="border-b border-border bg-background hover:bg-panel-2" data-children={parent} data-child={r.key}>
+          <td className="py-[7px] pr-[10px] pl-[34px]">
+            <Label row={r} depth={1} />
+          </td>
+          {columns.map((c) => (
+            <Cell key={c.key} cell={r.cells[c.key]} col={c} heat={heat.includes(c.key)} />
+          ))}
+        </tr>
+      ))}
+      {footer === undefined ? null : note(footer, "__footer")}
+    </>
   );
 }

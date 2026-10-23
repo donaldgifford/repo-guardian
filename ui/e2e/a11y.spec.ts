@@ -25,10 +25,15 @@ async function audit(page: Page) {
 for (const [name, path, heading] of [
   ["Fleet", "/", "Fleet"],
   ["Controls", "/controls", "Controls"],
+  ["Findings", "/findings", "Findings"],
   ["Control", "/controls/codeowners", "codeowners"],
   ["Orgs", "/orgs", "Orgs"],
+  ["Orgs expanded", "/orgs?open=acme", "Orgs"],
+  ["Orgs parked", "/orgs?tab=parked&open=acme", "Orgs"],
   ["Org", "/orgs/acme", "acme"],
   ["Repositories", "/repositories", "Repositories"],
+  ["Remediations", "/remediations", "Remediations"],
+  ["Remediations held", "/remediations?view=held", "Remediations"],
   ["History", "/history", "History"],
   ["Policy", "/policy", "Policy"],
 ] as const) {
@@ -51,5 +56,41 @@ test("Status has no axe violations", async ({ page }) => {
   await page.goto("/status");
   await expect(page.getByRole("heading", { name: "Repo Guardian status" })).toBeVisible();
   await expect(page.locator("[data-component]").first()).toBeVisible();
+  await audit(page);
+});
+
+// The drawer is a modal Dialog that aria-hides the page, so the
+// sign-in's role query runs first and the ?open= URL is a second goto.
+test("a finding drawer has no axe violations", async ({ page }) => {
+  await signIn(page, "/findings");
+  await page.getByRole("table", { name: "Findings" }).getByRole("row").filter({ hasText: "web" }).filter({ hasText: "renovate" }).click();
+  await expect(page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await audit(page);
+});
+
+test("a finding drawer deep link has no axe violations", async ({ page }) => {
+  await signIn(page, "/findings");
+  const repos = (await (await page.request.get("/api/v1/repositories?q=mobile")).json()) as { items: { id: number; name: string }[] };
+  await page.goto(`/findings?open=${repos.items.find((r) => r.name === "mobile")!.id}/codeowners`);
+  await expect(page.getByRole("dialog", { name: /^Finding: acme\/mobile codeowners/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await audit(page);
+});
+
+test("a remediation drawer has no axe violations", async ({ page }) => {
+  await signIn(page, "/remediations?view=recommended");
+  await page.getByRole("table", { name: "Remediations" }).locator("tbody tr").first().click();
+  await expect(page.getByRole("dialog", { name: /^Remediation: acme\/mobile labels/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await audit(page);
+});
+
+test("a remediation drawer deep link has no axe violations", async ({ page }) => {
+  await signIn(page, "/remediations");
+  const repos = (await (await page.request.get("/api/v1/repositories?q=infra")).json()) as { items: { id: number; name: string }[] };
+  await page.goto(`/remediations?open=${repos.items.find((r) => r.name === "infra")!.id}/codeowners`);
+  await expect(page.getByRole("dialog", { name: /^Remediation: acme\/infra codeowners/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await audit(page);
 });

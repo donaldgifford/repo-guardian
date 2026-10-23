@@ -1,10 +1,12 @@
 import {
   IconActivity,
+  IconAlertTriangle,
   IconArrowUpRight,
   IconBook,
   IconBuilding,
   IconCircleCheck,
   IconClock,
+  IconGitPullRequest,
   IconLayoutGrid,
   IconListCheck,
   IconMenu2,
@@ -28,6 +30,8 @@ export const icons = {
   clock: IconClock,
   external: IconArrowUpRight,
   menu: IconMenu2,
+  alert: IconAlertTriangle,
+  pr: IconGitPullRequest,
 } as const;
 
 export type IconName = keyof typeof icons;

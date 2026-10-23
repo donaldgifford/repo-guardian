@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
 import { type Column, DataTable } from "./data-table";
-import { GridChildRows, type GridColumn, type GridRow, GroupGrid, gridTotals, heatStyle } from "./group-grid";
+import { GridChildRows, type GridColumn, type GridRow, GroupGrid, heatStyle, share } from "./group-grid";
 
 withDOM();
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
@@ -69,19 +69,30 @@ describe("DataTable", () => {
 
 const gridColumns: GridColumn[] = [
   { key: "tracked", header: "Tracked", tone: "mute" },
-  { key: "compliant", header: "Compliant", tone: "ok", percent: true },
-  { key: "failing", header: "Failing", tone: "bad", percent: true },
+  { key: "compliant", header: "Compliant", tone: "ok" },
+  { key: "failing", header: "Non-compliant", tone: "bad" },
+  { key: "prs", header: "Open PRs", tone: "info" },
 ];
+// Each cell carries its own denominator: acme measures 10 of 12 tracked
+// (two unknown), globex measures 4; the dash is a gated cell.
 const gridRows: GridRow[] = [
-  { key: "acme", label: "acme", cells: { tracked: 10, compliant: 8, failing: 2 }, total: 10 },
-  { key: "globex", label: "globex", cells: { tracked: 4, compliant: 1, failing: 3 }, total: 4 },
+  { key: "acme", label: "acme", cells: { tracked: 12, compliant: { n: 8, of: 10 }, failing: { n: 2, of: 10 }, prs: <span>—</span> } },
+  { key: "globex", label: "globex", cells: { tracked: 4, compliant: { n: 1, of: 4 }, failing: { n: 3, of: 4 }, prs: <span>—</span> } },
 ];
+const children: Record<string, GridRow[]> = {
+  acme: [
+    { key: "acme/web", label: "web", cells: { tracked: { n: 2 }, compliant: { n: 1, of: 2 }, failing: { n: 1, of: 2 } } },
+    // An excluded repository measures nothing: no data, never 0% or 100%.
+    { key: "acme/api", label: "api", cells: { tracked: { n: 0 }, compliant: { n: 0, of: 0 }, failing: { n: 0, of: 0 } } },
+  ],
+};
 
 describe("GroupGrid", () => {
-  test("gridTotals sums every column and the totals", () => {
-    const t = gridTotals(gridRows, gridColumns);
-    expect(t.cells).toEqual({ tracked: 14, compliant: 9, failing: 5 });
-    expect(t.total).toBe(14);
+  test("share divides by the cell's own denominator and is null when nothing is measured", () => {
+    expect(share({ n: 8, of: 10 })).toBe(0.8);
+    expect(share({ n: 0, of: 0 })).toBeNull();
+    expect(share({ n: 3, of: null })).toBeNull();
+    expect(share({ n: 3 })).toBeNull();
   });
 
   test("heatStyle is absent for zero and clamps between 8% and 50%", () => {
@@ -95,32 +106,45 @@ describe("GroupGrid", () => {
     const [open, setOpen] = useState<string[]>([]);
     return (
       <GroupGrid
+        label="Org / repository"
         columns={gridColumns}
         rows={gridRows}
         heat={["compliant", "failing"]}
         open={open}
         onToggle={(k) => setOpen((o) => (o.includes(k) ? o.filter((x) => x !== k) : [...o, k]))}
+        footer={{ label: "2 orgs", cells: { tracked: 16, compliant: { n: 9, of: 14 }, failing: { n: 5, of: 14 }, prs: <span>—</span> } }}
         aria-label="orgs"
       >
-        {(row) => <GridChildRows columns={gridColumns} heat={["compliant"]} rows={[{ key: `${row.key}/r`, label: "rule", cells: { tracked: 1, compliant: 1, failing: 0 }, total: 1 }]} />}
+        {(row) => <GridChildRows key={`${row.key}/children`} parent={row.key} rows={children[row.key] ?? []} {...(row.key === "acme" ? { footer: "showing 2 of 12" } : {})} empty="No repository." />}
       </GroupGrid>
     );
   }
 
-  test("expands and collapses a row, shades only heat columns, and closes with totals", async () => {
+  test("expands into the same body with aligned cells, shades by the measured share, and reads no data when nothing is measured", async () => {
     const u = user();
-    const { getByRole, container, queryByText } = render(<Harness />);
+    const { getByRole, container, queryByText, getAllByRole } = render(<Harness />);
+    expect(getByRole("columnheader", { name: "Org / repository" })).toBeTruthy();
     const toggle = getByRole("button", { name: /acme/ });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(queryByText("rule")).toBeNull();
+    expect(queryByText("web")).toBeNull();
 
     await u.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(container.querySelector("[data-children=acme] [data-child='acme/r']")).not.toBeNull();
+    // One table: child rows are rows of the same body, each with every column.
+    expect(getAllByRole("table")).toHaveLength(1);
+    const web = container.querySelector("tr[data-child='acme/web']")!;
+    expect(web.querySelectorAll("td")).toHaveLength(gridColumns.length + 1);
+    expect(web.textContent).toContain("50%");
+    const api = container.querySelector("tr[data-child='acme/api']")!;
+    expect(api.querySelectorAll("td[data-measured=false]")).toHaveLength(2);
+    expect(api.textContent).toContain("no data");
+    expect(api.textContent).not.toContain("%");
+    expect([...container.querySelectorAll("tr[data-children=acme]")].at(-1)?.textContent).toContain("showing 2 of 12");
 
     await u.click(toggle);
-    expect(queryByText("rule")).toBeNull();
+    expect(queryByText("web")).toBeNull();
 
+    // The shade follows the measured denominator (10), not tracked (12).
     const acme = container.querySelector("tr[data-row=acme]")!;
     const heated = acme.querySelectorAll("td[data-heat]");
     expect([...heated].map((c) => c.getAttribute("data-heat"))).toEqual(["compliant", "failing"]);
@@ -128,10 +152,15 @@ describe("GroupGrid", () => {
     // asserted through the data attribute the cell also carries.
     expect([...heated].map((c) => c.getAttribute("data-shade"))).toEqual(["42", "16"]);
     expect(acme.textContent).toContain("80%");
+    expect(acme.textContent).toContain("—");
 
-    const total = container.querySelector("tr[data-row=__total]")!;
-    expect(total.textContent).toContain("14");
-    expect(total.textContent).toContain("64%");
-    expect(total.querySelectorAll("td[data-heat]")).toHaveLength(0);
+    await u.click(getByRole("button", { name: /globex/ }));
+    expect(container.querySelector("tr[data-children=globex]")?.textContent).toContain("No repository.");
+
+    const footer = container.querySelector("tr[data-row=__footer]")!;
+    expect(footer.textContent).toContain("2 orgs");
+    expect(footer.textContent).toContain("16");
+    expect(footer.textContent).toContain("64%");
+    expect(footer.querySelectorAll("td[data-heat]")).toHaveLength(0);
   });
 });

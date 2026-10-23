@@ -75,7 +75,7 @@ export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
 // non_compliant and mute otherwise. `status` is a control's status and
 // `rule` a rule result's (INV-0023 F1: rule statuses once fell through
 // `status` to mute, so a failing rule read grey).
-export type ToneField = "status" | "rule" | "bucket" | "decision" | "remediation" | "reason" | "state" | "kind";
+export type ToneField = "status" | "rule" | "bucket" | "decision" | "remediation" | "hold" | "reason" | "state" | "kind" | "tag";
 
 const tones: Record<Exclude<ToneField, "reason" | "kind" | "decision">, Record<string, Tone>> = {
   status: { compliant: "ok", non_compliant: "bad", not_applicable: "mute", unknown: "warn" },
@@ -89,8 +89,17 @@ const tones: Record<Exclude<ToneField, "reason" | "kind" | "decision">, Record<s
     unmeasurable_suspended: "warn",
     unmeasurable_conflict: "warn",
   },
-  remediation: { pr_open: "info", applied: "ok", foreign_pr: "warn", disabled: "mute", dry_run: "mute", none: "mute" },
+  // remediation is a remediation's state (DESIGN-0032's closed set, read
+  // as open): open is work in flight, the four landed states are ok, a
+  // recommendation waits for a human, failed is bad, the rest are over.
+  remediation: { open: "info", merged: "ok", closed_compliant: "ok", resolved: "ok", applied: "ok", recommended: "warn", failed: "bad" },
+  // hold is why a remediation waits (lib/holds.ts has the sentences):
+  // a slot frees itself, a branch needs a human, a permission is bad.
+  hold: { pr_cap: "info", foreign_branch: "warn", stale_branch: "warn", conflict: "warn", permission: "bad" },
   state: { operational: "ok", degraded: "warn" },
+  // tag is a changelog entry's tag (DESIGN-0037 §Status page changelog):
+  // the four kinds by weight, the areas as plain outlines.
+  tag: { new: "ok", improved: "info", fixed: "warn", breaking: "bad", fleet: "outline", findings: "outline", policy: "outline", ui: "outline", api: "outline", chart: "outline" },
 };
 
 // toneFor is the one tone table. Both API enums are open, so any value

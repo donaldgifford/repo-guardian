@@ -18,7 +18,13 @@ export default defineConfig({
     baseURL: "http://localhost:3100",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // The no-remediation project (IMPL-0032 8.7) runs its one spec against
+  // the stack's second api role and BFF, seeded without the Remediation
+  // App; every other spec runs against the main one.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /no-remediation\.spec\.ts/ },
+    { name: "no-remediation", testMatch: /no-remediation\.spec\.ts/, use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3101" } },
+  ],
   webServer: {
     command: "bun e2e/stack.ts",
     url: "http://localhost:3100/healthz",

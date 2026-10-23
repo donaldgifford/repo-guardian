@@ -1,7 +1,7 @@
 ---
 id: INV-0023
 title: "rc.11 follow-ups: rule-status badges, repository page and release verification"
-status: Open
+status: Concluded
 author: Donald Gifford
 created: 2026-10-18
 ---
@@ -220,6 +220,20 @@ The hypothesis holds. F1 to F4 are the findings-era UI meeting the
 controls schema in places no assertion looks at, F5 is a cosign major
 version changing a default under a documented command, F6 is already
 fixed, and F7 is known work without a home.
+
+**Outcome (concluded 2026-10-23):** every finding has landed.
+
+| Finding | Outcome |
+|---------|---------|
+| F1 | `rule` tone row + `RuleStatusBadge`; e2e asserts the bad tone on a failing rule (IMPL-0032 Phase 1, PR #222, rc.12) |
+| F2 | `useCrumbLabel` names the repository (and, since IMPL-0032 6.1, the open remediation) in the breadcrumb (PR #222) |
+| F3 | `RecordEvaluation` stamps `repositories.next_due_at`; the API's `next_due_at` reads it (IMPL-0030 Phase 2, PR #224, rc.13) |
+| F4 | the rule column reads "Remediable rule", the facts card hints why remediable is `no` (PR #222) |
+| F5 | `--new-bundle-format=false` documented (this investigation's branch) |
+| F6 | fixed in rc.11 |
+| F7.1 | each controls half connects with `STORE_DSN_<HALF>` (IMPL-0030 Phase 1, PR #224) |
+| F7.2 | `PruneControlsChecks` in `ControlsSnapshotWorkflow` behind `CHECKS_RETENTION` (IMPL-0030 Phase 6, PR #224) |
+| F7.3 | `status.png` re-rendered in the pinned Playwright image (PR #222; again in IMPL-0032 8.4 with the backlog cell and the changelog) |
 
 <!--docz:conclusion:end-->
 

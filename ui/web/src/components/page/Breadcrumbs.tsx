@@ -11,18 +11,22 @@ export interface Crumb {
 interface MatchLike {
   routeId: string;
   params?: Record<string, string>;
+  search?: Record<string, unknown>;
 }
 
 // sections maps a route to its section crumb and, for an item route,
-// the param that names the item.
-const sections: Record<string, Crumb & { item?: string }> = {
+// the param that names the item — a path param, or with `inSearch` the
+// search param (the Remediations drawer's `?open=`).
+const sections: Record<string, Crumb & { item?: string; inSearch?: boolean }> = {
   "/app/": { label: "Fleet", to: "/" },
   "/app/controls": { label: "Controls", to: "/controls" },
   "/app/controls/$id": { label: "Controls", to: "/controls", item: "id" },
+  "/app/findings": { label: "Findings", to: "/findings" },
   "/app/orgs": { label: "Orgs", to: "/orgs" },
   "/app/orgs/$org": { label: "Orgs", to: "/orgs", item: "org" },
   "/app/repositories": { label: "Repositories", to: "/repositories" },
   "/app/repositories/$id": { label: "Repositories", to: "/repositories", item: "id" },
+  "/app/remediations": { label: "Remediations", to: "/remediations", item: "open", inSearch: true },
   "/app/history": { label: "History", to: "/history" },
   "/app/policy": { label: "Policy", to: "/policy" },
 };
@@ -45,7 +49,8 @@ export function crumbsFor(match: MatchLike | undefined, itemLabel?: ItemLabel): 
   const section = sections[match.routeId];
   if (!section) return out;
   out.push({ label: section.label, ...(section.to ? { to: section.to } : {}) });
-  const item = section.item ? match.params?.[section.item] : undefined;
+  const raw = section.item ? (section.inSearch ? match.search?.[section.item] : match.params?.[section.item]) : undefined;
+  const item = typeof raw === "string" ? raw : typeof raw === "number" ? String(raw) : undefined;
   if (item) {
     const label = itemLabel?.param === item ? itemLabel.label : /^\d+$/.test(item) ? "…" : item;
     out.push({ label });

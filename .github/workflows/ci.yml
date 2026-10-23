@@ -90,6 +90,9 @@ jobs:
             ui:
               - 'ui/**'
               - 'api/openapi.yaml'
+              # The changelog gate reads the chart appVersion (IMPL-0032 7.4),
+              # so a release-bump PR runs it.
+              - 'charts/repo-guardian/Chart.yaml'
 
   labeler:
     permissions:

@@ -18,19 +18,32 @@ ui/
 | --- | --- |
 | `make ui-install` | `bun install --frozen-lockfile` |
 | `make generate-ui-api` | regenerate `web/src/api/schema.gen.ts` from `api/openapi.yaml` |
-| `make lint-ui` | typecheck, lint, and fail if the generated types are stale or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
+| `make lint-ui` | typecheck, lint, and fail if the generated types or changelog are stale (`check:api`, `check:changelog`), the newest changelog entry is not the chart `appVersion`, or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
 | `make test-ui` | `bun test` |
 | `make docker-build-ui` | build `ghcr.io/donaldgifford/repo-guardian-ui:dev` |
+
+`CHANGELOG.yaml` is the status page's Changelog card: newest first,
+tags from `new | improved | fixed | breaking` plus the areas
+`fleet | findings | policy | ui | api | chart`. `bun run gen:changelog`
+writes `web/src/generated/changelog.json` (committed) and
+`bun run check:changelog` fails on drift, a tag outside the set, dates
+that ascend, a repeated version, or a newest entry that is not the chart
+`appVersion` — so every chart bump adds an entry.
 
 For local development, run `bun run dev:server` and `bun run dev:web`.
 Vite proxies `/api`, `/auth` and `/ui` to the BFF on `:3000`.
 
 The Playwright suite is `make test-ui-e2e` (needs Docker and Go). The
-axe audit (`e2e/a11y.spec.ts`) runs in it. The screenshot spec
-(`e2e/visual.spec.ts`) only runs through `make test-ui-e2e-visual`,
-which renders in the pinned `mcr.microsoft.com/playwright` image;
-`make test-ui-e2e-update-snapshots` regenerates
-`e2e/__screenshots__/`.
+axe audit (`e2e/a11y.spec.ts`) runs in it. `e2e/stack.ts` seeds two
+databases in one Postgres container: `e2e/seed.sql` (both Apps, acme's
+remediations) behind the api role and BFF on `:3100`, and the same seed
+with `e2e/seed-no-remediate.sql` applied (no Remediation App) behind a
+second pair on `:3101`, which the `no-remediation` Playwright project
+walks to assert every gated panel reads "not enabled". The screenshot
+spec (`e2e/visual.spec.ts`: status, Findings, Orgs, Remediations) only
+runs through `make test-ui-e2e-visual`, which renders in the pinned
+`mcr.microsoft.com/playwright` image; `make test-ui-e2e-update-snapshots`
+regenerates `e2e/__screenshots__/`.
 
 ## Design
 

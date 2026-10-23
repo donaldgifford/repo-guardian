@@ -11,8 +11,10 @@ import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
 // TopBar is the 40px bar over the body (DESIGN-0036 §Shell): a reserved
-// slot, the brand, then the time-zone toggle and the avatar menu. Sign out stays a POST form so the BFF's Origin check holds.
-export function TopBar({ me, onMenu }: { me: Schemas["Me"]; onMenu: () => void }) {
+// slot, the brand, then the Search button that opens the ⌘K palette,
+// the time-zone toggle and the avatar menu. Sign out stays a POST form
+// so the BFF's Origin check holds.
+export function TopBar({ me, onMenu, onSearch }: { me: Schemas["Me"]; onMenu: () => void; onSearch: () => void }) {
   const config = useUIConfig();
   const logout = useRef<HTMLFormElement>(null);
   const docsUrl = config.data?.docs_url;
@@ -29,6 +31,11 @@ export function TopBar({ me, onMenu }: { me: Schemas["Me"]; onMenu: () => void }
         <small className="font-normal text-muted-foreground">compliance · read-only</small>
       </Link>
       <span className="flex-1" />
+      <Button variant="ghost" size="sm" onClick={onSearch} aria-keyshortcuts="Meta+K Control+K">
+        <Icon name="search" className="size-3.5" />
+        <span>Search</span>
+        <kbd className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
+      </Button>
       <TimeZoneToggle />
       <DropdownMenu>
         <DropdownMenuTrigger aria-label="Account menu" className="rounded-lg">

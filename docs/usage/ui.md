@@ -62,8 +62,10 @@ host to the UI. The webhook route stays yours; see
 
 Every signed-in page shares one frame (DESIGN-0036):
 
-- **Sidebar.** *Business* holds Fleet, Controls, Orgs, Repositories,
-  History and Policy. *Public* holds the status page. A *Docs* group
+- **Sidebar.** *Business* holds Fleet, Findings (with the count of
+  non-compliant results in scope), Controls, Orgs, Repositories,
+  Remediations (with the outstanding count; blank without the
+  Remediation App), History and Policy. *Public* holds the status page. A *Docs* group
   with one Documentation link appears only when `ui.docsUrl` is set.
   Below 900px the sidebar collapses behind a menu button in the top
   bar.
@@ -79,17 +81,33 @@ Every signed-in page shares one frame (DESIGN-0036):
 
 | View | Path | Shows |
 | --- | --- | --- |
-| Fleet | `/` | compliance and coverage over every assignment you can see, repositories and open PRs, evaluations in the last 24 hours, the assignments by bucket, and every control and org linking to its page |
-| Controls | `/controls`, `/controls/<id>` | each assigned control's compliance and coverage; one control's posture by org and lineage, with the versions and revisions each org carries |
-| Orgs | `/orgs`, `/orgs/<org>` | each org's repositories, open PRs and posture; one org's baseline against what it added, its controls, its five worst and its exclusions with their reasons |
+| Fleet | `/` | the compliance card (tracked, compliant % with its move over the range, non-compliant, parked, snapshots; series pills `?series=` choosing compliance %, findings, not applicable or unknown from `aggregate=fleet` history), finding age, the five worst controls with their deltas, parked by reason, assignments by bucket, compliance by control with a sparkline per row from one `aggregate=control` request, the orgs (or one org's exclusions under `?org=`), and — with the Remediation App — open PRs by age and PR throughput over 14 days |
+| Findings | `/findings` | every non-compliant result: the repository, the control, its failing rules and reason, its remediation and how long it has failed. Filters map 1:1 to `GET /results` (`?control=`, `?rule=`, `?org=`, `?decision=`, `?pr_stale=`), sorted oldest first (`?sort=since_desc`, `?sort=pr_age` with the Remediation App); `?open=<repository id>/<control>` opens the finding's drawer — its rules, evidence, timeline, last evaluations and **Re-evaluate** |
+| Remediations | `/remediations` | what repo-guardian is doing about findings (needs the Remediation App; otherwise the page reads "Remediation is not enabled on this deployment" and the nav count is blank): KPIs for open PRs (with the stale count), recommendations, held results by reason and failed applies; the views All / Open PRs / Recommendations / Held / Failed (`?view=`); chips mapping 1:1 to `GET /remediations` (`?kind=`, `?state=`, `?org=`, `?control=`, `?hold=`, `?older_than=` days); `?open=<remediation id>` (or `<repository id>/<control>` for a held result) opens the drawer — state, the pull request and its `repo-guardian/<control>` branch, the hold as a sentence, the proposal, the steps journal, the timeline and links to the finding and the repository |
+| Controls | `/controls`, `/controls/<id>` | each assigned control's compliance and coverage; one control's posture by org and lineage, with the versions and revisions each org carries, its compliance over the range, its findings by failing rule and its ten oldest findings |
+| Orgs | `/orgs`, `/orgs/<org>` | the orgs tree: each org a row (tracked, compliant, non-compliant, open PRs, parked) that expands (`?open=acme,globex`) to its repositories in the same grid, with a repository filter over the loaded rows (`?q=`), a **Parked** tab (reason and when) and a **PR activity** tab (open pull requests per org, stale and oldest; needs the Remediation App); cells shade by their share of the measured assignments and the footer sums the visible orgs. One org's baseline against what it added, its controls, its compliance over the range (`aggregate=org`), its five worst and its exclusions with their reasons |
 | Repositories | `/repositories`, `/repositories/<id>` | repositories filtered by name and policy state (`?org=`, `?q=`, `?policy_state=`); one repository's controls, each with its bucket, mode and rule results with evidence, its evaluation log and its events, and **Re-evaluate** |
-| History | `/history` | compliance over time from the daily snapshots, for every control or one (`?control=`), over 7, 30 or 90 days (`?days=`) |
+| History | `/history` | compliance over time from the daily snapshots, for every control or one (`?control=`), over 1, 7, 30 or 90 days (`?days=`) |
 | Policy | `/policy` | the active policy version and rollout, each of your orgs' layers (added, replaced, excluded, excluded repositories, repository groups) and the catalogue entries they reference; the enterprise layer only for users who see every org |
 | Status | `/status` | public service status: no login, no names |
 
 Compliance and coverage show **no data** when there is nothing to
 measure, never 100%. Evidence is text: its kind, then its fields as
 `key: value` lines.
+
+Everything about remediation — the fleet's PR panels, the Findings
+remediation column, the orgs tree's PR activity, the repository's
+remediation panels, the Remediations page and its nav count, the
+status backlog cell — is gated on the Remediation App being installed
+(the status page's `apps`). Without it those panels read "Remediation
+is not enabled on this deployment" rather than an empty state. A hold
+always reads as a sentence: *the repository is at max_open_prs; waits
+for a slot* (`pr_cap`), *a repo-guardian/ branch exists that the bot
+did not create; rename or delete it to resume* (`foreign_branch`),
+*branch left from a closed PR; delete it to resume* (`stale_branch`),
+*the PR branch conflicts with the default branch and could not be
+updated* (`conflict`), *the Remediation App lacks permission for this
+change* (`permission`).
 
 On a repository, **Remediable rule** says whether a rule can be fixed
 by remediation at all; the facts card's **remediable** says whether the
@@ -100,6 +118,11 @@ hint "Remediation App has no access to this repository".
 hidden for a parked repository, and disappears for the session once the
 API answers `501`, which an API without a Temporal client does (chart
 value `api.temporal`).
+
+The header's org scope (`?org=`) and the range (`?days=`) follow you
+from page to page; a view's own filters stay behind. Every table has
+an **Export** of the rows it shows as CSV; the findings export pages the
+API up to 10,000 rows and says when that cap cut it short.
 
 A signed-in user whose groups map to no org sees an "ask for access"
 page with their name and subject, to quote to an administrator.
@@ -112,9 +135,13 @@ control name. It shows a headline for the overall state, each component
 its state, fleet compliance as one number with its coverage and 30-day
 line, an operations strip (repositories evaluated in the last 24 hours
 of those tracked, overdue evaluations, the newest policy's rollout and
-the last snapshot), and the deployment: its topology and each App's
-installation and repository counts. `webhooks` is informational and
-never moves the overall state. It refreshes every 30 seconds.
+the last snapshot, and — with the Remediation App — the remediation
+backlog), the deployment: its topology and each App's installation and
+repository counts, and the changelog: the newest five releases from
+`ui/CHANGELOG.yaml`, bundled at build time with a **running** badge on
+the release this UI ships in, and **All releases** to GitHub. `webhooks`
+is informational and never moves the overall state. It refreshes every
+30 seconds.
 
 ![Status](img/ui/status.png)
 

@@ -2,8 +2,11 @@
 // playwright.config.ts's webServer: a Postgres container migrated with
 // `repo-guardian migrate` (after e2e/roles.sql) and seeded, the mock issuer, the Go `api`
 // role verifying the issuer's JWT access tokens, and the BFF serving
-// the built SPA on http://localhost:3100. Ctrl-C (or Playwright's
-// SIGTERM) tears it all down.
+// the built SPA on http://localhost:3100. A second database in the
+// same container, seeded without the Remediation App
+// (e2e/seed-no-remediate.sql), gets its own api role and BFF on
+// http://localhost:3101 for the `no-remediation` project (IMPL-0032
+// 8.7). Ctrl-C (or Playwright's SIGTERM) tears it all down.
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +22,11 @@ const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const uiRoot = fileURLToPath(new URL("../", import.meta.url));
 const bin = process.env.E2E_BINARY ?? join(repoRoot, "build/bin/repo-guardian");
 export const uiPort = Number(process.env.E2E_UI_PORT ?? 3100);
+// The "not enabled" stack sits one port up from each of the main one's.
+export const noRemediationPort = uiPort + 1;
 const apiAddr = "127.0.0.1:18080";
+const noRemediationApiAddr = "127.0.0.1:18081";
+const noRemediationDb = "repoguardian_norem";
 const container = `rg-e2e-${process.pid}`;
 export const containerLabel = "repo-guardian-e2e";
 
@@ -69,9 +76,19 @@ try {
     async () => (await $`docker exec ${container} pg_isready -h 127.0.0.1 -U repoguardian -d repoguardian`.nothrow().quiet()).exitCode === 0,
   );
 
-  await $`docker exec -i ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 < ${join(uiRoot, "e2e/roles.sql")}`.quiet();
+  const psql = (db: string, file: string) => $`docker exec -i ${container} psql -q -U repoguardian -d ${db} -v ON_ERROR_STOP=1 < ${join(uiRoot, file)}`.quiet();
+  await psql("repoguardian", "e2e/roles.sql");
   await $`${bin} migrate --dsn ${dsn} --policy=`.quiet();
-  await $`docker exec -i ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 < ${join(uiRoot, "e2e/seed.sql")}`.quiet();
+  await psql("repoguardian", "e2e/seed.sql");
+
+  // The second database: the roles are cluster-wide, the schema grant
+  // is per database, the seed is the base one minus the Remediation App.
+  await $`docker exec ${container} psql -q -U repoguardian -d repoguardian -v ON_ERROR_STOP=1 -c ${`CREATE DATABASE ${noRemediationDb}`}`.quiet();
+  await $`docker exec ${container} psql -q -U repoguardian -d ${noRemediationDb} -v ON_ERROR_STOP=1 -c ${"GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator"}`.quiet();
+  const noRemediationDsn = dsn.replace("/repoguardian?", `/${noRemediationDb}?`);
+  await $`${bin} migrate --dsn ${noRemediationDsn} --policy=`.quiet();
+  await psql(noRemediationDb, "e2e/seed.sql");
+  await psql(noRemediationDb, "e2e/seed-no-remediate.sql");
 
   // One user in one group that sees acme only: globex must never show.
   const issuer = await startMockIssuer({ apiAudience: "repo-guardian-api", groups: ["acme-devs"], accessTokenTtl: 600 });
@@ -81,36 +98,44 @@ try {
   writeFileSync(authz, 'groups:\n  "acme-devs": ["acme"]\ndefaultOrgs: []\nclients: {}\n');
 
   const issuerUrl = issuer.url.origin;
-  const api = Bun.spawn([bin, "api"], {
-    env: {
-      ...process.env,
-      API_LISTEN_ADDR: apiAddr,
-      METRICS_ADDR: "127.0.0.1:19090",
-      LOG_LEVEL: "warn",
-      STORE_RO_DSN: dsn,
+  const startApi = async (addr: string, metrics: string, storeDsn: string) => {
+    const api = Bun.spawn([bin, "api"], {
+      env: {
+        ...process.env,
+        API_LISTEN_ADDR: addr,
+        METRICS_ADDR: metrics,
+        LOG_LEVEL: "warn",
+        STORE_RO_DSN: storeDsn,
+        OIDC_ISSUER: issuerUrl,
+        OIDC_AUDIENCE: "repo-guardian-api",
+        API_AUTHZ_CONFIG: authz,
+      },
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    cleanups.push(() => api.kill());
+    await waitFor(`api on ${addr}`, async () => (await fetch(`http://${addr}/readyz`)).ok);
+  };
+  const startUI = (port: number, upstream: string) => {
+    const config = loadConfig({
       OIDC_ISSUER: issuerUrl,
-      OIDC_AUDIENCE: "repo-guardian-api",
-      API_AUTHZ_CONFIG: authz,
-    },
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  cleanups.push(() => api.kill());
-  await waitFor("api", async () => (await fetch(`http://${apiAddr}/readyz`)).ok);
+      OIDC_CLIENT_ID: issuer.clientId,
+      OIDC_CLIENT_SECRET: issuer.clientSecret,
+      API_UPSTREAM: `http://${upstream}`,
+      PUBLIC_URL: `http://localhost:${port}`,
+      UI_SESSION_KEYS: "e2e-session-key-e2e-session-key-e2e!",
+      PORT: String(port),
+    });
+    const server = Bun.serve({ port, hostname: "localhost", fetch: createApp({ config, staticDir: join(uiRoot, "dist") }).fetch });
+    cleanups.push(() => server.stop(true));
+  };
 
-  const config = loadConfig({
-    OIDC_ISSUER: issuerUrl,
-    OIDC_CLIENT_ID: issuer.clientId,
-    OIDC_CLIENT_SECRET: issuer.clientSecret,
-    API_UPSTREAM: `http://${apiAddr}`,
-    PUBLIC_URL: `http://localhost:${uiPort}`,
-    UI_SESSION_KEYS: "e2e-session-key-e2e-session-key-e2e!",
-    PORT: String(uiPort),
-  });
-  const server = Bun.serve({ port: uiPort, hostname: "localhost", fetch: createApp({ config, staticDir: join(uiRoot, "dist") }).fetch });
-  cleanups.push(() => server.stop(true));
+  await startApi(apiAddr, "127.0.0.1:19090", dsn);
+  startUI(uiPort, apiAddr);
+  await startApi(noRemediationApiAddr, "127.0.0.1:19091", noRemediationDsn);
+  startUI(noRemediationPort, noRemediationApiAddr);
 
-  console.log(`e2e stack ready on http://localhost:${uiPort}`);
+  console.log(`e2e stack ready on http://localhost:${uiPort} (no-remediation on http://localhost:${noRemediationPort})`);
 } catch (err) {
   console.error(err);
   await teardown(1);

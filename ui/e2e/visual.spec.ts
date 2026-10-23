@@ -1,7 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // IMPL-0031 6.2 (DESIGN-0036 OQ5): one screenshot per reference page at
-// 1600×1000; since IMPL-0029 7.7 that is the status page alone. The snapshots under e2e/__screenshots__/ are rendered by
+// 1600×1000: the status page, and since IMPL-0032 8.4 the Findings,
+// Orgs (expanded) and Remediations pages signed in through the mock
+// issuer. The snapshots under e2e/__screenshots__/ are rendered by
 // the Chromium inside the pinned mcr.microsoft.com/playwright image, so
 // fonts and anti-aliasing are the same on every machine; the spec only
 // runs when the test runner is connected to that browser
@@ -26,4 +28,27 @@ test("Status", async ({ page }) => {
   await page.goto("/status");
   await expect(page.locator("[data-component]").first()).toBeVisible();
   await snapshot(page, "status.png");
+});
+
+async function signIn(page: Page, path: string) {
+  await page.goto(path);
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+}
+
+test("Findings", async ({ page }) => {
+  await signIn(page, "/findings");
+  await expect(page.getByRole("table", { name: "Findings" }).locator("tbody tr").first()).toBeVisible();
+  await snapshot(page, "findings.png");
+});
+
+test("Orgs", async ({ page }) => {
+  await signIn(page, "/orgs?open=acme");
+  await expect(page.getByRole("table", { name: "Orgs" }).locator("tr[data-child='acme/web']")).toBeVisible();
+  await snapshot(page, "orgs.png");
+});
+
+test("Remediations", async ({ page }) => {
+  await signIn(page, "/remediations");
+  await expect(page.getByRole("table", { name: "Remediations" }).locator("tbody tr").first()).toBeVisible();
+  await snapshot(page, "remediations.png");
 });

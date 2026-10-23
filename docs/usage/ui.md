@@ -62,8 +62,10 @@ host to the UI. The webhook route stays yours; see
 
 Every signed-in page shares one frame (DESIGN-0036):
 
-- **Sidebar.** *Business* holds Fleet, Controls, Orgs, Repositories,
-  History and Policy. *Public* holds the status page. A *Docs* group
+- **Sidebar.** *Business* holds Fleet, Findings (with the count of
+  non-compliant results in scope), Controls, Orgs, Repositories,
+  Remediations (with the outstanding count; blank without the
+  Remediation App), History and Policy. *Public* holds the status page. A *Docs* group
   with one Documentation link appears only when `ui.docsUrl` is set.
   Below 900px the sidebar collapses behind a menu button in the top
   bar.
@@ -93,6 +95,20 @@ Compliance and coverage show **no data** when there is nothing to
 measure, never 100%. Evidence is text: its kind, then its fields as
 `key: value` lines.
 
+Everything about remediation — the fleet's PR panels, the Findings
+remediation column, the orgs tree's PR activity, the repository's
+remediation panels, the Remediations page and its nav count, the
+status backlog cell — is gated on the Remediation App being installed
+(the status page's `apps`). Without it those panels read "Remediation
+is not enabled on this deployment" rather than an empty state. A hold
+always reads as a sentence: *the repository is at max_open_prs; waits
+for a slot* (`pr_cap`), *a repo-guardian/ branch exists that the bot
+did not create; rename or delete it to resume* (`foreign_branch`),
+*branch left from a closed PR; delete it to resume* (`stale_branch`),
+*the PR branch conflicts with the default branch and could not be
+updated* (`conflict`), *the Remediation App lacks permission for this
+change* (`permission`).
+
 On a repository, **Remediable rule** says whether a rule can be fixed
 by remediation at all; the facts card's **remediable** says whether the
 Remediation App can reach this repository. A `no` there carries the
@@ -119,9 +135,13 @@ control name. It shows a headline for the overall state, each component
 its state, fleet compliance as one number with its coverage and 30-day
 line, an operations strip (repositories evaluated in the last 24 hours
 of those tracked, overdue evaluations, the newest policy's rollout and
-the last snapshot), and the deployment: its topology and each App's
-installation and repository counts. `webhooks` is informational and
-never moves the overall state. It refreshes every 30 seconds.
+the last snapshot, and — with the Remediation App — the remediation
+backlog), the deployment: its topology and each App's installation and
+repository counts, and the changelog: the newest five releases from
+`ui/CHANGELOG.yaml`, bundled at build time with a **running** badge on
+the release this UI ships in, and **All releases** to GitHub. `webhooks`
+is informational and never moves the overall state. It refreshes every
+30 seconds.
 
 ![Status](img/ui/status.png)
 

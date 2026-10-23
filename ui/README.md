@@ -34,11 +34,16 @@ For local development, run `bun run dev:server` and `bun run dev:web`.
 Vite proxies `/api`, `/auth` and `/ui` to the BFF on `:3000`.
 
 The Playwright suite is `make test-ui-e2e` (needs Docker and Go). The
-axe audit (`e2e/a11y.spec.ts`) runs in it. The screenshot spec
-(`e2e/visual.spec.ts`) only runs through `make test-ui-e2e-visual`,
-which renders in the pinned `mcr.microsoft.com/playwright` image;
-`make test-ui-e2e-update-snapshots` regenerates
-`e2e/__screenshots__/`.
+axe audit (`e2e/a11y.spec.ts`) runs in it. `e2e/stack.ts` seeds two
+databases in one Postgres container: `e2e/seed.sql` (both Apps, acme's
+remediations) behind the api role and BFF on `:3100`, and the same seed
+with `e2e/seed-no-remediate.sql` applied (no Remediation App) behind a
+second pair on `:3101`, which the `no-remediation` Playwright project
+walks to assert every gated panel reads "not enabled". The screenshot
+spec (`e2e/visual.spec.ts`: status, Findings, Orgs, Remediations) only
+runs through `make test-ui-e2e-visual`, which renders in the pinned
+`mcr.microsoft.com/playwright` image; `make test-ui-e2e-update-snapshots`
+regenerates `e2e/__screenshots__/`.
 
 ## Design
 

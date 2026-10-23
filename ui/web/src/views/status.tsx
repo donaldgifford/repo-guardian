@@ -3,12 +3,14 @@ import type { ReactNode } from "react";
 import type { Schemas } from "../api/client";
 import { useStatus, useUIConfig } from "../api/queries";
 import { StateBadge } from "../components/badges";
+import { Badge } from "../components/ui/badge";
 import { Sparkline } from "../components/charts";
 import { Icon } from "../components/icons";
 import { Time } from "../components/time";
 import { Card } from "../components/ui/card";
 import { Meter } from "../components/ui/meter";
-import { formatPercent } from "../lib/format";
+import changelog from "../generated/changelog.json";
+import { formatPercent, toneFor } from "../lib/format";
 import { cn } from "../lib/utils";
 
 export type StatusTone = "ok" | "warn" | "bad" | "mute";
@@ -107,6 +109,8 @@ export function StatusView() {
       <OperationsStrip ops={s.operations} remediation={s.apps.some((a) => a.app === "remediate")} />
 
       <Deployment topology={s.topology} apps={s.apps} />
+
+      <Changelog />
 
       <footer className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
         <code className="font-mono">GET /api/v1/status · served from an in-process cache</code>
@@ -223,6 +227,57 @@ function Deployment({ topology, apps }: { topology: string; apps: Schemas["Statu
             </li>
           ))}
         </ul>
+      )}
+    </Card>
+  );
+}
+
+export const releasesURL = "https://github.com/donaldgifford/repo-guardian/releases";
+
+export const changelogShown = 5;
+
+// Changelog is the newest five releases from the bundled CHANGELOG.yaml
+// (DESIGN-0037 §Status page changelog): the bundle's own version wears
+// "running", since the build that ships this card is that release. No
+// API call, so TestStatus_PrivacyGuard is untouched.
+export function Changelog({ bundle = changelog }: { bundle?: { running: string; entries: { version: string; date: string; title: string; summary: string; tags: string[] }[] } }) {
+  const entries = bundle.entries.slice(0, changelogShown);
+  return (
+    <Card
+      title="Changelog"
+      right={
+        <a href={releasesURL} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
+          All releases ↗
+        </a>
+      }
+      bodyClassName="p-0"
+      aria-label="Changelog"
+    >
+      {entries.length === 0 ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No releases recorded.</p>
+      ) : (
+        <ol className="divide-y divide-border">
+          {entries.map((e) => (
+            <li key={e.version} className="space-y-1 px-3.5 py-2.5 text-[13px]" data-version={e.version} data-running={e.version === bundle.running}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-medium">{e.version}</span>
+                {e.version === bundle.running ? <Badge tone="ok">running</Badge> : null}
+                <time dateTime={e.date} className="text-xs text-muted-foreground">
+                  {e.date}
+                </time>
+                <span className="font-medium">{e.title}</span>
+              </div>
+              <p className="text-muted-foreground">{e.summary}</p>
+              <div className="flex flex-wrap gap-1">
+                {e.tags.map((t) => (
+                  <Badge key={t} tone={toneFor("tag", t)}>
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
     </Card>
   );

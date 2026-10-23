@@ -219,6 +219,11 @@ test("the status page shows topology, Apps, the evaluation strip and the remedia
   await expect(page.getByTestId("status-coverage")).toBeVisible();
   // The e2e deployment has the Remediation App, so the backlog cell renders (IMPL-0032 6.7).
   await expect(page.getByText("Remediation backlog")).toBeVisible();
+  // The changelog card is bundled (IMPL-0032 7.5): newest five, one "running".
+  const changelog = page.getByRole("region", { name: "Changelog" });
+  await expect(changelog.locator("[data-version]")).toHaveCount(5);
+  await expect(changelog.locator('[data-running="true"]')).toHaveCount(1);
+  await expect(changelog.getByRole("link", { name: "All releases ↗" })).toHaveAttribute("href", /github\.com\/donaldgifford\/repo-guardian\/releases/);
 });
 
 // Remediations (IMPL-0032 Phase 6) on the base seed, which has the

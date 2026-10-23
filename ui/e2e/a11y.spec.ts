@@ -28,6 +28,8 @@ for (const [name, path, heading] of [
   ["Findings", "/findings", "Findings"],
   ["Control", "/controls/codeowners", "codeowners"],
   ["Orgs", "/orgs", "Orgs"],
+  ["Orgs expanded", "/orgs?open=acme", "Orgs"],
+  ["Orgs parked", "/orgs?tab=parked&open=acme", "Orgs"],
   ["Org", "/orgs/acme", "acme"],
   ["Repositories", "/repositories", "Repositories"],
   ["History", "/history", "History"],

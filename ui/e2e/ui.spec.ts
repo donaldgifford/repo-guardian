@@ -296,3 +296,58 @@ test("a control's Oldest findings opens the findings drawer", async ({ page }) =
   await expect(page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ })).toBeVisible();
   await expectNoGlobex(page);
 });
+
+test("the orgs tree expands an org into aligned repository rows, sums the footer and keeps its state in the URL", async ({ page }) => {
+  await signIn(page, "/orgs");
+  await expect(page.getByRole("heading", { level: 1, name: "Orgs" })).toBeVisible();
+  const grid = page.getByRole("table", { name: "Orgs" });
+  const acme = grid.locator("tr[data-row=acme]");
+  await expect(acme).toContainText("2"); // tracked
+  await expect(acme.locator("td[data-heat=compliant]")).toContainText(/\d+%/);
+  // The footer sums the visible org rows: ada sees acme alone.
+  const footer = grid.locator("tr[data-row=__footer]");
+  await expect(footer).toContainText("1 orgs");
+  const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { org: string; tracked: number; parked: number; compliance: { compliant: number; non_compliant: number } }[] };
+  const acmeApi = orgs.items.find((o) => o.org === "acme")!;
+  await expect(footer.locator("td").nth(1)).toHaveText(String(acmeApi.tracked));
+  await expect(footer.locator("td").nth(2)).toContainText(String(acmeApi.compliance.compliant));
+  await expect(footer.locator("td").nth(3)).toContainText(String(acmeApi.compliance.non_compliant));
+  await expect(footer.locator("td").nth(5)).toHaveText(String(acmeApi.parked));
+
+  await grid.getByRole("button", { name: "Expand acme" }).click();
+  await expect(page).toHaveURL(/open=acme/);
+  const web = grid.locator("tr[data-child='acme/web']");
+  await expect(web).toBeVisible();
+  // Same body, every column: a child row has as many cells as the org row.
+  expect(await web.locator("td").count()).toBe(await acme.locator("td").count());
+  await expect(web).toContainText("50%"); // 1 compliant of 2 measured
+  // An unmeasured cell reads no data, never a percentage.
+  const api = grid.locator("tr[data-child='acme/api']");
+  await expect(api).toBeVisible();
+  // No colour disagrees with its percentage: every shaded cell shows one.
+  for (const cell of await grid.locator("td[data-heat]").all()) {
+    await expect(cell).toContainText(/\d+%/);
+  }
+  await expect(grid.locator("td[data-measured=false]")).toHaveCount(0);
+
+  // The filter narrows the loaded children.
+  await page.getByRole("textbox", { name: "Filter repositories" }).fill("we");
+  await expect(page).toHaveURL(/q=we/);
+  await expect(grid.locator("tr[data-child='acme/api']")).toHaveCount(0);
+  await expect(web).toBeVisible();
+
+  // The Parked tab lists parked repositories with the reason; the open
+  // set carries over, so acme is already expanded there.
+  await page.getByRole("textbox", { name: "Filter repositories" }).fill("");
+  await expect(page).not.toHaveURL(/q=/);
+  await page.getByRole("tab", { name: "Parked" }).click();
+  await expect(page).toHaveURL(/tab=parked/);
+  const parked = page.getByRole("table", { name: "Parked repositories by org" });
+  await expect(parked.getByRole("button", { name: "Collapse acme" })).toBeVisible();
+  await expect(parked.locator("tr[data-child='acme/legacy']")).toContainText("archived");
+
+  // PR activity is gated: the e2e deployment has the Remediation App.
+  await page.getByRole("tab", { name: "PR activity" }).click();
+  await expect(page.getByRole("table", { name: "PR activity" }).or(page.getByText("No open pull requests."))).toBeVisible();
+  await expectNoGlobex(page);
+});

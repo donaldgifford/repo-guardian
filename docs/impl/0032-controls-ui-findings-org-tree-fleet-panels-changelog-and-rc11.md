@@ -394,24 +394,24 @@ As the mockup's `#/orgs` draws it (OQ4).
     unmeasured cell renders "no data", never 0% or 100%.
 
   Rewrite `tables.test.tsx` for the new contract.
-- [ ] 4.2 **Load children on expand.** Each org's children come from
+- [x] 4.2 **Load children on expand.** Each org's children come from
   `/repositories?org=&active=true` (keyset, "Load more" inside the
   group, "showing N of M"). Collapsed groups fetch nothing.
   Expand all / Collapse all.
-- [ ] 4.3 **Columns:** Org / repository, Tracked (org: active
+- [x] 4.3 **Columns:** Org / repository, Tracked (org: active
   repositories; repository: assignments), Compliant, Non-compliant,
   Open PRs (`OrgSummary.open_prs`; repository rows from the
   repository's open pull-request remediations, gated) and Parked. The
   page subtitle says the counts are assignments, as the mockup words
   it. The footer sums the visible org rows with `addPosture`.
-- [ ] 4.4 **Toolbar:** KPI chips (Tracked, Non-compliant, Parked), tabs
+- [x] 4.4 **Toolbar:** KPI chips (Tracked, Non-compliant, Parked), tabs
   Compliance / Parked / PR activity, the repository filter (`?q=`,
   applied to loaded children) and Export.
   - The **Parked** tab lists parked repositories with reason and
     parked-at, grouped by org (`/repositories?org=&active=false`).
   - The **PR activity** tab lists open pull requests per org with age
     from `/remediations?kind=pull_request&state=open`, gated.
-- [ ] 4.5 **Unit tests:** footer sums equal the `/orgs` totals; the
+- [x] 4.5 **Unit tests:** footer sums equal the `/orgs` totals; the
   shading denominator excludes non-measured buckets; "no data" renders
   for an excluded repository.
 

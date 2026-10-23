@@ -143,16 +143,50 @@ export function useResults(f: ResultsFilter, enabled = true) {
 export const exportCap = 10_000;
 
 // fetchAllResults walks /results for an export, stopping at the cap.
-export async function fetchAllResults(f: ResultsFilter, cap = exportCap): Promise<{ rows: Schemas["ResultRow"][]; truncated: boolean }> {
-  const rows: Schemas["ResultRow"][] = [];
+// fetchPages walks a keyset-paged list to its end or to `cap` rows,
+// 200 a page; `truncated` says the cap cut it short.
+async function fetchPages<T>(page: (query: { limit: number; cursor?: string }) => Promise<{ items: T[]; next_cursor?: string }>, cap: number): Promise<{ rows: T[]; truncated: boolean }> {
+  const rows: T[] = [];
   let cursor: string | undefined;
   for (;;) {
-    const page = await unwrap(api.GET("/results", { params: { query: { ...f, limit: Math.min(200, cap - rows.length), ...(cursor ? { cursor } : {}) } } }));
-    rows.push(...page.items);
-    cursor = page.next_cursor;
+    const p = await page({ limit: Math.min(200, cap - rows.length), ...(cursor ? { cursor } : {}) });
+    rows.push(...p.items);
+    cursor = p.next_cursor;
     if (!cursor) return { rows, truncated: false };
     if (rows.length >= cap) return { rows: rows.slice(0, cap), truncated: true };
   }
+}
+
+// fetchAllResults pages /results for an export, up to `cap` rows.
+export function fetchAllResults(f: ResultsFilter, cap = exportCap): Promise<{ rows: Schemas["ResultRow"][]; truncated: boolean }> {
+  return fetchPages((q) => unwrap(api.GET("/results", { params: { query: { ...f, ...q } } })), cap);
+}
+
+export interface RemediationFilter {
+  kind?: string;
+  state?: Schemas["RemediationState"];
+  org?: string;
+  hold?: Schemas["Hold"][];
+}
+
+// openPullRequestsCap bounds the open-PR listings the orgs tree and PR
+// activity count from; past it the counts are of the first 1,000.
+export const openPullRequestsCap = 1_000;
+
+export function fetchAllRemediations(f: RemediationFilter, cap: number): Promise<{ rows: Schemas["Remediation"][]; truncated: boolean }> {
+  return fetchPages((q) => unwrap(api.GET("/remediations", { params: { query: { ...f, ...q } } })), cap);
+}
+
+// useOpenPullRequests lists the open pull-request remediations in an
+// org (or every visible org), for counting per repository or per org.
+// Callers gate it on the Remediation App: without it there is nothing
+// to list.
+export function useOpenPullRequests(org: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["open-prs", org ?? ""],
+    queryFn: () => fetchAllRemediations({ kind: "pull_request", state: "open", ...(org ? { org } : {}) }, openPullRequestsCap),
+    enabled,
+  });
 }
 
 export interface HistoryFilter {

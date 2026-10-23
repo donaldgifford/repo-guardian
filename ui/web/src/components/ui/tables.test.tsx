@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
 import { type Column, DataTable } from "./data-table";
-import { type GridColumn, type GridRow, GroupGrid, heatStyle, share } from "./group-grid";
+import { GridChildRows, type GridColumn, type GridRow, GroupGrid, heatStyle, share } from "./group-grid";
 
 withDOM();
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
@@ -115,7 +115,7 @@ describe("GroupGrid", () => {
         footer={{ label: "2 orgs", cells: { tracked: 16, compliant: { n: 9, of: 14 }, failing: { n: 5, of: 14 }, prs: <span>—</span> } }}
         aria-label="orgs"
       >
-        {(row) => ({ rows: children[row.key] ?? [], footer: row.key === "acme" ? "showing 2 of 12" : undefined, empty: "No repository." })}
+        {(row) => <GridChildRows key={`${row.key}/children`} parent={row.key} rows={children[row.key] ?? []} {...(row.key === "acme" ? { footer: "showing 2 of 12" } : {})} empty="No repository." />}
       </GroupGrid>
     );
   }

@@ -9,6 +9,7 @@ import { FindingsView, parseFindingsSearch } from "./views/findings";
 import { FleetView } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
 import { OrgsView, OrgView } from "./views/orgs";
+import { parseOrgsSearch } from "./views/orgs/tree";
 import { PolicyView } from "./views/policy";
 import { parseRepositoriesSearch, parseRepositorySearch, RepositoriesView, RepositoryView } from "./views/repositories";
 import { StatusView } from "./views/status";
@@ -36,7 +37,7 @@ const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", vali
 const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", validateSearch: parseScopeSearch, component: ControlsView });
 const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseScopeSearch, component: ControlView });
 const findingsRoute = createRoute({ getParentRoute: () => appRoute, path: "/findings", validateSearch: parseFindingsSearch, component: FindingsView });
-const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
+const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", validateSearch: parseOrgsSearch, component: OrgsView });
 const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", validateSearch: parseRangeSearch, component: OrgView });
 const repositoriesRoute = createRoute({
   getParentRoute: () => appRoute,

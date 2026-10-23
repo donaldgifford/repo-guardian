@@ -5,6 +5,7 @@ import { Shell } from "./components/shell/Shell";
 import { parseRangeSearch } from "./lib/range";
 import { parseScopeSearch } from "./lib/scope";
 import { ControlsView, ControlView } from "./views/controls";
+import { FindingsView, parseFindingsSearch } from "./views/findings";
 import { FleetView } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
 import { OrgsView, OrgView } from "./views/orgs";
@@ -34,6 +35,7 @@ const appRoute = createRoute({
 const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseScopeSearch, component: FleetView });
 const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", validateSearch: parseScopeSearch, component: ControlsView });
 const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseScopeSearch, component: ControlView });
+const findingsRoute = createRoute({ getParentRoute: () => appRoute, path: "/findings", validateSearch: parseFindingsSearch, component: FindingsView });
 const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
 const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", validateSearch: parseRangeSearch, component: OrgView });
 const repositoriesRoute = createRoute({
@@ -55,7 +57,7 @@ export { appRoute };
 
 const routeTree = rootRoute.addChildren([
   statusRoute,
-  appRoute.addChildren([fleetRoute, controlsRoute, controlRoute, orgsRoute, orgRoute, repositoriesRoute, repositoryRoute, historyRoute, policyRoute]),
+  appRoute.addChildren([fleetRoute, controlsRoute, controlRoute, findingsRoute, orgsRoute, orgRoute, repositoriesRoute, repositoryRoute, historyRoute, policyRoute]),
 ]);
 
 export const router = createRouter({ routeTree, defaultErrorComponent: ProblemView });

@@ -192,7 +192,7 @@ export function parseRepositorySearch(s: Record<string, unknown>): { tab?: Tab }
 
 // EvaluateButton asks for an evaluation now. It is hidden once the API
 // answers 501 (no Temporal client on this replica).
-function EvaluateButton({ id }: { id: number }) {
+export function EvaluateButton({ id }: { id: number }) {
   const unsupported = useEvaluateUnsupported();
   const evaluate = useEvaluate(id);
   if (unsupported) return null;

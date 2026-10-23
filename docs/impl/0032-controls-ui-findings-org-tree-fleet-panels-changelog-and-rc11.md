@@ -305,14 +305,14 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **Hook and route.** Add `useResults(filter)` as a
+- [x] 3.1 **Hook and route.** Add `useResults(filter)` as a
   `useInfiniteQuery` over `/results`, with "Load more" and "N loaded
   of M" from `total`. Add the `/app/findings` route with
   `validateSearch` for `control`, `rule`, `org`, `decision`,
   `pr_stale`, `sort` and `open`, and an `/app/findings` crumb entry.
   The page always asks for the non-compliant bucket, and the nav entry
   un-hides with the `Summary.compliance.non_compliant` count badge.
-- [ ] 3.2 **Filter chips** (restore `components/filters/*` from
+- [x] 3.2 **Filter chips** (restore `components/filters/*` from
   `7ad928f^`, reworked):
   - Control comes from `/controls`, and Rule enables once a control is
     chosen, listing that control's rule ids.
@@ -320,7 +320,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   - Stale PR, through `GatedPanel`'s decision: disabled with
     "remediation not enabled" without the remediate App.
   - Changing the control clears the rule.
-- [ ] 3.3 **Table:** columns Repository (name, org beneath), Control
+- [x] 3.3 **Table:** columns Repository (name, org beneath), Control
   (slug, version, non-baseline decision), Failing rules (red badges plus
   the first failing rule's evidence headline from `describeEvidence`),
   Remediation (state, PR link, age, stale badge; `—` with the gated
@@ -328,7 +328,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   the sort toggle (`since_asc`, `since_desc`, `pr_age` with the App)
   and Export, which pages `/results` up to 10,000 rows with a notice
   when the cap cuts the export short (DESIGN-0037 OQ6).
-- [ ] 3.4 **Finding drawer** (restore `views/findings/drawer.tsx` on
+- [x] 3.4 **Finding drawer** (restore `views/findings/drawer.tsx` on
   `DetailDrawer`), opened by `?open=<repository_id>/<control>`. It
   shows:
   - status, remediation (linking to the Remediations drawer) and last
@@ -343,6 +343,8 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
 
   Escape and the scrim close it. A11y names come from the repository
   and control.
+  The remediation link into the Remediations drawer lands with that
+  route (6.1); the drawer shows the remediation state inline until then.
 - [ ] 3.5 **Control detail cards:**
   - **Top failing rules:** a bar list of the control's findings by
     failing rule from `/results?control=`. Each row links to

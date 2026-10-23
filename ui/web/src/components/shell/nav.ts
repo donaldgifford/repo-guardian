@@ -9,8 +9,8 @@ export type NavGroup = "BUSINESS" | "PUBLIC" | "DOCS";
 // links against these. PendingPath is a destination declared in the nav
 // before its route lands (IMPL-0032 2.7); it moves into AppPath with
 // the route.
-export type AppPath = "/" | "/controls" | "/orgs" | "/repositories" | "/history" | "/policy" | "/status";
-export type PendingPath = "/findings" | "/remediations";
+export type AppPath = "/" | "/controls" | "/findings" | "/orgs" | "/repositories" | "/history" | "/policy" | "/status";
+export type PendingPath = "/remediations";
 
 // NavBadge names the count the Sidebar renders beside an entry
 // (DESIGN-0037 §Shell): findings is Summary.compliance.non_compliant;
@@ -38,7 +38,7 @@ const routed = (n: NavItem): n is RoutedNavItem => !n.hidden;
 
 export const NAV: readonly NavItem[] = [
   { group: "BUSINESS", label: "Fleet", to: "/", icon: "grid" },
-  { group: "BUSINESS", label: "Findings", to: "/findings", icon: "alert", badge: "findings", hidden: true },
+  { group: "BUSINESS", label: "Findings", to: "/findings", icon: "alert", badge: "findings" },
   { group: "BUSINESS", label: "Controls", to: "/controls", icon: "shield" },
   { group: "BUSINESS", label: "Orgs", to: "/orgs", icon: "boxes" },
   { group: "BUSINESS", label: "Repositories", to: "/repositories", icon: "list" },

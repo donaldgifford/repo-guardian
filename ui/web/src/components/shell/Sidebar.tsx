@@ -1,16 +1,22 @@
 import { Link } from "@tanstack/react-router";
 
-import { useSummary, useUIConfig } from "../../api/queries";
+import { useOrg, useSummary, useUIConfig } from "../../api/queries";
+import { addPosture } from "../../lib/posture";
 import { cn } from "../../lib/utils";
 import { Icon } from "../icons";
+import { useOrgScope } from "../page/OrgScope";
 import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";
 import { GROUP_LABELS, type NavBadge, navGroups, navItems } from "./nav";
 
-// FindingsCount is the Findings entry's badge: the fleet's non-compliant
-// assignments, the same number the Findings page reports as M.
+// FindingsCount is the Findings entry's badge: the non-compliant
+// assignments in scope, the same number the Findings page reports as M
+// — the fleet's from /summary, or an org's baseline plus org-added
+// postures when `?org=` is set.
 function FindingsCount() {
+  const org = useOrgScope();
   const summary = useSummary();
-  const n = summary.data?.compliance.non_compliant;
+  const scoped = useOrg(org ?? "", org !== undefined);
+  const n = org === undefined ? summary.data?.compliance.non_compliant : scoped.data ? addPosture(scoped.data.baseline, scoped.data.org_added).non_compliant : undefined;
   return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
 }
 

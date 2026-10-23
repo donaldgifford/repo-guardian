@@ -19,6 +19,7 @@ const sections: Record<string, Crumb & { item?: string }> = {
   "/app/": { label: "Fleet", to: "/" },
   "/app/controls": { label: "Controls", to: "/controls" },
   "/app/controls/$id": { label: "Controls", to: "/controls", item: "id" },
+  "/app/findings": { label: "Findings", to: "/findings" },
   "/app/orgs": { label: "Orgs", to: "/orgs" },
   "/app/orgs/$org": { label: "Orgs", to: "/orgs", item: "org" },
   "/app/repositories": { label: "Repositories", to: "/repositories" },

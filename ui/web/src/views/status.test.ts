@@ -4,7 +4,9 @@ import { withDOM } from "../../testing/dom";
 
 import { expect, test } from "bun:test";
 
-import { rolloutLabel, statusHeadline, type StatusTone } from "./status";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { OperationsStrip, rolloutLabel, statusHeadline, type StatusTone } from "./status";
 
 withDOM();
 
@@ -26,4 +28,15 @@ test("rolloutLabel maps the closed enum onto fixed text", () => {
     text: "complete",
     at: "2026-09-01T12:00:00Z",
   });
+});
+
+test("the operations strip shows the remediation backlog only with the Remediation App (IMPL-0032 6.7)", () => {
+  const ops = { evaluated_24h: 3, overdue: 0, tracked: 4, remediation_backlog: 7, rollout_state: "none" as const };
+  const without = renderToStaticMarkup(OperationsStrip({ ops, remediation: false }));
+  expect(without).not.toContain("Remediation backlog");
+  expect(without).toContain("md:grid-cols-4");
+  const withApp = renderToStaticMarkup(OperationsStrip({ ops, remediation: true }));
+  expect(withApp).toContain("Remediation backlog");
+  expect(withApp).toContain(">7<");
+  expect(withApp).toContain("md:grid-cols-5");
 });

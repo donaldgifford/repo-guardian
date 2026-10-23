@@ -104,7 +104,7 @@ export function StatusView() {
         </Card>
       </div>
 
-      <OperationsStrip ops={s.operations} />
+      <OperationsStrip ops={s.operations} remediation={s.apps.some((a) => a.app === "remediate")} />
 
       <Deployment topology={s.topology} apps={s.apps} />
 
@@ -175,10 +175,10 @@ export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; 
 // OperationsStrip is four aggregate numbers: repositories evaluated in
 // the last 24h of those tracked, those overdue, the newest policy's
 // rollout and the last compliance snapshot.
-function OperationsStrip({ ops }: { ops: Schemas["StatusOperations"] }) {
+export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOperations"]; remediation: boolean }) {
   const rollout = rolloutLabel(ops);
   return (
-    <Card className="grid grid-cols-1 divide-y divide-border md:grid-cols-4 md:divide-x md:divide-y-0" aria-label="Operations">
+    <Card className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
       <OperationsCell label="Repositories evaluated in the last 24h">
         {ops.evaluated_24h.toLocaleString()}
         <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
@@ -186,6 +186,8 @@ function OperationsStrip({ ops }: { ops: Schemas["StatusOperations"] }) {
       <OperationsCell label="Overdue evaluations">{ops.overdue.toLocaleString()}</OperationsCell>
       <OperationsCell label="Last policy rollout">{rollout.at ? <Time iso={rollout.at} style="relative" /> : rollout.text}</OperationsCell>
       <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
+      {/* The backlog cell only with a Remediation App (IMPL-0032 6.7): an aggregate count, so the privacy guard holds. */}
+      {remediation ? <OperationsCell label="Remediation backlog">{ops.remediation_backlog.toLocaleString()}</OperationsCell> : null}
     </Card>
   );
 }

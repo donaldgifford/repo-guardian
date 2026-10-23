@@ -2,7 +2,7 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useRef } from "react";
 
 import type { Schemas } from "../api/client";
-import { exportCap, fetchAllRemediations, pageItems, useControls, useOrgs, useRemediationEnabled, useRemediationOverview, useRemediations } from "../api/queries";
+import { exportCap, fetchAllRemediations, openPullRequestsCap, pageItems, useControls, useOrgs, useRemediationEnabled, useRemediationOverview, useRemediations } from "../api/queries";
 import { HoldBadge, RemediationStateBadge } from "../components/badges";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
@@ -162,12 +162,7 @@ export function RemediationsView() {
                   d
                 </label>
                 <span className="flex-1" />
-                {items && overview.data ? (
-                  <span className="text-xs text-muted-foreground">
-                    {items.length.toLocaleString()} of {(overview.data.rows.length + overview.data.held.length).toLocaleString()}
-                    {overview.data.truncated ? "+" : ""}
-                  </span>
-                ) : null}
+                {overview.data?.truncated ? <span className="text-xs text-muted-foreground">KPIs count the first {openPullRequestsCap.toLocaleString()} rows</span> : null}
               </Card>
               <Card bodyClassName="p-0" title="Remediations">
                 {!items ? (

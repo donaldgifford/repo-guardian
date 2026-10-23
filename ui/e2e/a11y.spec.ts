@@ -32,6 +32,8 @@ for (const [name, path, heading] of [
   ["Orgs parked", "/orgs?tab=parked&open=acme", "Orgs"],
   ["Org", "/orgs/acme", "acme"],
   ["Repositories", "/repositories", "Repositories"],
+  ["Remediations", "/remediations", "Remediations"],
+  ["Remediations held", "/remediations?view=held", "Remediations"],
   ["History", "/history", "History"],
   ["Policy", "/policy", "Policy"],
 ] as const) {

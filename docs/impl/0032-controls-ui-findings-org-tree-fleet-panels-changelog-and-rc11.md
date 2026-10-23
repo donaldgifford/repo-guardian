@@ -487,7 +487,7 @@ This is IMPL-0030's former task 7.5 (DESIGN-0037 §Remediations view).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 6.1 **Hook and route.** `useRemediations(filter)` as a
+- [x] 6.1 **Hook and route.** `useRemediations(filter)` as a
   `useInfiniteQuery` over `/remediations`; the `/app/remediations`
   route with `validateSearch` for `view`, `kind`, `state`, `org`,
   `control`, `hold`, `older_than` and `open`, and its crumb (the open
@@ -495,37 +495,45 @@ This is IMPL-0030's former task 7.5 (DESIGN-0037 §Remediations view).
   is `GatedPanel`'s "not enabled" state and the nav count is blank;
   with it the nav entry shows the outstanding count (reserved, open,
   recommended, failed).
-- [ ] 6.2 **Holds as sentences.** `lib/holds.ts` maps `pr_cap`,
+- [x] 6.2 **Holds as sentences.** `lib/holds.ts` maps `pr_cap`,
   `foreign_branch`, `stale_branch`, `conflict` and `permission` to
   DESIGN-0037's sentences, with a `hold` tone row in `toneFor` and a
   `HoldBadge`. An unknown hold renders its code, never blank. Unit test
   every value.
-- [ ] 6.3 **Remediation state tones.** A `remediation` tone row over the
+- [x] 6.3 **Remediation state tones.** A `remediation` tone row over the
   schema's states (`open` info, `merged`/`closed_compliant`/`resolved`/
   `applied` ok, `recommended` warn, `failed` bad, the rest mute) and a
   `RemediationBadge` (state, PR number link, age, stale at 30 days),
   shared by Findings, the drawer and the repository page.
-- [ ] 6.4 **Page.** KPIs (Open PRs with the stale count,
+- [x] 6.4 **Page.** KPIs (Open PRs with the stale count,
   Recommendations, Held with a count per reason, Failed applies), the
   segmented views All / Open PRs / Recommendations / Held / Failed,
   filter chips for kind, state, org, control, hold and age, the table
   (Repository, Control, Kind, State, Hold with its sentence, Age,
   Updated) and Export, as the mockup draws them.
-- [ ] 6.5 **Drawer** (`?open=<remediation id>`): state, the pull request
+- [x] 6.5 **Drawer** (`?open=<remediation id>`): state, the pull request
   and its `repo-guardian/<control>` branch, hold with its sentence,
   age, the proposal for a recommendation, the steps journal for a
   direct apply, the result's timeline, and links to the finding and the
   repository. Escape and the scrim close it.
-- [ ] 6.6 **Repository remediation panel.** Each control card on the
+- [x] 6.6 **Repository remediation panel.** Each control card on the
   repository page shows `RemediationBadge`, the hold sentence, the
   apply steps when there are any, and "details →" to the drawer.
-- [ ] 6.7 **Status backlog.** The status page's operations strip gains
+- [x] 6.7 **Status backlog.** The status page's operations strip gains
   the Remediation backlog cell when the remediate App is installed.
   `TestStatus_PrivacyGuard` is IMPL-0030's to extend; this task only
   renders the number.
-- [ ] 6.8 **Unit tests:** filter ↔ URL round trip, the view presets, the
+- [x] 6.8 **Unit tests:** filter ↔ URL round trip, the view presets, the
   drawer id parse, every state and hold rendering against API fixtures
   (IMPL-0030 7.5's success criterion, carried).
+
+  2026-10-23: the base e2e seed has the Remediation App and no
+  remediations, so the Phase 6 Playwright coverage is the page's
+  content state, views, chips, deep link and axe; the seeded rows and
+  their round-trip specs are 8.1/8.2. There is no
+  `GET /remediations/{id}`, so the drawer key is the id, or
+  `<repository id>/<control>` for a held result (which has none), and a
+  deep link the table has not loaded is resolved by paging the list.
 
 <!--docz:tasks:end-->
 

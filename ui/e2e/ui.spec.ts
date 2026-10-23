@@ -210,13 +210,40 @@ test("Policy shows the caller's orgs only, and no enterprise layer", async ({ pa
   await expectNoGlobex(page);
 });
 
-test("the status page shows topology, Apps and the evaluation strip", async ({ page }) => {
+test("the status page shows topology, Apps, the evaluation strip and the remediation backlog", async ({ page }) => {
   await page.goto("/status");
   await expect(page.getByTestId("status-topology")).toHaveText("topology split");
   await expect(page.locator('[data-app="eval"]')).toContainText("2 installations");
   await expect(page.locator('[data-app="remediate"]')).toContainText("1 installations");
   await expect(page.getByText("Overdue evaluations")).toBeVisible();
   await expect(page.getByTestId("status-coverage")).toBeVisible();
+  // The e2e deployment has the Remediation App, so the backlog cell renders (IMPL-0032 6.7).
+  await expect(page.getByText("Remediation backlog")).toBeVisible();
+});
+
+// Remediations (IMPL-0032 Phase 6) on the base seed, which has the
+// Remediation App and no remediations yet: the page is its content
+// state with an empty table, the views and chips write the URL, the
+// nav count reads the backlog, and a deep link to a missing row says
+// so. The seeded rows and their specs are 8.1/8.2.
+test("Remediations renders its views, chips and empty state with the Remediation App", async ({ page }) => {
+  await signIn(page, "/remediations");
+  await expect(page.getByRole("heading", { level: 1, name: "Remediations" })).toBeVisible();
+  await expect(page.locator("[data-gated='content']").first()).toBeVisible();
+  await expect(page.getByText("Remediation is not enabled on this deployment")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Remediations/ }).locator("em")).toHaveText("0");
+  await expect(page.getByText("No remediations match.")).toBeVisible();
+  await page.getByRole("tab", { name: "Held" }).click();
+  await expect(page).toHaveURL(/view=held/);
+  await page.getByLabel("hold", { exact: true }).selectOption("conflict");
+  await expect(page).toHaveURL(/hold=conflict/);
+  await page.getByLabel("older than days").fill("14");
+  await expect(page).toHaveURL(/older_than=14/);
+  await page.goto("/remediations?open=999");
+  await expect(page.getByRole("dialog", { name: /^Remediation: remediation 999/ })).toContainText("not visible");
+  await page.keyboard.press("Escape");
+  await expect(page).not.toHaveURL(/open=/);
+  await expectNoGlobex(page);
 });
 
 // The keyboard pass (IMPL-0031 6.3, carried by IMPL-0032 2.7): Tab walks

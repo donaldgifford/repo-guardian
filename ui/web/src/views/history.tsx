@@ -4,22 +4,23 @@ import { useMemo } from "react";
 import { useComplianceHistory, useControls } from "../api/queries";
 import { TrendChart } from "../components/charts";
 import { Loading } from "../components/common";
+import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { Card } from "../components/ui/card";
 import { formatPercent } from "../lib/format";
 import { historySeries } from "../lib/posture";
-import { parseRangeSearch, type RangeSearch } from "../lib/range";
+import { parseScopeSearch, type ScopeSearch } from "../lib/scope";
 import { patchSearch } from "../lib/search";
 
 // HistorySearch keeps days a number, so the URL reads ?days=7 rather
 // than the router's JSON-quoted string.
-export interface HistorySearch extends RangeSearch {
+export interface HistorySearch extends ScopeSearch {
   control?: string;
 }
 
 export function parseHistorySearch(s: Record<string, unknown>): HistorySearch {
-  const out: HistorySearch = { ...parseRangeSearch(s) };
+  const out: HistorySearch = { ...parseScopeSearch(s) };
   if (typeof s.control === "string" && s.control !== "") out.control = s.control;
   return out;
 }
@@ -32,8 +33,9 @@ export function HistoryView() {
   const search = route.useSearch();
   const navigate = useNavigate();
   const days = useRangeDays();
-  const controls = useControls();
-  const history = useComplianceHistory({ days, ...(search.control ? { control: search.control } : {}) });
+  const org = useOrgScope();
+  const controls = useControls(org);
+  const history = useComplianceHistory({ days, ...(org ? { org } : {}), ...(search.control ? { control: search.control } : {}) });
   const series = useMemo(() => historySeries(history.data?.items ?? []), [history.data]);
   const setControl = (control: string | undefined) => void navigate({ to: ".", search: (prev: HistorySearch) => patchSearch(prev, { control }) });
   const last = series[series.length - 1];
@@ -48,6 +50,7 @@ export function HistoryView() {
         }
         controls={
           <>
+            <OrgScope />
             <select
               aria-label="Control"
               value={search.control ?? ""}

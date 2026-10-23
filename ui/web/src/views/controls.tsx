@@ -4,6 +4,7 @@ import type { Schemas } from "../api/client";
 import { useControl, useControls } from "../api/queries";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
+import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureKpis, PostureMeter } from "../components/posture";
@@ -16,18 +17,20 @@ import { controlColumns, controlsCsv } from "./fleet";
 
 // ControlsView lists every control assigned in the caller's orgs.
 export function ControlsView() {
-  const controls = useControls();
+  const org = useOrgScope();
+  const controls = useControls(org);
   return (
     <>
       <PageHeader
         title="Controls"
         subtitle={
           <>
-            Every control assigned in the orgs you can see · <code>GET /controls</code>
+            {org ? `Every control assigned in ${org}` : "Every control assigned in the orgs you can see"} · <code>GET /controls</code>
           </>
         }
+        controls={<OrgScope />}
       />
-      <Card bodyClassName="p-0" title="Controls" right={<ExportButton page="controls" columns={controlsCsv} rows={controls.data?.items} />}>
+      <Card bodyClassName="p-0" title="Controls" right={<ExportButton page="controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
         {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
       </Card>
     </>
@@ -40,11 +43,14 @@ const route = getRouteApi("/app/controls/$id");
 // lineage, the versions that org carries.
 export function ControlView() {
   const { id } = route.useParams();
+  const org = useOrgScope();
   const control = useControl(id);
   if (!control.data) {
     return <Loading />;
   }
   const c = control.data;
+  // GET /controls/{id} takes no org: the by-org table is narrowed here.
+  const orgRows = org ? c.orgs.filter((o) => o.org === org) : c.orgs;
   return (
     <>
       <PageHeader
@@ -56,15 +62,25 @@ export function ControlView() {
             <code>GET /controls/{c.id}</code>
           </>
         }
-        controls={<RangeTabs />}
+        controls={
+          <>
+            <OrgScope />
+            <RangeTabs />
+          </>
+        }
       />
       <div className="space-y-4">
         <PostureKpis posture={c.compliance} />
         <Card title="Assignments">
           <PostureBar posture={c.compliance} label={`${c.id} assignments by bucket`} />
         </Card>
-        <Card title="By org" subtitle="Each org and lineage, with the versions it carries." bodyClassName="p-0" right={<ExportButton page="control orgs" filter={{ control: c.id }} columns={controlOrgsCsv} rows={c.orgs} />}>
-          <DataTable columns={orgColumns} rows={c.orgs} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
+        <Card
+          title="By org"
+          subtitle="Each org and lineage, with the versions it carries."
+          bodyClassName="p-0"
+          right={<ExportButton page="control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
+        >
+          <DataTable columns={orgColumns} rows={orgRows} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
         </Card>
       </div>
     </>

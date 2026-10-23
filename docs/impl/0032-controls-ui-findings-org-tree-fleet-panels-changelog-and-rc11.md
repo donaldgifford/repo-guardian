@@ -256,7 +256,7 @@ merges: task 2.6 regenerates the client from its spec.
   the History numeric-search rule holds. Add `validateSearch` to the
   fleet, control, org and history routes, and drop the old `trendFrom`
   import. Include a unit test for the parse.
-- [ ] 2.3 **Header org scope (OQ3).** Restore
+- [x] 2.3 **Header org scope (OQ3).** Restore
   `components/page/OrgScope.tsx` as the page-header popover writing
   `?org=`, on Fleet, Controls, control detail, Findings, Remediations
   and History. Hooks pass `org` through to the API.

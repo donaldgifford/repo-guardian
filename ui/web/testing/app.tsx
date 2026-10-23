@@ -16,11 +16,15 @@ export const testConfig: UIConfig = { issuer: "https://idp.example.com", public_
 
 export interface SeededCache {
   config?: UIConfig;
+  me?: Schemas["Me"];
+  orgs?: Schemas["OrgList"];
 }
 
 export function seededClient(seed: SeededCache = {}): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(["ui-config"], seed.config ?? testConfig);
+  if (seed.me) client.setQueryData(["me"], seed.me);
+  if (seed.orgs) client.setQueryData(["orgs"], seed.orgs);
   return client;
 }
 

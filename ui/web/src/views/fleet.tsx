@@ -4,6 +4,7 @@ import type { Schemas } from "../api/client";
 import { useControls, useOrgs, useSummary } from "../api/queries";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
+import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs } from "../components/page/RangeTabs";
 import { CoverageText, PostureBar, PostureKpis, PostureMeter } from "../components/posture";
@@ -17,8 +18,9 @@ import { postureCsvHead, postureCsvRow } from "../lib/posture";
 // FleetView is the landing page: fleet totals over the caller's orgs,
 // every control linking to its breakdown, and the orgs.
 export function FleetView() {
+  const org = useOrgScope();
   const summary = useSummary();
-  const controls = useControls();
+  const controls = useControls(org);
   const orgs = useOrgs();
   if (!summary.data) {
     return <Loading />;
@@ -33,7 +35,12 @@ export function FleetView() {
             Compliance over every assignment in the orgs you can see · <code>GET /summary</code>
           </>
         }
-        controls={<RangeTabs />}
+        controls={
+          <>
+            <OrgScope />
+            <RangeTabs />
+          </>
+        }
       />
       <div className="space-y-4">
         <PostureKpis posture={s.compliance}>
@@ -48,7 +55,12 @@ export function FleetView() {
           <PostureBar posture={s.compliance} label="Fleet assignments by bucket" />
         </Card>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Controls" subtitle="Each control's compliance across the fleet." bodyClassName="p-0" right={<ExportButton page="controls" columns={controlsCsv} rows={controls.data?.items} />}>
+          <Card
+            title="Controls"
+            subtitle={org ? `Each control's compliance in ${org}.` : "Each control's compliance across the fleet."}
+            bodyClassName="p-0"
+            right={<ExportButton page="controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}
+          >
             {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
           </Card>
           <Card title="Orgs" bodyClassName="p-0" right={<ExportButton page="orgs" columns={orgsCsv} rows={orgs.data?.items} />}>

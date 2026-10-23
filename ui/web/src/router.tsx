@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, retainSearchParams 
 import { ProblemView } from "./components/problem";
 import { Shell } from "./components/shell/Shell";
 import { parseRangeSearch } from "./lib/range";
+import { parseScopeSearch } from "./lib/scope";
 import { ControlsView, ControlView } from "./views/controls";
 import { FleetView } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
@@ -24,14 +25,15 @@ const appRoute = createRoute({
   id: "app",
   component: Shell,
   errorComponent: ProblemView,
-  // The range rides along from page to page, as the mockup's router
-  // keeps it; a view's own filters stay behind (patchSearch's note).
-  search: { middlewares: [retainSearchParams(["days"])] },
+  // The org scope and the range ride along from page to page, as the
+  // mockup's router keeps them; a view's own filters stay behind
+  // (patchSearch's note).
+  search: { middlewares: [retainSearchParams(["org", "days"])] },
 });
 
-const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseRangeSearch, component: FleetView });
-const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", component: ControlsView });
-const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseRangeSearch, component: ControlView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseScopeSearch, component: FleetView });
+const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", validateSearch: parseScopeSearch, component: ControlsView });
+const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseScopeSearch, component: ControlView });
 const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
 const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", validateSearch: parseRangeSearch, component: OrgView });
 const repositoriesRoute = createRoute({

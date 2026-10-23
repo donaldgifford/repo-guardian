@@ -12,7 +12,7 @@ import { Command } from "./command";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTrigger } from "./drawer";
 import { Pill, PillGroup } from "./pill";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
-import { SearchTabs } from "./tabs";
+import { nextTab, SearchTabs, Tabs } from "./tabs";
 
 withDOM();
 
@@ -115,6 +115,40 @@ test("SearchTabs write the search param and drop it for the default", async () =
 
   await u.click(getByRole("tab", { name: "30d" }));
   await waitFor(() => expect(router.state.location.search).toEqual({}));
+});
+
+test("Tabs are one Tab stop: arrows move selection and focus along the row, Home and End jump", async () => {
+  const u = user();
+  function Host() {
+    const [value, setValue] = useState("7d");
+    return (
+      <Tabs
+        label="Range"
+        value={value}
+        onChange={setValue}
+        options={[
+          { value: "1d", label: "1d" },
+          { value: "7d", label: "7d" },
+          { value: "30d", label: "30d" },
+        ]}
+      />
+    );
+  }
+  const { getByRole } = render(<Host />);
+  const seven = getByRole("tab", { name: "7d" });
+  expect(getByRole("tab", { name: "1d" }).getAttribute("tabindex")).toBe("-1");
+  await act(async () => seven.focus());
+  await u.keyboard("{ArrowRight}");
+  await waitFor(() => expect(getByRole("tab", { name: "30d" }).getAttribute("aria-selected")).toBe("true"));
+  expect(document.activeElement).toBe(getByRole("tab", { name: "30d" }));
+  await u.keyboard("{ArrowRight}");
+  await waitFor(() => expect(getByRole("tab", { name: "1d" }).getAttribute("aria-selected")).toBe("true"));
+  await u.keyboard("{End}");
+  await waitFor(() => expect(getByRole("tab", { name: "30d" }).getAttribute("aria-selected")).toBe("true"));
+  await u.keyboard("{Home}");
+  await waitFor(() => expect(getByRole("tab", { name: "1d" }).getAttribute("aria-selected")).toBe("true"));
+  expect(nextTab([{ value: "a", label: "a" }], "a", "ArrowRight")).toBe("a");
+  expect(nextTab([{ value: "a", label: "a" }], "a", "Enter")).toBeUndefined();
 });
 
 test("Chip opens its popover editor", async () => {

@@ -275,7 +275,7 @@ merges: task 2.6 regenerates the client from its spec.
   is not enabled on this deployment" without it and the caller's empty
   state ("No open pull requests") with it. Unit-test the decision table;
   e2e covers both states (8.7, OQ6).
-- [ ] 2.7 **Nav.** `nav.ts` gains a `badge` field and the `/findings`
+- [x] 2.7 **Nav.** `nav.ts` gains a `badge` field and the `/findings`
   and `/remediations` paths, each hidden until its phase lands the
   route. Then add the IMPL-0031 6.3 keyboard pass on the current pages:
   tab order, visible focus, and Escape closing popovers.

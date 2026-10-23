@@ -1,10 +1,25 @@
 import { Link } from "@tanstack/react-router";
 
-import { useUIConfig } from "../../api/queries";
+import { useSummary, useUIConfig } from "../../api/queries";
 import { cn } from "../../lib/utils";
 import { Icon } from "../icons";
 import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";
-import { GROUP_LABELS, navGroups, navItems } from "./nav";
+import { GROUP_LABELS, type NavBadge, navGroups, navItems } from "./nav";
+
+// FindingsCount is the Findings entry's badge: the fleet's non-compliant
+// assignments, the same number the Findings page reports as M.
+function FindingsCount() {
+  const summary = useSummary();
+  const n = summary.data?.compliance.non_compliant;
+  return n === undefined ? null : <em className="ml-auto font-mono text-[11px] not-italic text-muted-foreground">{n.toLocaleString()}</em>;
+}
+
+// NavCount renders an entry's badge (the mockup's `<em>`), or nothing
+// while the count is unknown. The remediations count lands with its
+// page (IMPL-0032 6.1).
+function NavCount({ badge }: { badge: NavBadge }) {
+  return badge === "findings" ? <FindingsCount /> : null;
+}
 
 // SidebarNav is the list itself: groups with small uppercase labels,
 // each entry an icon and a label; the current item sits on panel-2
@@ -30,6 +45,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 >
                   <Icon name={n.icon} className="size-[15px] flex-none" />
                   <span>{n.label}</span>
+                  {n.badge ? <NavCount badge={n.badge} /> : null}
                 </Link>
               ) : (
                 <a key={n.label} href={n.href} target="_blank" rel="noopener noreferrer" className={item} onClick={onNavigate}>

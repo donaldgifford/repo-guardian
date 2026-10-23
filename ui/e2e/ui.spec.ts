@@ -188,3 +188,54 @@ test("the status page shows topology, Apps and the evaluation strip", async ({ p
   await expect(page.getByText("Overdue evaluations")).toBeVisible();
   await expect(page.getByTestId("status-coverage")).toBeVisible();
 });
+
+// The keyboard pass (IMPL-0031 6.3, carried by IMPL-0032 2.7): Tab walks
+// the top bar, the sidebar, the breadcrumb and the page header in
+// reading order, the focused element shows the one focus ring, and
+// Escape closes a popover and hands focus back to its opener.
+test("Tab walks Fleet in reading order with a visible ring, and Escape closes the org scope", async ({ page }) => {
+  await signIn(page);
+  const scope = page.getByRole("button", { name: /^Org scope/ });
+  await expect(scope).toBeVisible();
+  const seen: string[] = [];
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press("Tab");
+    seen.push(
+      await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return el ? (el.getAttribute("aria-label") ?? el.textContent?.trim() ?? "") : "";
+      }),
+    );
+  }
+  const expected = [/^Search/, /^Account menu$/, /^Fleet$/, /^Status page$/, /^Repo Guardian$/, /^Org scope/, /^30d$/];
+  let at = 0;
+  for (const want of expected) {
+    const i = seen.findIndex((s, j) => j >= at && want.test(s));
+    expect(i, `${want} after ${seen.slice(0, at).join(" › ")}`).toBeGreaterThanOrEqual(at);
+    at = i + 1;
+  }
+
+  // Only the selected range tab is a Tab stop; arrows move along the row.
+  await scope.focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("tab", { name: "30d" })).toBeFocused();
+  const ring = await page.evaluate(() => {
+    const s = getComputedStyle(document.activeElement as Element);
+    return [s.outlineStyle, s.outlineWidth];
+  });
+  expect(ring).toEqual(["solid", "2px"]);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "90d" })).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/days=90/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page).not.toHaveURL(/days=/);
+
+  // The org-scope popover opens from the keyboard, and Escape closes it
+  // and returns focus to the opener.
+  await scope.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Org scope" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Org scope" })).toHaveCount(0);
+  await expect(scope).toBeFocused();
+});

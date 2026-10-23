@@ -200,6 +200,12 @@ export function useComplianceHistory(f: HistoryFilter) {
   return useQuery({ queryKey: ["history", f], queryFn: () => unwrap(api.GET("/compliance/history", { params: { query: f } })) });
 }
 
+// useRemediationActivity is the PR throughput per UTC day, today
+// included; gated by the caller on the Remediation App.
+export function useRemediationActivity(days: number, enabled = true) {
+  return useQuery({ queryKey: ["remediation-activity", days], queryFn: () => unwrap(api.GET("/remediations/activity", { params: { query: { days } } })), enabled });
+}
+
 export function usePolicies() {
   return useQuery({ queryKey: ["policies"], queryFn: () => unwrap(api.GET("/policies")) });
 }

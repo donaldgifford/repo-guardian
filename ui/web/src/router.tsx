@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, retainSearchParams 
 
 import { ProblemView } from "./components/problem";
 import { Shell } from "./components/shell/Shell";
+import { parseFleetSearch } from "./lib/fleet";
 import { parseRangeSearch } from "./lib/range";
 import { parseScopeSearch } from "./lib/scope";
 import { ControlsView, ControlView } from "./views/controls";
@@ -33,7 +34,7 @@ const appRoute = createRoute({
   search: { middlewares: [retainSearchParams(["org", "days"])] },
 });
 
-const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseScopeSearch, component: FleetView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseFleetSearch, component: FleetView });
 const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", validateSearch: parseScopeSearch, component: ControlsView });
 const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseScopeSearch, component: ControlView });
 const findingsRoute = createRoute({ getParentRoute: () => appRoute, path: "/findings", validateSearch: parseFindingsSearch, component: FindingsView });

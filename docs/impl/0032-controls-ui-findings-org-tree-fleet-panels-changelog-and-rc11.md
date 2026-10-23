@@ -437,7 +437,7 @@ panels.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 **Compliance card:**
+- [x] 5.1 **Compliance card:**
   - KPI strip: Tracked; Compliant % with a delta in points over the
     range; Non-compliant with `controls_failing`; Parked with its
     reason count; Snapshots and cadence.
@@ -445,22 +445,22 @@ panels.
     choose what the area chart draws from `aggregate=fleet`. The pill
     choice persists as `?series=`.
   - Fewer than two points renders no delta.
-- [ ] 5.2 **Finding age:** `DistBar` over `Summary.finding_age` with the
+- [x] 5.2 **Finding age:** `DistBar` over `Summary.finding_age` with the
   "N% under 30d" pill and a link to `/findings?sort=since_asc`.
-- [ ] 5.3 **Worst controls:** the five lowest measured percentages from
+- [x] 5.3 **Worst controls:** the five lowest measured percentages from
   `/controls`, each with its delta from `aggregate=control`.
-- [ ] 5.4 **Parked by reason:** `BarList` over `Summary.parked_by_reason`.
-- [ ] 5.5 **Compliance by control:** the table gains N/A, %, and a
+- [x] 5.4 **Parked by reason:** `BarList` over `Summary.parked_by_reason`.
+- [x] 5.5 **Compliance by control:** the table gains N/A, %, and a
   sparkline from one `aggregate=control` request (not one per row).
-- [ ] 5.6 **Orgs card:** with one org in scope it becomes Exclusions by
+- [x] 5.6 **Orgs card:** with one org in scope it becomes Exclusions by
   reason from `OrgDetail.exclusions`. Export on both.
-- [ ] 5.7 **Assignments** stays (rc.11's bucket card).
-- [ ] 5.8 **Open PRs by age** (`Summary.open_prs_by_age`, "N over
+- [x] 5.7 **Assignments** stays (rc.11's bucket card).
+- [x] 5.8 **Open PRs by age** (`Summary.open_prs_by_age`, "N over
   threshold → `/findings?pr_stale=true`") and **PR throughput (14d)**
   (`/remediations/activity`), both through `GatedPanel`.
-- [ ] 5.9 **Org detail:** the compliance chart switches to
+- [x] 5.9 **Org detail:** the compliance chart switches to
   `aggregate=org`.
-- [ ] 5.10 **Unit tests:** delta with 0, 1 and 2+ points; the `?series=`
+- [x] 5.10 **Unit tests:** delta with 0, 1 and 2+ points; the `?series=`
   parse; the two gated panels in all three states.
 
 <!--docz:tasks:end-->

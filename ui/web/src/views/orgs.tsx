@@ -2,13 +2,14 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import type { Schemas } from "../api/client";
-import { pageItems, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
+import { pageItems, useComplianceHistory, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
+import { ChartCard, TrendChart, trendTable } from "../components/charts";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
 import { GatedPanel, NOT_ENABLED } from "../components/GatedPanel";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
-import { RangeTabs } from "../components/page/RangeTabs";
+import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
 import { Time } from "../components/time";
 import { Badge } from "../components/ui/badge";
@@ -21,7 +22,7 @@ import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "../lib/csv";
 import { formatPercent, humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";
-import { postureCsvHead, postureCsvRow } from "../lib/posture";
+import { historySeries, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
 import { orgsCsv } from "./fleet";
 import { countByRepository, joinOpen, matchesFilter, openOrgs, type OrgPRActivity, ORGS_TABS, type OrgsTab, postureCells, prActivity, staleAfterDays, sumOrgs, toggleOpen } from "./orgs/tree";
@@ -275,7 +276,10 @@ const route = getRouteApi("/app/orgs/$org");
 // added, its controls with the worst first, and its exclusions.
 export function OrgView() {
   const { org } = route.useParams();
+  const days = useRangeDays();
   const detail = useOrg(org);
+  const history = useComplianceHistory({ days, aggregate: "org", org });
+  const series = useMemo(() => historySeries(history.data?.items ?? []), [history.data]);
   if (!detail.data) {
     return <Loading />;
   }
@@ -305,6 +309,17 @@ export function OrgView() {
           <Kpi label="Baseline assignments" value={o.baseline.assigned.toLocaleString()} />
           <Kpi label="Org-added assignments" value={o.org_added.assigned.toLocaleString()} />
         </div>
+        <ChartCard
+          title={`Compliance (${days}d)`}
+          subtitle={
+            <>
+              <code>aggregate=org</code>, every control in {o.org}.
+            </>
+          }
+          table={trendTable(series, "compliance %")}
+        >
+          {history.data ? <TrendChart series={series} rangeDays={days} height={180} aria-label={`${o.org} compliance over time`} /> : <Loading />}
+        </ChartCard>
         <div className="grid gap-4 lg:grid-cols-3">
           <Card
             title="Controls"
@@ -343,7 +358,7 @@ const orgControlsCsv: CsvColumns<Schemas["OrgControl"]> = {
   row: (c) => [c.control_id, c.decision, ...postureCsvRow(c.compliance)],
 };
 
-const exclusionsCsv: CsvColumns<Schemas["Exclusion"]> = {
+export const exclusionsCsv: CsvColumns<Schemas["Exclusion"]> = {
   head: ["repository", "control", "state", "reason", "excluded_by"],
   row: (e) => [e.repository, e.control_id ?? "", e.state, e.reason, e.excluded_by ?? ""],
 };
@@ -360,7 +375,7 @@ const worstColumns: Column<Schemas["OrgControl"]>[] = [
   { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.control_id} compliance`} />, width: "55%" },
 ];
 
-const exclusionColumns: Column<Schemas["Exclusion"]>[] = [
+export const exclusionColumns: Column<Schemas["Exclusion"]>[] = [
   { key: "repository", header: "Repository", cell: (e) => <span className="font-mono">{e.repository}</span> },
   { key: "control", header: "Control", cell: (e) => (e.control_id ? <span className="font-mono">{e.control_id}</span> : <span className="text-muted-foreground">every control</span>) },
   { key: "state", header: "State", cell: (e) => <Badge tone="mute">{humanize(e.state)}</Badge> },

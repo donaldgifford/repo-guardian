@@ -14,11 +14,11 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { type Delta, Kpi } from "../components/ui/kpi";
+import { Kpi } from "../components/ui/kpi";
 import type { CsvColumns } from "../lib/csv";
-import { ageDays, formatPercent, trend } from "../lib/format";
+import { rangeDelta } from "../lib/fleet";
+import { ageDays, formatPercent } from "../lib/format";
 import { addPosture, emptyPosture, historySeries, postureCsvHead, postureCsvRow } from "../lib/posture";
-import type { SeriesPoint } from "../lib/viewmodel";
 import { findingKey } from "./findings/drawer";
 import { controlColumns, controlsCsv } from "./fleet";
 
@@ -45,17 +45,6 @@ export function ControlsView() {
 }
 
 const route = getRouteApi("/app/controls/$id");
-
-// rangeDelta is the compliance move over the range: last snapshot
-// against the first, in points; null until two measured snapshots exist.
-export function rangeDelta(series: readonly SeriesPoint[]): Delta | null {
-  const measured = series.filter((p) => p.percent !== null);
-  const first = measured[0];
-  const last = measured[measured.length - 1];
-  if (!first || !last || first === last) return null;
-  const value = trend(last.percent, first.percent);
-  return value === null ? null : { value, goodUp: true, unit: " pts" };
-}
 
 // ruleCounts tallies the loaded findings by failing rule, the bar list's
 // rows; a finding failing two rules counts under both.

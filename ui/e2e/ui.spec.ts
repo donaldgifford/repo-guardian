@@ -96,9 +96,39 @@ test("Fleet totals the caller's orgs and links to controls and orgs", async ({ p
   const controls = page.getByRole("table", { name: "Controls" });
   await expect(controls.getByRole("link", { name: "codeowners" })).toBeVisible();
   await expect(page.getByRole("table", { name: "Orgs" }).getByRole("link", { name: "acme" })).toBeVisible();
+
+  // The fleet panels (IMPL-0032 Phase 5): the compliance card's strip
+  // and pills, finding age, worst controls, parked by reason and the
+  // two gated PR panels, all on the seed.
+  const strip = page.getByRole("heading", { name: /^Compliance \(30d\)/ }).locator("..").locator("..").locator("..");
+  await expect(strip).toContainText("Tracked");
+  await expect(strip).toContainText("Snapshots");
+  await page.getByRole("radio", { name: /^findings/ }).click();
+  await expect(page).toHaveURL(/series=non_compliant/);
+  await expect(page.getByRole("img", { name: "findings over the last 30 days" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Finding age distribution" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "oldest findings first →" })).toHaveAttribute("href", /\/findings\?sort=since_asc/);
+  await expect(page.getByRole("list", { name: "Worst controls" }).getByRole("link", { name: "renovate" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Parked repositories by reason" })).toContainText("archived");
+  await expect(controls.getByRole("columnheader", { name: "Trend" })).toBeVisible();
+  // The e2e deployment has the Remediation App: the PR panels show data or their empty state, never "not enabled".
+  for (const name of [/^Open PRs by age/, /^PR throughput/]) {
+    const card = page.getByRole("heading", { name }).locator("..").locator("..").locator("..");
+    await expect(card.locator("[data-gated]")).toHaveAttribute("data-gated", /^(content|empty)$/);
+  }
+  // The range follows: 7d re-requests both aggregates once each.
+  const histories: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/compliance/history")) histories.push(new URL(r.url()).searchParams.get("aggregate") ?? "");
+  });
+  await page.getByRole("tab", { name: "7d" }).click();
+  await expect(page).toHaveURL(/days=7/);
+  await expect(page.getByRole("heading", { name: /^Compliance \(7d\)/ })).toBeVisible();
+  await expect.poll(() => histories.filter((a) => a === "fleet").length).toBe(1);
+  await expect.poll(() => histories.filter((a) => a === "control").length).toBe(1);
   await expectNoGlobex(page);
   await controls.getByRole("link", { name: "renovate" }).click();
-  await expect(page).toHaveURL(/\/controls\/renovate$/);
+  await expect(page).toHaveURL(/\/controls\/renovate\?/);
 });
 
 test("Controls lists each control and a control breaks down by org with versions", async ({ page }) => {

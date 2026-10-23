@@ -269,7 +269,7 @@ merges: task 2.6 regenerates the client from its spec.
   `ui/web/src/api/queries.ts` becomes a `useInfiniteQuery` taking
   `org`, `active` and `q` (the tree, the Parked tab and the palette use
   it). It replaces today's single `limit: 100` fetch.
-- [ ] 2.6 **Client and gating.** `make generate-ui-api` against
+- [x] 2.6 **Client and gating.** `make generate-ui-api` against
   IMPL-0030's spec. Add `useRemediationEnabled()` (true when
   `Status.apps` has `remediate`) and a `GatedPanel` that renders "Remediation
   is not enabled on this deployment" without it and the caller's empty

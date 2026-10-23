@@ -1,6 +1,6 @@
 import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, ProblemError, toProblem, unwrap } from "./client";
+import { api, ProblemError, type Schemas, toProblem, unwrap } from "./client";
 
 export interface UIConfig {
   issuer: string;
@@ -26,6 +26,18 @@ export function useMe() {
 
 export function useStatus() {
   return useQuery({ queryKey: ["status"], queryFn: () => unwrap(api.GET("/status")), refetchInterval: 30_000 });
+}
+
+// remediationEnabled reads Status.apps: the Remediation App is
+// installed when it is listed. Every gated panel decides from this and
+// nothing else (DESIGN-0037 §Gated panels).
+export function remediationEnabled(status: Pick<Schemas["Status"], "apps"> | undefined): boolean | undefined {
+  return status === undefined ? undefined : status.apps.some((a) => a.app === "remediate");
+}
+
+// useRemediationEnabled is undefined until /status has answered.
+export function useRemediationEnabled(): boolean | undefined {
+  return remediationEnabled(useStatus().data);
 }
 
 export function useSummary() {

@@ -2,10 +2,11 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { Schemas } from "../api/client";
-import { useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
+import { pageItems, useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
 import { RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
+import { LoadMore } from "../components/LoadMore";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
@@ -53,6 +54,7 @@ export function RepositoriesView() {
   const settled = useDebounced(q, 250);
   const { q: _urlQ, ...rest } = search;
   const repos = useRepositories(settled ? { ...rest, q: settled } : rest);
+  const items = pageItems(repos.data);
   const setFilter = (patch: Record<string, string | undefined>) => void navigate({ to: ".", search: (prev: RepositoriesSearch) => patchSearch(prev, patch) });
   return (
     <>
@@ -90,8 +92,15 @@ export function RepositoriesView() {
           </>
         }
       />
-      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton page="repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={repos.data?.items} />}>
-        {repos.data ? <DataTable columns={repositoryColumns} rows={repos.data.items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" /> : <Loading />}
+      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton page="repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
+        {items ? (
+          <>
+            <DataTable columns={repositoryColumns} rows={items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" />
+            <LoadMore loaded={items.length} hasMore={repos.hasNextPage} loading={repos.isFetchingNextPage} onMore={() => void repos.fetchNextPage()} noun="repositories" />
+          </>
+        ) : (
+          <Loading />
+        )}
       </Card>
     </>
   );

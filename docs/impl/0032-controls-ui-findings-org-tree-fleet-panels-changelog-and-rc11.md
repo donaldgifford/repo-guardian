@@ -265,7 +265,7 @@ merges: task 2.6 regenerates the client from its spec.
   surviving `ui/command.tsx`, over `/repositories?q=` (debounced),
   `/controls` and `/orgs`, and bind ⌘K/Ctrl-K with
   `useKeyboardShortcut`. The top-bar Search button opens it.
-- [ ] 2.5 **Client paging.** `useRepositories` in
+- [x] 2.5 **Client paging.** `useRepositories` in
   `ui/web/src/api/queries.ts` becomes a `useInfiniteQuery` taking
   `org`, `active` and `q` (the tree, the Parked tab and the palette use
   it). It replaces today's single `limit: 100` fetch.

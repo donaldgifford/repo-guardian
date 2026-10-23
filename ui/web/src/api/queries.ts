@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ProblemError, toProblem, unwrap } from "./client";
 
@@ -50,15 +50,31 @@ export function useOrg(org: string) {
 
 export interface RepositoryFilter {
   org?: string;
+  active?: boolean;
   q?: string;
   policy_state?: string;
 }
 
-export function useRepositories(f: RepositoryFilter) {
-  return useQuery({
+export const repositoryPageSize = 50;
+
+// useRepositories pages /repositories by its keyset cursor: the list,
+// the orgs tree, the Parked tab and the palette all read it, each with
+// its own filter. `enabled` lets a caller hold the request until it has
+// something to ask (a collapsed group, an empty palette query).
+export function useRepositories(f: RepositoryFilter, enabled = true) {
+  return useInfiniteQuery({
     queryKey: ["repositories", f],
-    queryFn: () => unwrap(api.GET("/repositories", { params: { query: { ...f, limit: 100 } } })),
+    queryFn: ({ pageParam }) => unwrap(api.GET("/repositories", { params: { query: { ...f, limit: repositoryPageSize, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor,
+    enabled,
   });
+}
+
+// pageItems flattens an infinite query's pages; undefined until the
+// first page lands, so callers keep their loading state.
+export function pageItems<T>(data: InfiniteData<{ items: T[] }, unknown> | undefined): T[] | undefined {
+  return data?.pages.flatMap((p) => p.items);
 }
 
 export function useRepository(id: number) {

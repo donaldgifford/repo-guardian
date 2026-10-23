@@ -89,7 +89,10 @@ const tones: Record<Exclude<ToneField, "reason" | "kind" | "decision">, Record<s
     unmeasurable_suspended: "warn",
     unmeasurable_conflict: "warn",
   },
-  remediation: { pr_open: "info", applied: "ok", foreign_pr: "warn", disabled: "mute", dry_run: "mute", none: "mute" },
+  // remediation is a remediation's state (DESIGN-0032's closed set, read
+  // as open): open is work in flight, the four landed states are ok, a
+  // recommendation waits for a human, failed is bad, the rest are over.
+  remediation: { open: "info", merged: "ok", closed_compliant: "ok", resolved: "ok", applied: "ok", recommended: "warn", failed: "bad" },
   state: { operational: "ok", degraded: "warn" },
 };
 

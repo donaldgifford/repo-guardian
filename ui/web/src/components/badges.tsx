@@ -1,4 +1,6 @@
-import { humanize, toneFor } from "../lib/format";
+import type { Schemas } from "../api/client";
+import { ageDays, humanize, toneFor } from "../lib/format";
+import { ExternalLink } from "./posture";
 import { Badge } from "./ui/badge";
 
 // The badges every view uses, each reading the tone table so no
@@ -14,13 +16,32 @@ export function RuleStatusBadge({ status }: { status: string }) {
   return <Badge tone={toneFor("rule", status)}>{status === "not_applicable" ? "n/a" : humanize(status)}</Badge>;
 }
 
-// RemediationBadge renders "—" for `none` inside a table, where a badge
-// on every row would be noise; in a detail view it names it.
-export function RemediationBadge({ remediation, table = false }: { remediation: string; table?: boolean }) {
-  if (table && remediation === "none") {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return <Badge tone={toneFor("remediation", remediation)}>{humanize(remediation)}</Badge>;
+// staleAfterDays is when an open pull request reads stale (the API's
+// pr_stale threshold).
+export const staleAfterDays = 30;
+
+// RemediationStateBadge is a remediation state alone, toned by the
+// `remediation` row; `open` reads "pr open".
+export function RemediationStateBadge({ state }: { state: string }) {
+  return <Badge tone={toneFor("remediation", state)}>{state === "open" ? "pr open" : humanize(state)}</Badge>;
+}
+
+// RemediationBadge is a result's latest remediation (IMPL-0032 6.3),
+// shared by Findings, the drawer and the repository page: the state,
+// the pull request number as a link, its age and a stale badge once an
+// open pull request is 30 days old. Absent, it is "—".
+export function RemediationBadge({ remediation: r, now }: { remediation: Pick<Schemas["ResultRemediation"], "state" | "kind" | "created_at" | "pr_number" | "pr_url"> | undefined; now?: Date }) {
+  if (!r) return <span className="text-muted-foreground">—</span>;
+  const age = ageDays(r.created_at, now);
+  const stale = r.kind === "pull_request" && r.state === "open" && age >= staleAfterDays;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <RemediationStateBadge state={r.state} />
+      {r.pr_number !== undefined ? r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono">#{r.pr_number}</span> : null}
+      <span className="text-xs text-muted-foreground tabular-nums">{age}d</span>
+      {stale ? <Badge tone="warn">stale</Badge> : null}
+    </span>
+  );
 }
 
 // ReasonBadge is toned by the status it sits under; the reason itself is

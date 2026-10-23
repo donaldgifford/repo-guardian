@@ -30,3 +30,19 @@ test("ExportButton is disabled until rows load and when there are none", async (
   const empty = render(<ExportButton page="orgs" columns={columns} rows={[]} download={() => {}} />);
   expect((await empty.findByRole("button")).hasAttribute("disabled")).toBe(true);
 });
+
+test("with `all`, ExportButton pages the whole set and says when the cap cut it short", async () => {
+  const saved: string[] = [];
+  const { findByRole, findByText } = render(
+    <ExportButton
+      page="findings"
+      columns={columns}
+      rows={[{ org: "acme", tracked: 1 }]}
+      all={{ cap: 2, fetch: async () => ({ rows: [{ org: "a", tracked: 1 }, { org: "b", tracked: 2 }], truncated: true }) }}
+      download={(_n, t) => saved.push(t)}
+    />,
+  );
+  await user().click(await findByRole("button", { name: "Export findings as CSV" }));
+  expect(await findByText(/cut short at 2 rows/)).toBeTruthy();
+  expect(saved).toEqual(["org,tracked\r\na,1\r\nb,2\r\n"]);
+});

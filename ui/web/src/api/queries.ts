@@ -56,8 +56,8 @@ export function useOrgs() {
   return useQuery({ queryKey: ["orgs"], queryFn: () => unwrap(api.GET("/orgs")) });
 }
 
-export function useOrg(org: string) {
-  return useQuery({ queryKey: ["org", org], queryFn: () => unwrap(api.GET("/orgs/{org}", { params: { path: { org } } })) });
+export function useOrg(org: string, enabled = true) {
+  return useQuery({ queryKey: ["org", org], queryFn: () => unwrap(api.GET("/orgs/{org}", { params: { path: { org } } })), enabled });
 }
 
 export interface RepositoryFilter {
@@ -114,10 +114,52 @@ export function useRepositoryEvents(id: number) {
   });
 }
 
+export interface ResultsFilter {
+  bucket?: string;
+  control?: string;
+  rule?: string;
+  org?: string;
+  decision?: string;
+  pr_stale?: boolean;
+  sort?: "since_asc" | "since_desc" | "pr_age";
+}
+
+export const resultsPageSize = 50;
+
+// useResults pages /results by its keyset cursor; `total` rides on the
+// first page only, so callers read it from pages[0].
+export function useResults(f: ResultsFilter, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ["results", f],
+    queryFn: ({ pageParam }) => unwrap(api.GET("/results", { params: { query: { ...f, limit: resultsPageSize, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor,
+    enabled,
+  });
+}
+
+// exportCap bounds a CSV export of /results (DESIGN-0037 OQ6): the
+// export pages up to this many rows and says when it stopped short.
+export const exportCap = 10_000;
+
+// fetchAllResults walks /results for an export, stopping at the cap.
+export async function fetchAllResults(f: ResultsFilter, cap = exportCap): Promise<{ rows: Schemas["ResultRow"][]; truncated: boolean }> {
+  const rows: Schemas["ResultRow"][] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await unwrap(api.GET("/results", { params: { query: { ...f, limit: Math.min(200, cap - rows.length), ...(cursor ? { cursor } : {}) } } }));
+    rows.push(...page.items);
+    cursor = page.next_cursor;
+    if (!cursor) return { rows, truncated: false };
+    if (rows.length >= cap) return { rows: rows.slice(0, cap), truncated: true };
+  }
+}
+
 export interface HistoryFilter {
   days: number;
   control?: string;
   org?: string;
+  aggregate?: "none" | "fleet" | "org" | "control";
 }
 
 export function useComplianceHistory(f: HistoryFilter) {

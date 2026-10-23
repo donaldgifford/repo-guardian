@@ -345,7 +345,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   and control.
   The remediation link into the Remediations drawer lands with that
   route (6.1); the drawer shows the remediation state inline until then.
-- [ ] 3.5 **Control detail cards:**
+- [x] 3.5 **Control detail cards:**
   - **Top failing rules:** a bar list of the control's findings by
     failing rule from `/results?control=`. Each row links to
     `/findings?control=&rule=`.

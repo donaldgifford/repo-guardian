@@ -239,12 +239,15 @@ test("the status page shows topology, Apps, the evaluation strip and the remedia
   await expect(page.getByTestId("status-topology")).toHaveText("topology split");
   await expect(page.locator('[data-app="eval"]')).toContainText("2 installations");
   await expect(page.locator('[data-app="remediate"]')).toContainText("1 installations");
-  await expect(page.getByText("Overdue evaluations")).toBeVisible();
+  // The strip's labels are scoped to the Operations card: the Changelog
+  // card below is free text and a release note may use the same words.
+  const ops = page.getByRole("region", { name: "Operations" });
+  await expect(ops.getByText("Overdue evaluations")).toBeVisible();
   await expect(page.getByTestId("status-coverage")).toBeVisible();
   // The e2e deployment has the Remediation App, so the backlog cell renders the API's count (IMPL-0032 6.7).
   const status = (await (await page.request.get("/api/v1/status")).json()) as { operations: { remediation_backlog: number } };
   expect(status.operations.remediation_backlog).toBeGreaterThan(0);
-  await expect(page.getByText("Remediation backlog").locator("..")).toContainText(String(status.operations.remediation_backlog));
+  await expect(ops.getByText("Remediation backlog").locator("..")).toContainText(String(status.operations.remediation_backlog));
   // The changelog card is bundled (IMPL-0032 7.5): newest five, one "running".
   const changelog = page.getByRole("region", { name: "Changelog" });
   await expect(changelog.locator("[data-version]")).toHaveCount(5);

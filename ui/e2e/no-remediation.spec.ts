@@ -73,6 +73,7 @@ test("the status page has no Remediation App and no backlog cell", async ({ page
   await page.goto("/status");
   await expect(page.locator('[data-app="eval"]')).toContainText("2 installations");
   await expect(page.locator('[data-app="remediate"]')).toHaveCount(0);
-  await expect(page.getByText("Remediation backlog")).toHaveCount(0);
-  await expect(page.getByText("Overdue evaluations")).toBeVisible();
+  const ops = page.getByRole("region", { name: "Operations" });
+  await expect(ops.getByText("Remediation backlog")).toHaveCount(0);
+  await expect(ops.getByText("Overdue evaluations")).toBeVisible();
 });

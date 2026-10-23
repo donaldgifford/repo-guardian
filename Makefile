@@ -297,9 +297,9 @@ test-ui-e2e-update-snapshots: ## Regenerate ui/e2e/__screenshots__ through the p
 	@ $(MAKE) --no-print-directory log-$@
 	@cd ui && bun scripts/visual.ts --update-snapshots
 
-lint-ui: ## Typecheck and ESLint the UI; fail if its generated API types are stale or its build breaks the CSP
+lint-ui: ## Typecheck and ESLint the UI; fail if its generated API types or changelog are stale, the changelog's newest entry is not the chart appVersion, or its build breaks the CSP
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun run typecheck && bun run lint && bun run check:api && bun run check:dist
+	@cd ui && bun run typecheck && bun run lint && bun run check:api && bun run check:changelog && bun run check:dist
 
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@

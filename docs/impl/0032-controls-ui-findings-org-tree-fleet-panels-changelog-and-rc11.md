@@ -1,7 +1,7 @@
 ---
 id: IMPL-0032
 title: "Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-18
 ---
@@ -620,7 +620,7 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 8.1 **Seed.** `ui/e2e/seed.sql` grows:
+- [x] 8.1 **Seed.** `ui/e2e/seed.sql` grows:
   - several controls with failing rules and distinct evidence kinds,
     and an `error` rule;
   - parked repositories with three reasons;
@@ -633,7 +633,16 @@ the audit.
     each hold reason.
 
   globex stays invisible to ada.
-- [ ] 8.2 **Specs** in `ui/e2e/ui.spec.ts`. Each one asserts globex never
+
+  2026-10-23: acme grew mobile, docs, infra, data, ops, tools (active),
+  old-fork (fork) and vault (access_denied, keeping a failing result)
+  beside legacy (archived), and sandbox (excluded by the org layer);
+  `labels@1` is acme's org-added control with its own evidence kind;
+  mobile's codeowners has a `valid` rule in error and its renovate a
+  `config` rule with a second kind; `last_changed_at` sits at 12h, 3d,
+  15d, 45d, 120d and 200d; the eight remediations and the four
+  branch-held results are listed in the seed's header.
+- [x] 8.2 **Specs** in `ui/e2e/ui.spec.ts`. Each one asserts globex never
   appears:
   - Findings filters round-trip, and the drawer deep link and
     Re-evaluate work.
@@ -644,25 +653,47 @@ the audit.
     works, and a hold reads as its sentence.
   - The repository remediation panel and the status backlog cell.
   - The changelog card.
-- [ ] 8.3 **Axe.** `a11y.spec.ts` loops over `/findings`,
+
+  2026-10-23: all in `ui.spec.ts`, each ending in `expectNoGlobex`.
+  Numbers that the seed moves (the fleet percent, the org's tracked
+  count, the backlog) are read from the API in the spec rather than
+  pinned. Found on the way: a numeric `?open=` was JSON-quoted by the
+  router and a hand-typed `?open=12` was dropped by the validator —
+  `open` is now a number for an id (`openSearch`) and the spec asserts
+  `open=\d+`.
+- [x] 8.3 **Axe.** `a11y.spec.ts` loops over `/findings`,
   `/findings?open=`, `/orgs` (expanded), `/remediations`,
   `/remediations?open=`, the fleet, and the status page with the
   changelog.
-- [ ] 8.4 **Screenshots.** Re-render the snapshots in the pinned
+
+  2026-10-23: the list, plus the finding and remediation drawers each
+  opened by a row click and by a `?open=` deep link (sign in first; the
+  modal aria-hides the page).
+- [x] 8.4 **Screenshots.** Re-render the snapshots in the pinned
   Playwright image and copy `status.png` to `docs/usage/img/ui/` again.
   Add the findings, orgs and remediations pages to the visual spec if
   IMPL-0031's OQ5 still allows it.
-- [ ] 8.5 **Docs:**
+
+  2026-10-23: `status.png` re-rendered (backlog cell, changelog card)
+  and copied to `docs/usage/img/ui/`; OQ5 only fixes the rendering
+  environment, so `findings.png`, `orgs.png` (expanded) and
+  `remediations.png` joined the visual spec, signed in through the mock
+  issuer. CI wiring of the visual spec stays deferred as before.
+- [x] 8.5 **Docs:**
   - `docs/usage/ui.md`: the Findings page, the tree, the fleet panels,
     the Remediations view, export and the changelog;
   - `ui/README.md`;
   - CLAUDE.md: the DESIGN-0037 UI contracts (findings = bucket
     `non_compliant`; gated panels decide from `Status.apps`; holds are
     sentences in `lib/holds.ts`; the changelog gate).
-- [ ] 8.6 **Close the related docs.** Mark INV-0023 Concluded with each
+- [x] 8.6 **Close the related docs.** Mark INV-0023 Concluded with each
   finding's outcome (F3, F7.1 and F7.2 pointing at IMPL-0030), and set
   DESIGN-0037 to Implemented (`docz update`).
-- [ ] 8.7 **The "not enabled" stack (OQ6).** `ui/e2e/seed-no-remediate.sql`
+
+  2026-10-23: INV-0023 Concluded with an outcome table under its
+  conclusion; DESIGN-0037 Implemented; `docz update` run per type (it
+  takes one type at a time) and its unrelated TOC churn reverted.
+- [x] 8.7 **The "not enabled" stack (OQ6).** `ui/e2e/seed-no-remediate.sql`
   (the base seed without the remediate App's installations, access rows
   and remediations), loaded into a second database in the same Postgres
   container, and a Playwright project `no-remediation` whose
@@ -672,6 +703,16 @@ the audit.
   page, and asserts every gated panel reads "Remediation is not
   enabled", the Remediations nav count is blank and the status backlog
   cell is absent. `e2e/teardown.ts` sweeps both databases.
+
+  2026-10-23: `seed-no-remediate.sql` is a delta applied after
+  `seed.sql` (deletes the App's installation, access rows,
+  remediations and the maintenance/sweep runs; downgrades acme's
+  effective mode to evaluate; clears the branch holds), loaded into
+  `repoguardian_norem` in the same container (the roles are
+  cluster-wide, the schema grant per database); the second api role
+  and BFF sit one port up (`:18081`, `:3101`); the `chromium` project
+  ignores the spec and `no-remediation` matches only it. Both
+  databases share the one labelled container the teardown sweeps.
 
 <!--docz:tasks:end-->
 
@@ -693,13 +734,13 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 9.1 Merge into `v2`, cut `v2.0.0-rc.N` by hand with its
+- [ ] 9.1 `deferred - human required` Merge into `v2`, cut `v2.0.0-rc.N` by hand with its
   changelog entry, and dispatch `ghcr.yml`.
-- [ ] 9.2 Deploy to the homelab. Walk Findings (filters, drawer,
+- [ ] 9.2 `deferred - human required` Deploy to the homelab. Walk Findings (filters, drawer,
   re-evaluate), the Orgs tree, Fleet, Remediations, the palette, and
   the status changelog against the mockup. File divergences as tasks
   here.
-- [ ] 9.3 Confirm the Keycloak group split still scopes `/results`,
+- [ ] 9.3 `deferred - human required` Confirm the Keycloak group split still scopes `/results`,
   `/remediations` and the tree (carries IMPL-0031 8.3).
 
 <!--docz:tasks:end-->

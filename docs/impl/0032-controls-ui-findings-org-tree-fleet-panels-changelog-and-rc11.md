@@ -560,17 +560,22 @@ the audit.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 7.1 **The changelog file.** `CHANGELOG.yaml` at the location OQ1
+- [x] 7.1 **The changelog file.** `CHANGELOG.yaml` at the location OQ1
   chooses, seeded from rc.8 to the current rc (rc.8: fleet history
   refetch fix; rc.9: design refresh; rc.10: repository page polish;
   rc.11: controls evaluation; rc.12: the INV-0023 fixes (OQ7); and
   IMPL-0030's) with closed-set tags. Add the `tag` tone row (`new` ok,
   `improved` info, `fixed` warn, `breaking` bad, areas outline).
-- [ ] 7.2 **Into the bundle** per OQ2. The UI also needs its own
+- [x] 7.2 **Into the bundle** per OQ2. The UI also needs its own
   version at build time (a `VITE_` define from `package.json` or the
   chart appVersion) so the card marks the running release without
   reading `/status`.
-- [ ] 7.3 **The check.** `ui/scripts/check-changelog.ts`, added to the
+
+  2026-10-23: the bundle's version is the generated JSON's `running`
+  field, the newest entry's version, which the gate makes the chart
+  `appVersion`; no `VITE_` define, since the Docker build context is
+  `ui/` and the chart is not in it.
+- [x] 7.3 **The check.** `ui/scripts/check-changelog.ts`, added to the
   `lint-ui` chain, fails when:
   - the newest entry's `version` is not
     `charts/repo-guardian/Chart.yaml` `appVersion`;
@@ -579,17 +584,22 @@ the audit.
   - a version repeats.
 
   It has a `bun test` file with failing fixtures for each rule.
-- [ ] 7.4 **CI.** In `.github/workflows/ci.yml`, the `ui` paths filter
+- [x] 7.4 **CI.** In `.github/workflows/ci.yml`, the `ui` paths filter
   gains `charts/repo-guardian/Chart.yaml` and the changelog path, so a
   release-bump PR runs the gate. Verify it with a dry PR diff in the
   task note.
-- [ ] 7.5 **The card.** The status page's Changelog card shows the newest
+- [x] 7.5 **The card.** The status page's Changelog card shows the newest
   five, "All releases" to the GitHub releases page, and a "running"
   badge on the bundle's version. The card makes no API call, so
   `TestStatus_PrivacyGuard` is untouched.
-- [ ] 7.6 **Release process.** Document the release-bump step (add an
+- [x] 7.6 **Release process.** Document the release-bump step (add an
   entry with the chart bump) in CLAUDE.md §Release and
   `docs/operations/` where the rc procedure lives.
+
+  2026-10-23: the rc procedure lives in CLAUDE.md's v2-branch
+  "Pre-releases only" bullet and CONTRIBUTING.md's release labels, not
+  under `docs/operations/`; both gained the step, as did
+  `ui/README.md`.
 
 <!--docz:tasks:end-->
 

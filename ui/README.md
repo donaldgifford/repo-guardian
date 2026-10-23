@@ -18,9 +18,17 @@ ui/
 | --- | --- |
 | `make ui-install` | `bun install --frozen-lockfile` |
 | `make generate-ui-api` | regenerate `web/src/api/schema.gen.ts` from `api/openapi.yaml` |
-| `make lint-ui` | typecheck, lint, and fail if the generated types are stale or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
+| `make lint-ui` | typecheck, lint, and fail if the generated types or changelog are stale (`check:api`, `check:changelog`), the newest changelog entry is not the chart `appVersion`, or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
 | `make test-ui` | `bun test` |
 | `make docker-build-ui` | build `ghcr.io/donaldgifford/repo-guardian-ui:dev` |
+
+`CHANGELOG.yaml` is the status page's Changelog card: newest first,
+tags from `new | improved | fixed | breaking` plus the areas
+`fleet | findings | policy | ui | api | chart`. `bun run gen:changelog`
+writes `web/src/generated/changelog.json` (committed) and
+`bun run check:changelog` fails on drift, a tag outside the set, dates
+that ascend, a repeated version, or a newest entry that is not the chart
+`appVersion` — so every chart bump adds an entry.
 
 For local development, run `bun run dev:server` and `bun run dev:web`.
 Vite proxies `/api`, `/auth` and `/ui` to the BFF on `:3000`.

@@ -14,7 +14,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 <!-- markdownlint-capture -->
 <!-- markdownlint-disable MD013 -->
 | ID | Title | Status | Date | Author | Link |
-|----|-------|--------|------|--------|------|
+| --- | --- | --- | --- | --- | --- |
 | INV-0001 | Tailscale Funnel for Webhook Testing | Concluded | 2026-03-14 | Donald Gifford | [0001-tailscale-funnel-for-webhook-testing.md](0001-tailscale-funnel-for-webhook-testing.md) |
 | INV-0002 | Multi-org and Forgejo support for repo-guardian | Open | 2026-04-25 | Donald Gifford | [0002-multi-org-and-forgejo-support-for-repo-guardian.md](0002-multi-org-and-forgejo-support-for-repo-guardian.md) |
 | INV-0003 | Pre-existing branch 422 on subsequent reconciles | Resolved | 2026-05-02 | Donald Gifford | [0003-pre-existing-branch-422-on-subsequent-reconciles.md](0003-pre-existing-branch-422-on-subsequent-reconciles.md) |
@@ -35,7 +35,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0020 | KEDA worker autoscaling cannot authenticate to Temporal | Open | 2026-10-01 | Donald Gifford | [0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md](0020-keda-worker-autoscaling-cannot-authenticate-to-temporal.md) |
 | INV-0021 | Controls model assumptions A1 to A23 against the v2 code | Concluded | 2026-10-04 | Donald Gifford | [0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md](0021-controls-model-assumptions-a1-to-a23-against-the-v2-code.md) |
 | INV-0022 | Controls designs against the v2 code, GitHub and Temporal | Concluded | 2026-10-06 | Donald Gifford | [0022-controls-designs-against-the-v2-code-github-and-temporal.md](0022-controls-designs-against-the-v2-code-github-and-temporal.md) |
-| INV-0023 | rc.11 follow-ups: rule-status badges, repository page and release verification | Open | 2026-10-18 | Donald Gifford | [0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md](0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md) |
+| INV-0023 | rc.11 follow-ups: rule-status badges, repository page and release verification | Concluded | 2026-10-18 | Donald Gifford | [0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md](0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md) |
 | INV-0024 | Icon set for the UI | Concluded | 2026-10-21 | Donald Gifford | [0024-icon-set-for-the-ui.md](0024-icon-set-for-the-ui.md) |
 <!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

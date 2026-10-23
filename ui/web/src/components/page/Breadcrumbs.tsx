@@ -50,7 +50,7 @@ export function crumbsFor(match: MatchLike | undefined, itemLabel?: ItemLabel): 
   if (!section) return out;
   out.push({ label: section.label, ...(section.to ? { to: section.to } : {}) });
   const raw = section.item ? (section.inSearch ? match.search?.[section.item] : match.params?.[section.item]) : undefined;
-  const item = typeof raw === "string" ? raw : undefined;
+  const item = typeof raw === "string" ? raw : typeof raw === "number" ? String(raw) : undefined;
   if (item) {
     const label = itemLabel?.param === item ? itemLabel.label : /^\d+$/.test(item) ? "…" : item;
     out.push({ label });

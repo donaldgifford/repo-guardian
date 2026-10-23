@@ -21,7 +21,7 @@ describe("crumbsFor", () => {
     ["item without its param", { routeId: "/app/controls/$id", params: {} }, ["Repo Guardian", "Controls"]],
     ["numeric item while loading", { routeId: "/app/repositories/$id", params: { id: "1" } }, ["Repo Guardian", "Repositories", "…"]],
     ["remediations list", { routeId: "/app/remediations", search: {} }, ["Repo Guardian", "Remediations"]],
-    ["open remediation while loading", { routeId: "/app/remediations", search: { open: "12" } }, ["Repo Guardian", "Remediations", "…"]],
+    ["open remediation while loading", { routeId: "/app/remediations", search: { open: 12 } }, ["Repo Guardian", "Remediations", "…"]],
     ["open held result", { routeId: "/app/remediations", search: { open: "7/renovate" } }, ["Repo Guardian", "Remediations", "7/renovate"]],
     ["unknown route", { routeId: "/nope" }, ["Repo Guardian"]],
     ["no match", undefined, ["Repo Guardian"]],
@@ -44,7 +44,7 @@ describe("crumbsFor with a view label (INV-0023 F2)", () => {
   });
 
   test("the open remediation reads org/name · control", () => {
-    const open = { routeId: "/app/remediations", search: { open: "12" } };
+    const open = { routeId: "/app/remediations", search: { open: 12 } };
     expect(crumbsFor(open, { param: "12", label: "acme/web · renovate" }).at(-1)?.label).toBe("acme/web · renovate");
   });
 });

@@ -167,7 +167,7 @@ export function FindingsView() {
   const items = pageItems(results.data);
   const total = results.data?.pages[0]?.total;
   const columns = findingColumns(remediation);
-  const patch = (p: Record<string, string | boolean | undefined>) => void navigate({ to: ".", search: (prev: FindingsSearch) => patchSearch(prev, p) });
+  const patch = (p: Record<string, string | boolean | undefined>) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => patchSearch(prev, p) });
   const openFinding = (key: string | undefined) => patch({ open: key });
   const sideBySide = useMediaQuery(SIDE_BY_SIDE);
   const tableRef = useRef<HTMLDivElement>(null);

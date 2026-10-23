@@ -36,16 +36,20 @@ export interface RemediationsSearch {
   control?: string;
   hold?: string;
   older_than?: number;
-  open?: string;
+  // open is a remediation id as a number (so `?open=12` reads and
+  // writes unquoted) or `<repository id>/<control>` for a held result.
+  open?: string | number;
 }
 
 export function parseRemediationsSearch(s: Record<string, unknown>): RemediationsSearch {
   const out: RemediationsSearch = {};
   if (typeof s.view === "string" && s.view !== "all" && VIEWS.some((v) => v.value === s.view)) out.view = s.view as RemediationsView;
-  for (const k of ["kind", "state", "org", "control", "hold", "open"] as const) {
+  for (const k of ["kind", "state", "org", "control", "hold"] as const) {
     const v = s[k];
     if (typeof v === "string" && v !== "") out[k] = v;
   }
+  if (typeof s.open === "number" && Number.isInteger(s.open) && s.open > 0) out.open = s.open;
+  else if (typeof s.open === "string" && s.open !== "") out.open = /^[1-9]\d*$/.test(s.open) ? Number(s.open) : s.open;
   const older = typeof s.older_than === "string" ? Number(s.older_than) : s.older_than;
   if (typeof older === "number" && Number.isInteger(older) && older > 0) out.older_than = older;
   return out;
@@ -88,6 +92,12 @@ export function remediationFilter(search: RemediationsSearch, scopeOrg: string |
 // which has none.
 export function remediationKey(r: Pick<Schemas["Remediation"], "id" | "repository_id" | "control_id">): string {
   return r.id === undefined || r.id === 0 ? `${r.repository_id}/${r.control_id}` : String(r.id);
+}
+
+// openSearch is the `?open=` value for a row: the id as a number, so
+// the URL carries `open=12` rather than a quoted string.
+export function openSearch(r: Pick<Schemas["Remediation"], "id" | "repository_id" | "control_id">): string | number {
+  return r.id === undefined || r.id === 0 ? remediationKey(r) : r.id;
 }
 
 export type OpenRemediation = { id: number } | { repositoryId: number; control: string };

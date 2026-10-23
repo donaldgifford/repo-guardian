@@ -23,7 +23,7 @@ import { patchSearch } from "../lib/search";
 import { SIDE_BY_SIDE, useMediaQuery } from "../lib/use-media-query";
 import { cn } from "../lib/utils";
 import { RemediationDrawer } from "./remediations/drawer";
-import { isStale, KINDS, kpis, remediationAge, remediationFilter, remediationKey, remediationsCsv, STATES, VIEWS } from "./remediations/model";
+import { isStale, KINDS, kpis, openSearch, remediationAge, remediationFilter, remediationKey, remediationsCsv, STATES, VIEWS } from "./remediations/model";
 
 const route = getRouteApi("/app/remediations");
 
@@ -101,7 +101,7 @@ function Chip({ label, value, options, onChange }: { label: string; value: strin
 // Without the Remediation App the page is the one not-enabled state.
 export function RemediationsView() {
   const search = route.useSearch();
-  const { open } = search;
+  const open = search.open === undefined ? undefined : String(search.open);
   const navigate = useNavigate();
   const scopeOrg = useOrgScope();
   const remediation = useRemediationEnabled();
@@ -112,7 +112,7 @@ export function RemediationsView() {
   const orgs = useOrgs();
   const items = pageItems(rows.data);
   const patch = (p: Record<string, string | undefined>) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => patchSearch(prev, p) });
-  const openRow = (key: string | undefined) => patch({ open: key });
+  const openRow = (r: Schemas["Remediation"] | undefined) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => ({ ...patchSearch(prev, { open: undefined }), ...(r === undefined ? {} : { open: openSearch(r) }) }) });
   const sideBySide = useMediaQuery(SIDE_BY_SIDE);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
@@ -176,7 +176,7 @@ export function RemediationsView() {
                   <Empty>No remediations match.</Empty>
                 ) : (
                   <>
-                    <DataTable columns={remediationColumns} rows={items} rowKey={remediationKey} {...(open === undefined ? {} : { selectedKey: open })} onActivate={(r) => openRow(remediationKey(r))} compact={inline} aria-label="Remediations" />
+                    <DataTable columns={remediationColumns} rows={items} rowKey={remediationKey} {...(open === undefined ? {} : { selectedKey: open })} onActivate={(r) => openRow(r)} compact={inline} aria-label="Remediations" />
                     <LoadMore loaded={items.length} hasMore={rows.hasNextPage} loading={rows.isFetchingNextPage} onMore={() => void rows.fetchNextPage()} noun="remediations" />
                   </>
                 )}

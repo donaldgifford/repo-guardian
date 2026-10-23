@@ -25,7 +25,7 @@ import { holdSentence } from "../lib/holds";
 import { patchSearch } from "../lib/search";
 import { remediationOf } from "./findings/drawer";
 import { StepsJournal } from "./remediations/drawer";
-import { remediationKey } from "./remediations/model";
+import { openSearch } from "./remediations/model";
 
 // RepositoriesSearch is the list's filter, kept in the URL.
 export interface RepositoriesSearch {
@@ -308,7 +308,7 @@ function RemediationPanel({ control: c }: { control: Schemas["RepositoryControl"
           </>
         ) : null}
         {r ? (
-          <Link to="/remediations" search={{ open: remediationKey(r) }} className="ml-auto text-accent hover:underline">
+          <Link to="/remediations" search={{ open: openSearch(r) }} className="ml-auto text-accent hover:underline">
             details →
           </Link>
         ) : null}

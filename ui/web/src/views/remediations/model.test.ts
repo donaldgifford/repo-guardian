@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Schemas } from "../../api/client";
 import { HoldBadge, RemediationStateBadge } from "../../components/badges";
 import { HOLDS, holdSentence } from "../../lib/holds";
-import { isStale, kpis, matchesKey, parseRemediationKey, parseRemediationsSearch, remediationAge, remediationFilter, remediationKey, STATES, viewPreset } from "./model";
+import { isStale, kpis, matchesKey, openSearch, parseRemediationKey, parseRemediationsSearch, remediationAge, remediationFilter, remediationKey, STATES, viewPreset } from "./model";
 
 const now = new Date("2026-10-23T12:00:00Z");
 const ago = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
@@ -31,9 +31,16 @@ test("parseRemediationsSearch keeps every filter, the non-default view and a pos
     control: "labels",
     hold: "conflict",
     older_than: 30,
-    open: "12",
+    open: 12,
   });
   expect(parseRemediationsSearch({ view: "all", older_than: "7" })).toEqual({ older_than: 7 });
+  // A numeric id is a number either way, so the URL reads `open=12`; a held result's key stays a string.
+  expect(parseRemediationsSearch({ open: 12 })).toEqual({ open: 12 });
+  expect(parseRemediationsSearch({ open: "12" })).toEqual({ open: 12 });
+  expect(parseRemediationsSearch({ open: "7/renovate" })).toEqual({ open: "7/renovate" });
+  expect(parseRemediationsSearch({ open: 0 })).toEqual({});
+  expect(openSearch(fixture({ id: 12 }))).toBe(12);
+  expect(openSearch(heldResult({ hold: "pr_cap" }))).toBe("7/renovate");
   expect(parseRemediationsSearch({ view: "bogus", older_than: -1, kind: "" })).toEqual({});
 });
 

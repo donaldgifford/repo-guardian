@@ -239,3 +239,60 @@ test("Tab walks Fleet in reading order with a visible ring, and Escape closes th
   await expect(page.getByRole("dialog", { name: "Org scope" })).toHaveCount(0);
   await expect(scope).toBeFocused();
 });
+
+test("Findings lists the non-compliant results, M matches the nav badge, and the drawer deep link survives a reload", async ({ page }) => {
+  await signIn(page, "/findings");
+  await expect(page.getByRole("heading", { level: 1, name: "Findings" })).toBeVisible();
+  const table = page.getByRole("table", { name: "Findings" });
+  const row = table.getByRole("row").filter({ hasText: "renovate" });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("web");
+  await expect(row).toContainText("exists");
+  // Only the non-compliant bucket: acme/web's compliant codeowners is not a finding.
+  await expect(table.getByRole("row").filter({ hasText: "codeowners" })).toHaveCount(0);
+
+  // M equals the nav badge (both the non-compliant count in scope).
+  const count = page.getByText(/^\d+ loaded of \d+$/);
+  await expect(count).toBeVisible();
+  const m = /of (\d+)$/.exec((await count.textContent()) ?? "")?.[1];
+  const nav = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Findings/ });
+  await expect(nav.locator("em")).toHaveText(m ?? "");
+
+  // The filter chips write the URL.
+  await page.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("button", { name: "control", exact: true }).click();
+  await page.getByRole("button", { name: "renovate" }).click();
+  await expect(page).toHaveURL(/control=renovate/);
+  await expect(page.getByRole("button", { name: "control filter: renovate" })).toBeVisible();
+
+  // A row opens the drawer on ?open=<repository_id>/<control>; the URL
+  // alone restores it.
+  await row.click();
+  await expect(page).toHaveURL(/open=\d+%2Frenovate|open=\d+\/renovate/);
+  const drawer = page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("table", { name: "renovate rules" })).toContainText("fail");
+  await expect(drawer).toContainText("path: renovate.json");
+  await page.reload();
+  const again = page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ });
+  await expect(again).toBeVisible();
+  // No Temporal client on the e2e api: the POST answers 501 and the
+  // button goes away, as on the repository page.
+  const button = again.getByRole("button", { name: "Re-evaluate" });
+  await button.click();
+  await expect(button).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: /^Finding:/ })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/open=/);
+  await expectNoGlobex(page);
+});
+
+test("a control's Oldest findings opens the findings drawer", async ({ page }) => {
+  await signIn(page, "/controls/renovate");
+  await expect(page.getByRole("heading", { level: 1, name: /renovate/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "renovate findings by failing rule" }).getByRole("link", { name: "exists" })).toHaveAttribute("href", /\/findings\?control=renovate&rule=exists/);
+  await page.getByRole("list", { name: "Oldest findings" }).getByRole("link", { name: /acme\/web/ }).click();
+  await expect(page).toHaveURL(/\/findings\?/);
+  await expect(page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ })).toBeVisible();
+  await expectNoGlobex(page);
+});

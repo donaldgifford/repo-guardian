@@ -25,6 +25,7 @@ async function audit(page: Page) {
 for (const [name, path, heading] of [
   ["Fleet", "/", "Fleet"],
   ["Controls", "/controls", "Controls"],
+  ["Findings", "/findings", "Findings"],
   ["Control", "/controls/codeowners", "codeowners"],
   ["Orgs", "/orgs", "Orgs"],
   ["Org", "/orgs/acme", "acme"],
@@ -51,5 +52,15 @@ test("Status has no axe violations", async ({ page }) => {
   await page.goto("/status");
   await expect(page.getByRole("heading", { name: "Repo Guardian status" })).toBeVisible();
   await expect(page.locator("[data-component]").first()).toBeVisible();
+  await audit(page);
+});
+
+// The drawer is a modal Dialog that aria-hides the page, so the
+// sign-in's role query runs first and the ?open= URL is a second goto.
+test("a finding drawer has no axe violations", async ({ page }) => {
+  await signIn(page, "/findings");
+  await page.getByRole("table", { name: "Findings" }).getByRole("row").filter({ hasText: "renovate" }).click();
+  await expect(page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await audit(page);
 });

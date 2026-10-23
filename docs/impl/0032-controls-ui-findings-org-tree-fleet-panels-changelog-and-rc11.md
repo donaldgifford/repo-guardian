@@ -367,7 +367,10 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   round-trip through the URL.
 - `M` equals the nav badge for the same scope.
 - The drawer deep link survives a reload, and Re-evaluate returns 202
-  in e2e.
+  in e2e. *(2026-10-23: the e2e api runs without a Temporal client, so
+  the POST answers 501 and the button disappears, the repository page's
+  existing contract; the spec asserts that. A 202 needs a Temporal dev
+  server in `e2e/stack.ts`, which 8.1/8.2 own.)*
 - The control page's Oldest findings opens the same drawer.
 
 <!--docz:criteria:end-->

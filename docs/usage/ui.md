@@ -80,10 +80,11 @@ Every signed-in page shares one frame (DESIGN-0036):
 | View | Path | Shows |
 | --- | --- | --- |
 | Fleet | `/` | compliance and coverage over every assignment you can see, repositories and open PRs, evaluations in the last 24 hours, the assignments by bucket, and every control and org linking to its page |
-| Controls | `/controls`, `/controls/<id>` | each assigned control's compliance and coverage; one control's posture by org and lineage, with the versions and revisions each org carries |
+| Findings | `/findings` | every non-compliant result: the repository, the control, its failing rules and reason, its remediation and how long it has failed. Filters map 1:1 to `GET /results` (`?control=`, `?rule=`, `?org=`, `?decision=`, `?pr_stale=`), sorted oldest first (`?sort=since_desc`, `?sort=pr_age` with the Remediation App); `?open=<repository id>/<control>` opens the finding's drawer — its rules, evidence, timeline, last evaluations and **Re-evaluate** |
+| Controls | `/controls`, `/controls/<id>` | each assigned control's compliance and coverage; one control's posture by org and lineage, with the versions and revisions each org carries, its compliance over the range, its findings by failing rule and its ten oldest findings |
 | Orgs | `/orgs`, `/orgs/<org>` | each org's repositories, open PRs and posture; one org's baseline against what it added, its controls, its five worst and its exclusions with their reasons |
 | Repositories | `/repositories`, `/repositories/<id>` | repositories filtered by name and policy state (`?org=`, `?q=`, `?policy_state=`); one repository's controls, each with its bucket, mode and rule results with evidence, its evaluation log and its events, and **Re-evaluate** |
-| History | `/history` | compliance over time from the daily snapshots, for every control or one (`?control=`), over 7, 30 or 90 days (`?days=`) |
+| History | `/history` | compliance over time from the daily snapshots, for every control or one (`?control=`), over 1, 7, 30 or 90 days (`?days=`) |
 | Policy | `/policy` | the active policy version and rollout, each of your orgs' layers (added, replaced, excluded, excluded repositories, repository groups) and the catalogue entries they reference; the enterprise layer only for users who see every org |
 | Status | `/status` | public service status: no login, no names |
 
@@ -100,6 +101,11 @@ hint "Remediation App has no access to this repository".
 hidden for a parked repository, and disappears for the session once the
 API answers `501`, which an API without a Temporal client does (chart
 value `api.temporal`).
+
+The header's org scope (`?org=`) and the range (`?days=`) follow you
+from page to page; a view's own filters stay behind. Every table has
+an **Export** of the rows it shows as CSV; the findings export pages the
+API up to 10,000 rows and says when that cap cut it short.
 
 A signed-in user whose groups map to no org sees an "ask for access"
 page with their name and subject, to quote to an administrator.

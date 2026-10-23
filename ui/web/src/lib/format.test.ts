@@ -93,6 +93,13 @@ describe("toneFor", () => {
     ["kind", "setting", "outline"],
     ["kind", "branch_protection", "outline"],
     ["kind", "webhook", "outline"],
+    ["tag", "new", "ok"],
+    ["tag", "improved", "info"],
+    ["tag", "fixed", "warn"],
+    ["tag", "breaking", "bad"],
+    ["tag", "ui", "outline"],
+    ["tag", "chart", "outline"],
+    ["tag", "backend", "mute"],
   ] as const)("%s %s → %s", (field, value, want) => {
     expect(toneFor(field, value)).toBe(want);
   });

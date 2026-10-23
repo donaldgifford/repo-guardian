@@ -1,5 +1,6 @@
 import type { Schemas } from "../api/client";
 import { ageDays, humanize, toneFor } from "../lib/format";
+import { holdSentence } from "../lib/holds";
 import { ExternalLink } from "./posture";
 import { Badge } from "./ui/badge";
 
@@ -52,6 +53,16 @@ export function ReasonBadge({ reason, status }: { reason: string; status: string
 
 export function KindBadge({ kind }: { kind: string }) {
   return <Badge tone={toneFor("kind", kind)}>{kind}</Badge>;
+}
+
+// HoldBadge is a hold reason with its sentence as the title; an
+// unknown hold renders its code, never blank (IMPL-0032 6.2).
+export function HoldBadge({ hold }: { hold: string }) {
+  return (
+    <Badge tone={toneFor("hold", hold)} title={holdSentence(hold)}>
+      {humanize(hold)}
+    </Badge>
+  );
 }
 
 export function StateBadge({ state }: { state: string }) {

@@ -260,7 +260,7 @@ merges: task 2.6 regenerates the client from its spec.
   `components/page/OrgScope.tsx` as the page-header popover writing
   `?org=`, on Fleet, Controls, control detail, Findings, Remediations
   and History. Hooks pass `org` through to the API.
-- [ ] 2.4 **⌘K palette (DESIGN-0037 OQ9).** Restore
+- [x] 2.4 **⌘K palette (DESIGN-0037 OQ9).** Restore
   `components/shell/CommandPalette.tsx` and `palette.test.tsx` on the
   surviving `ui/command.tsx`, over `/repositories?q=` (debounced),
   `/controls` and `/orgs`, and bind ⌘K/Ctrl-K with

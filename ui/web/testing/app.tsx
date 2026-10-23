@@ -28,7 +28,7 @@ export function seededClient(seed: SeededCache = {}): QueryClient {
   return client;
 }
 
-const APP_PATHS = ["/", "/controls", "/orgs", "/repositories", "/history", "/policy", "/status"] as const;
+const APP_PATHS = ["/", "/controls", "/controls/$id", "/orgs", "/orgs/$org", "/repositories", "/repositories/$id", "/findings", "/remediations", "/history", "/policy", "/status"] as const;
 
 // testRouter renders `element` at every app path, with the Outlet-less
 // layout the shell pieces expect, starting at `initial`.

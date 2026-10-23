@@ -46,7 +46,7 @@ describe("TopBar", () => {
     let submitted = 0;
     const { findByRole, getByRole, queryByRole, container } = render(
       <AppHarness seed={{ config: { ...testConfig, docs_url: "https://docs.example.com/" } }}>
-        <TopBar me={testMe} onMenu={() => {}} />
+        <TopBar me={testMe} onMenu={() => {}} onSearch={() => {}} />
       </AppHarness>,
     );
     const avatar = await findByRole("button", { name: "Account menu" });

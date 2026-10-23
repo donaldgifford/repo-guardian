@@ -74,3 +74,12 @@ export function historySeries(points: readonly Schemas["HistoryPoint"][]): { at:
   }
   return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, posture]) => ({ at, percent: posture.percent }));
 }
+
+// postureCsvHead and postureCsvRow are a posture's CSV cells, shared by
+// every table export that carries one: the API's percentages as-is
+// (null stays empty, never 0 or 100) and the counts behind them.
+export const postureCsvHead = ["compliance_percent", "coverage_percent", "assigned", "compliant", "non_compliant"] as const;
+
+export function postureCsvRow(p: Posture): (number | null)[] {
+  return [p.percent, p.coverage, p.assigned, p.compliant, p.non_compliant];
+}

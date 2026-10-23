@@ -5,6 +5,7 @@ import type { Schemas } from "../api/client";
 import { useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
 import { RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
+import { ExportButton } from "../components/ExportButton";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
@@ -15,6 +16,7 @@ import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
 import { SearchTabs } from "../components/ui/tabs";
+import type { CsvColumns } from "../lib/csv";
 import { useDebounced } from "../lib/hooks";
 import { humanize } from "../lib/format";
 import { patchSearch } from "../lib/search";
@@ -88,7 +90,7 @@ export function RepositoriesView() {
           </>
         }
       />
-      <Card title="Repositories" bodyClassName="p-0">
+      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton page="repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={repos.data?.items} />}>
         {repos.data ? <DataTable columns={repositoryColumns} rows={repos.data.items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" /> : <Loading />}
       </Card>
     </>
@@ -99,6 +101,11 @@ function policyStateBadge(r: Schemas["Repository"]) {
   if (!r.active) return <Badge tone="warn">parked</Badge>;
   return <Badge tone={r.policy_state === "managed" ? "ok" : "mute"}>{r.policy_state ?? "unresolved"}</Badge>;
 }
+
+const repositoriesCsv: CsvColumns<Schemas["Repository"]> = {
+  head: ["org", "repository", "active", "park_reason", "policy_state", "last_evaluated_at"],
+  row: (r) => [r.org, r.name, r.active, r.park_reason ?? "", r.policy_state ?? "", r.last_evaluated_at ?? ""],
+};
 
 const repositoryColumns: Column<Schemas["Repository"]>[] = [
   {
@@ -279,10 +286,15 @@ const evaluationColumns: Column<Schemas["Evaluation"]>[] = [
   { key: "error", header: "Error", cell: (e) => (e.error ? <span className="font-mono text-xs break-all">{e.error}</span> : <span className="text-muted-foreground">—</span>), hideBelow: "md" },
 ];
 
+const evaluationsCsv: CsvColumns<Schemas["Evaluation"]> = {
+  head: ["started_at", "trigger", "outcome", "duration_seconds", "error"],
+  row: (e) => [e.started_at, e.trigger, e.outcome, e.duration_seconds, e.error ?? ""],
+};
+
 function Evaluations({ id }: { id: number }) {
   const evaluations = useRepositoryEvaluations(id);
   return (
-    <Card title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0">
+    <Card title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton page="evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
       {evaluations.data ? <DataTable columns={evaluationColumns} rows={evaluations.data.items} rowKey={(e) => String(e.id)} empty="No evaluation yet." aria-label="Evaluation log" /> : <Loading />}
     </Card>
   );
@@ -322,10 +334,15 @@ function EventStatus({ event, status }: { event: Schemas["Event"]; status: strin
   return event.rule_id ? <RuleStatusBadge status={status} /> : <StatusBadge status={status} />;
 }
 
+const eventsCsv: CsvColumns<Schemas["Event"]> = {
+  head: ["occurred_at", "source", "kind", "control", "rule", "from_status", "to_status"],
+  row: (e) => [e.occurred_at, e.source, e.kind ?? "", e.control_id ?? "", e.rule_id ?? "", e.from_status ?? "", e.to_status ?? ""],
+};
+
 function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);
   return (
-    <Card title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0">
+    <Card title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton page="events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
       {events.data ? <DataTable columns={eventColumns} rows={events.data.items} rowKey={(e) => `${e.source}/${e.id}`} empty="No events yet." aria-label="Events" /> : <Loading />}
     </Card>
   );

@@ -244,7 +244,7 @@ merges: task 2.6 regenerates the client from its spec.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 **CSV.** Restore `lib/csv.ts` and `csv.test.ts` from
+- [x] 2.1 **CSV.** Restore `lib/csv.ts` and `csv.test.ts` from
   `7ad928f^` with only `csvCell`, `tableCsv` and `downloadCsv`; drop the
   findings-era `columns`/`findingsCsv`. Add an `ExportButton` (page,
   filter and date in the filename) and put it on every existing table

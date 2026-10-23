@@ -3,13 +3,17 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import type { Schemas } from "../api/client";
 import { useOrg, useOrgs } from "../api/queries";
 import { Loading } from "../components/common";
+import { ExportButton } from "../components/ExportButton";
 import { PageHeader } from "../components/page/PageHeader";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "../components/ui/kpi";
+import type { CsvColumns } from "../lib/csv";
 import { formatPercent, humanize } from "../lib/format";
+import { postureCsvHead, postureCsvRow } from "../lib/posture";
+import { orgsCsv } from "./fleet";
 
 // OrgsView lists the caller's orgs with their posture.
 export function OrgsView() {
@@ -24,7 +28,7 @@ export function OrgsView() {
           </>
         }
       />
-      <Card title="Orgs" bodyClassName="p-0">
+      <Card title="Orgs" bodyClassName="p-0" right={<ExportButton page="orgs" columns={orgsCsv} rows={orgs.data?.items} />}>
         {orgs.data ? <DataTable columns={orgListColumns} rows={orgs.data.items} rowKey={(o) => o.org} empty="No org is visible to you." aria-label="Orgs" /> : <Loading />}
       </Card>
     </>
@@ -82,14 +86,25 @@ export function OrgView() {
           <Kpi label="Org-added assignments" value={o.org_added.assigned.toLocaleString()} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="Controls" subtitle="Baseline, replaced and org-added." bodyClassName="p-0" className="lg:col-span-2">
+          <Card
+            title="Controls"
+            subtitle="Baseline, replaced and org-added."
+            bodyClassName="p-0"
+            className="lg:col-span-2"
+            right={<ExportButton page="org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
+          >
             <DataTable columns={controlColumns} rows={o.controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="No control is assigned here." aria-label="Org controls" />
           </Card>
-          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0">
+          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton page="worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
             <DataTable columns={worstColumns} rows={o.worst_controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="Nothing measured yet." aria-label="Worst controls" />
           </Card>
         </div>
-        <Card title="Exclusions" subtitle="Repositories or controls the policy leaves out, and why." bodyClassName="p-0">
+        <Card
+          title="Exclusions"
+          subtitle="Repositories or controls the policy leaves out, and why."
+          bodyClassName="p-0"
+          right={<ExportButton page="exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
+        >
           <DataTable columns={exclusionColumns} rows={o.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} empty="No exclusions." aria-label="Exclusions" />
         </Card>
       </div>
@@ -102,6 +117,16 @@ const controlLink = (c: Schemas["OrgControl"]) => (
     {c.control_id}
   </Link>
 );
+
+const orgControlsCsv: CsvColumns<Schemas["OrgControl"]> = {
+  head: ["control", "decision", ...postureCsvHead],
+  row: (c) => [c.control_id, c.decision, ...postureCsvRow(c.compliance)],
+};
+
+const exclusionsCsv: CsvColumns<Schemas["Exclusion"]> = {
+  head: ["repository", "control", "state", "reason", "excluded_by"],
+  row: (e) => [e.repository, e.control_id ?? "", e.state, e.reason, e.excluded_by ?? ""],
+};
 
 const controlColumns: Column<Schemas["OrgControl"]>[] = [
   { key: "control", header: "Control", cell: controlLink },

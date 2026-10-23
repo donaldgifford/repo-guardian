@@ -3,12 +3,15 @@ import { getRouteApi, Link } from "@tanstack/react-router";
 import type { Schemas } from "../api/client";
 import { useControl, useControls } from "../api/queries";
 import { Loading } from "../components/common";
+import { ExportButton } from "../components/ExportButton";
 import { PageHeader } from "../components/page/PageHeader";
 import { CoverageText, DecisionBadge, PostureBar, PostureKpis, PostureMeter } from "../components/posture";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { controlColumns } from "./fleet";
+import type { CsvColumns } from "../lib/csv";
+import { postureCsvHead, postureCsvRow } from "../lib/posture";
+import { controlColumns, controlsCsv } from "./fleet";
 
 // ControlsView lists every control assigned in the caller's orgs.
 export function ControlsView() {
@@ -23,7 +26,7 @@ export function ControlsView() {
           </>
         }
       />
-      <Card bodyClassName="p-0" title="Controls">
+      <Card bodyClassName="p-0" title="Controls" right={<ExportButton page="controls" columns={controlsCsv} rows={controls.data?.items} />}>
         {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
       </Card>
     </>
@@ -58,13 +61,18 @@ export function ControlView() {
         <Card title="Assignments">
           <PostureBar posture={c.compliance} label={`${c.id} assignments by bucket`} />
         </Card>
-        <Card title="By org" subtitle="Each org and lineage, with the versions it carries." bodyClassName="p-0">
+        <Card title="By org" subtitle="Each org and lineage, with the versions it carries." bodyClassName="p-0" right={<ExportButton page="control orgs" filter={{ control: c.id }} columns={controlOrgsCsv} rows={c.orgs} />}>
           <DataTable columns={orgColumns} rows={c.orgs} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
         </Card>
       </div>
     </>
   );
 }
+
+const controlOrgsCsv: CsvColumns<Schemas["ControlOrg"]> = {
+  head: ["org", "decision", "versions", ...postureCsvHead],
+  row: (o) => [o.org, o.decision, o.versions.map((v) => `v${v.version} ${v.revision.slice(0, 12)} (${v.repositories})`).join("; "), ...postureCsvRow(o.compliance)],
+};
 
 const orgColumns: Column<Schemas["ControlOrg"]>[] = [
   {

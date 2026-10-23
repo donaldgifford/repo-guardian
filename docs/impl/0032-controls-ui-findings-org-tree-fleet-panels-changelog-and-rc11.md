@@ -384,7 +384,7 @@ As the mockup's `#/orgs` draws it (OQ4).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 **Rework `components/ui/group-grid.tsx`:**
+- [x] 4.1 **Rework `components/ui/group-grid.tsx`:**
   - child rows render in the same `<tbody>` (no nested table), so
     columns align;
   - each cell carries its own numerator and denominator, and the

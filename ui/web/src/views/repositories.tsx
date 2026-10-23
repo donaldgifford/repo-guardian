@@ -2,10 +2,11 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { Schemas } from "../api/client";
-import { pageItems, useEvaluate, useEvaluateUnsupported, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
-import { RuleStatusBadge, StatusBadge } from "../components/badges";
+import { pageItems, useEvaluate, useEvaluateUnsupported, useRemediationEnabled, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
+import { HoldBadge, RemediationBadge, RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
+import { NOT_ENABLED } from "../components/GatedPanel";
 import { LoadMore } from "../components/LoadMore";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
@@ -20,7 +21,11 @@ import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "../lib/csv";
 import { useDebounced } from "../lib/hooks";
 import { humanize } from "../lib/format";
+import { holdSentence } from "../lib/holds";
 import { patchSearch } from "../lib/search";
+import { remediationOf } from "./findings/drawer";
+import { StepsJournal } from "./remediations/drawer";
+import { remediationKey } from "./remediations/model";
 
 // RepositoriesSearch is the list's filter, kept in the URL.
 export interface RepositoriesSearch {
@@ -270,7 +275,46 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
         </p>
       ) : null}
       <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />
+      <RemediationPanel control={c} />
     </Card>
+  );
+}
+
+// RemediationPanel is the control card's remediation (IMPL-0032 6.6):
+// the state badge, the hold sentence, the apply steps when there are
+// any, and "details →" to the Remediations drawer. Gated on the
+// Remediation App; with it and no remediation yet, nothing is shown.
+function RemediationPanel({ control: c }: { control: Schemas["RepositoryControl"] }) {
+  const enabled = useRemediationEnabled();
+  const r = c.remediation;
+  const hold = r?.hold ?? c.hold;
+  if (enabled === false) {
+    return (
+      <p className="border-t border-border px-3.5 py-2 text-xs text-muted-foreground" data-gated="not_enabled">
+        {NOT_ENABLED}
+      </p>
+    );
+  }
+  if (enabled === undefined || (!r && !hold)) return null;
+  return (
+    <div className="space-y-1.5 border-t border-border px-3.5 py-2 text-xs" data-remediation={c.control_id} data-gated="content">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground">Remediation</span>
+        {r ? <RemediationBadge remediation={remediationOf(c)} /> : null}
+        {hold ? (
+          <>
+            <HoldBadge hold={hold} />
+            <span className="text-muted-foreground">{holdSentence(hold)}</span>
+          </>
+        ) : null}
+        {r ? (
+          <Link to="/remediations" search={{ open: remediationKey(r) }} className="ml-auto text-accent hover:underline">
+            details →
+          </Link>
+        ) : null}
+      </div>
+      {r && r.steps.length > 0 ? <StepsJournal steps={r.steps} /> : null}
+    </div>
   );
 }
 

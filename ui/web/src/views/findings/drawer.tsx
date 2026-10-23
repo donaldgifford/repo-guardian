@@ -11,6 +11,8 @@ import { Button } from "../../components/ui/button";
 import { type Column, DataTable } from "../../components/ui/data-table";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
+import { holdSentence } from "../../lib/holds";
+import { remediationKey } from "../remediations/model";
 import { EvaluateButton } from "../repositories";
 
 export interface OpenKey {
@@ -151,7 +153,12 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
         <GatedPanel isEmpty={false} empty={null} className="text-sm text-muted-foreground">
           <span className="inline-flex flex-wrap items-center gap-2">
             <RemediationBadge remediation={remediationOf(c)} />
-            {c.hold ? <span className="text-xs text-muted-foreground">hold: {humanize(c.hold)}</span> : null}
+            {c.hold ? <span className="text-xs text-muted-foreground">{holdSentence(c.hold)}</span> : null}
+            {c.remediation ? (
+              <Link to="/remediations" search={{ open: remediationKey(c.remediation) }} className="text-xs text-accent hover:underline">
+                Open remediation →
+              </Link>
+            ) : null}
           </span>
         </GatedPanel>
       ),

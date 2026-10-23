@@ -354,7 +354,7 @@ IMPL-0030's `GET /results` (bucket filter, `total` on the first page,
   - **"Findings for this control"** button.
   - **The compliance chart** switches to `aggregate=control` with the
     delta over the range.
-- [ ] 3.6 **Unit tests:** filter ↔ URL round trip, rule chip enablement,
+- [x] 3.6 **Unit tests:** filter ↔ URL round trip, rule chip enablement,
   the drawer id parse, the export cap notice, the gated Remediation
   column.
 

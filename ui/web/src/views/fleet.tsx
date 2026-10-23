@@ -5,6 +5,7 @@ import { useControls, useOrgs, useSummary } from "../api/queries";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
 import { PageHeader } from "../components/page/PageHeader";
+import { RangeTabs } from "../components/page/RangeTabs";
 import { CoverageText, PostureBar, PostureKpis, PostureMeter } from "../components/posture";
 import { Time } from "../components/time";
 import { Card } from "../components/ui/card";
@@ -32,6 +33,7 @@ export function FleetView() {
             Compliance over every assignment in the orgs you can see · <code>GET /summary</code>
           </>
         }
+        controls={<RangeTabs />}
       />
       <div className="space-y-4">
         <PostureKpis posture={s.compliance}>

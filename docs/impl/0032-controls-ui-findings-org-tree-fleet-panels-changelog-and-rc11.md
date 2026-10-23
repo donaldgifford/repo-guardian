@@ -250,7 +250,7 @@ merges: task 2.6 regenerates the client from its spec.
   filter and date in the filename) and put it on every existing table
   card: controls, control by-org, orgs, org controls, exclusions,
   repositories, evaluation log and events.
-- [ ] 2.2 **Range tabs on `?days=`.** Restore
+- [x] 2.2 **Range tabs on `?days=`.** Restore
   `components/page/RangeTabs.tsx` on `?days=` with numeric values 1, 7,
   30 and 90 (default per OQ5). The search validators parse a number, so
   the History numeric-search rule holds. Add `validateSearch` to the

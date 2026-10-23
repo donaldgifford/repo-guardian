@@ -5,6 +5,7 @@ import { useControl, useControls } from "../api/queries";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
 import { PageHeader } from "../components/page/PageHeader";
+import { RangeTabs } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureKpis, PostureMeter } from "../components/posture";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
@@ -55,6 +56,7 @@ export function ControlView() {
             <code>GET /controls/{c.id}</code>
           </>
         }
+        controls={<RangeTabs />}
       />
       <div className="space-y-4">
         <PostureKpis posture={c.compliance} />

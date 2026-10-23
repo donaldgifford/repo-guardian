@@ -5,32 +5,22 @@ import { useComplianceHistory, useControls } from "../api/queries";
 import { TrendChart } from "../components/charts";
 import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
+import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { Card } from "../components/ui/card";
-import { Tabs } from "../components/ui/tabs";
 import { formatPercent } from "../lib/format";
 import { historySeries } from "../lib/posture";
+import { parseRangeSearch, type RangeSearch } from "../lib/range";
 import { patchSearch } from "../lib/search";
-
-const ranges = [
-  { value: "7", label: "7d" },
-  { value: "30", label: "30d" },
-  { value: "90", label: "90d" },
-] as const;
-
-type RangeValue = (typeof ranges)[number]["value"];
 
 // HistorySearch keeps days a number, so the URL reads ?days=7 rather
 // than the router's JSON-quoted string.
-export interface HistorySearch {
+export interface HistorySearch extends RangeSearch {
   control?: string;
-  days?: 7 | 90 | undefined;
 }
 
 export function parseHistorySearch(s: Record<string, unknown>): HistorySearch {
-  const out: HistorySearch = {};
+  const out: HistorySearch = { ...parseRangeSearch(s) };
   if (typeof s.control === "string" && s.control !== "") out.control = s.control;
-  const days = Number(s.days);
-  if (days === 7 || days === 90) out.days = days;
   return out;
 }
 
@@ -41,13 +31,11 @@ const route = getRouteApi("/app/history");
 export function HistoryView() {
   const search = route.useSearch();
   const navigate = useNavigate();
-  const days: RangeValue = search.days ? (String(search.days) as RangeValue) : "30";
+  const days = useRangeDays();
   const controls = useControls();
-  const history = useComplianceHistory({ days: Number(days), ...(search.control ? { control: search.control } : {}) });
+  const history = useComplianceHistory({ days, ...(search.control ? { control: search.control } : {}) });
   const series = useMemo(() => historySeries(history.data?.items ?? []), [history.data]);
   const setControl = (control: string | undefined) => void navigate({ to: ".", search: (prev: HistorySearch) => patchSearch(prev, { control }) });
-  const setDays = (v: RangeValue) =>
-    void navigate({ to: ".", search: (prev: HistorySearch): HistorySearch => ({ ...prev, days: v === "7" ? 7 : v === "90" ? 90 : undefined }) });
   const last = series[series.length - 1];
   return (
     <>
@@ -73,12 +61,12 @@ export function HistoryView() {
                 </option>
               ))}
             </select>
-            <Tabs label="Range" options={ranges} value={days} onChange={setDays} />
+            <RangeTabs />
           </>
         }
       />
       <Card title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.percent)}` : "No snapshot in range."}>
-        {history.data ? <TrendChart series={series} rangeDays={Number(days)} aria-label="Compliance over time" /> : <Loading />}
+        {history.data ? <TrendChart series={series} rangeDays={days} aria-label="Compliance over time" /> : <Loading />}
       </Card>
     </>
   );

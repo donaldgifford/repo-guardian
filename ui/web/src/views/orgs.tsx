@@ -5,6 +5,7 @@ import { useOrg, useOrgs } from "../api/queries";
 import { Loading } from "../components/common";
 import { ExportButton } from "../components/ExportButton";
 import { PageHeader } from "../components/page/PageHeader";
+import { RangeTabs } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
@@ -73,9 +74,12 @@ export function OrgView() {
           </>
         }
         controls={
-          <Link to="/repositories" search={{ org: o.org }} className="text-xs text-accent hover:underline">
-            Repositories →
-          </Link>
+          <>
+            <RangeTabs />
+            <Link to="/repositories" search={{ org: o.org }} className="text-xs text-accent hover:underline">
+              Repositories →
+            </Link>
+          </>
         }
       />
       <div className="space-y-4">

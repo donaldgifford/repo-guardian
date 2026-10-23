@@ -1,7 +1,8 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Outlet, retainSearchParams } from "@tanstack/react-router";
 
 import { ProblemView } from "./components/problem";
 import { Shell } from "./components/shell/Shell";
+import { parseRangeSearch } from "./lib/range";
 import { ControlsView, ControlView } from "./views/controls";
 import { FleetView } from "./views/fleet";
 import { HistoryView, parseHistorySearch } from "./views/history";
@@ -23,13 +24,16 @@ const appRoute = createRoute({
   id: "app",
   component: Shell,
   errorComponent: ProblemView,
+  // The range rides along from page to page, as the mockup's router
+  // keeps it; a view's own filters stay behind (patchSearch's note).
+  search: { middlewares: [retainSearchParams(["days"])] },
 });
 
-const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: FleetView });
+const fleetRoute = createRoute({ getParentRoute: () => appRoute, path: "/", validateSearch: parseRangeSearch, component: FleetView });
 const controlsRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls", component: ControlsView });
-const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", component: ControlView });
+const controlRoute = createRoute({ getParentRoute: () => appRoute, path: "/controls/$id", validateSearch: parseRangeSearch, component: ControlView });
 const orgsRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs", component: OrgsView });
-const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", component: OrgView });
+const orgRoute = createRoute({ getParentRoute: () => appRoute, path: "/orgs/$org", validateSearch: parseRangeSearch, component: OrgView });
 const repositoriesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/repositories",

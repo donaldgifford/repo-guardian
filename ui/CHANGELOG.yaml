@@ -10,7 +10,7 @@
 - version: 2.0.0-rc.16
   date: 2026-10-23
   title: Findings, the orgs tree, fleet panels and Remediations
-  summary: The Findings page lists every non-compliant result with filter chips, a drawer and CSV export. The orgs tree carries each cell's own denominator, the fleet panels read the history aggregates, and the Remediations page shows every pull request, API change and hold as a sentence. The status page gains a remediation backlog cell and this changelog.
+  summary: The Findings page lists every non-compliant result with filter chips, a drawer and CSV export. The orgs tree carries each cell's own denominator, the fleet panels read the history aggregates, and the Remediations page shows every pull request, API change and hold as a sentence. The status page counts the remediations waiting to run and carries this changelog.
   tags: [new, findings, fleet, ui]
 - version: 2.0.0-rc.15
   date: 2026-10-23

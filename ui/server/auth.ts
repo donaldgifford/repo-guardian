@@ -19,6 +19,12 @@ interface LoginTransaction {
 // loginTtlSeconds bounds how long a login may sit at the issuer.
 const loginTtlSeconds = 600;
 
+// exchangeReuseMs is how long a settled code exchange stays shared
+// after it finishes, for a duplicate callback that arrives just after.
+const exchangeReuseMs = 30_000;
+
+type TokenResult = Awaited<ReturnType<typeof client.authorizationCodeGrant>>;
+
 export interface AuthDeps {
   config: Config;
   oidc: Oidc;
@@ -31,6 +37,27 @@ export interface AuthDeps {
 export function mountAuth(app: Hono, { config, oidc, session, log }: AuthDeps): void {
   const login = new SealedCookie<LoginTransaction>("rg_login", config.sessionKeys);
   const redirectUri = new URL("/auth/callback", config.publicUrl).toString();
+
+  // exchanges single-flights the code exchange per login transaction. A
+  // browser can hit the callback twice for one sign-in (a speculative
+  // prefetch, a double navigation); both requests carry the same login
+  // cookie and code, and the issuer accepts a code once, so the second
+  // exchange used to fail and log "login callback rejected" beside the
+  // first one's "signed in". Keyed on state and code, so only a request
+  // holding this login's cookie and this callback's code shares it. One
+  // replica only: a duplicate landing on another replica still fails.
+  const exchanges = new Map<string, Promise<TokenResult>>();
+  const exchange = (key: string, run: () => Promise<TokenResult>): Promise<TokenResult> => {
+    const found = exchanges.get(key);
+    if (found) return found;
+    const p = run();
+    exchanges.set(key, p);
+    const forget = () => {
+      setTimeout(() => exchanges.delete(key), exchangeReuseMs).unref();
+    };
+    p.then(forget, forget);
+    return p;
+  };
 
   app.get("/auth/login", async (c) => {
     const oc = await oidc.configuration();
@@ -71,14 +98,17 @@ export function mountAuth(app: Hono, { config, oidc, session, log }: AuthDeps): 
     const reqUrl = new URL(c.req.url);
     const current = new URL(`${reqUrl.pathname}${reqUrl.search}`, config.publicUrl);
 
-    let tokens: Awaited<ReturnType<typeof client.authorizationCodeGrant>>;
+    let tokens: TokenResult;
     try {
-      tokens = await client.authorizationCodeGrant(await oidc.configuration(), current, {
-        pkceCodeVerifier: tx.verifier,
-        expectedState: tx.state,
-        expectedNonce: tx.nonce,
-        idTokenExpected: true,
-      });
+      const oc = await oidc.configuration();
+      tokens = await exchange(`${tx.state}\n${current.searchParams.get("code") ?? ""}`, () =>
+        client.authorizationCodeGrant(oc, current, {
+          pkceCodeVerifier: tx.verifier,
+          expectedState: tx.state,
+          expectedNonce: tx.nonce,
+          idTokenExpected: true,
+        }),
+      );
     } catch (err) {
       log("warn", "login callback rejected", { error: String(err) });
       return c.text("login failed", 400);

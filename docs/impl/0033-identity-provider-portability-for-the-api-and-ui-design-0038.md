@@ -280,7 +280,7 @@ DESIGN-0038 B4; OQ7.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **Values.** `charts/repo-guardian/values.yaml`:
+- [x] 3.1 **Values.** `charts/repo-guardian/values.yaml`:
   `api.auth.clientClaim: azp`; `ui.oidc.tokenAuthMethod:
   client_secret_post`; `ui.oidc.authorizationParams: {}`;
   `ui.oidc.scopes: [openid, profile, email, offline_access]` with a

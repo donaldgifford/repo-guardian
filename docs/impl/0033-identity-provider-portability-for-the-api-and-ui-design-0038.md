@@ -215,7 +215,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 **Config.** `ui/server/config.ts`: `oidc.tokenAuthMethod:
+- [x] 2.1 **Config.** `ui/server/config.ts`: `oidc.tokenAuthMethod:
   "client_secret_post" | "client_secret_basic"` from
   `OIDC_TOKEN_AUTH_METHOD` (default post; any other value is a
   `ConfigError` naming the two accepted values) and

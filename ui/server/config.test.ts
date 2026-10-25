@@ -23,6 +23,50 @@ describe("loadConfig", () => {
     expect(cfg.port).toBe(3000);
     expect(cfg.sessionKeys).toHaveLength(1);
     expect(cfg.sessionKeys[0]).toHaveLength(32);
+    expect(cfg.oidc.tokenAuthMethod).toBe("client_secret_post");
+    expect(cfg.oidc.authorizationParams).toEqual({});
+  });
+
+  test("accepts client_secret_basic and refuses any other token method", () => {
+    expect(loadConfig({ ...validEnv, OIDC_TOKEN_AUTH_METHOD: "client_secret_basic" }).oidc.tokenAuthMethod).toBe(
+      "client_secret_basic",
+    );
+    expect(problems({ ...validEnv, OIDC_TOKEN_AUTH_METHOD: "private_key_jwt" })).toEqual([
+      'OIDC_TOKEN_AUTH_METHOD must be one of client_secret_post, client_secret_basic, got "private_key_jwt"',
+    ]);
+  });
+
+  test("reads authorization params as a JSON object of strings", () => {
+    const cfg = loadConfig({ ...validEnv, OIDC_AUTHORIZATION_PARAMS: '{"audience":"api://x","prompt":"login"}' });
+    expect(cfg.oidc.authorizationParams).toEqual({ audience: "api://x", prompt: "login" });
+  });
+
+  test("refuses malformed authorization params", () => {
+    for (const raw of ["not json", "[]", '"audience"', "null"]) {
+      expect(problems({ ...validEnv, OIDC_AUTHORIZATION_PARAMS: raw })).toEqual([
+        "OIDC_AUTHORIZATION_PARAMS must be a JSON object of string values",
+      ]);
+    }
+    expect(problems({ ...validEnv, OIDC_AUTHORIZATION_PARAMS: '{"audience":1,"max_age":true}' })).toEqual([
+      "OIDC_AUTHORIZATION_PARAMS values must be strings: audience, max_age",
+    ]);
+  });
+
+  test("refuses every reserved authorization param, listing them all", () => {
+    const reserved = [
+      "redirect_uri",
+      "scope",
+      "state",
+      "nonce",
+      "code_challenge",
+      "code_challenge_method",
+      "response_type",
+      "client_id",
+    ];
+    const raw = JSON.stringify(Object.fromEntries(reserved.map((k) => [k, "x"])));
+    expect(problems({ ...validEnv, OIDC_AUTHORIZATION_PARAMS: raw })).toEqual([
+      `OIDC_AUTHORIZATION_PARAMS may not set ${reserved.join(", ")}: the login flow sets them`,
+    ]);
   });
 
   test("reports every missing variable at once", () => {

@@ -288,7 +288,7 @@ DESIGN-0038 B4; OQ7.
   scope and that Okta's custom servers reject an undefined one;
   `api.authz.clients` comment reworded to "by the claim
   `api.auth.clientClaim` names".
-- [ ] 3.2 **Schema.** `values.schema.json`: `api.auth.nameClaim`,
+- [x] 3.2 **Schema.** `values.schema.json`: `api.auth.nameClaim`,
   `groupsClaim`, `clientClaim` (`string`, `minLength: 1`);
   `ui.oidc.tokenAuthMethod` (`enum`); `ui.oidc.authorizationParams`
   (`object`, `additionalProperties: {type: string}`, and a `not` over

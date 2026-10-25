@@ -436,6 +436,18 @@
             },
             "audience": {
               "type": "string"
+            },
+            "nameClaim": {
+              "type": "string",
+              "minLength": 1
+            },
+            "groupsClaim": {
+              "type": "string",
+              "minLength": 1
+            },
+            "clientClaim": {
+              "type": "string",
+              "minLength": 1
             }
           }
         },
@@ -511,6 +523,76 @@
               "contains": {
                 "const": "openid"
               }
+            },
+            "tokenAuthMethod": {
+              "enum": [
+                "client_secret_post",
+                "client_secret_basic"
+              ]
+            },
+            "authorizationParams": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "allOf": [
+                {
+                  "not": {
+                    "required": [
+                      "redirect_uri"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "scope"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "state"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "nonce"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "code_challenge"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "code_challenge_method"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "response_type"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "client_id"
+                    ]
+                  }
+                }
+              ]
             }
           }
         },

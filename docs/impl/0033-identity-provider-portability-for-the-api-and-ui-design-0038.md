@@ -305,7 +305,7 @@ DESIGN-0038 B4; OQ7.
   `/ui/oidc/authorizationParams`; the named `validateUI` message is
   reached only when schema validation is skipped (verified by removing
   the schema rule once)._
-- [ ] 3.4 **Tests.** `tests/ui_test.yaml`: update the `OIDC_SCOPES`
+- [x] 3.4 **Tests.** `tests/ui_test.yaml`: update the `OIDC_SCOPES`
   default assertion; add `OIDC_TOKEN_AUTH_METHOD` default, the JSON
   rendering of a two-key `authorizationParams`, absence of the env when
   empty, and a `failedTemplate` case for `authorizationParams.state`.

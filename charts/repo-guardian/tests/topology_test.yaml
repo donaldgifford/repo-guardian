@@ -69,6 +69,9 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: API_AUTHZ_CONFIG, value: /etc/repo-guardian/authz/authz.yaml}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_CLIENT_CLAIM, value: azp}
       - exists:
           path: spec.template.metadata.annotations["checksum/authz"]
       - notExists:

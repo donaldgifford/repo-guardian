@@ -346,7 +346,7 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 **The page.** `docs/operations/identity-provider.md`: the
+- [x] 4.1 **The page.** `docs/operations/identity-provider.md`: the
   contract table from DESIGN-0038 B1 (requirement, API, UI, why) with
   the three new settings; the token-flow mermaid diagram from B2; a
   "What the chart exposes" table mapping every `api.auth.*` and
@@ -356,7 +356,7 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
   (issuer and audience, UI client, groups, machine clients, chart
   values); `api.md` keeps § Authentication's rules (reworded to drop
   "Keycloak's `typ: ID`") and links the page.
-- [ ] 4.3 **Okta.** Custom authorization server required (org server
+- [x] 4.3 **Okta.** Custom authorization server required (org server
   tokens cannot be validated by third parties); issuer
   `https://<org>.okta.com/oauth2/<id>`; audience; `groups` claim on
   access tokens with a group filter; web app with refresh tokens, the
@@ -365,22 +365,22 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
   unless defined); `nameClaim: sub` or a custom claim; machine clients
   via `clientClaim: cid` or a groups claim on client-credentials
   tokens.
-- [ ] 4.4 **Entra ID.** Two app registrations; `accessTokenAcceptedVersion:
+- [x] 4.4 **Entra ID.** Two app registrations; `accessTokenAcceptedVersion:
   2`; issuer `https://login.microsoftonline.com/<tenant>/v2.0`; audience
   the API app's client ID or `api://<id>`; the API scope in
   `ui.oidc.scopes`; GUID groups or `groupsClaim: roles`; the 200-group
   overage caveat (falls to `defaultOrgs`); `clientClaim: azp` on v2
   tokens; the session-cookie size note (`session.ts` ten chunks).
-- [ ] 4.5 **Auth0.** Trailing-slash issuer; API identifier as audience;
+- [x] 4.5 **Auth0.** Trailing-slash issuer; API identifier as audience;
   `ui.oidc.authorizationParams: {audience: <identifier>}`; a post-login
   Action adding a namespaced groups claim set as `groupsClaim`;
   RP-initiated logout enabled for `end_session_endpoint`;
   `offline_access` on the API; `clientClaim: azp`.
-- [ ] 4.6 **Google and others.** One paragraph: opaque access tokens, use
+- [x] 4.6 **Google and others.** One paragraph: opaque access tokens, use
   a broker (Keycloak, Dex, Okta, Auth0) and follow its recipe. A
   closing "Any other provider" checklist derived from the contract
   table.
-- [ ] 4.7 **Verifying.** § Verifying a provider: sign in, open `/me`
+- [x] 4.7 **Verifying.** § Verifying a provider: sign in, open `/me`
   through the UI, confirm `name`, `groups` and the visible orgs; the
   `repo_guardian_api_auth_failures_total{reason}` table mapping each
   reason (`issuer`, `audience`, `algorithm`, `id_token`, `signature`,

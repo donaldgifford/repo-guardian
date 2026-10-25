@@ -157,7 +157,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   rejects an empty string when auth is enabled (an operator who sets it
   blank gets a startup error naming the variable, not a silent "no
   client"). Table case in `internal/config/role_test.go`.
-- [ ] 1.2 **AuthnConfig.** `internal/api/authn.go`: `AuthnConfig.ClientClaim`;
+- [x] 1.2 **AuthnConfig.** `internal/api/authn.go`: `AuthnConfig.ClientClaim`;
   `verify` sets `Client: stringClaim(all[a.cfg.ClientClaim])`; remove
   `tokenClaims.AZP`. `cmd/repo-guardian/api.go` passes
   `ClientClaim: cfg.API.OIDCClientClaim`. Reword the `isIDToken`
@@ -181,7 +181,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   `Client`, so `AuthzConfig.Scope` grants nothing from `clients`.
   Prove non-vacuity once: point the Okta case at `ClientClaim: "azp"`
   and watch it fail ([[feedback-verify-test-non-vacuous]]).
-- [ ] 1.5 **Call sites.** The three hard-coded `NameClaim`/`GroupsClaim`
+- [x] 1.5 **Call sites.** The three hard-coded `NameClaim`/`GroupsClaim`
   literals (`api_test.go`, `status_http_test.go`,
   `apiendpoints_integration_test.go`) gain `ClientClaim: "azp"` through
   one shared helper, so the next claim added touches one place.

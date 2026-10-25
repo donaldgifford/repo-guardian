@@ -83,9 +83,7 @@ func TestStatus_PublicUnlessConfigured(t *testing.T) {
 	}
 
 	iss := h.issuer
-	authn := api.NewAuthenticator(&api.AuthnConfig{
-		Issuer: iss.URL, Audience: audience, NameClaim: "preferred_username", GroupsClaim: "groups",
-	}, quiet)
+	authn := api.NewAuthenticator(iss.AuthnConfig(), quiet)
 	authn.Start(t.Context())
 
 	private := apitest.New(t, &api.Options{

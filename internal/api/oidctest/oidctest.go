@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+
+	"github.com/donaldgifford/repo-guardian/internal/api"
 )
 
 const keyID = "oidctest-1"
@@ -56,6 +58,19 @@ func Start(tb testing.TB, audience string) *Issuer {
 	})
 
 	return iss
+}
+
+// AuthnConfig is the API's verification config for this issuer with the
+// default claim names (preferred_username, groups, azp). Tests build
+// their Authenticator from it so a new claim setting changes one place.
+func (i *Issuer) AuthnConfig() *api.AuthnConfig {
+	return &api.AuthnConfig{
+		Issuer:      i.URL,
+		Audience:    i.Audience,
+		NameClaim:   "preferred_username",
+		GroupsClaim: "groups",
+		ClientClaim: "azp",
+	}
 }
 
 func newKey(tb testing.TB) *rsa.PrivateKey {

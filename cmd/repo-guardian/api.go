@@ -77,6 +77,7 @@ func startAPI(
 		opts.Authn = api.NewAuthenticator(&api.AuthnConfig{
 			Issuer: cfg.API.OIDCIssuer, Audience: cfg.API.OIDCAudience,
 			NameClaim: cfg.API.OIDCNameClaim, GroupsClaim: cfg.API.OIDCGroupsClaim,
+			ClientClaim: cfg.API.OIDCClientClaim,
 		}, logger)
 
 		go opts.Authn.Start(ctx)

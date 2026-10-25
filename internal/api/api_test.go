@@ -122,9 +122,7 @@ func newHarness(t *testing.T, opts ...func(*api.Options)) *harness {
 		t.Fatal(err)
 	}
 
-	authn := api.NewAuthenticator(&api.AuthnConfig{
-		Issuer: iss.URL, Audience: audience, NameClaim: "preferred_username", GroupsClaim: "groups",
-	}, quiet)
+	authn := api.NewAuthenticator(iss.AuthnConfig(), quiet)
 	authn.Start(t.Context())
 
 	reader := twoOrgs()

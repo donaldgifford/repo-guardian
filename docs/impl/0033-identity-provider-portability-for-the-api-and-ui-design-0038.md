@@ -234,7 +234,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
   `buildAuthorizationUrl`, so the fixed ones win even if validation is
   bypassed; test that `audience=api://x` appears and that a reserved
   key cannot override `state`.
-- [ ] 2.4 **Mock issuer.** `ui/server/testing/mock-issuer.ts` accepts
+- [x] 2.4 **Mock issuer.** `ui/server/testing/mock-issuer.ts` accepts
   the client secret from the POST body or an `Authorization: Basic`
   header (RFC 6749 §2.3.1 form-encoding of id and secret), records
   which was used on the issuer object for assertions, and echoes any

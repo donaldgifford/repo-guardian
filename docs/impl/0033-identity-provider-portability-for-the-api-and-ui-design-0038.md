@@ -315,7 +315,7 @@ DESIGN-0038 B4; OQ7.
   _Done: the two refusal cases live in `tests/ui_guards_test.yaml`,
   which renders `deployment.yaml` where `validateUI` runs;
   `OIDC_CLIENT_CLAIM` is asserted in `tests/topology_test.yaml`._
-- [ ] 3.5 **README.** `make helm-docs` regenerates the chart README from
+- [x] 3.5 **README.** `make helm-docs` regenerates the chart README from
   `README.md.gotmpl`; add a sentence under "The UI" pointing at the
   identity-provider page (Phase 4) in the `.gotmpl`, never the rendered
   README.

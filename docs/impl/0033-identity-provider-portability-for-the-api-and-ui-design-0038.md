@@ -245,7 +245,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
   with `OIDC_TOKEN_AUTH_METHOD=client_secret_basic`; its sign-in spec
   already proves the flow, so no new spec, just one assertion in
   `no-remediation.spec.ts` that sign-in succeeded (it does today).
-- [ ] 2.6 **README.** `ui/README.md` § Configuration gains the two
+- [x] 2.6 **README.** `ui/README.md` § Configuration gains the two
   variables with defaults and the reserved-key rule.
 
 <!--docz:tasks:end-->

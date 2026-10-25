@@ -152,7 +152,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Config.** `internal/config/api.go`: `APIConfig.OIDCClientClaim`
+- [x] 1.1 **Config.** `internal/config/api.go`: `APIConfig.OIDCClientClaim`
   from `OIDC_CLIENT_CLAIM` (`envOrDefault`, default `azp`); validation
   rejects an empty string when auth is enabled (an operator who sets it
   blank gets a startup error naming the variable, not a silent "no

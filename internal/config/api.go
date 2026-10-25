@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 // APIConfig configures the read-only api role (DESIGN-0027).
@@ -24,6 +25,11 @@ type APIConfig struct {
 	// claims. Defaults "preferred_username" and "groups".
 	OIDCNameClaim   string
 	OIDCGroupsClaim string
+	// OIDCClientClaim is OIDC_CLIENT_CLAIM, the top-level claim naming a
+	// machine client for authz `clients` (azp on Keycloak and Auth0, cid
+	// on Okta, appid on Entra ID v1). Default "azp"; set but blank is a
+	// startup error, never a silent "no client".
+	OIDCClientClaim string
 	// AuthzConfigPath is API_AUTHZ_CONFIG, the groups → orgs file.
 	AuthzConfigPath string
 
@@ -58,6 +64,7 @@ func loadAPIConfig(cfg *Config) error {
 		OIDCAudience:    os.Getenv("OIDC_AUDIENCE"),
 		OIDCNameClaim:   envOrDefault("OIDC_NAME_CLAIM", "preferred_username"),
 		OIDCGroupsClaim: envOrDefault("OIDC_GROUPS_CLAIM", "groups"),
+		OIDCClientClaim: clientClaimFromEnv(),
 		AuthzConfigPath: os.Getenv("API_AUTHZ_CONFIG"),
 		StatusPublic:    statusPublic,
 	}
@@ -112,9 +119,24 @@ func (c *Config) validateAPI(role Role) []error {
 		errs = append(errs, errors.New("OIDC_AUDIENCE is required for the api role unless API_AUTH_ENABLED=false"))
 	}
 
+	if c.API.OIDCClientClaim == "" {
+		errs = append(errs, errors.New("OIDC_CLIENT_CLAIM must name a claim when set (default azp)"))
+	}
+
 	if c.API.AuthzConfigPath == "" {
 		errs = append(errs, errors.New("API_AUTHZ_CONFIG is required for the api role unless API_AUTH_ENABLED=false"))
 	}
 
 	return errs
+}
+
+// clientClaimFromEnv reads OIDC_CLIENT_CLAIM, defaulting to "azp" only
+// when the variable is unset, so a blank value reaches validation.
+func clientClaimFromEnv() string {
+	v, ok := os.LookupEnv("OIDC_CLIENT_CLAIM")
+	if !ok {
+		return "azp"
+	}
+
+	return strings.TrimSpace(v)
 }

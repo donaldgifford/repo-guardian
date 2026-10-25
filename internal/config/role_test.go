@@ -127,6 +127,40 @@ func TestLoadRole_API(t *testing.T) {
 		})
 	}
 
+	t.Run("OIDC_CLIENT_CLAIM defaults to azp, takes a value, refuses a blank", func(t *testing.T) {
+		for _, tt := range []struct {
+			name, value string
+			set         bool
+			want        string
+			wantErr     bool
+		}{
+			{name: "unset", want: "azp"},
+			{name: "okta", value: "cid", set: true, want: "cid"},
+			{name: "blank", value: "  ", set: true, wantErr: true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				setAPIEnv(t)
+				if tt.set {
+					t.Setenv("OIDC_CLIENT_CLAIM", tt.value)
+				}
+
+				cfg, err := LoadRole(RoleAPI)
+				if tt.wantErr {
+					if err == nil || !strings.Contains(err.Error(), "OIDC_CLIENT_CLAIM") {
+						t.Errorf("LoadRole(api) with OIDC_CLIENT_CLAIM=%q = %v, want an error naming it", tt.value, err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("LoadRole(api) = %v", err)
+				}
+				if cfg.API.OIDCClientClaim != tt.want {
+					t.Errorf("OIDCClientClaim = %q, want %q", cfg.API.OIDCClientClaim, tt.want)
+				}
+			})
+		}
+	})
+
 	t.Run("disabled auth needs only the DSN", func(t *testing.T) {
 		t.Setenv("STORE_RO_DSN", "postgres://ro")
 		t.Setenv("API_AUTH_ENABLED", "false")

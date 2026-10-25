@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext } from "react";
 
+import { floorPercent } from "../../lib/posture";
 import { cn } from "../../lib/utils";
 import { heatOpacity } from "../../lib/viewmodel";
 
@@ -58,6 +59,15 @@ const tones: Record<GridTone, string> = {
   info: "var(--color-info)",
 };
 
+// shareText is the share as the rest of the UI prints a percentage:
+// floored to one decimal (floorPercent, the SQL's floor_percent), with
+// a whole number printed bare. Rounding instead made an org read 28%
+// in its cell and 27.5% in its own subtitle.
+export function shareText(n: number, of: number): string {
+  const p = floorPercent(n, of) ?? 0;
+  return Number.isInteger(p) ? `${p}%` : `${p.toFixed(1)}%`;
+}
+
 // share is the cell's fraction of its denominator, null when unmeasured.
 export function share(cell: { n: number; of?: number | null }): number | null {
   if (cell.of === undefined || cell.of === null || cell.of <= 0) return null;
@@ -99,7 +109,7 @@ function Cell({ cell, col, heat }: { cell: GridCell | undefined; col: GridColumn
     <td className={numeric} style={heat ? heatStyle(cell.n, cell.of ?? 0, col.tone) : undefined} data-heat={heat ? col.key : undefined} data-shade={shade > 0 ? shade : undefined}>
       {cell.n.toLocaleString()}
       {/* The share keeps full foreground on a shaded cell: muted ink on the tint fails AA. */}
-      <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{Math.round(100 * s)}%</span>
+      <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{shareText(cell.n, cell.of ?? 0)}</span>
     </td>
   );
 }

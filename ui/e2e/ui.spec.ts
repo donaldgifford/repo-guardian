@@ -493,7 +493,7 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   await expect(web).toBeVisible();
   // Same body, every column: a child row has as many cells as the org row.
   expect(await web.locator("td").count()).toBe(await acme.locator("td").count());
-  await expect(web).toContainText("33%"); // 1 compliant of 3 measured
+  await expect(web).toContainText("33.3%"); // 1 compliant of 3 measured, floored like every percentage
   // An unmeasured cell reads no data, never a percentage.
   const api = grid.locator("tr[data-child='acme/api']");
   await expect(api).toBeVisible();

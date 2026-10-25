@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
 import { type Column, DataTable } from "./data-table";
-import { GridChildRows, type GridColumn, type GridRow, GroupGrid, heatStyle, share } from "./group-grid";
+import { GridChildRows, type GridColumn, type GridRow, GroupGrid, heatStyle, share, shareText } from "./group-grid";
 
 withDOM();
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
@@ -90,6 +90,12 @@ const children: Record<string, GridRow[]> = {
 describe("GroupGrid", () => {
   test("share divides by the cell's own denominator and is null when nothing is measured", () => {
     expect(share({ n: 8, of: 10 })).toBe(0.8);
+    // The share floors like the subtitle's percentage: 143 of 519 is
+    // 27.5%, never a rounded 28%.
+    expect(shareText(143, 519)).toBe("27.5%");
+    expect(shareText(376, 519)).toBe("72.4%");
+    expect(shareText(3, 3)).toBe("100%");
+    expect(shareText(0, 3)).toBe("0%");
     expect(share({ n: 0, of: 0 })).toBeNull();
     expect(share({ n: 3, of: null })).toBeNull();
     expect(share({ n: 3 })).toBeNull();
@@ -160,7 +166,7 @@ describe("GroupGrid", () => {
     const footer = container.querySelector("tr[data-row=__footer]")!;
     expect(footer.textContent).toContain("2 orgs");
     expect(footer.textContent).toContain("16");
-    expect(footer.textContent).toContain("64%");
+    expect(footer.textContent).toContain("64.2%");
     expect(footer.querySelectorAll("td[data-heat]")).toHaveLength(0);
   });
 });

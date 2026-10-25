@@ -236,11 +236,10 @@ DESIGN-0038 A3, D2, OQ3 (decided (a)); IMPL-0034 OQ1, OQ2.
 #### Tasks
 
 - [ ] 2.1 **Inherit.** `mkdocs-ghpages.yml` becomes `INHERIT: mkdocs.yml`
-  plus `theme: {name: material}` and, per OQ1, `markdown_extensions`
-  with `pymdownx.superfences` and a `mermaid` custom fence
-  (`format: !!python/name:pymdownx.superfences.fence_code_format`), so
-  the 39 diagrams render on the interim site. `plugins` is overridden
-  to `[search]` because `techdocs-core` is not installed on Pages.
+  plus `theme: {name: material}`; `plugins` is overridden to `[search]`
+  because `techdocs-core` is not installed on Pages. Per OQ1 (b) no
+  mermaid extension is added: the 39 diagrams keep rendering as code
+  on the interim site until IMPL-0035 (which renders them client-side).
 - [ ] 2.2 **Pin.** `gh-pages.yml` installs `mkdocs-material==<current>`
   with a `# renovate: datasource=pypi depName=mkdocs-material` comment
   so Renovate's mise/pypi managers bump it.
@@ -256,9 +255,12 @@ DESIGN-0038 A3, D2, OQ3 (decided (a)); IMPL-0034 OQ1, OQ2.
   --strict --config-file mkdocs-ghpages.yml`; `make lint-docs` wraps the
   same command for local use. A dead nav entry or a broken inherit now
   fails the pull request, not the deploy.
-- [ ] 2.5 **Verify locally.** `make lint-docs` renders; open one design
-  page from `site/` and confirm the mermaid `<svg>`; note the result on
-  the task.
+- [ ] 2.5 **Verify locally.** `make lint-docs` renders into a throwaway
+  directory (`mkdocs build -d build/mkdocs`; MkDocs's default `site_dir`
+  is `site/`, which IMPL-0035 claims for the Astro source, so set
+  `site_dir: build/mkdocs` in `mkdocs.yml` now and narrow `.gitignore`'s
+  `site/` entry to `build/`); open one Usage page and confirm the nav;
+  note the result on the task.
 
 <!--docz:tasks:end-->
 
@@ -266,7 +268,8 @@ DESIGN-0038 A3, D2, OQ3 (decided (a)); IMPL-0034 OQ1, OQ2.
 #### Success Criteria
 
 - `mkdocs build --strict --config-file mkdocs-ghpages.yml` passes on
-  `v2` with every page in the nav and no warnings.
+  `v2` with every page in the nav and no warnings, writing under
+  `build/`, never `site/`.
 - The two mkdocs configs have no nav of their own to drift: `grep -c
   '^nav:' mkdocs-ghpages.yml` = 0.
 - The `docs` CI job runs on a docs-only pull request and skips on a
@@ -323,9 +326,11 @@ DESIGN-0038 A4 (the disposition table), OQ10, OQ12.
   `template-migration`, `custom-properties-security-fix`,
   `delayed-requeue-runbook`, `property-name-charset`,
   `compliance-reports`): "This page describes repo-guardian 1.x. v2 has
-  no equivalent" with the v2 pointer where one exists. Plain blockquote
-  syntax (`> **1.x only.**`), not an MkDocs `!!!` admonition, so it
-  renders on TechDocs, the interim site and the Starlight site alike.
+  no equivalent" with the v2 pointer where one exists. GFM alert syntax
+  (`> [!WARNING]` as the first line, then `> **1.x only.** ...`), never
+  an MkDocs `!!!` admonition: Starlight renders a GFM alert as an aside
+  and MkDocs/TechDocs/GitHub degrade it to a blockquote, so one source
+  serves every renderer (claudelint's DESIGN-0003 convention).
 - [ ] 3.8 **Chart README.** `README.md.gotmpl` introduction rewritten for
   the controls line; `make helm-docs`.
 - [ ] 3.9 **Tombstone.** `git rm deploy/MIGRATED.md` (OQ10) and remove
@@ -791,6 +796,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
   few more weeks.
 - other:
 
+**Decision (2026-10-25):** (b).
+
 **OQ2. Where the strict docs build runs.**
 
 - (a) ✅ recommended: **a new `docs` CI job** on a `docs` paths filter,
@@ -799,6 +806,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - (b) inside the existing `lint` job; fewer jobs, but `lint` would then
   run on docs-only pull requests and needs Python.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 **OQ3. The required status checks.**
 
@@ -812,6 +821,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
   ruleset.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ4. Who runs the GitHub-settings changes (CodeQL, rulesets, Pages).**
 
 - (a) ✅ recommended: **the maintainer runs the `gh api` commands
@@ -821,6 +832,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - (b) the implementer runs them with the maintainer's explicit go-ahead
   per command; faster, same commands.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 **OQ5. The `v*` tag ruleset's rules.**
 
@@ -834,6 +847,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
   pipeline if it drifts.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ6. The GA preflight.**
 
 - (a) ✅ recommended: **`scripts/ga-preflight.sh`**, run by the
@@ -844,6 +859,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
   Makefile entry for a once-per-major action.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ7. Where the 2.0.0 release notes live.**
 
 - (a) ✅ recommended: **`docs/releases/2.0.0.md`**, linked from
@@ -852,6 +869,8 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - (b) only the GitHub release body (goreleaser `header`); nothing to
   keep in the tree, not on the docs site.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 <!--docz:references:start-->
 ## References

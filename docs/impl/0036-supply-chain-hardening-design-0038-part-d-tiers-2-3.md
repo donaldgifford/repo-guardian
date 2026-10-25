@@ -56,6 +56,13 @@ sign, then sign the binaries with cosign and SLSA generic provenance,
 add a NetworkPolicy, and revisit required signatures. Each phase is a
 pull request that leaves the pipeline publishing exactly as before.
 
+Workflow linting, security auditing and action pinning are one tool,
+`jdx/jactionlint` (reviewed 2026-10-25): it carries actionlint's checks
+(`correctness` profile), a rule per zizmor audit under the same IDs
+(`default` profile = zizmor's `regular` persona), and `unpinned-uses`
+whose `--online --fix` pins tags to commits with a version comment, so
+`pinact`, `actionlint` and `zizmor` are not adopted separately.
+
 **Implements:** [DESIGN-0038](../design/0038-v200-ga-cutover-and-identity-provider-portability.md)
 Part D tiers 2 and 3 (D4), D9, OQ20. Follows IMPL-0034 Phase 5 (tier
 1).
@@ -68,12 +75,12 @@ Part D tiers 2 and 3 (D4), D9, OQ20. Follows IMPL-0034 Phase 5 (tier
 <!--docz:in-scope:start-->
 ### In Scope
 
-- SHA pinning of all external action references with Renovate keeping
-  them current; the `slsa-github-generator` tag exception (tier 1)
-  verified.
+- SHA pinning of all external action references (`jactionlint --online
+  --fix`) with Renovate keeping them current; the `slsa-github-generator`
+  tag exception (tier 1) as an `unpinned-uses` policy.
 - Trivy image and config scans (SARIF to code scanning), `bun audit` and
-  a UI licence check, `actionlint`, `zizmor`, `dependency-review`,
-  OpenSSF Scorecard.
+  a UI licence check, `jactionlint` (actionlint + zizmor coverage, SARIF),
+  `dependency-review`, OpenSSF Scorecard.
 - Verify-after-sign on every publish; registry credentials through
   `env:`/stdin only; secret-scanning settings review.
 - Cosign keyless signatures and SLSA generic provenance for the
@@ -112,6 +119,25 @@ Verified 2026-10-25 (DESIGN-0038 § Background, D4):
 - No `actionlint`, `zizmor`, `dependency-review-action` or Scorecard
   workflow; `.github/actionlint.yml` exists (self-hosted labels `[]`) but
   nothing runs it.
+- **`jdx/jactionlint` v2.3.0** (pushed 2026-10-25, 285 stars; a fork of
+  actionlint by mise's author): reads actionlint's config; one rule per
+  zizmor 1.30.1 audit with the same IDs and `# zizmor: ignore[...]`
+  comments honoured; profiles `correctness` (actionlint + bug
+  detectors), `default` (+ security and policy: `unpinned-uses`,
+  `missing-permissions`, `missing-timeout`, `concurrency-limits`,
+  `artipacked`, `template-injection`), `pedantic`; `--baseline-write`/
+  `--baseline` for gradual adoption; `--fix` (safe) and `--fix=unsafe`;
+  `--online` adds `impostor-commit`, `known-vulnerable-actions`,
+  `ref-version-mismatch`, `archived-uses`, `repojacking`, and makes
+  `unpinned-uses` fixable (tag → commit + `# vX.Y.Z` comment, most
+  specific tag, annotated tags followed, branches and unknown tags left
+  alone); checks `dependabot.yml` too; installs through mise with
+  `mise.lock` checksum + provenance verification; the `jdx/jactionlint`
+  action uploads SARIF with `advanced-security: true`; shellcheck is
+  used when on `PATH` (present on `ubuntu-24.04`). The `unpinned-uses`
+  rule takes zizmor-style `policies`, which is where the
+  `slsa-github-generator` `ref-pin` exception goes. Risk: a young fork;
+  the three-tool fallback is noted under Dependencies.
 - `ghcr.yml` signs with `cosign sign --yes` and never runs `cosign
   verify` after; `helm registry login` takes `--password-stdin` in
   `ecr.yml` (piped from `aws ecr get-login-password`) and the GHCR login
@@ -157,14 +183,20 @@ DESIGN-0038 D4 tier 2 (pinning); IMPL-0036 OQ1.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Pin once.** `pinact run` (OQ1; `pinact` added to `mise.toml`,
-  exact version, renovate comment) over `.github/workflows/*.yml` and
-  `.github/actions/**` rewrites every `uses:` to `owner/repo@<sha> #
-  vX.Y.Z`. Review the diff: the six existing pins unchanged; the
-  `slsa-framework/slsa-github-generator` references **left at
-  `@v2.1.0`** (`pinact` `ignore_actions` entry in `.pinact.yaml` with
-  the CLAUDE.md reason); reusable-workflow `uses:` of our own files
-  (`./.github/workflows/ghcr.yml`) untouched.
+- [ ] 1.1 **Pin once.** `jactionlint` added to `mise.toml` (exact
+  version, `# renovate: datasource=github-releases depName=jdx/jactionlint`)
+  and `mise lock` run so `mise.lock` records its checksum.
+  `.github/jactionlint.yaml` created with `rules.unpinned-uses.policies`
+  mapping `slsa-framework/slsa-github-generator` to `ref-pin` (the
+  CLAUDE.md reason in a comment) and `.github/actionlint.yml` folded
+  into it. Then `jactionlint --online --select unpinned-uses --diff`
+  reviewed and `--fix` applied (OQ1): every tag becomes
+  `owner/repo@<sha> # vX.Y.Z`. Review the diff: the six existing pins
+  unchanged; the SLSA generator references **left at `@v2.1.0`**;
+  reusable-workflow `uses:` of our own files
+  (`./.github/workflows/ghcr.yml`) untouched; anything jactionlint left
+  with `online-required`/`needs-judgment` listed on this task and
+  pinned by hand (`gh api repos/<o>/<r>/git/ref/tags/<tag>`).
 - [ ] 1.2 **Renovate.** Confirm the shared preset's `github-actions`
   `pinDigests: true` and `helpers:pinGitHubActionDigests`
   (`renovate.json5` extends `github>donaldgifford/renovate-config:ci`;
@@ -176,9 +208,11 @@ DESIGN-0038 D4 tier 2 (pinning); IMPL-0036 OQ1.
   with `dry_run=true` for the current tag; every job runs on the pinned
   actions. The next Renovate run proposes digest updates with the
   version comment (check #213's dashboard).
-- [ ] 1.4 **Guard.** `make lint-actions` runs `pinact run --check` (no
-  rewrite, non-zero on an unpinned reference); Phase 3's workflow job
-  runs it in CI so a new `uses: foo/bar@v1` fails the pull request.
+- [ ] 1.4 **Guard.** `make lint-actions` runs `jactionlint --profile
+  correctness` plus `--select unpinned-uses` (offline; both exit 1 on a
+  finding) until Phase 3 widens it to the `default` profile; Phase 3's
+  workflow job runs the same target in CI so a new `uses: foo/bar@v1`
+  fails the pull request.
 
 <!--docz:tasks:end-->
 
@@ -186,7 +220,8 @@ DESIGN-0038 D4 tier 2 (pinning); IMPL-0036 OQ1.
 #### Success Criteria
 
 - `grep -rhoE 'uses: [^./][^@]+@[^ ]+' .github | grep -vE '@[0-9a-f]{40}'`
-  returns only the `slsa-github-generator` references.
+  returns only the `slsa-github-generator` references, and
+  `jactionlint --select unpinned-uses` exits 0.
 - A dispatched publish dry run is green on the pinned tree.
 - Renovate's next digest PR carries `# vX.Y.Z` comments.
 
@@ -255,27 +290,45 @@ DESIGN-0038 D4 tier 2 (scanning); IMPL-0036 OQ2, OQ4, OQ5.
 <!--docz:phase:start-->
 ### Phase 3: Workflow linting and Scorecard
 
-DESIGN-0038 D4 tier 2 (workflow hygiene); IMPL-0036 OQ3, OQ6.
+DESIGN-0038 D4 tier 2 (workflow hygiene); IMPL-0036 OQ3, OQ6. One
+linter, `jactionlint`, in place of `actionlint` + `zizmor` + `pinact`.
 
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **`actionlint`.** `mise.toml` pins `actionlint`; `make
-  lint-actions` runs it (with `shellcheck` on `run:` blocks) and
-  `pinact run --check` (1.4); `ci.yml` gets a `workflows` job on the
-  existing `workflows` paths filter running the same target. Fix what
-  it finds (expected: a few `${{ }}` in `run:` warnings; convert to
-  `env:` where `shellcheck` flags them).
-- [ ] 3.2 **`zizmor`.** `mise.toml` pins `zizmor`; `make lint-actions`
-  runs `zizmor --persona regular .github/workflows` (OQ3) and the
-  `workflows` job uploads its SARIF to code scanning (`zizmor` tool).
-  Triage the first run: `template-injection` findings become `env:`
-  pass-throughs (the CLAUDE.md bake-metadata rule generalised),
-  `excessive-permissions` findings are covered by IMPL-0034 5.11's
-  job-level blocks, `artipacked` → `persist-credentials: false` on every
-  `actions/checkout` that does not push (every one but the
-  `changelog-update` and `bump-version` checkouts).
-- [ ] 3.3 **Scorecard.** `.github/workflows/scorecard.yml`:
+- [ ] 3.1 **Correctness first.** `jactionlint --profile correctness`
+  (actionlint's checks + shellcheck on `run:` blocks, `shellcheck`
+  pinned in `mise.toml` for laptops) over `.github/`; fix every finding
+  (these are mistakes, not debt). `make lint-actions` becomes
+  `jactionlint` at the `default` profile with `--baseline` (3.2);
+  `ci.yml` gets a `workflows` job on the existing `workflows` paths
+  filter: `jdx/mise-action` (jactionlint from `mise.lock`), `make
+  lint-actions`, and `jactionlint --format sarif` uploaded with
+  `github/codeql-action/upload-sarif` (tool `jactionlint`) so findings
+  land in code scanning beside CodeQL and trivy.
+- [ ] 3.2 **Default profile.** Run `jactionlint` (the `default` profile
+  = zizmor's `regular` persona, OQ3) and triage: `template-injection`
+  findings take the safe `--fix` (the expression moves to `env:`, the
+  CLAUDE.md bake-metadata rule generalised) and the `needs-judgment`
+  ones are edited by hand; `missing-permissions`/
+  `excessive-permissions` are covered by IMPL-0034 5.11's job-level
+  blocks; `artipacked` takes the safe fix (`persist-credentials: false`)
+  on every `actions/checkout` that does not push (every one but the
+  `changelog-update` and `bump-version` checkouts); `missing-timeout`
+  gets `rules.missing-timeout.default-minutes: 30` in
+  `.github/jactionlint.yaml` and the fix applied; `concurrency-limits`
+  is satisfied by IMPL-0034 5.11 on the publish workflows and added to
+  `ci.yml` (`cancel-in-progress: true` on pull requests). What is left
+  goes into `jactionlint --baseline-write` so the build fails only on
+  new findings, and the baseline file is burned down to empty within
+  this phase (list the entries on this task).
+- [ ] 3.3 **Online checks, scheduled.** A weekly `jactionlint --online`
+  run in the `workflows` job (`schedule` trigger, `JACTIONLINT_ONLINE`
+  with `GITHUB_TOKEN`, `contents: read`) for `impostor-commit`,
+  `known-vulnerable-actions`, `ref-version-mismatch`, `archived-uses`,
+  `repojacking`; findings annotate the run and upload as SARIF. Not on
+  pull requests (network, rate limits).
+- [ ] 3.4 **Scorecard.** `.github/workflows/scorecard.yml`:
   `ossf/scorecard-action` (pinned) on `push` to `main` and weekly, with
   `publish_results: true` (OQ6), SARIF to code scanning. Record the
   first score and the per-check breakdown on this task; the README gets
@@ -283,7 +336,7 @@ DESIGN-0038 D4 tier 2 (workflow hygiene); IMPL-0036 OQ3, OQ6.
   reviews; single maintainer), `Signed-Releases` (until Phase 5),
   `Token-Permissions` (fixed by 5.11 + 3.2), `Pinned-Dependencies`
   (Dockerfiles: pin `apk`/`apt` packages or mark them).
-- [ ] 3.4 **Dockerfile pins.** For `Pinned-Dependencies`: the Go
+- [ ] 3.5 **Dockerfile pins.** For `Pinned-Dependencies`: the Go
   `Dockerfile` and `ui/Dockerfile` `FROM` lines pinned to digests with a
   `# renovate:` comment (Renovate's docker manager updates them); any
   package installs pinned or removed.
@@ -293,11 +346,14 @@ DESIGN-0038 D4 tier 2 (workflow hygiene); IMPL-0036 OQ3, OQ6.
 <!--docz:criteria:start-->
 #### Success Criteria
 
-- `make lint-actions` passes locally and in the `workflows` CI job;
-  introducing `uses: actions/checkout@v4` or `run: echo ${{
+- `make lint-actions` (`jactionlint`, `default` profile, empty
+  baseline) passes locally and in the `workflows` CI job; introducing
+  `uses: actions/checkout@v4` or `run: echo ${{
   github.event.pull_request.title }}` fails it (verified once each).
+- Code scanning shows the `jactionlint` tool; the weekly online run
+  reports no `impostor-commit` or `known-vulnerable-actions`.
 - Scorecard publishes a result for `main`; `Token-Permissions` and
-  `Pinned-Dependencies` are at 10 after 3.2–3.4.
+  `Pinned-Dependencies` are at 10 after 3.2–3.5.
 - Every `actions/checkout` outside the two pushing workflows has
   `persist-credentials: false`.
 
@@ -327,9 +383,9 @@ DESIGN-0038 D4 tier 2 (verify-after-sign, secrets via env).
 - [ ] 4.2 **Secrets through env.** Every `run:` block that interpolates
   `${{ secrets.* }}` or a token output moves it to `env:` and reads the
   variable (`ecr.yml` token step, `helm registry login` password via
-  `--password-stdin <<< "$TOKEN"`, any `gh` call); `zizmor`'s
-  `template-injection` and `actionlint`'s shellcheck confirm none
-  remain. The `::add-mask::` on the ECR token stays.
+  `--password-stdin <<< "$TOKEN"`, any `gh` call); `jactionlint`'s
+  `template-injection` and shellcheck confirm none remain. The
+  `::add-mask::` on the ECR token stays.
 - [ ] 4.3 **Secret scanning settings.** `deferred - human required`:
   enable `secret_scanning_non_provider_patterns` and
   `secret_scanning_validity_checks` (`gh api -X PATCH repos/... -f
@@ -492,10 +548,10 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 | File | Action | Description |
 | ---- | ------ | ----------- |
 | `.github/workflows/*.yml`, `.github/actions/**` | Modify | SHA pins; `persist-credentials: false`; secrets via env; verify steps; harden-runner |
-| `.pinact.yaml`, `.github/actionlint.yml`, `mise.toml` (`pinact`, `actionlint`, `zizmor`, `slsa-verifier`) | Create/Modify | lint tooling |
+| `.github/jactionlint.yaml` (replaces `.github/actionlint.yml`), `.github/jactionlint-baseline.json` (burned down to empty), `mise.toml` + `mise.lock` (`jactionlint`, `shellcheck`, `slsa-verifier`) | Create/Modify | lint tooling |
 | `Makefile` (`lint-actions`) | Modify | local parity |
 | `.github/workflows/security.yml` (`trivy-image`, `trivy-config`), `.trivyignore` | Modify/Create | scanning |
-| `.github/workflows/ci.yml` (`workflows` job, `bun audit`), `license-check.yml` (`ui` job), `ui/.license-allowlist.json` | Modify/Create | UI dependency checks |
+| `.github/workflows/ci.yml` (`workflows` job: jactionlint + SARIF + weekly `--online`, `bun audit`, `concurrency`), `license-check.yml` (`ui` job), `ui/.license-allowlist.json` | Modify/Create | workflow lint and UI dependency checks |
 | `.github/workflows/dependency-review.yml`, `scorecard.yml` | Create | tier 2 |
 | `Dockerfile`, `ui/Dockerfile` | Modify | digest-pinned `FROM` |
 | `.goreleaser.yml`, `.github/workflows/release.yml`, `prerelease.yml` | Modify | cosign signs, SLSA generic provenance, verify-release |
@@ -509,7 +565,7 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 ## Testing Plan
 
 - [ ] Phase 1: dispatched publish dry run on pinned actions; the
-  `pinact --check` negative case.
+  `jactionlint --select unpinned-uses` negative case.
 - [ ] Phase 2: code-scanning tool list; a deliberately bad dependency on
   a throwaway pull request blocked by `dependency-review`.
 - [ ] Phase 3: `make lint-actions` negative cases (unpinned `uses:`,
@@ -534,6 +590,12 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   that repository.
 - The maintainer for the repository settings (4.3, 6.4) and for the
   homelab NetworkPolicy enforcement test (6.1).
+- `jdx/jactionlint` staying maintained. It is a young fork (v2.3.0,
+  active daily as of 2026-10-25). If it stalls, the fallback is the
+  three tools it replaces (`actionlint`, `zizmor --persona regular`,
+  `pinact run --check`), each a mise pin and a line in `lint-actions`;
+  the `# zizmor: ignore[...]` comment form keeps both directions
+  portable.
 
 <!--docz:dependencies:end-->
 
@@ -552,6 +614,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   security-only to stop the duplicate PRs.
 - other:
 
+**Decision (2026-10-25):** (a). Tool: `jactionlint --online --fix` on `unpinned-uses` in place of `pinact run`; same shape, one diff, Renovate maintains.
+
 **OQ2. When the trivy image scan and `bun audit` start failing the run.**
 
 - (a) ✅ recommended: **report-only for two weeks, then fail on
@@ -563,6 +627,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 - (c) report-only indefinitely; it is then a dashboard nobody reads.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ3. The `zizmor` persona.**
 
 - (a) ✅ recommended: **`regular`** (the default); `auditor` adds
@@ -573,6 +639,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   noise, marginal gain.
 - (c) `pedantic`; not for CI gating.
 - other:
+
+**Decision (2026-10-25):** (a). In jactionlint terms: the `default` profile, which is zizmor's `regular` persona; `pedantic` covers `auditor`/`pedantic`.
 
 **OQ4. `dependency-review` failure threshold and licences.**
 
@@ -587,6 +655,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   post-merge `license-check.yml`.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ5. The UI licence tool.**
 
 - (a) ✅ recommended: **`license-checker-rseidelsohn`** (the maintained
@@ -598,6 +668,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   implementation time and prefer it if it exists with an allowlist.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ6. Scorecard publishing.**
 
 - (a) ✅ recommended: **`publish_results: true` and the README badge**;
@@ -605,6 +677,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 - (b) run privately (SARIF only); keeps a low early score off the
   README, but there is nothing to hide and the score lifts quickly.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 **OQ7. GPG retirement timing.**
 
@@ -615,6 +689,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   overlap release for operators scripting `gpg --verify`.
 - (c) keep both indefinitely; two signing paths to maintain.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 **OQ8. NetworkPolicy shape.**
 
@@ -628,6 +704,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   tested.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ9. `harden-runner` mode.**
 
 - (a) ✅ recommended: **`audit` on the publish workflows first, `block`
@@ -640,6 +718,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
   protection where there are no secrets.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ10. Required signatures on `main`.**
 
 - (a) ✅ recommended: **decide at Phase 6 with the evidence**: enable
@@ -651,6 +731,8 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 - (c) never; signing is already policy by habit (`git commit -S`), but
   a ruleset is what makes it a control.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 <!--docz:references:start-->
 ## References
@@ -665,9 +747,11 @@ DESIGN-0038 D4 tier 3 (the rest); IMPL-0036 OQ8, OQ9, OQ10.
 - CLAUDE.md § Release: the nested-permission ceilings, bake-metadata
   and wrong-step-id post-mortems; the `slsa-github-generator` tag rule;
   "diff the twins".
-- `pinact`, `actionlint`, `zizmor`, `aquasecurity/trivy-action`,
-  `actions/dependency-review-action`, `ossf/scorecard-action`,
-  `step-security/harden-runner`, `slsa-framework/slsa-github-generator`
+- `jdx/jactionlint` (README, `docs/fix.md`, `docs/online.md`,
+  `docs/ci.md`, `docs/zizmor-parity.md`, read 2026-10-25),
+  `aquasecurity/trivy-action`, `actions/dependency-review-action`,
+  `ossf/scorecard-action`, `step-security/harden-runner`,
+  `slsa-framework/slsa-github-generator`
   (`generator_generic_slsa3.yml`), `slsa-verifier`, cosign `sign-blob`.
 - GitHub repository security settings (`security_and_analysis`) as read
   2026-10-25; issue #213 (Renovate dashboard).

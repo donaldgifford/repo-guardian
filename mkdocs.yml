@@ -46,6 +46,7 @@ nav:
         - 'DESIGN-0034: CODEOWNERS ownership control': design/0034-codeowners-ownership-control.md
         - 'DESIGN-0036: Frontend design cleanup and refresh for the v2 UI': design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md
         - 'DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog': design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md
+        - 'DESIGN-0038: v2.0.0 GA cutover and identity-provider portability': design/0038-v200-ga-cutover-and-identity-provider-portability.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
@@ -79,6 +80,10 @@ nav:
         - 'IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install': impl/0030-controls-remediation-per-control-prs-remediation-workflow-and.md
         - 'IMPL-0031: Frontend design refresh for the v2 UI': impl/0031-frontend-design-refresh-for-the-v2-ui.md
         - 'IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes': impl/0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11.md
+        - 'IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)': impl/0033-identity-provider-portability-for-the-api-and-ui-design-0038.md
+        - 'IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)': impl/0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a.md
+        - 'IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)': impl/0035-public-docs-site-on-astro-starlight-design-0038-part-c.md
+        - 'IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)': impl/0036-supply-chain-hardening-design-0038-part-d-tiers-2-3.md
     - Investigations:
         - Overview: investigation/README.md
         - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md

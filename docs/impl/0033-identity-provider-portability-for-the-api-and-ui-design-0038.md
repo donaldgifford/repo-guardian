@@ -428,9 +428,11 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   locator matches by substring, see the rc.16 lesson in #239);
   `cd ui && bun run gen:changelog`; `make helm-docs`; `make lint-ui`
   green locally.
-- [ ] 5.2 **PR.** `dont-release` against `v2`; CI green (the `ui` and
-  `helm` filters run on `Chart.yaml`).
-- [ ] 5.3 **Tag and publish.** After merge: signed annotated tag
+- [x] 5.2 **PR.** `dont-release` against `v2`; CI green (the `ui` and
+  `helm` filters run on `Chart.yaml`). #241: every check green, UI,
+  UI e2e, Helm Unit Tests and Helm Chart Test included.
+- [ ] 5.3 **Tag and publish** (`deferred - human required`: waits on
+  the maintainer merging #241). After merge: signed annotated tag
   `v2.0.0-rc.17` on the merge commit, `gh workflow run ghcr.yml --ref
   v2.0.0-rc.17 -f tag=v2.0.0-rc.17`; all twelve jobs green; `cosign
   verify` on the image; `helm pull --version 2.0.0-rc.17` reports the

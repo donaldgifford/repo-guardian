@@ -38,11 +38,16 @@ export class Oidc {
   }
 
   private discover(): Promise<client.Configuration> {
-    const { issuer, clientId, clientSecret } = this.config.oidc;
+    const { issuer, clientId, clientSecret, tokenAuthMethod } = this.config.oidc;
     // Plain http is only ever accepted for a loopback issuer (config
     // validation rejects it elsewhere): local development and tests.
     const execute = issuer.protocol === "http:" && isLoopback(issuer) ? [client.allowInsecureRequests] : [];
 
-    return client.discovery(issuer, clientId, clientSecret, client.ClientSecretPost(clientSecret), { execute });
+    // The method is the operator's (OIDC_TOKEN_AUTH_METHOD): post is the
+    // default, basic is what some providers' confidential clients require.
+    const auth =
+      tokenAuthMethod === "client_secret_basic" ? client.ClientSecretBasic(clientSecret) : client.ClientSecretPost(clientSecret);
+
+    return client.discovery(issuer, clientId, clientSecret, auth, { execute });
   }
 }

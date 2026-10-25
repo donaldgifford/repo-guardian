@@ -226,7 +226,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
   `code_challenge_method`, `response_type`, `client_id` are
   `ConfigError`s listing every offending key). Tests in
   `ui/server/config.test.ts` for each refusal and the defaults.
-- [ ] 2.2 **Discovery.** `ui/server/oidc.ts`: pick
+- [x] 2.2 **Discovery.** `ui/server/oidc.ts`: pick
   `client.ClientSecretPost` or `client.ClientSecretBasic` from the
   config. Test with the mock issuer in both modes (2.4).
 - [ ] 2.3 **Authorize URL.** `ui/server/auth.ts`: spread

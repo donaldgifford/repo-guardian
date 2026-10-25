@@ -62,8 +62,9 @@ export function TrendChart({ series, unit = "%", color = "var(--color-accent)", 
   return (
     <div role="img" aria-label={ariaLabel} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 12, right: 14, bottom: 0, left: 0 }}>
+        <AreaChart data={data} margin={{ top: 12, right: 28, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
+          {/* The right margin holds half the last date label, which centres on the newest point. */}
           <XAxis dataKey="at" ticks={ticks} tickFormatter={(v: string) => tickLabel(v, style)} tick={AXIS} axisLine={false} tickLine={false} interval={0} />
           <YAxis domain={[bounds.min, bounds.max]} ticks={bounds.ticks} tickFormatter={(v: number) => (unit === "%" ? `${v}%` : v.toLocaleString())} tick={AXIS} axisLine={false} tickLine={false} width={44} />
           <Tooltip

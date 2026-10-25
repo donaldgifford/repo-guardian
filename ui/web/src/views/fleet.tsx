@@ -166,7 +166,7 @@ export function FleetView() {
                           {formatPercent(c.compliance.percent)} {d ? <span className="ml-1 text-xs font-normal"><DeltaText delta={d} /></span> : null}
                         </b>
                       </div>
-                      <PostureMeter posture={c.compliance} label={`${c.id} compliance`} />
+                      <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />
                     </li>
                   );
                 })}
@@ -250,10 +250,12 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
         </Link>
       ),
     },
-    { key: "type", header: "Type", cell: (c) => <Badge tone="outline">{c.type}</Badge>, hideBelow: "md" },
+    // Type and N/A drop below xl: at lg the card is half the page, and
+    // seven columns scrolled sideways and clipped the trend.
+    { key: "type", header: "Type", cell: (c) => <Badge tone="outline">{c.type}</Badge>, hideBelow: "xl" },
     { key: "compliant", header: "Compliant", cell: (c) => c.compliance.compliant.toLocaleString(), numeric: true },
     { key: "non_compliant", header: "Non-compliant", cell: (c) => c.compliance.non_compliant.toLocaleString(), numeric: true },
-    { key: "na", header: "N/A", cell: (c) => <span className="text-muted-foreground">{c.compliance.not_applicable.toLocaleString()}</span>, numeric: true, hideBelow: "md" },
+    { key: "na", header: "N/A", cell: (c) => <span className="text-muted-foreground">{c.compliance.not_applicable.toLocaleString()}</span>, numeric: true, hideBelow: "xl" },
     { key: "percent", header: "%", cell: (c) => <span className="font-medium">{formatPercent(c.compliance.percent)}</span>, numeric: true },
     { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.percent)} /> },
   ];
@@ -329,7 +331,7 @@ export const controlColumns: Column<Schemas["ControlSummary"]>[] = [
     ),
   },
   { key: "type", header: "Type", cell: (c) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span>, hideBelow: "md" },
-  { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.id} compliance`} />, width: "40%" },
+  { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />, width: "40%" },
   { key: "coverage", header: "Coverage", cell: (c) => <CoverageText posture={c.compliance} />, numeric: true },
 ];
 

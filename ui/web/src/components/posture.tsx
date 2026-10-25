@@ -12,8 +12,10 @@ import { Meter } from "./ui/meter";
 // The controls views' shared pieces: a posture as a meter, a KPI or a
 // distribution, and evidence as text. A null percent is "no data".
 
-export function PostureMeter({ posture, label = "Compliance" }: { posture: Posture; label?: string }) {
-  return <Meter percent={posture.percent} aria-label={label} />;
+// PostureMeter is a compliance meter; showValue false drops the
+// trailing percentage where the row already prints it.
+export function PostureMeter({ posture, label = "Compliance", showValue = true }: { posture: Posture; label?: string; showValue?: boolean }) {
+  return <Meter percent={posture.percent} aria-label={label} showValue={showValue} />;
 }
 
 export function CoverageText({ posture }: { posture: Posture }) {

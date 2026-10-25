@@ -237,6 +237,11 @@ export function FleetView() {
   );
 }
 
+// Count is a table count; zero is muted so the non-zero ones stand out.
+function Count({ n }: { n: number }) {
+  return n === 0 ? <span className="text-muted-foreground">0</span> : <>{n.toLocaleString()}</>;
+}
+
 // byControlColumns is the Compliance-by-control table: counts, N/A, the
 // percentage and a sparkline from the one aggregate=control history.
 export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>): Column<Schemas["ControlSummary"]>[] {
@@ -253,10 +258,13 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
     // Type and N/A drop below xl: at lg the card is half the page, and
     // seven columns scrolled sideways and clipped the trend.
     { key: "type", header: "Type", cell: (c) => <Badge tone="outline">{c.type}</Badge>, hideBelow: "xl" },
-    { key: "compliant", header: "Compliant", cell: (c) => c.compliance.compliant.toLocaleString(), numeric: true },
-    { key: "non_compliant", header: "Non-compliant", cell: (c) => c.compliance.non_compliant.toLocaleString(), numeric: true },
+    { key: "compliant", header: "Compliant", cell: (c) => <Count n={c.compliance.compliant} />, numeric: true },
+    { key: "non_compliant", header: "Non-compliant", cell: (c) => <Count n={c.compliance.non_compliant} />, numeric: true },
     { key: "na", header: "N/A", cell: (c) => <span className="text-muted-foreground">{c.compliance.not_applicable.toLocaleString()}</span>, numeric: true, hideBelow: "xl" },
-    { key: "percent", header: "%", cell: (c) => <span className="font-medium">{formatPercent(c.compliance.percent)}</span>, numeric: true },
+    // The percentage is the row's answer: set off from the counts by a
+    // rule and in the heaviest weight, so it is not one more number in a
+    // run of numbers.
+    { key: "percent", header: "%", cell: (c) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, numeric: true, className: "border-l border-border" },
     { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.percent)} /> },
   ];
 }

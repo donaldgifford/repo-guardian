@@ -107,9 +107,12 @@ function Cell({ cell, col, heat }: { cell: GridCell | undefined; col: GridColumn
   const shade = heat ? Math.round(100 * heatOpacity(cell.n, cell.of ?? 0)) : 0;
   return (
     <td className={numeric} style={heat ? heatStyle(cell.n, cell.of ?? 0, col.tone) : undefined} data-heat={heat ? col.key : undefined} data-shade={shade > 0 ? shade : undefined}>
-      {cell.n.toLocaleString()}
-      {/* The share keeps full foreground on a shaded cell: muted ink on the tint fails AA. */}
-      <span className={cn("ml-1.5 text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{shareText(cell.n, cell.of ?? 0)}</span>
+      {/* The share leads: it is what compares across rows, so it is the
+          bold figure in a fixed-width slot that lines up down the
+          column, with the count small beside it. Both keep full
+          foreground on a shaded cell: muted ink on the tint fails AA. */}
+      <span className={cn("text-xs", shade > 0 ? "text-foreground" : "text-muted-foreground")}>{cell.n.toLocaleString()}</span>
+      <span className="ml-2 inline-block min-w-[3.25rem] text-[13px] font-semibold">{shareText(cell.n, cell.of ?? 0)}</span>
     </td>
   );
 }

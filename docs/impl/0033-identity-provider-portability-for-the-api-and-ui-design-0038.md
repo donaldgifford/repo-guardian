@@ -163,7 +163,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   `ClientClaim: cfg.API.OIDCClientClaim`. Reword the `isIDToken`
   comment to "a `typ` claim of `ID`, which some providers put in the
   payload" (behaviour unchanged).
-- [ ] 1.3 **Fixtures.** `internal/api/oidctest`: `Token.Claims
+- [x] 1.3 **Fixtures.** `internal/api/oidctest`: `Token.Claims
   map[string]any`, merged last over the defaults so a test can add
   `cid`, `scp`, `roles`, `appid`, a namespaced key, or override `aud`
   with a string (OQ1). Add three documented helpers that return a

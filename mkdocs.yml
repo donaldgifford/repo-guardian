@@ -46,6 +46,7 @@ nav:
         - 'DESIGN-0034: CODEOWNERS ownership control': design/0034-codeowners-ownership-control.md
         - 'DESIGN-0036: Frontend design cleanup and refresh for the v2 UI': design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md
         - 'DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog': design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md
+        - 'DESIGN-0038: v2.0.0 GA cutover and identity-provider portability': design/0038-v200-ga-cutover-and-identity-provider-portability.md
     - Implementation Plans:
         - Overview: impl/README.md
         - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md

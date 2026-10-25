@@ -69,5 +69,6 @@ docz create design "Your Design Title"
 | DESIGN-0034 | CODEOWNERS ownership control | Draft | 2026-10-04 | Donald Gifford | [0034-codeowners-ownership-control.md](0034-codeowners-ownership-control.md) |
 | DESIGN-0036 | Frontend design cleanup and refresh for the v2 UI | Approved | 2026-10-15 | Donald Gifford | [0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md](0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md) |
 | DESIGN-0037 | Controls UI: org tree, findings, fleet panels and status changelog | Implemented | 2026-10-18 | Donald Gifford | [0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md](0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md) |
+| DESIGN-0038 | v2.0.0 GA cutover and identity-provider portability | In Review | 2026-10-24 | Donald Gifford | [0038-v200-ga-cutover-and-identity-provider-portability.md](0038-v200-ga-cutover-and-identity-provider-portability.md) |
 <!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

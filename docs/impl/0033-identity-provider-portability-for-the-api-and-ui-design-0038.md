@@ -241,7 +241,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
   `audience` query parameter from `/authorize` into the access token's
   `aud` array when present (so the authorization-params path is
   observable end to end). OQ2.
-- [ ] 2.5 **e2e.** `ui/e2e/stack.ts`: the `no-remediation` BFF starts
+- [x] 2.5 **e2e.** `ui/e2e/stack.ts`: the `no-remediation` BFF starts
   with `OIDC_TOKEN_AUTH_METHOD=client_secret_basic`; its sign-in spec
   already proves the flow, so no new spec, just one assertion in
   `no-remediation.spec.ts` that sign-in succeeded (it does today).

@@ -43,7 +43,10 @@ export function mountAuth(app: Hono, { config, oidc, session, log }: AuthDeps): 
 
     await login.write(c, tx, newSessionExpiry(loginTtlSeconds));
 
+    // Operator parameters go first so the flow's own always win, even if
+    // config validation of the reserved keys were bypassed.
     const url = client.buildAuthorizationUrl(oc, {
+      ...config.oidc.authorizationParams,
       redirect_uri: redirectUri,
       scope: config.oidc.scopes,
       code_challenge: await client.calculatePKCECodeChallenge(tx.verifier),

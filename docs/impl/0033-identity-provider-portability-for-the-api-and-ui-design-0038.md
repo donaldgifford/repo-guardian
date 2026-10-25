@@ -229,7 +229,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
 - [x] 2.2 **Discovery.** `ui/server/oidc.ts`: pick
   `client.ClientSecretPost` or `client.ClientSecretBasic` from the
   config. Test with the mock issuer in both modes (2.4).
-- [ ] 2.3 **Authorize URL.** `ui/server/auth.ts`: spread
+- [x] 2.3 **Authorize URL.** `ui/server/auth.ts`: spread
   `config.oidc.authorizationParams` **before** the fixed parameters in
   `buildAuthorizationUrl`, so the fixed ones win even if validation is
   bypassed; test that `audience=api://x` appears and that a reserved

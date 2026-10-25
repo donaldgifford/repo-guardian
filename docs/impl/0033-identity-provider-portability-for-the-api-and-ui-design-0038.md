@@ -188,10 +188,13 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   literals (`api_test.go`, `status_http_test.go`,
   `apiendpoints_integration_test.go`) gain `ClientClaim: "azp"` through
   one shared helper, so the next claim added touches one place.
-- [ ] 1.6 **Metrics and docs in code.** No new metric: a token whose
+- [x] 1.6 **Metrics and docs in code.** No new metric: a token whose
   client claim is absent is not a refusal. Update the `AuthzConfig`
   doc comment ("by the claim `OIDC_CLIENT_CLAIM` names") and the
   `clients` warning in `authz.go`.
+  _Done: `authz.go` has no runtime warning to reword, so the `Clients`
+  field comment now carries it (an unmatched key yields DefaultOrgs);
+  `Claims.Client` in `principal.go` likewise._
 
 <!--docz:tasks:end-->
 

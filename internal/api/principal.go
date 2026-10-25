@@ -33,7 +33,8 @@ import (
 // Claims are the verified token claims the API uses.
 type Claims struct {
 	Subject string
-	// Client is the azp of the token; the authz clients mapping keys on it.
+	// Client is the value of the claim OIDC_CLIENT_CLAIM names (azp by
+	// default), empty when the token lacks it; authz clients keys on it.
 	Client string
 	Name   string
 	Groups []string

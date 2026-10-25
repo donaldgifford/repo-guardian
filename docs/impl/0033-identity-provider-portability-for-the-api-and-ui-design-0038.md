@@ -294,12 +294,17 @@ DESIGN-0038 B4; OQ7.
   (`object`, `additionalProperties: {type: string}`, and a `not` over
   `required: [<reserved key>]` for each of the eight reserved keys so
   the schema refuses them too, OQ3).
-- [ ] 3.3 **Render.** `_helpers.tpl` api env gains `OIDC_CLIENT_CLAIM`;
+- [x] 3.3 **Render.** `_helpers.tpl` api env gains `OIDC_CLIENT_CLAIM`;
   `templates/ui.yaml` gains `OIDC_TOKEN_AUTH_METHOD` and, only when
   the map is non-empty, `OIDC_AUTHORIZATION_PARAMS` as `toJson`.
   `validateUI` fails the render naming the reserved key when
   `authorizationParams` contains one (belt and braces with 3.2, and
   the message is the one operators see).
+  _Note 2026-10-25: helm validates the schema before rendering, so with
+  3.2 in place an operator sees the schema's `'allOf' failed` at
+  `/ui/oidc/authorizationParams`; the named `validateUI` message is
+  reached only when schema validation is skipped (verified by removing
+  the schema rule once)._
 - [ ] 3.4 **Tests.** `tests/ui_test.yaml`: update the `OIDC_SCOPES`
   default assertion; add `OIDC_TOKEN_AUTH_METHOD` default, the JSON
   rendering of a two-key `authorizationParams`, absence of the env when
@@ -307,6 +312,9 @@ DESIGN-0038 B4; OQ7.
   `tests/api_*` (wherever the api env is asserted): `OIDC_CLIENT_CLAIM`.
   `tests/values_guard_test.yaml` or a schema test: an unknown
   `tokenAuthMethod` fails.
+  _Done: the two refusal cases live in `tests/ui_guards_test.yaml`,
+  which renders `deployment.yaml` where `validateUI` runs;
+  `OIDC_CLIENT_CLAIM` is asserted in `tests/topology_test.yaml`._
 - [ ] 3.5 **README.** `make helm-docs` regenerates the chart README from
   `README.md.gotmpl`; add a sentence under "The UI" pointing at the
   identity-provider page (Phase 4) in the `.gotmpl`, never the rendered

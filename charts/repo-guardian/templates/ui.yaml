@@ -58,6 +58,12 @@ spec:
               value: {{ $ui.oidc.clientId | quote }}
             - name: OIDC_SCOPES
               value: {{ join " " $ui.oidc.scopes | quote }}
+            - name: OIDC_TOKEN_AUTH_METHOD
+              value: {{ $ui.oidc.tokenAuthMethod | quote }}
+            {{- with $ui.oidc.authorizationParams }}
+            - name: OIDC_AUTHORIZATION_PARAMS
+              value: {{ toJson . | quote }}
+            {{- end }}
             - name: OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

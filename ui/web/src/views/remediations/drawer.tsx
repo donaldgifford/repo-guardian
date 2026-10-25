@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { Schemas } from "../../api/client";
 import { fetchAllRemediations, openPullRequestsCap, useRepositoryEvents } from "../../api/queries";
-import { HoldBadge, RemediationStateBadge, RuleStatusBadge, StatusBadge } from "../../components/badges";
+import { HoldBadge, RemediationStateBadge } from "../../components/badges";
 import { Loading } from "../../components/common";
 import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
@@ -13,7 +13,7 @@ import { Button } from "../../components/ui/button";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
-import { timelineEvents } from "../findings/drawer";
+import { reassignedEvents, StatusMove, timelineEvents } from "../findings/drawer";
 import { isStale, matchesKey, type OpenRemediation, parseRemediationKey, remediationAge } from "./model";
 
 export interface RemediationDrawerProps {
@@ -158,6 +158,7 @@ export function StepsJournal({ steps }: { steps: readonly Schemas["RemediationSt
 function RemediationBody({ remediation: r }: { remediation: Schemas["Remediation"] }) {
   const events = useRepositoryEvents(r.repository_id);
   const timeline = timelineEvents(events.data?.items ?? [], r.control_id);
+  const reassigned = reassignedEvents(events.data?.items ?? []);
   return (
     <>
       <DetailKV rows={remediationRows(r)} />
@@ -194,11 +195,7 @@ function RemediationBody({ remediation: r }: { remediation: Schemas["Remediation
                 {e.kind ? (
                   <span className="font-mono">{humanize(e.kind)}</span>
                 ) : (
-                  <span className="inline-flex flex-wrap items-center gap-1.5">
-                    {e.rule_id ? <span className="font-mono text-xs">{e.rule_id}</span> : null}
-                    {e.from_status ? e.rule_id ? <RuleStatusBadge status={e.from_status} /> : <StatusBadge status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→
-                    {e.to_status ? e.rule_id ? <RuleStatusBadge status={e.to_status} /> : <StatusBadge status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
-                  </span>
+                  <StatusMove event={e} reassigned={reassigned.has(e.id)} />
                 )}
               </li>
             ))}

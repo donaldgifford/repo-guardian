@@ -48,6 +48,39 @@ export function timelineEvents(events: readonly Schemas["Event"][], control: str
   return events.filter((e) => (e.source === "repository" ? repositoryEventKinds.has(e.kind ?? "") : e.control_id === control)).slice(0, max);
 }
 
+// reassignedEvents names the result events that start a status over: no
+// from_status, with an older event for the same control and rule
+// further down the list. A policy change that re-assigns a control (a
+// new revision, so a new assignment epoch) records its next result as a
+// first one; the timeline says "re-assigned" for those rather than a
+// second "new". Events are newest first, as the API lists them.
+export function reassignedEvents(events: readonly Schemas["Event"][]): Set<number> {
+  const out = new Set<number>();
+  const seen = new Set<string>();
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (!e || e.source !== "result") continue;
+    const key = `${e.control_id ?? ""}/${e.rule_id ?? ""}`;
+    if (e.from_status === undefined && e.to_status !== undefined && seen.has(key)) out.add(e.id);
+    seen.add(key);
+  }
+  return out;
+}
+
+// evidenceGroups folds failing rules that carry the same evidence into
+// one block, in first-seen order: a missing file fails every rule that
+// reads it with the same reason and locations.
+export function evidenceGroups(rules: readonly Schemas["RuleResult"][]): { rules: string[]; evidence: Schemas["Evidence"] }[] {
+  const groups = new Map<string, { rules: string[]; evidence: Schemas["Evidence"] }>();
+  for (const r of rules) {
+    const key = JSON.stringify(r.evidence);
+    const g = groups.get(key);
+    if (g) g.rules.push(r.rule_id);
+    else groups.set(key, { rules: [r.rule_id], evidence: r.evidence });
+  }
+  return [...groups.values()];
+}
+
 const isFailing = (r: Schemas["RuleResult"]) => r.status === "fail" || r.status === "error";
 
 export interface FindingDrawerProps {
@@ -166,6 +199,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
     { key: "last evaluated", value: c.evaluated_at ? <Time iso={c.evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span> },
   ];
   const timeline = timelineEvents(events.data?.items ?? [], c.control_id);
+  const reassigned = reassignedEvents(events.data?.items ?? []);
   const recent = (evaluations.data?.items ?? []).slice(0, 2);
   return (
     <>
@@ -178,10 +212,10 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
       {failing.length > 0 ? (
         <DetailSection title="Evidence">
           <div className="space-y-2">
-            {failing.map((r) => (
-              <div key={r.rule_id} className="rounded-lg border border-border bg-background px-3 py-2" data-rule={r.rule_id}>
-                <div className="mb-1 font-mono text-xs text-muted-foreground">{r.rule_id}</div>
-                <EvidenceText evidence={r.evidence} />
+            {evidenceGroups(failing).map((g) => (
+              <div key={g.rules.join(",")} className="rounded-lg border border-border bg-background px-3 py-2" data-rule={g.rules.join(" ")}>
+                <div className="mb-1 font-mono text-xs text-muted-foreground">{g.rules.join(", ")}</div>
+                <EvidenceText evidence={g.evidence} />
               </div>
             ))}
           </div>
@@ -197,7 +231,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
             {timeline.map((e) => (
               <li key={`${e.source}/${e.id}`} className="flex items-baseline gap-3">
                 <Time iso={e.occurred_at} style="relative" className="w-24 flex-none text-xs text-muted-foreground" />
-                <TimelineText event={e} />
+                <TimelineText event={e} reassigned={reassigned.has(e.id)} />
               </li>
             ))}
           </ol>
@@ -227,8 +261,9 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
 }
 
 // TimelineText is one event as a sentence: a rule or control status
-// move, or a repository or remediation event by kind.
-function TimelineText({ event: e }: { event: Schemas["Event"] }) {
+// move, or a repository or remediation event by kind. A first status
+// reads "new", or "re-assigned" when it follows an earlier one.
+function TimelineText({ event: e, reassigned = false }: { event: Schemas["Event"]; reassigned?: boolean }) {
   if (e.kind) {
     return (
       <span>
@@ -237,11 +272,17 @@ function TimelineText({ event: e }: { event: Schemas["Event"] }) {
       </span>
     );
   }
+  return <StatusMove event={e} reassigned={reassigned} />;
+}
+
+// StatusMove is a result event's status transition, shared with the
+// remediation drawer's timeline.
+export function StatusMove({ event: e, reassigned = false }: { event: Schemas["Event"]; reassigned?: boolean }) {
   const Badge = e.rule_id ? RuleStatusBadge : StatusBadge;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {e.rule_id ? <span className="font-mono text-xs">{e.rule_id}</span> : null}
-      {e.from_status ? <Badge status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→{e.to_status ? <Badge status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
+      {e.from_status ? <Badge status={e.from_status} /> : <span className="text-muted-foreground">{reassigned ? "re-assigned" : "new"}</span>}→{e.to_status ? <Badge status={e.to_status} /> : <span className="text-muted-foreground">cleared</span>}
     </span>
   );
 }

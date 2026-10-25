@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Schemas } from "../api/client";
 import { NOT_ENABLED } from "../components/GatedPanel";
 import { controlRules, defaultSort, findingColumns, parseFindingsSearch, resultsFilter } from "./findings";
-import { findingKey, parseOpenKey, timelineEvents } from "./findings/drawer";
+import { evidenceGroups, findingKey, parseOpenKey, reassignedEvents, timelineEvents } from "./findings/drawer";
 
 test("parseFindingsSearch keeps the /results filters, drops the default sort and junk", () => {
   expect(parseFindingsSearch({})).toEqual({});
@@ -68,4 +68,26 @@ test("the Remediation column is a gated dash without the App and the badge with 
   expect(cell(true)).toContain("pr open");
   // Unknown (status not loaded yet) shows the data rather than a dash.
   expect(cell(undefined)).toContain("pull/7");
+});
+
+test("reassignedEvents marks a first status that follows an earlier one", () => {
+  const ev = (p: Partial<Schemas["Event"]>): Schemas["Event"] => ({ source: "result", occurred_at: "2026-01-01T00:00:00Z", control_id: "catalog_info", ...p }) as Schemas["Event"];
+  // Newest first: a policy change re-assigned the control (ids 3 and 4)
+  // after its first evaluation (ids 1 and 2); id 5 is another control.
+  const events = [
+    ev({ id: 4, rule_id: "exists", to_status: "fail" }),
+    ev({ id: 3, to_status: "non_compliant" }),
+    ev({ id: 5, control_id: "codeowners", to_status: "non_compliant" }),
+    ev({ id: 2, rule_id: "exists", to_status: "fail" }),
+    ev({ id: 1, to_status: "non_compliant" }),
+  ];
+  expect([...reassignedEvents(events)].sort()).toEqual([3, 4]);
+});
+
+test("evidenceGroups folds rules with the same evidence, in order", () => {
+  const missing = { evidence_kind: "file_missing", evidence_version: 1, locations: "catalog-info.yaml" } as unknown as Schemas["Evidence"];
+  const other = { evidence_kind: "owner_unset", evidence_version: 1 } as unknown as Schemas["Evidence"];
+  const rule = (rule_id: string, evidence: Schemas["Evidence"]) => ({ rule_id, status: "fail", remediate: false, evidence }) as unknown as Schemas["RuleResult"];
+  const groups = evidenceGroups([rule("exists", missing), rule("owner-set", other), rule("kind", missing)]);
+  expect(groups.map((g) => g.rules)).toEqual([["exists", "kind"], ["owner-set"]]);
 });

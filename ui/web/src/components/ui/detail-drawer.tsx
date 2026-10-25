@@ -24,7 +24,9 @@ export interface DetailDrawerProps {
 // DetailDrawer is the detail panel (DESIGN-0036 §Findings): side by
 // side with the table from 1600px, an overlay drawer with a scrim
 // below. Both forms share the header, body and footer; open state is
-// the caller's (Findings keeps it in `?open=`).
+// the caller's (Findings keeps it in `?open=`). Only the body scrolls:
+// the header and footer stay put, so the footer's actions never sit
+// over the content.
 export function DetailDrawer({ open, onClose, title, subtitle, footer, children, inline = false, returnFocusTo, "aria-label": ariaLabel, className }: DetailDrawerProps) {
   const focusBack = () => {
     const el = returnFocusTo?.();
@@ -51,7 +53,7 @@ export function DetailDrawer({ open, onClose, title, subtitle, footer, children,
         aria-label={ariaLabel}
         aria-labelledby={undefined}
         data-drawer="overlay"
-        className={className}
+        className={cn("overflow-hidden", className)}
         onCloseAutoFocus={(e) => {
           if (returnFocusTo) {
             e.preventDefault();
@@ -60,8 +62,8 @@ export function DetailDrawer({ open, onClose, title, subtitle, footer, children,
         }}
       >
         <DrawerHeader title={title} {...(subtitle === undefined ? {} : { subtitle })} />
-        <div className="min-h-0 flex-1 space-y-4">{children}</div>
-        {footer !== undefined ? <footer className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">{footer}</footer> : null}
+        <div className="-mx-[18px] min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px]">{children}</div>
+        {footer !== undefined ? <footer className="mt-4 flex flex-none items-center justify-between gap-2 border-t border-border pt-3">{footer}</footer> : null}
       </DrawerContent>
     </Drawer>
   );
@@ -90,7 +92,7 @@ function InlinePanel({ onClose, focusBack, title, subtitle, footer, children, "a
       aria-label={ariaLabel}
       data-drawer="inline"
       onKeyDown={onKeyDown}
-      className={cn("sticky top-0 flex max-h-[calc(100vh-2rem)] flex-col self-start overflow-y-auto rounded-lg border border-border bg-panel px-[18px] py-4", className)}
+      className={cn("sticky top-0 flex max-h-[calc(100vh-2rem)] flex-col self-start overflow-hidden rounded-lg border border-border bg-panel px-[18px] py-4", className)}
     >
       <header className="mb-3.5">
         <div className="flex items-center justify-between gap-2">
@@ -101,8 +103,8 @@ function InlinePanel({ onClose, focusBack, title, subtitle, footer, children, "a
         </div>
         {subtitle !== undefined ? <p className="mt-[3px] font-mono text-xs text-muted-foreground">{subtitle}</p> : null}
       </header>
-      <div className="min-h-0 flex-1 space-y-4">{children}</div>
-      {footer !== undefined ? <footer className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">{footer}</footer> : null}
+      <div className="-mx-[18px] min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px]">{children}</div>
+      {footer !== undefined ? <footer className="mt-4 flex flex-none items-center justify-between gap-2 border-t border-border pt-3">{footer}</footer> : null}
     </aside>
   );
 }

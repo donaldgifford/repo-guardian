@@ -351,7 +351,7 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
   the three new settings; the token-flow mermaid diagram from B2; a
   "What the chart exposes" table mapping every `api.auth.*` and
   `ui.oidc.*` value to its env var.
-- [ ] 4.2 **Keycloak.** Move `docs/usage/api.md` § Keycloak example into
+- [x] 4.2 **Keycloak.** Move `docs/usage/api.md` § Keycloak example into
   the page unchanged in substance, under the five recipe headings
   (issuer and audience, UI client, groups, machine clients, chart
   values); `api.md` keeps § Authentication's rules (reworded to drop

@@ -498,6 +498,8 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   `IDToken`/`Rogue`, but every new claim variation is a new field.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ2. How the mock issuer exercises `client_secret_basic`.**
 
 - (a) ✅ recommended: **accept both methods always and record which
@@ -509,6 +511,8 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   a third BFF to cover both.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ3. Where reserved authorization parameters are refused.**
 
 - (a) ✅ recommended: **in all three places**: BFF config validation
@@ -519,6 +523,8 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   render still fails.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ4. The `OIDC_AUTHORIZATION_PARAMS` wire format.**
 
 - (a) ✅ recommended: **a JSON object**, rendered by the chart with
@@ -528,6 +534,8 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   the values above.
 - other:
 
+**Decision (2026-10-25):** (a).
+
 **OQ5. What else rides in rc.17.**
 
 - (a) ✅ recommended: **only this IMPL**; the rc exists to put the
@@ -536,6 +544,8 @@ and the v2-branch bullet describe (rc.16 was PR #239).
   duplicate-key `FIX:`; a real cost but unrelated, and IMPL-0034 Phase 9
   carries it.
 - other:
+
+**Decision (2026-10-25):** (a).
 
 <!--docz:references:start-->
 ## References

@@ -314,14 +314,19 @@ api:
     nameClaim: preferred_username
     # -- Claim listing the caller's groups.
     groupsClaim: groups
+    # -- Top-level claim naming a machine client for `authz.clients`:
+    # `azp` (Keycloak, Auth0), `cid` (Okta), `appid` (Entra ID v1). See
+    # docs/operations/identity-provider.md.
+    clientClaim: azp
   authz:
     # -- Group → org grants, rendered into the authz ConfigMap. Keys are
     # group names; values list orgs (`["*"]` for every org).
     groups: {}
     # -- Orgs granted to every authenticated caller.
     defaultOrgs: []
-    # -- Machine clients (by `azp`) → groups above, for IdPs that put no
-    # groups on client-credentials tokens.
+    # -- Machine clients, by the claim `api.auth.clientClaim` names, →
+    # groups above, for IdPs that put no groups on client-credentials
+    # tokens.
     clients: {}
   status:
     # -- Serve /status without a token.
@@ -347,8 +352,19 @@ ui:
     # -- OIDC client ID (a confidential client). The issuer is
     # api.auth.issuer: the UI and the API trust the same IdP.
     clientId: repo-guardian-ui
-    # -- Scopes requested at login.
-    scopes: [openid, profile, groups, offline_access]
+    # -- Scopes requested at login. No `groups` scope by default:
+    # Keycloak's audience and group mappers need none, and Okta's custom
+    # authorization servers reject a scope they do not define. Add it
+    # where your provider issues groups only for that scope.
+    scopes: [openid, profile, email, offline_access]
+    # -- How the client secret reaches the token endpoint:
+    # `client_secret_post` or `client_secret_basic`.
+    tokenAuthMethod: client_secret_post
+    # -- Extra authorize-request parameters (string values), e.g.
+    # `{audience: "https://repo-guardian-api"}` for Auth0. May not set
+    # redirect_uri, scope, state, nonce, code_challenge,
+    # code_challenge_method, response_type or client_id.
+    authorizationParams: {}
   # -- Secret with keys `oidc-client-secret` and `session-keys`
   # (comma-separated, at least 32 bytes each; the first seals). Required.
   existingSecret: ""

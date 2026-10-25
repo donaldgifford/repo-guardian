@@ -13,7 +13,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.16 \
+  --version 2.0.0-rc.17 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +28,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0-rc.16 \
+  --version 2.0.0-rc.17 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -79,7 +79,7 @@ policy:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.16 \
+  --version 2.0.0-rc.17 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -160,6 +160,10 @@ signs users in against `api.auth.issuer`.
   `api.auth.enabled`. The webhook route stays yours
   (`docs/operations/ingress.md`).
 - The UI holds no GitHub, Temporal or database credential.
+- **Identity providers.** Keycloak works on the defaults. For Okta,
+  Entra ID or Auth0 set `api.auth.clientClaim`, `api.auth.groupsClaim`,
+  `ui.oidc.tokenAuthMethod` and `ui.oidc.authorizationParams` as
+  `docs/operations/identity-provider.md` describes per provider.
 
 ### Migrations
 
@@ -412,7 +416,7 @@ cosign verify \
     '^https://github.com/donaldgifford/repo-guardian/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.16
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.17
 ```
 
 ### SLSA provenance
@@ -424,7 +428,7 @@ cosign verify-attestation --type slsaprovenance \
     '^https://github.com/slsa-framework/slsa-github-generator/.+' \
   --certificate-oidc-issuer \
     'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.16
+  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.17
 ```
 
 `--new-bundle-format=false` is needed on cosign v3: it reads only the
@@ -574,13 +578,14 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| api | object | `{"auth":{"audience":"repo-guardian-api","enabled":true,"groupsClaim":"groups","issuer":"","nameClaim":"preferred_username"},"authz":{"clients":{},"defaultOrgs":[],"groups":{}},"enabled":false,"pdb":{"enabled":true,"minAvailable":1},"port":8081,"replicas":2,"resources":{},"roDsn":{"existingSecret":"","existingSecretKey":"STORE_RO_DSN"},"status":{"public":true},"temporal":false}` | The api role: the read-only JSON API (DESIGN-0027). It holds only a read-only database credential: no App key, no webhook secret. |
+| api | object | `{"auth":{"audience":"repo-guardian-api","clientClaim":"azp","enabled":true,"groupsClaim":"groups","issuer":"","nameClaim":"preferred_username"},"authz":{"clients":{},"defaultOrgs":[],"groups":{}},"enabled":false,"pdb":{"enabled":true,"minAvailable":1},"port":8081,"replicas":2,"resources":{},"roDsn":{"existingSecret":"","existingSecretKey":"STORE_RO_DSN"},"status":{"public":true},"temporal":false}` | The api role: the read-only JSON API (DESIGN-0027). It holds only a read-only database credential: no App key, no webhook secret. |
 | api.auth.audience | string | `"repo-guardian-api"` | Expected token audience. |
+| api.auth.clientClaim | string | `"azp"` | Top-level claim naming a machine client for `authz.clients`: `azp` (Keycloak, Auth0), `cid` (Okta), `appid` (Entra ID v1). See docs/operations/identity-provider.md. |
 | api.auth.enabled | bool | `true` | Require an OIDC bearer token on every data endpoint. |
 | api.auth.groupsClaim | string | `"groups"` | Claim listing the caller's groups. |
 | api.auth.issuer | string | `""` | OIDC issuer URL. Required when auth is enabled. |
 | api.auth.nameClaim | string | `"preferred_username"` | Claim naming the caller in logs. |
-| api.authz.clients | object | `{}` | Machine clients (by `azp`) → groups above, for IdPs that put no groups on client-credentials tokens. |
+| api.authz.clients | object | `{}` | Machine clients, by the claim `api.auth.clientClaim` names, → groups above, for IdPs that put no groups on client-credentials tokens. |
 | api.authz.defaultOrgs | list | `[]` | Orgs granted to every authenticated caller. |
 | api.authz.groups | object | `{}` | Group → org grants, rendered into the authz ConfigMap. Keys are group names; values list orgs (`["*"]` for every org). |
 | api.enabled | bool | `false` | Render the api role (split) and its Service. In `all` the API always runs on `api.port`; this gates its Service and auth. |
@@ -755,7 +760,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | temporal.tls.serverName | string | `""` | Server name to verify the frontend certificate against. |
 | tolerations | list | `[]` | Tolerations |
 | topology | string | `"split"` | Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one Deployment per role: `ingest` (webhooks), `evaluator` and `remediator` (each when its App is set) and, when `api.enabled`, `api`. `all` renders a single Deployment running every role, for small installs and the homelab. |
-| ui | object | `{"docsUrl":"","enabled":false,"existingSecret":"","githubHost":"github.com","image":{"repository":"ghcr.io/donaldgifford/repo-guardian-ui","tag":""},"ingress":{"annotations":{},"className":"","enabled":false,"host":"","tls":[]},"oidc":{"clientId":"repo-guardian-ui","scopes":["openid","profile","groups","offline_access"]},"pdb":{"enabled":true,"minAvailable":1},"port":3000,"publicUrl":"","replicas":2,"resources":{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}},"sessionTTL":"8h"}` | The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying /api to the api Service and holding the OIDC session. Requires api.enabled and api.auth.enabled. |
+| ui | object | `{"docsUrl":"","enabled":false,"existingSecret":"","githubHost":"github.com","image":{"repository":"ghcr.io/donaldgifford/repo-guardian-ui","tag":""},"ingress":{"annotations":{},"className":"","enabled":false,"host":"","tls":[]},"oidc":{"authorizationParams":{},"clientId":"repo-guardian-ui","scopes":["openid","profile","email","offline_access"],"tokenAuthMethod":"client_secret_post"},"pdb":{"enabled":true,"minAvailable":1},"port":3000,"publicUrl":"","replicas":2,"resources":{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}},"sessionTTL":"8h"}` | The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying /api to the api Service and holding the OIDC session. Requires api.enabled and api.auth.enabled. |
 | ui.docsUrl | string | `""` | https URL of the operator's documentation. When set the sidebar shows a Docs group linking to it; unset hides the group. |
 | ui.enabled | bool | `false` | Render the ui Deployment, Service and PDB. |
 | ui.existingSecret | string | `""` | Secret with keys `oidc-client-secret` and `session-keys` (comma-separated, at least 32 bytes each; the first seals). Required. |
@@ -767,8 +772,10 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | ui.ingress.enabled | bool | `false` | Render an Ingress sending the whole host to the ui Service. The only Ingress the chart renders; fails render unless api.auth.enabled. |
 | ui.ingress.host | string | `""` | The UI's host name. |
 | ui.ingress.tls | list | `[]` | TLS blocks, as in networking.k8s.io/v1 IngressTLS. |
+| ui.oidc.authorizationParams | object | `{}` | Extra authorize-request parameters (string values), e.g. `{audience: "https://repo-guardian-api"}` for Auth0. May not set redirect_uri, scope, state, nonce, code_challenge, code_challenge_method, response_type or client_id. |
 | ui.oidc.clientId | string | `"repo-guardian-ui"` | OIDC client ID (a confidential client). The issuer is api.auth.issuer: the UI and the API trust the same IdP. |
-| ui.oidc.scopes | list | `["openid","profile","groups","offline_access"]` | Scopes requested at login. |
+| ui.oidc.scopes | list | `["openid","profile","email","offline_access"]` | Scopes requested at login. No `groups` scope by default: Keycloak's audience and group mappers need none, and Okta's custom authorization servers reject a scope they do not define. Add it where your provider issues groups only for that scope. |
+| ui.oidc.tokenAuthMethod | string | `"client_secret_post"` | How the client secret reaches the token endpoint: `client_secret_post` or `client_secret_basic`. |
 | ui.pdb.enabled | bool | `true` | Render a PodDisruptionBudget. |
 | ui.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
 | ui.port | int | `3000` | Container port the BFF listens on. |

@@ -14,9 +14,14 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+
+	"github.com/donaldgifford/repo-guardian/internal/api"
 )
 
 const keyID = "oidctest-1"
+
+// nameClaim is the display-name claim the default tokens carry.
+const nameClaim = "preferred_username"
 
 // Issuer is a running test issuer. Its tokens are for Audience.
 type Issuer struct {
@@ -58,6 +63,19 @@ func Start(tb testing.TB, audience string) *Issuer {
 	return iss
 }
 
+// AuthnConfig is the API's verification config for this issuer with the
+// default claim names (preferred_username, groups, azp). Tests build
+// their Authenticator from it so a new claim setting changes one place.
+func (i *Issuer) AuthnConfig() *api.AuthnConfig {
+	return &api.AuthnConfig{
+		Issuer:      i.URL,
+		Audience:    i.Audience,
+		NameClaim:   nameClaim,
+		GroupsClaim: "groups",
+		ClientClaim: "azp",
+	}
+}
+
 func newKey(tb testing.TB) *rsa.PrivateKey {
 	tb.Helper()
 
@@ -97,6 +115,47 @@ type Token struct {
 	Rogue bool
 	// HMAC signs with HS256, an algorithm the API refuses.
 	HMAC bool
+
+	// Claims are merged last over everything above, so a test can add a
+	// provider's own claims (cid, scp, roles, appid, a namespaced key),
+	// override aud with a string, or delete a default by setting nil.
+	Claims map[string]any
+}
+
+// Okta shapes a token the way an Okta custom authorization server mints
+// one: the client in cid, scp as an array, uid, and neither azp nor
+// preferred_username.
+func Okta(client string, groups []string) *Token {
+	return &Token{
+		Groups: groups,
+		Claims: map[string]any{
+			"cid":     client,
+			"scp":     []string{"openid"},
+			"uid":     "00u1a2b3c4d5e6f7g8h9",
+			nameClaim: nil,
+		},
+	}
+}
+
+// Entra shapes a Microsoft Entra ID v1 access token: the client in
+// appid, app roles in roles, groups as object GUIDs and aud a string.
+func Entra(appid string, roles []string) *Token {
+	return &Token{
+		Groups: []string{"6f2b3c4d-1111-4222-8333-944455556666"},
+		Claims: map[string]any{
+			"appid": appid,
+			"roles": roles,
+		},
+	}
+}
+
+// Namespaced carries groups under a namespaced claim, as Auth0 requires
+// for custom claims, and no plain groups claim.
+func Namespaced(groups []string) *Token {
+	return &Token{
+		NoGroups: true,
+		Claims:   map[string]any{"https://example.com/groups": groups},
+	}
 }
 
 // Mint signs t.
@@ -104,12 +163,12 @@ func (i *Issuer) Mint(tb testing.TB, t *Token) string {
 	tb.Helper()
 
 	claims := map[string]any{
-		"iss":                orDefault(t.Issuer, i.URL),
-		"aud":                orDefault(t.Audience, i.Audience),
-		"sub":                orDefault(t.Subject, "user-1"),
-		"exp":                expiry(t.Expiry, i.now()).Unix(),
-		"iat":                i.now().Unix(),
-		"preferred_username": orDefault(t.Name, "Test User"),
+		"iss":     orDefault(t.Issuer, i.URL),
+		"aud":     orDefault(t.Audience, i.Audience),
+		"sub":     orDefault(t.Subject, "user-1"),
+		"exp":     expiry(t.Expiry, i.now()).Unix(),
+		"iat":     i.now().Unix(),
+		nameClaim: orDefault(t.Name, "Test User"),
 	}
 
 	if !t.NoGroups {
@@ -131,6 +190,15 @@ func (i *Issuer) Mint(tb testing.TB, t *Token) string {
 
 	if t.IDToken {
 		claims["nonce"], claims["at_hash"], claims["typ"] = "n-0S6_WzA2Mj", "77QmUPtjPfzWtF2AnpK9RQ", "ID"
+	}
+
+	for k, v := range t.Claims {
+		if v == nil {
+			delete(claims, k)
+			continue
+		}
+
+		claims[k] = v
 	}
 
 	key := jose.SigningKey{Algorithm: jose.RS256, Key: i.key}

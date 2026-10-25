@@ -152,18 +152,18 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Config.** `internal/config/api.go`: `APIConfig.OIDCClientClaim`
+- [x] 1.1 **Config.** `internal/config/api.go`: `APIConfig.OIDCClientClaim`
   from `OIDC_CLIENT_CLAIM` (`envOrDefault`, default `azp`); validation
   rejects an empty string when auth is enabled (an operator who sets it
   blank gets a startup error naming the variable, not a silent "no
   client"). Table case in `internal/config/role_test.go`.
-- [ ] 1.2 **AuthnConfig.** `internal/api/authn.go`: `AuthnConfig.ClientClaim`;
+- [x] 1.2 **AuthnConfig.** `internal/api/authn.go`: `AuthnConfig.ClientClaim`;
   `verify` sets `Client: stringClaim(all[a.cfg.ClientClaim])`; remove
   `tokenClaims.AZP`. `cmd/repo-guardian/api.go` passes
   `ClientClaim: cfg.API.OIDCClientClaim`. Reword the `isIDToken`
   comment to "a `typ` claim of `ID`, which some providers put in the
   payload" (behaviour unchanged).
-- [ ] 1.3 **Fixtures.** `internal/api/oidctest`: `Token.Claims
+- [x] 1.3 **Fixtures.** `internal/api/oidctest`: `Token.Claims
   map[string]any`, merged last over the defaults so a test can add
   `cid`, `scp`, `roles`, `appid`, a namespaced key, or override `aud`
   with a string (OQ1). Add three documented helpers that return a
@@ -171,7 +171,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   no `azp`, no `preferred_username`), `Entra(appid, roles)` (`appid`,
   `roles`, `groups` as GUIDs, `aud` string), `Namespaced(groups)`
   (`https://example.com/groups`).
-- [ ] 1.4 **Tests.** In `internal/api/api_test.go` (where the authn
+- [x] 1.4 **Tests.** In `internal/api/api_test.go` (where the authn
   cases live), a table over `{ClientClaim, GroupsClaim, NameClaim,
   token}` asserting `Claims.Client`, `Claims.Groups`, `Claims.Name`:
   Keycloak-shaped with `azp`; Okta-shaped with `ClientClaim: "cid"`;
@@ -181,14 +181,20 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   `Client`, so `AuthzConfig.Scope` grants nothing from `clients`.
   Prove non-vacuity once: point the Okta case at `ClientClaim: "azp"`
   and watch it fail ([[feedback-verify-test-non-vacuous]]).
-- [ ] 1.5 **Call sites.** The three hard-coded `NameClaim`/`GroupsClaim`
+  _Done 2026-10-25: `TestAuthn_ProviderClaimShapes` (five shapes) and
+  `TestAuthz_UnconfiguredClientClaimGrantsNothing`; with the Okta case
+  on `azp` it failed (`Client:""`), reverted._
+- [x] 1.5 **Call sites.** The three hard-coded `NameClaim`/`GroupsClaim`
   literals (`api_test.go`, `status_http_test.go`,
   `apiendpoints_integration_test.go`) gain `ClientClaim: "azp"` through
   one shared helper, so the next claim added touches one place.
-- [ ] 1.6 **Metrics and docs in code.** No new metric: a token whose
+- [x] 1.6 **Metrics and docs in code.** No new metric: a token whose
   client claim is absent is not a refusal. Update the `AuthzConfig`
   doc comment ("by the claim `OIDC_CLIENT_CLAIM` names") and the
   `clients` warning in `authz.go`.
+  _Done: `authz.go` has no runtime warning to reword, so the `Clients`
+  field comment now carries it (an unmatched key yields DefaultOrgs);
+  `Claims.Client` in `principal.go` likewise._
 
 <!--docz:tasks:end-->
 
@@ -215,7 +221,7 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 **Config.** `ui/server/config.ts`: `oidc.tokenAuthMethod:
+- [x] 2.1 **Config.** `ui/server/config.ts`: `oidc.tokenAuthMethod:
   "client_secret_post" | "client_secret_basic"` from
   `OIDC_TOKEN_AUTH_METHOD` (default post; any other value is a
   `ConfigError` naming the two accepted values) and
@@ -226,26 +232,26 @@ DESIGN-0038 B3.3, B3.4, B3.5; D6, D7; OQ5, OQ6.
   `code_challenge_method`, `response_type`, `client_id` are
   `ConfigError`s listing every offending key). Tests in
   `ui/server/config.test.ts` for each refusal and the defaults.
-- [ ] 2.2 **Discovery.** `ui/server/oidc.ts`: pick
+- [x] 2.2 **Discovery.** `ui/server/oidc.ts`: pick
   `client.ClientSecretPost` or `client.ClientSecretBasic` from the
   config. Test with the mock issuer in both modes (2.4).
-- [ ] 2.3 **Authorize URL.** `ui/server/auth.ts`: spread
+- [x] 2.3 **Authorize URL.** `ui/server/auth.ts`: spread
   `config.oidc.authorizationParams` **before** the fixed parameters in
   `buildAuthorizationUrl`, so the fixed ones win even if validation is
   bypassed; test that `audience=api://x` appears and that a reserved
   key cannot override `state`.
-- [ ] 2.4 **Mock issuer.** `ui/server/testing/mock-issuer.ts` accepts
+- [x] 2.4 **Mock issuer.** `ui/server/testing/mock-issuer.ts` accepts
   the client secret from the POST body or an `Authorization: Basic`
   header (RFC 6749 §2.3.1 form-encoding of id and secret), records
   which was used on the issuer object for assertions, and echoes any
   `audience` query parameter from `/authorize` into the access token's
   `aud` array when present (so the authorization-params path is
   observable end to end). OQ2.
-- [ ] 2.5 **e2e.** `ui/e2e/stack.ts`: the `no-remediation` BFF starts
+- [x] 2.5 **e2e.** `ui/e2e/stack.ts`: the `no-remediation` BFF starts
   with `OIDC_TOKEN_AUTH_METHOD=client_secret_basic`; its sign-in spec
   already proves the flow, so no new spec, just one assertion in
   `no-remediation.spec.ts` that sign-in succeeded (it does today).
-- [ ] 2.6 **README.** `ui/README.md` § Configuration gains the two
+- [x] 2.6 **README.** `ui/README.md` § Configuration gains the two
   variables with defaults and the reserved-key rule.
 
 <!--docz:tasks:end-->
@@ -274,7 +280,7 @@ DESIGN-0038 B4; OQ7.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **Values.** `charts/repo-guardian/values.yaml`:
+- [x] 3.1 **Values.** `charts/repo-guardian/values.yaml`:
   `api.auth.clientClaim: azp`; `ui.oidc.tokenAuthMethod:
   client_secret_post`; `ui.oidc.authorizationParams: {}`;
   `ui.oidc.scopes: [openid, profile, email, offline_access]` with a
@@ -282,26 +288,34 @@ DESIGN-0038 B4; OQ7.
   scope and that Okta's custom servers reject an undefined one;
   `api.authz.clients` comment reworded to "by the claim
   `api.auth.clientClaim` names".
-- [ ] 3.2 **Schema.** `values.schema.json`: `api.auth.nameClaim`,
+- [x] 3.2 **Schema.** `values.schema.json`: `api.auth.nameClaim`,
   `groupsClaim`, `clientClaim` (`string`, `minLength: 1`);
   `ui.oidc.tokenAuthMethod` (`enum`); `ui.oidc.authorizationParams`
   (`object`, `additionalProperties: {type: string}`, and a `not` over
   `required: [<reserved key>]` for each of the eight reserved keys so
   the schema refuses them too, OQ3).
-- [ ] 3.3 **Render.** `_helpers.tpl` api env gains `OIDC_CLIENT_CLAIM`;
+- [x] 3.3 **Render.** `_helpers.tpl` api env gains `OIDC_CLIENT_CLAIM`;
   `templates/ui.yaml` gains `OIDC_TOKEN_AUTH_METHOD` and, only when
   the map is non-empty, `OIDC_AUTHORIZATION_PARAMS` as `toJson`.
   `validateUI` fails the render naming the reserved key when
   `authorizationParams` contains one (belt and braces with 3.2, and
   the message is the one operators see).
-- [ ] 3.4 **Tests.** `tests/ui_test.yaml`: update the `OIDC_SCOPES`
+  _Note 2026-10-25: helm validates the schema before rendering, so with
+  3.2 in place an operator sees the schema's `'allOf' failed` at
+  `/ui/oidc/authorizationParams`; the named `validateUI` message is
+  reached only when schema validation is skipped (verified by removing
+  the schema rule once)._
+- [x] 3.4 **Tests.** `tests/ui_test.yaml`: update the `OIDC_SCOPES`
   default assertion; add `OIDC_TOKEN_AUTH_METHOD` default, the JSON
   rendering of a two-key `authorizationParams`, absence of the env when
   empty, and a `failedTemplate` case for `authorizationParams.state`.
   `tests/api_*` (wherever the api env is asserted): `OIDC_CLIENT_CLAIM`.
   `tests/values_guard_test.yaml` or a schema test: an unknown
   `tokenAuthMethod` fails.
-- [ ] 3.5 **README.** `make helm-docs` regenerates the chart README from
+  _Done: the two refusal cases live in `tests/ui_guards_test.yaml`,
+  which renders `deployment.yaml` where `validateUI` runs;
+  `OIDC_CLIENT_CLAIM` is asserted in `tests/topology_test.yaml`._
+- [x] 3.5 **README.** `make helm-docs` regenerates the chart README from
   `README.md.gotmpl`; add a sentence under "The UI" pointing at the
   identity-provider page (Phase 4) in the `.gotmpl`, never the rendered
   README.
@@ -332,17 +346,17 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 **The page.** `docs/operations/identity-provider.md`: the
+- [x] 4.1 **The page.** `docs/operations/identity-provider.md`: the
   contract table from DESIGN-0038 B1 (requirement, API, UI, why) with
   the three new settings; the token-flow mermaid diagram from B2; a
   "What the chart exposes" table mapping every `api.auth.*` and
   `ui.oidc.*` value to its env var.
-- [ ] 4.2 **Keycloak.** Move `docs/usage/api.md` § Keycloak example into
+- [x] 4.2 **Keycloak.** Move `docs/usage/api.md` § Keycloak example into
   the page unchanged in substance, under the five recipe headings
   (issuer and audience, UI client, groups, machine clients, chart
   values); `api.md` keeps § Authentication's rules (reworded to drop
   "Keycloak's `typ: ID`") and links the page.
-- [ ] 4.3 **Okta.** Custom authorization server required (org server
+- [x] 4.3 **Okta.** Custom authorization server required (org server
   tokens cannot be validated by third parties); issuer
   `https://<org>.okta.com/oauth2/<id>`; audience; `groups` claim on
   access tokens with a group filter; web app with refresh tokens, the
@@ -351,32 +365,36 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
   unless defined); `nameClaim: sub` or a custom claim; machine clients
   via `clientClaim: cid` or a groups claim on client-credentials
   tokens.
-- [ ] 4.4 **Entra ID.** Two app registrations; `accessTokenAcceptedVersion:
+- [x] 4.4 **Entra ID.** Two app registrations; `accessTokenAcceptedVersion:
   2`; issuer `https://login.microsoftonline.com/<tenant>/v2.0`; audience
   the API app's client ID or `api://<id>`; the API scope in
   `ui.oidc.scopes`; GUID groups or `groupsClaim: roles`; the 200-group
   overage caveat (falls to `defaultOrgs`); `clientClaim: azp` on v2
   tokens; the session-cookie size note (`session.ts` ten chunks).
-- [ ] 4.5 **Auth0.** Trailing-slash issuer; API identifier as audience;
+- [x] 4.5 **Auth0.** Trailing-slash issuer; API identifier as audience;
   `ui.oidc.authorizationParams: {audience: <identifier>}`; a post-login
   Action adding a namespaced groups claim set as `groupsClaim`;
   RP-initiated logout enabled for `end_session_endpoint`;
   `offline_access` on the API; `clientClaim: azp`.
-- [ ] 4.6 **Google and others.** One paragraph: opaque access tokens, use
+- [x] 4.6 **Google and others.** One paragraph: opaque access tokens, use
   a broker (Keycloak, Dex, Okta, Auth0) and follow its recipe. A
   closing "Any other provider" checklist derived from the contract
   table.
-- [ ] 4.7 **Verifying.** § Verifying a provider: sign in, open `/me`
+- [x] 4.7 **Verifying.** § Verifying a provider: sign in, open `/me`
   through the UI, confirm `name`, `groups` and the visible orgs; the
   `repo_guardian_api_auth_failures_total{reason}` table mapping each
   reason (`issuer`, `audience`, `algorithm`, `id_token`, `signature`,
   `expired`, `not_yet_valid`, `malformed`) to the recipe step that
   fixes it. IMPL-0029 8.9 and IMPL-0032 9.3 point here.
-- [ ] 4.8 **Links.** `docs/usage/ui.md` (replace the Keycloak link and
+- [x] 4.8 **Links.** `docs/usage/ui.md` (replace the Keycloak link and
   the example issuer with a neutral one), `docs/operations/v2-onboarding.md`
   § Prerequisites (one bullet), `charts/repo-guardian/README.md.gotmpl`
   (3.5), `mkdocs.yml` Operations nav entry, CLAUDE.md § IMPL-0029 Phase 8
   bullet gains the three env vars in one line.
+  _Done 2026-10-25. Criteria check: all six `api.auth.*` and four
+  `ui.oidc.*` keys from `values.yaml` appear in the page's table
+  (grepped); four recipes × five headings = 20; `api.md` names no
+  provider; markdownlint clean._
 
 <!--docz:tasks:end-->
 
@@ -403,16 +421,18 @@ and the v2-branch bullet describe (rc.16 was PR #239).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 **Bump.** `charts/repo-guardian/Chart.yaml` `version` and
+- [x] 5.1 **Bump.** `charts/repo-guardian/Chart.yaml` `version` and
   `appVersion` to `2.0.0-rc.17`; `ui/CHANGELOG.yaml` entry (title
   "Identity providers beyond Keycloak", tags `new`, `api`, `ui`,
   `chart`; the summary must not contain a string any Playwright
   locator matches by substring, see the rc.16 lesson in #239);
   `cd ui && bun run gen:changelog`; `make helm-docs`; `make lint-ui`
   green locally.
-- [ ] 5.2 **PR.** `dont-release` against `v2`; CI green (the `ui` and
-  `helm` filters run on `Chart.yaml`).
-- [ ] 5.3 **Tag and publish.** After merge: signed annotated tag
+- [x] 5.2 **PR.** `dont-release` against `v2`; CI green (the `ui` and
+  `helm` filters run on `Chart.yaml`). #241: every check green, UI,
+  UI e2e, Helm Unit Tests and Helm Chart Test included.
+- [ ] 5.3 **Tag and publish** (`deferred - human required`: waits on
+  the maintainer merging #241). After merge: signed annotated tag
   `v2.0.0-rc.17` on the merge commit, `gh workflow run ghcr.yml --ref
   v2.0.0-rc.17 -f tag=v2.0.0-rc.17`; all twelve jobs green; `cosign
   verify` on the image; `helm pull --version 2.0.0-rc.17` reports the
@@ -462,17 +482,17 @@ and the v2-branch bullet describe (rc.16 was PR #239).
 <!--docz:testing:start-->
 ## Testing Plan
 
-- [ ] Go: the claim table in `internal/api` (five shapes, one
+- [x] Go: the claim table in `internal/api` (five shapes, one
   non-vacuity check), config validation cases, existing suites
   unchanged with the variable unset.
-- [ ] BFF: config refusals per reserved key and per bad method; authorize
+- [x] BFF: config refusals per reserved key and per bad method; authorize
   URL with and without extra params; token request in both methods
   against the mock issuer; recorded-fixture equality for the unset
   environment.
-- [ ] e2e: both Playwright projects, one per method.
-- [ ] Chart: helm-unittest for each env var, the default change, the
+- [x] e2e: both Playwright projects, one per method.
+- [x] Chart: helm-unittest for each env var, the default change, the
   reserved-key failure (proven once), schema rejection of a bad enum.
-- [ ] Docs: `markdownlint-cli2`; values-to-page coverage grep.
+- [x] Docs: `markdownlint-cli2`; values-to-page coverage grep.
 
 <!--docz:testing:end-->
 

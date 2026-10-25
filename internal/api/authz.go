@@ -14,7 +14,9 @@ import (
 const allOrgs = "*"
 
 // AuthzConfig maps identities to visible orgs (DESIGN-0027 §
-// Authorization). It is the API_AUTHZ_CONFIG file, read once at
+// Authorization). Users match by group; machine clients match by the
+// claim OIDC_CLIENT_CLAIM names (azp by default, cid on Okta, appid on
+// Entra ID). It is the API_AUTHZ_CONFIG file, read once at
 // startup; a checksum annotation rolls the pods on change (OQ26).
 //
 //	groups:
@@ -28,8 +30,10 @@ type AuthzConfig struct {
 	Groups map[string][]string `yaml:"groups"`
 	// DefaultOrgs applies when none of the caller's groups match.
 	DefaultOrgs []string `yaml:"defaultOrgs"`
-	// Clients maps a machine client's azp to groups, for IdPs that put
-	// no groups on client-credentials tokens (OQ22).
+	// Clients maps a machine client, by the claim OIDC_CLIENT_CLAIM
+	// names, to groups, for IdPs that put no groups on client-credentials
+	// tokens (OQ22). A key the configured claim never carries matches
+	// nothing: the client then gets DefaultOrgs, never an error.
 	Clients map[string][]string `yaml:"clients"`
 }
 
@@ -49,10 +53,10 @@ func LoadAuthzConfig(path string) (*AuthzConfig, error) {
 		return nil, fmt.Errorf("parse authz config %s: %w", path, err)
 	}
 
-	for azp, groups := range cfg.Clients {
+	for client, groups := range cfg.Clients {
 		for _, g := range groups {
 			if _, ok := cfg.Groups[g]; !ok {
-				return nil, fmt.Errorf("authz config %s: client %q maps to undefined group %q", path, azp, g)
+				return nil, fmt.Errorf("authz config %s: client %q maps to undefined group %q", path, client, g)
 			}
 		}
 	}

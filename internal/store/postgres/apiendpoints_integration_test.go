@@ -60,9 +60,7 @@ func newEndpoints(t *testing.T) *endpoints {
 	}
 
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	authn := api.NewAuthenticator(&api.AuthnConfig{
-		Issuer: iss.URL, Audience: endpointsAudience, NameClaim: "preferred_username", GroupsClaim: "groups",
-	}, quiet)
+	authn := api.NewAuthenticator(iss.AuthnConfig(), quiet)
 	authn.Start(ctx)
 
 	pool, err := postgres.NewReadOnlyPool(ctx, f.dsns.ReadOnly)

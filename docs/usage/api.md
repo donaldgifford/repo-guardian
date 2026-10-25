@@ -12,7 +12,6 @@ every release attaches it as `openapi.yaml`.
 <!--toc:start-->
 - [Enabling it](#enabling-it)
 - [Authentication](#authentication)
-  - [Keycloak example](#keycloak-example)
 - [Authorization](#authorization)
 - [Endpoints](#endpoints)
 - [The status page](#the-status-page)
@@ -27,7 +26,7 @@ every release attaches it as `openapi.yaml`.
 api:
   enabled: true
   auth:
-    issuer: https://keycloak.example.com/realms/platform
+    issuer: https://idp.example.com
     audience: repo-guardian-api
   authz:
     groups:
@@ -56,11 +55,12 @@ for the API's audience. The API:
 - requires `iss` to equal the issuer exactly and `aud` to contain
   `api.auth.audience`;
 - allows 60 seconds of clock skew on `exp` and `nbf`;
-- **refuses ID tokens**: anything carrying a `nonce` or `at_hash`, or
-  Keycloak's `typ: ID`;
+- **refuses ID tokens**: anything carrying a `nonce` or `at_hash`, or a
+  `typ` claim of `ID`;
 - reads the caller's name from `api.auth.nameClaim`
-  (default `preferred_username`) and groups from `api.auth.groupsClaim`
-  (default `groups`).
+  (default `preferred_username`), groups from `api.auth.groupsClaim`
+  (default `groups`) and a machine client from `api.auth.clientClaim`
+  (default `azp`), each a top-level claim.
 
 Until discovery succeeds the API answers `503` and is not ready.
 Refusals are counted in `repo_guardian_api_auth_failures_total{reason}`.
@@ -68,27 +68,9 @@ Refusals are counted in `repo_guardian_api_auth_failures_total{reason}`.
 `api.auth.enabled: false` turns authentication off for a pod-network-only
 API. The chart then refuses to render the UI or its Ingress (INV-0009).
 
-### Keycloak example
-
-In the realm the UI and API share:
-
-1. **API client.** Create a client `repo-guardian-api` with every flow
-   off. It exists only to be an audience.
-2. **UI client.** Create a confidential client `repo-guardian-ui` with
-   the standard flow on, PKCE `S256`, the redirect URI
-   `https://guardian.example.com/auth/callback`, and the post-logout
-   redirect URI `https://guardian.example.com/`.
-3. **Audience.** Give the UI client a dedicated scope mapper of type
-   *Audience*, with included client audience `repo-guardian-api` and
-   "Add to access token" on. Tokens the UI obtains are then valid for
-   the API.
-4. **Groups.** Add a *Group Membership* mapper with token claim name
-   `groups`, "Full group path" off and "Add to access token" on.
-5. **Machine clients** (optional). Create a confidential client with
-   service accounts on and the same audience mapper, then map its
-   `azp` under `api.authz.clients` (below).
-
-The issuer is `https://keycloak.example.com/realms/<realm>`.
+Setting up a provider, with recipes for the common ones and a
+checklist for the rest, is in
+[Identity providers](../operations/identity-provider.md).
 
 ## Authorization
 
@@ -110,11 +92,11 @@ api:
 - A caller sees the union of its groups' orgs. `"*"` is every org.
 - `defaultOrgs` applies only when none of the caller's groups is mapped.
   Leave it empty so an unmapped user sees nothing.
-- `clients` maps a machine client's `azp` to groups defined above. It
-  is for IdPs that put no groups on client-credentials tokens. **Never
-  map the UI's client ID here.** Every user token from the UI carries
-  `azp: repo-guardian-ui`, so mapping it would grant every signed-in
-  user those groups.
+- `clients` maps a machine client, by the claim `api.auth.clientClaim`
+  names, to groups defined above. It is for IdPs that put no groups on
+  client-credentials tokens. **Never map the UI's client ID here.**
+  Every user token from the UI carries `repo-guardian-ui` in that
+  claim, so mapping it would grant every signed-in user those groups.
 - Scoping is applied in SQL on every query, including every page of a
   list. An org the caller cannot see answers `404`, the same as one that
   does not exist. A caller who can see no org gets `403` everywhere

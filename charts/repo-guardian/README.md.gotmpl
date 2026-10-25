@@ -160,6 +160,10 @@ signs users in against `api.auth.issuer`.
   `api.auth.enabled`. The webhook route stays yours
   (`docs/operations/ingress.md`).
 - The UI holds no GitHub, Temporal or database credential.
+- **Identity providers.** Keycloak works on the defaults. For Okta,
+  Entra ID or Auth0 set `api.auth.clientClaim`, `api.auth.groupsClaim`,
+  `ui.oidc.tokenAuthMethod` and `ui.oidc.authorizationParams` as
+  `docs/operations/identity-provider.md` describes per provider.
 
 ### Migrations
 

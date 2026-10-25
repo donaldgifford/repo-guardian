@@ -67,7 +67,32 @@ tests:
           content: {name: OIDC_ISSUER, value: "https://idp.example.com/realms/rg"}
       - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: OIDC_SCOPES, value: "openid profile groups offline_access"}
+          content: {name: OIDC_SCOPES, value: "openid profile email offline_access"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_TOKEN_AUTH_METHOD, value: client_secret_post}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_AUTHORIZATION_PARAMS}
+          any: true
+
+  - it: renders client_secret_basic and the authorization params as JSON (IMPL-0033)
+    template: templates/ui.yaml
+    documentSelector: {path: kind, value: Deployment}
+    set:
+      ui:
+        oidc:
+          tokenAuthMethod: client_secret_basic
+          authorizationParams:
+            audience: https://repo-guardian-api
+            prompt: login
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_TOKEN_AUTH_METHOD, value: client_secret_basic}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OIDC_AUTHORIZATION_PARAMS, value: '{"audience":"https://repo-guardian-api","prompt":"login"}'}
 
   - it: points API_UPSTREAM at the same api Service in topology all
     template: templates/ui.yaml

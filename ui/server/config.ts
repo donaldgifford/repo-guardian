@@ -8,6 +8,12 @@ export interface Config {
     clientId: string;
     clientSecret: string;
     scopes: string;
+    // tokenAuthMethod is how the client secret reaches the token
+    // endpoint (RFC 6749 §2.3.1); providers differ in which they accept.
+    tokenAuthMethod: TokenAuthMethod;
+    // authorizationParams are extra authorize-request parameters an
+    // issuer needs (Auth0's audience, for one); never a reserved key.
+    authorizationParams: Record<string, string>;
   };
   // apiUpstream is the api Service; the proxy never forwards anywhere else.
   apiUpstream: URL;
@@ -32,6 +38,25 @@ export class ConfigError extends Error {
     this.name = "ConfigError";
   }
 }
+
+// TokenAuthMethod names the two client-authentication methods the BFF
+// supports at the token endpoint.
+export type TokenAuthMethod = "client_secret_post" | "client_secret_basic";
+
+const tokenAuthMethods: readonly TokenAuthMethod[] = ["client_secret_post", "client_secret_basic"];
+
+// reservedAuthorizationParams are set by the login flow itself; an
+// operator may not override them through OIDC_AUTHORIZATION_PARAMS.
+export const reservedAuthorizationParams: readonly string[] = [
+  "redirect_uri",
+  "scope",
+  "state",
+  "nonce",
+  "code_challenge",
+  "code_challenge_method",
+  "response_type",
+  "client_id",
+];
 
 const minKeyBytes = 32;
 const defaultScopes = "openid profile email offline_access";
@@ -108,6 +133,9 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     problems.push("OIDC_SCOPES must include openid");
   }
 
+  const tokenAuthMethod = parseTokenAuthMethod(env.OIDC_TOKEN_AUTH_METHOD, problems);
+  const authorizationParams = parseAuthorizationParams(env.OIDC_AUTHORIZATION_PARAMS, problems);
+
   const keys = (env.UI_SESSION_KEYS ?? "")
     .split(",")
     .map((k) => k.trim())
@@ -144,7 +172,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
 
   return {
     port,
-    oidc: { issuer, clientId, clientSecret, scopes },
+    oidc: { issuer, clientId, clientSecret, scopes, tokenAuthMethod, authorizationParams },
     apiUpstream,
     sessionKeys: keys.map(deriveKey),
     sessionTtlSeconds: ttl ?? 0,
@@ -152,6 +180,58 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     githubHost,
     ...(docsUrl ? { docsUrl } : {}),
   };
+}
+
+function parseTokenAuthMethod(raw: string | undefined, problems: string[]): TokenAuthMethod {
+  const v = raw?.trim();
+  if (!v) {
+    return "client_secret_post";
+  }
+  const m = tokenAuthMethods.find((t) => t === v);
+  if (!m) {
+    problems.push(`OIDC_TOKEN_AUTH_METHOD must be one of ${tokenAuthMethods.join(", ")}, got ${JSON.stringify(raw)}`);
+    return "client_secret_post";
+  }
+  return m;
+}
+
+// parseAuthorizationParams reads a JSON object of string values and
+// reports every reserved or non-string key at once.
+function parseAuthorizationParams(raw: string | undefined, problems: string[]): Record<string, string> {
+  const v = raw?.trim();
+  if (!v) {
+    return {};
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(v);
+  } catch {
+    problems.push("OIDC_AUTHORIZATION_PARAMS must be a JSON object of string values");
+    return {};
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    problems.push("OIDC_AUTHORIZATION_PARAMS must be a JSON object of string values");
+    return {};
+  }
+
+  const entries = Object.entries(parsed);
+  const reserved = entries.map(([k]) => k).filter((k) => reservedAuthorizationParams.includes(k));
+  if (reserved.length > 0) {
+    problems.push(`OIDC_AUTHORIZATION_PARAMS may not set ${reserved.join(", ")}: the login flow sets them`);
+  }
+  const nonString = entries.filter(([, val]) => typeof val !== "string").map(([k]) => k);
+  if (nonString.length > 0) {
+    problems.push(`OIDC_AUTHORIZATION_PARAMS values must be strings: ${nonString.join(", ")}`);
+  }
+
+  const out: Record<string, string> = {};
+  for (const [k, val] of entries) {
+    if (typeof val === "string" && !reservedAuthorizationParams.includes(k)) {
+      out[k] = val;
+    }
+  }
+  return out;
 }
 
 // deriveKey stretches an operator secret into a 32-byte A256GCM key, so

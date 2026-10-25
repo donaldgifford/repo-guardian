@@ -79,6 +79,8 @@ API that TypeScript 7's native compiler does not ship.
 | `OIDC_ISSUER` | required | https, except a loopback issuer in development |
 | `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | required | a confidential client |
 | `OIDC_SCOPES` | `openid profile email offline_access` | must include `openid` |
+| `OIDC_TOKEN_AUTH_METHOD` | `client_secret_post` | or `client_secret_basic`: how the client secret reaches the token and revocation endpoints |
+| `OIDC_AUTHORIZATION_PARAMS` | unset | a JSON object of string values added to the authorize request, e.g. `{"audience":"api://repo-guardian"}`; may not set `redirect_uri`, `scope`, `state`, `nonce`, `code_challenge`, `code_challenge_method`, `response_type` or `client_id` |
 | `API_UPSTREAM` | required | the `api` Service; the only host `/api` ever reaches |
 | `PUBLIC_URL` | required | the browser-facing origin, used for the redirect URI |
 | `UI_SESSION_KEYS` | required | comma-separated, at least 32 bytes each; the first seals, all open |

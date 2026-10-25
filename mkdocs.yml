@@ -127,6 +127,7 @@ nav:
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Generating dashboards and alerts: operations/monitoring-generation.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
+        - Identity providers: operations/identity-provider.md
         - Migrating from v1 to v2: operations/v2-migration.md
         - Postgres schema operations: operations/migrations.md
         - Running repo-guardian on AWS: operations/aws.md

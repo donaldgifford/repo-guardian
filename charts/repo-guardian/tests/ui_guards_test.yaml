@@ -25,6 +25,23 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
+  - it: refuses a reserved authorization param, naming it (IMPL-0033)
+    set:
+      ui:
+        oidc:
+          authorizationParams:
+            state: forged
+    asserts:
+      - failedTemplate: {}
+
+  - it: refuses an unknown token auth method (IMPL-0033)
+    set:
+      ui:
+        oidc:
+          tokenAuthMethod: private_key_jwt
+    asserts:
+      - failedTemplate: {}
+
   - it: fails when the api is off
     set:
       api:

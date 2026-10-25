@@ -469,6 +469,10 @@ forwarding to the container's 8080.
 
 Skip this if you do not enable `api` or `ui`.
 
+- **Provider setup:** [Identity providers](identity-provider.md) has
+  the contract, a recipe each for Keycloak, Okta, Entra ID and Auth0,
+  and how to verify a sign-in. Record the values its recipe ends with.
+
 - **Issuer** URL (`api.auth.issuer`). The API and UI trust the same one.
 - **API audience:** tokens must carry `aud` = `repo-guardian-api`
   (`api.auth.audience`), and a groups claim (`groups` by default).
@@ -481,7 +485,8 @@ Skip this if you do not enable `api` or `ui`.
   organisations they may read (`["*"]` for all). A caller with no
   mapped organisation gets 403 on everything except `/me` and `/status`.
 - **Machine clients:** if your IdP puts no groups on client-credentials
-  tokens, map the client's `azp` to groups in `api.authz.clients`.
+  tokens, map the client (by `api.auth.clientClaim`, default `azp`) to
+  groups in `api.authz.clients`.
 - **Status page:** `/status` is served without a token by default; set
   `api.status.public: false` to require one.
 - **Re-evaluate button:** `POST /repositories/{id}/evaluate` needs a

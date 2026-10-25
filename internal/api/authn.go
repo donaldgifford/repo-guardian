@@ -48,6 +48,10 @@ type AuthnConfig struct {
 	Audience    string
 	NameClaim   string
 	GroupsClaim string
+	// ClientClaim names the top-level claim that identifies a machine
+	// client (OIDC_CLIENT_CLAIM: azp, cid, appid, ...). A token without it
+	// has no Client, which grants nothing from authz `clients`.
+	ClientClaim string
 
 	// Now overrides the clock in tests.
 	Now func() time.Time
@@ -153,7 +157,6 @@ type tokenClaims struct {
 	Audience  audience `json:"aud"`
 	Expiry    *float64 `json:"exp"`
 	NotBefore *float64 `json:"nbf"`
-	AZP       string   `json:"azp"`
 	Typ       string   `json:"typ"`
 	Nonce     string   `json:"nonce"`
 	AtHash    string   `json:"at_hash"`
@@ -224,7 +227,7 @@ func (a *Authenticator) authenticate(r *http.Request) (*Claims, error) {
 
 	return &Claims{
 		Subject: tc.Subject,
-		Client:  tc.AZP,
+		Client:  stringClaim(all[a.cfg.ClientClaim]),
 		Name:    stringClaim(all[a.cfg.NameClaim]),
 		Groups:  stringsClaim(all[a.cfg.GroupsClaim]),
 	}, nil
@@ -252,7 +255,8 @@ func (a *Authenticator) checkClaims(tc *tokenClaims) error {
 }
 
 // isIDToken recognizes an OIDC ID token by what only ID tokens carry:
-// a nonce or at_hash, or Keycloak's typ "ID".
+// a nonce or at_hash, or a typ claim of "ID", which some providers put
+// in the payload.
 func isIDToken(tc *tokenClaims) bool {
 	return tc.Nonce != "" || tc.AtHash != "" || strings.EqualFold(tc.Typ, "ID")
 }

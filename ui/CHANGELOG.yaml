@@ -7,6 +7,11 @@
 #
 # tags: one or more of new | improved | fixed | breaking, plus areas
 # from fleet | findings | policy | ui | api | chart.
+- version: 2.0.0-rc.17
+  date: 2026-10-25
+  title: Identity providers beyond Keycloak
+  summary: Okta, Entra ID and Auth0 sign-ins work without code changes. The API reads a machine client from a configurable claim, the UI can authenticate to the token endpoint with HTTP Basic and add authorize parameters such as an audience, and a new operations page gives a recipe per provider with a sign-in check.
+  tags: [new, api, ui, chart]
 - version: 2.0.0-rc.16
   date: 2026-10-23
   title: Findings, the orgs tree, fleet panels and Remediations

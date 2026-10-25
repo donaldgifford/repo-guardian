@@ -116,7 +116,10 @@ try {
     cleanups.push(() => api.kill());
     await waitFor(`api on ${addr}`, async () => (await fetch(`http://${addr}/readyz`)).ok);
   };
-  const startUI = (port: number, upstream: string) => {
+  // tokenAuthMethod differs per BFF so every e2e run signs in once with
+  // each client authentication method (IMPL-0033 2.5): the main stack on
+  // client_secret_post, the no-remediation stack on client_secret_basic.
+  const startUI = (port: number, upstream: string, tokenAuthMethod: "client_secret_post" | "client_secret_basic") => {
     const config = loadConfig({
       OIDC_ISSUER: issuerUrl,
       OIDC_CLIENT_ID: issuer.clientId,
@@ -125,15 +128,16 @@ try {
       PUBLIC_URL: `http://localhost:${port}`,
       UI_SESSION_KEYS: "e2e-session-key-e2e-session-key-e2e!",
       PORT: String(port),
+      OIDC_TOKEN_AUTH_METHOD: tokenAuthMethod,
     });
     const server = Bun.serve({ port, hostname: "localhost", fetch: createApp({ config, staticDir: join(uiRoot, "dist") }).fetch });
     cleanups.push(() => server.stop(true));
   };
 
   await startApi(apiAddr, "127.0.0.1:19090", dsn);
-  startUI(uiPort, apiAddr);
+  startUI(uiPort, apiAddr, "client_secret_post");
   await startApi(noRemediationApiAddr, "127.0.0.1:19091", noRemediationDsn);
-  startUI(noRemediationPort, noRemediationApiAddr);
+  startUI(noRemediationPort, noRemediationApiAddr, "client_secret_basic");
 
   console.log(`e2e stack ready on http://localhost:${uiPort} (no-remediation on http://localhost:${noRemediationPort})`);
 } catch (err) {

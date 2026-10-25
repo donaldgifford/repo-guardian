@@ -8,6 +8,9 @@ import { expect, type Page, test } from "@playwright/test";
 // absent — never an empty state, never a zero.
 const NOT_ENABLED = "Remediation is not enabled on this deployment";
 
+// signIn's Account-menu assertion is also the client_secret_basic
+// sign-in check: this project's BFF authenticates to the token endpoint
+// with HTTP Basic (e2e/stack.ts, IMPL-0033 2.5).
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();

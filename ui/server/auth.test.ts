@@ -31,6 +31,72 @@ async function signIn(returnTo = "/findings?status=non_compliant") {
   return { ...s, login, res };
 }
 
+// authorizeQuery is the authorize request's query string as it was
+// before IMPL-0033, random values masked: an unset environment must keep
+// producing exactly this.
+const authorizeQuery =
+  "?redirect_uri=https%3A%2F%2Fguardian.example.com%2Fauth%2Fcallback&scope=openid+profile+email+offline_access" +
+  "&code_challenge=*&code_challenge_method=S256&state=*&nonce=*&client_id=repo-guardian-ui&response_type=code";
+
+function masked(location: string | null): string {
+  return new URL(location ?? "").search.replace(/(state|nonce|code_challenge)=[^&]+/g, "$1=*");
+}
+
+describe("provider portability (IMPL-0033)", () => {
+  test("an unset environment keeps the authorize URL and the post method", async () => {
+    const { login, res } = await signIn();
+    expect(masked(login.headers.get("location"))).toBe(authorizeQuery);
+    expect(res.status).toBe(302);
+    expect(issuer.tokenAuthMethods.at(-1)).toBe("client_secret_post");
+  });
+
+  test("client_secret_basic authenticates at the token endpoint", async () => {
+    const config = loadConfig({
+      ...validEnv,
+      OIDC_ISSUER: issuer.url.toString(),
+      OIDC_TOKEN_AUTH_METHOD: "client_secret_basic",
+    });
+    const browser = new Browser(createApp({ config, log: discardLogger }));
+    const login = await browser.request("/auth/login");
+    const callback = await issuer.authorize(login.headers.get("location") ?? "");
+    const res = await browser.request(`${callback.pathname}${callback.search}`);
+    expect(res.status).toBe(302);
+    expect(browser.cookie("__Host-rg_session")).toBeTruthy();
+    expect(issuer.tokenAuthMethods.at(-1)).toBe("client_secret_basic");
+  });
+
+  test("authorization params reach the issuer and its audience the access token", async () => {
+    const config = loadConfig({
+      ...validEnv,
+      OIDC_ISSUER: issuer.url.toString(),
+      OIDC_AUTHORIZATION_PARAMS: '{"audience":"api://x"}',
+    });
+    const browser = new Browser(createApp({ config, log: discardLogger }));
+    const login = await browser.request("/auth/login");
+    const to = new URL(login.headers.get("location") ?? "");
+    expect(to.searchParams.get("audience")).toBe("api://x");
+
+    const callback = await issuer.authorize(to.toString());
+    await browser.request(`${callback.pathname}${callback.search}`);
+    const s = await sessionCookie(config.sessionKeys).open(browser.cookie("__Host-rg_session") ?? "");
+    const payload = JSON.parse(Buffer.from((s?.accessToken ?? "").split(".")[1] ?? "", "base64url").toString()) as {
+      aud: string[];
+    };
+    expect(payload.aud).toContain("api://x");
+  });
+
+  test("a reserved key cannot override the flow's own parameters", async () => {
+    const config = loadConfig({ ...validEnv, OIDC_ISSUER: issuer.url.toString() });
+    // Bypass validation on purpose: the fixed parameters must still win.
+    config.oidc.authorizationParams = { state: "forged", audience: "api://x" };
+    const browser = new Browser(createApp({ config, log: discardLogger }));
+    const to = new URL((await browser.request("/auth/login")).headers.get("location") ?? "");
+    expect(to.searchParams.getAll("state")).toHaveLength(1);
+    expect(to.searchParams.get("state")).not.toBe("forged");
+    expect(to.searchParams.get("audience")).toBe("api://x");
+  });
+});
+
 describe("login", () => {
   test("redirects to the issuer with PKCE, state and nonce", async () => {
     const { browser } = setup();

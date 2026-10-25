@@ -23,7 +23,7 @@ The UI needs the API with authentication on (see [the API](api.md)):
 api:
   enabled: true
   auth:
-    issuer: https://keycloak.example.com/realms/platform
+    issuer: https://idp.example.com
   authz:
     groups:
       team-web: ["acme"]
@@ -49,8 +49,9 @@ kubectl -n repo-guardian create secret generic repo-guardian-ui \
 ```
 
 The UI signs users in against `api.auth.issuer` with the confidential
-client `ui.oidc.clientId` (default `repo-guardian-ui`). The Keycloak
-setup is in [the API docs](api.md#keycloak-example). The redirect URI
+client `ui.oidc.clientId` (default `repo-guardian-ui`). Setting up
+the client on your provider is in
+[Identity providers](../operations/identity-provider.md). The redirect URI
 is `<public URL>/auth/callback`, where the public URL is `ui.publicUrl`
 or `https://<ui.ingress.host>`.
 

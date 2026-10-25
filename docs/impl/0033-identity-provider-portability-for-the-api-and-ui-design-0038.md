@@ -386,11 +386,15 @@ DESIGN-0038 B1, B5, B6; D4; OQ8.
   reason (`issuer`, `audience`, `algorithm`, `id_token`, `signature`,
   `expired`, `not_yet_valid`, `malformed`) to the recipe step that
   fixes it. IMPL-0029 8.9 and IMPL-0032 9.3 point here.
-- [ ] 4.8 **Links.** `docs/usage/ui.md` (replace the Keycloak link and
+- [x] 4.8 **Links.** `docs/usage/ui.md` (replace the Keycloak link and
   the example issuer with a neutral one), `docs/operations/v2-onboarding.md`
   § Prerequisites (one bullet), `charts/repo-guardian/README.md.gotmpl`
   (3.5), `mkdocs.yml` Operations nav entry, CLAUDE.md § IMPL-0029 Phase 8
   bullet gains the three env vars in one line.
+  _Done 2026-10-25. Criteria check: all six `api.auth.*` and four
+  `ui.oidc.*` keys from `values.yaml` appear in the page's table
+  (grepped); four recipes × five headings = 20; `api.md` names no
+  provider; markdownlint clean._
 
 <!--docz:tasks:end-->
 

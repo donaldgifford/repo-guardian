@@ -482,17 +482,17 @@ and the v2-branch bullet describe (rc.16 was PR #239).
 <!--docz:testing:start-->
 ## Testing Plan
 
-- [ ] Go: the claim table in `internal/api` (five shapes, one
+- [x] Go: the claim table in `internal/api` (five shapes, one
   non-vacuity check), config validation cases, existing suites
   unchanged with the variable unset.
-- [ ] BFF: config refusals per reserved key and per bad method; authorize
+- [x] BFF: config refusals per reserved key and per bad method; authorize
   URL with and without extra params; token request in both methods
   against the mock issuer; recorded-fixture equality for the unset
   environment.
-- [ ] e2e: both Playwright projects, one per method.
-- [ ] Chart: helm-unittest for each env var, the default change, the
+- [x] e2e: both Playwright projects, one per method.
+- [x] Chart: helm-unittest for each env var, the default change, the
   reserved-key failure (proven once), schema rejection of a bad enum.
-- [ ] Docs: `markdownlint-cli2`; values-to-page coverage grep.
+- [x] Docs: `markdownlint-cli2`; values-to-page coverage grep.
 
 <!--docz:testing:end-->
 

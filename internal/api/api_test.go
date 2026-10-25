@@ -346,3 +346,140 @@ func TestSummary_ParkedByReasonAndControlsFailing(t *testing.T) {
 		t.Errorf("controls_failing = %d, want codeowners and branch-ruleset", s.ControlsFailing)
 	}
 }
+
+// claimsRecorder is a minimal http.ResponseWriter: depguard keeps
+// net/http/httptest out of this package's tests.
+type claimsRecorder struct {
+	header http.Header
+	status int
+}
+
+func (r *claimsRecorder) Header() http.Header       { return r.header }
+func (*claimsRecorder) Write(b []byte) (int, error) { return len(b), nil }
+func (r *claimsRecorder) WriteHeader(status int)    { r.status = status }
+
+// verifiedClaims runs token through an Authenticator built from cfg and
+// returns the claims the middleware put on the request.
+func verifiedClaims(t *testing.T, cfg *api.AuthnConfig, token string) *api.Claims {
+	t.Helper()
+
+	authn := api.NewAuthenticator(cfg, quiet)
+	authn.Start(t.Context())
+
+	var got *api.Claims
+
+	h := authn.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got, _ = api.ClaimsFrom(r.Context())
+	}))
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/me", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rec := &claimsRecorder{header: http.Header{}}
+	h.ServeHTTP(rec, req)
+
+	if got == nil {
+		t.Fatalf("token refused: status %d", rec.status)
+	}
+
+	return got
+}
+
+// TestAuthn_ProviderClaimShapes pins how each provider's token shape maps
+// onto Claims under the claim names an operator configures (IMPL-0033
+// 1.4, DESIGN-0038 B3).
+func TestAuthn_ProviderClaimShapes(t *testing.T) {
+	t.Parallel()
+
+	iss := oidctest.Start(t, audience)
+
+	tests := []struct {
+		name                                string
+		clientClaim, groupsClaim, nameClaim string
+		token                               *oidctest.Token
+		wantClient, wantName                string
+		wantGroups                          []string
+	}{
+		{
+			name:        "keycloak: client in azp",
+			clientClaim: "azp", groupsClaim: "groups", nameClaim: "preferred_username",
+			token:      &oidctest.Token{Client: "ci-dashboard", Groups: []string{"team-web"}},
+			wantClient: "ci-dashboard", wantName: "Test User", wantGroups: []string{"team-web"},
+		},
+		{
+			name:        "okta: client in cid",
+			clientClaim: "cid", groupsClaim: "groups", nameClaim: "sub",
+			token:      oidctest.Okta("0oa1ci-dashboard", []string{"team-web"}),
+			wantClient: "0oa1ci-dashboard", wantName: "user-1", wantGroups: []string{"team-web"},
+		},
+		{
+			name:        "entra: client in appid, app roles as groups",
+			clientClaim: "appid", groupsClaim: "roles", nameClaim: "preferred_username",
+			token:      oidctest.Entra("11111111-2222-3333-4444-555555555555", []string{"Guardian.Read"}),
+			wantClient: "11111111-2222-3333-4444-555555555555", wantName: "Test User", wantGroups: []string{"Guardian.Read"},
+		},
+		{
+			name:        "auth0: namespaced groups claim",
+			clientClaim: "azp", groupsClaim: "https://example.com/groups", nameClaim: "preferred_username",
+			token:    oidctest.Namespaced([]string{"platform"}),
+			wantName: "Test User", wantGroups: []string{"platform"},
+		},
+		{
+			name:        "a claim the token lacks yields no client",
+			clientClaim: "cid", groupsClaim: "groups", nameClaim: "preferred_username",
+			token:    &oidctest.Token{Client: "ci-dashboard"},
+			wantName: "Test User", wantGroups: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := iss.AuthnConfig()
+			cfg.ClientClaim, cfg.GroupsClaim, cfg.NameClaim = tt.clientClaim, tt.groupsClaim, tt.nameClaim
+
+			got := verifiedClaims(t, cfg, iss.Mint(t, tt.token))
+			if got.Client != tt.wantClient || got.Name != tt.wantName || !slices.Equal(got.Groups, tt.wantGroups) {
+				t.Errorf("claims = {Client:%q Name:%q Groups:%v}, want {Client:%q Name:%q Groups:%v}",
+					got.Client, got.Name, got.Groups, tt.wantClient, tt.wantName, tt.wantGroups)
+			}
+		})
+	}
+}
+
+// TestAuthz_UnconfiguredClientClaimGrantsNothing is the property the
+// clients warning relies on: with ClientClaim pointed at a claim the
+// token does not carry, a mapped machine client gets no orgs.
+func TestAuthz_UnconfiguredClientClaimGrantsNothing(t *testing.T) {
+	t.Parallel()
+
+	iss := oidctest.Start(t, audience)
+
+	path := filepath.Join(t.TempDir(), "authz.yaml")
+	if err := os.WriteFile(path, []byte(authzYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	authz, err := api.LoadAuthzConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token := iss.Mint(t, &oidctest.Token{Client: "ci-dashboard", NoGroups: true})
+
+	if s := authz.Scope(verifiedClaims(t, iss.AuthnConfig(), token)); s.Empty() {
+		t.Fatal("azp-configured scope is empty, want the ci-dashboard mapping")
+	}
+
+	cfg := iss.AuthnConfig()
+	cfg.ClientClaim = "cid"
+
+	if s := authz.Scope(verifiedClaims(t, cfg, token)); !s.Empty() {
+		t.Errorf("cid-configured scope = %v, want empty", s.Orgs())
+	}
+}

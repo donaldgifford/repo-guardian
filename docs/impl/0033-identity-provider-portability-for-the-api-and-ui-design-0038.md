@@ -171,7 +171,7 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   no `azp`, no `preferred_username`), `Entra(appid, roles)` (`appid`,
   `roles`, `groups` as GUIDs, `aud` string), `Namespaced(groups)`
   (`https://example.com/groups`).
-- [ ] 1.4 **Tests.** In `internal/api/api_test.go` (where the authn
+- [x] 1.4 **Tests.** In `internal/api/api_test.go` (where the authn
   cases live), a table over `{ClientClaim, GroupsClaim, NameClaim,
   token}` asserting `Claims.Client`, `Claims.Groups`, `Claims.Name`:
   Keycloak-shaped with `azp`; Okta-shaped with `ClientClaim: "cid"`;
@@ -181,6 +181,9 @@ DESIGN-0038 B3.1, B3.2, B3.6; D5; OQ4.
   `Client`, so `AuthzConfig.Scope` grants nothing from `clients`.
   Prove non-vacuity once: point the Okta case at `ClientClaim: "azp"`
   and watch it fail ([[feedback-verify-test-non-vacuous]]).
+  _Done 2026-10-25: `TestAuthn_ProviderClaimShapes` (five shapes) and
+  `TestAuthz_UnconfiguredClientClaimGrantsNothing`; with the Okta case
+  on `azp` it failed (`Client:""`), reverted._
 - [x] 1.5 **Call sites.** The three hard-coded `NameClaim`/`GroupsClaim`
   literals (`api_test.go`, `status_http_test.go`,
   `apiendpoints_integration_test.go`) gain `ClientClaim: "azp"` through

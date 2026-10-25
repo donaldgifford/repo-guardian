@@ -421,7 +421,7 @@ and the v2-branch bullet describe (rc.16 was PR #239).
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 **Bump.** `charts/repo-guardian/Chart.yaml` `version` and
+- [x] 5.1 **Bump.** `charts/repo-guardian/Chart.yaml` `version` and
   `appVersion` to `2.0.0-rc.17`; `ui/CHANGELOG.yaml` entry (title
   "Identity providers beyond Keycloak", tags `new`, `api`, `ui`,
   `chart`; the summary must not contain a string any Playwright

@@ -37,17 +37,16 @@ function withTicks(min: number, max: number): Bounds {
   return { min, max, ticks };
 }
 
-// fitTicks picks `want` evenly spaced indices from n points, always
-// including the first and last, never repeating one.
+// fitTicks picks at most `want` indices from n points, one constant
+// step apart and anchored on the last (newest) point, never repeating
+// one. A constant step matters: rounding evenly spread positions to
+// indices skipped days unevenly (8 daily points labelled 18, 19, 21,
+// 22, 24, 25), which read as missing snapshots.
 export function fitTicks(n: number, want: number): number[] {
   if (n <= 0) return [];
-  if (n === 1) return [0];
-  const k = Math.max(2, Math.min(want, n));
+  const step = Math.max(1, Math.ceil((n - 1) / Math.max(1, want - 1)));
   const out: number[] = [];
-  for (let i = 0; i < k; i++) {
-    const idx = Math.round((i * (n - 1)) / (k - 1));
-    if (out[out.length - 1] !== idx) out.push(idx);
-  }
+  for (let i = n - 1; i >= 0; i -= step) out.unshift(i);
   return out;
 }
 

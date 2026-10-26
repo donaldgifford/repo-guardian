@@ -150,6 +150,28 @@ describe("login", () => {
     expect(browser.cookie("__Host-rg_session")).toBeUndefined();
   });
 
+  test("a duplicate callback shares the first exchange instead of failing", async () => {
+    const config = loadConfig({ ...validEnv, OIDC_ISSUER: issuer.url.toString() });
+    const lines: string[] = [];
+    const app = createApp({ config, log: (level, msg) => lines.push(`${level} ${msg}`) });
+    const browser = new Browser(app);
+    const login = await browser.request("/auth/login");
+    const callback = await issuer.authorize(login.headers.get("location") ?? "");
+    const before = issuer.tokenAuthMethods.length;
+
+    // Both requests leave with the same login cookie and code, as a
+    // browser's double hit does; the issuer accepts the code once.
+    const path = `${callback.pathname}${callback.search}`;
+    const [a, b] = await Promise.all([browser.request(path), browser.request(path)]);
+
+    expect([a.status, b.status]).toEqual([302, 302]);
+    for (const res of [a, b]) {
+      expect(res.headers.getSetCookie().some((c) => c.startsWith("__Host-rg_session="))).toBe(true);
+    }
+    expect(issuer.tokenAuthMethods.length - before).toBe(1);
+    expect(lines.filter((l) => l.startsWith("warn"))).toEqual([]);
+  });
+
   test("rejects a callback with no login in progress", async () => {
     const { browser } = setup();
     const res = await browser.request("/auth/callback?code=x&state=y");

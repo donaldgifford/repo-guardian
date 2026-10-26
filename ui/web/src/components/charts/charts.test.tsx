@@ -51,8 +51,10 @@ describe("tick fitting", () => {
     expect(xTicksFor(days)).toEqual({ want, style });
   });
 
-  test("fitTicks keeps first and last and never repeats", () => {
-    expect(fitTicks(30, 6)).toEqual([0, 6, 12, 17, 23, 29]);
+  test("fitTicks steps evenly back from the last point and never repeats", () => {
+    expect(fitTicks(30, 6)).toEqual([5, 11, 17, 23, 29]);
+    // Eight daily snapshots: every other day, never an uneven skip.
+    expect(fitTicks(8, 6)).toEqual([1, 3, 5, 7]);
     expect(fitTicks(7, 7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(fitTicks(3, 7)).toEqual([0, 1, 2]);
     expect(fitTicks(1, 6)).toEqual([0]);

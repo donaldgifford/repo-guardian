@@ -22,10 +22,10 @@ import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "../lib/csv";
 import { formatPercent, humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";
-import { historySeries, postureCsvHead, postureCsvRow } from "../lib/posture";
+import { historySeries, type Posture, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
 import { orgsCsv } from "./fleet";
-import { countByRepository, joinOpen, matchesFilter, openOrgs, type OrgPRActivity, ORGS_TABS, type OrgsTab, postureCells, prActivity, staleAfterDays, sumOrgs, toggleOpen } from "./orgs/tree";
+import { countByRepository, joinOpen, matchesFilter, measuredOf, openOrgs, type OrgPRActivity, ORGS_TABS, type OrgsTab, prActivity, staleAfterDays, sumOrgs, toggleOpen } from "./orgs/tree";
 
 const listRoute = getRouteApi("/app/orgs");
 
@@ -42,14 +42,44 @@ function gatedCount(n: number, remediation: boolean | undefined): GridCell {
   );
 }
 
+// complianceColumns hold one figure each. Assigned, Compliant and
+// Non-compliant count control assignments (repository × control) on
+// every row; Compliance is compliant ÷ (compliant + non-compliant) as a
+// meter and its percentage. A cell with a count and a share side by side
+// read as two unlabelled numbers.
 const complianceColumns: GridColumn[] = [
-  { key: "tracked", header: "Tracked", tone: "mute" },
+  { key: "assigned", header: "Assigned", tone: "mute" },
   { key: "compliant", header: "Compliant", tone: "ok" },
   { key: "non_compliant", header: "Non-compliant", tone: "bad" },
+  { key: "compliance", header: "Compliance", tone: "mute", align: "left" },
   { key: "open_prs", header: "Open PRs", tone: "info" },
   { key: "parked", header: "Parked", tone: "warn" },
 ];
-const complianceHeat = ["compliant", "non_compliant"];
+
+// CountText is a count cell: zero muted, a non-zero non-compliant count
+// in the bad tone so the rows that need work stand out.
+function CountText({ n, bad = false }: { n: number; bad?: boolean }) {
+  if (n === 0) return <span className="text-muted-foreground">0</span>;
+  return <span className={bad ? "text-bad" : undefined}>{n.toLocaleString()}</span>;
+}
+
+// postureRow is a row's compliance columns. Nothing measured reads "no
+// data" in the Compliance cell, never 0%.
+function postureRow(p: Posture): Record<string, GridCell> {
+  const measured = measuredOf(p) > 0;
+  return {
+    assigned: p.assigned,
+    compliant: <CountText n={p.compliant} />,
+    non_compliant: <CountText n={p.non_compliant} bad />,
+    compliance: measured ? (
+      <PostureMeter posture={p} label="Compliance" />
+    ) : (
+      <span className="text-muted-foreground" data-measured="false">
+        no data
+      </span>
+    ),
+  };
+}
 
 const parkedColumns: GridColumn[] = [
   { key: "reason", header: "Reason", tone: "warn", align: "left" },
@@ -87,7 +117,7 @@ export function OrgsView() {
         title="Orgs"
         subtitle={
           <>
-            Each org expands to its repositories. Counts are assignments (repository × control); cells shade by share of measured and the footer sums the rows · <code>GET /orgs</code>
+            Each org expands to its repositories. Assigned, compliant and non-compliant count control assignments (repository × control); compliance is compliant ÷ (compliant + non-compliant), and the footer sums the rows · <code>GET /orgs</code>
           </>
         }
         controls={
@@ -99,7 +129,7 @@ export function OrgsView() {
       />
       <Card bodyClassName="p-0">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5" aria-label="Orgs toolbar" role="toolbar">
-          <span className="text-xs text-muted-foreground">Tracked</span>
+          <span className="text-xs text-muted-foreground">Repositories</span>
           <Badge tone="mute">{compact(total.tracked)}</Badge>
           <span className="text-xs text-muted-foreground">Non-compliant</span>
           <Badge tone="bad">{compact(total.compliance.non_compliant)}</Badge>
@@ -138,15 +168,15 @@ export function OrgsView() {
             rows={visible.map((o) => ({
               key: o.org,
               label: orgLink(o.org),
-              sub: `${formatPercent(o.compliance.percent)} compliant · ${compact(o.parked)} parked`,
-              cells: { tracked: o.tracked, ...postureCells(o.compliance), open_prs: gatedCount(o.open_prs, remediation), parked: o.parked },
+              sub: `${compact(o.tracked)} repositories · ${compact(o.parked)} parked`,
+              cells: { ...postureRow(o.compliance), open_prs: gatedCount(o.open_prs, remediation), parked: o.parked },
             }))}
-            heat={complianceHeat}
+            heat={[]}
             open={open}
             onToggle={(k) => patch({ open: joinOpen(toggleOpen(open, k)) })}
             footer={{
               label: `${visible.length} orgs`,
-              cells: { tracked: total.tracked, ...postureCells(total.compliance), open_prs: gatedCount(total.open_prs, remediation), parked: total.parked },
+              cells: { ...postureRow(total.compliance), open_prs: gatedCount(total.open_prs, remediation), parked: total.parked },
             }}
             aria-label="Orgs"
           >
@@ -213,7 +243,7 @@ function ComplianceChildren({ org, total, filter, remediation }: { org: string; 
         key: `${org}/${r.name}`,
         label: repoLink(r),
         badge: r.policy_state && r.policy_state !== "managed" ? <Badge tone="mute">{humanize(r.policy_state)}</Badge> : undefined,
-        cells: { tracked: { n: r.compliance.assigned }, ...postureCells(r.compliance), open_prs: remediation ? (prs.data ? byRepo.get(r.id) ?? 0 : "…") : gatedCount(0, remediation), parked: "" },
+        cells: { ...postureRow(r.compliance), open_prs: remediation ? (prs.data ? byRepo.get(r.id) ?? 0 : "…") : gatedCount(0, remediation), parked: "" },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
     />

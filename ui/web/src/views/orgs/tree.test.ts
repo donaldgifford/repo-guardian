@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 
 import type { Schemas } from "../../api/client";
-import { share } from "../../components/ui/group-grid";
 import { addPosture, emptyPosture, type Posture } from "../../lib/posture";
-import { countByRepository, joinOpen, matchesFilter, measuredOf, openOrgs, parseOrgsSearch, postureCells, prActivity, sumOrgs, toggleOpen } from "./tree";
+import { countByRepository, joinOpen, matchesFilter, measuredOf, openOrgs, parseOrgsSearch, prActivity, sumOrgs, toggleOpen } from "./tree";
 
 const posture = (p: Partial<Posture>): Posture => ({ ...emptyPosture(), ...p });
 
@@ -40,22 +39,15 @@ test("the footer sums the visible org rows and equals /orgs' totals", () => {
   expect(sumOrgs([]).compliance.percent).toBeNull();
 });
 
-test("the shading denominator is the measured assignments, never the unknown bucket", () => {
+test("the measured denominator is compliant plus non-compliant, never the unknown bucket", () => {
   const p = orgs[0]!.compliance;
   expect(measuredOf(p)).toBe(10);
-  const cells = postureCells(p);
-  expect(cells.compliant).toEqual({ n: 8, of: 10 });
-  expect(share({ n: 8, of: 10 })).toBe(0.8);
   // Tracked is 12 and assigned 20: neither is the denominator.
   expect(measuredOf(p)).not.toBe(p.assigned);
-});
-
-test("an excluded repository measures nothing and its cells have no share", () => {
-  const excluded = postureCells(posture({ assigned: 0 }));
-  expect(share(excluded.compliant as { n: number; of: number })).toBeNull();
-  expect(share(excluded.non_compliant as { n: number; of: number })).toBeNull();
-  // All-unknown reads the same: nothing measured, never 0% or 100%.
-  expect(share(postureCells(posture({ assigned: 3, unknown: 3 })).compliant as { n: number; of: number })).toBeNull();
+  // An excluded repository and an all-unknown one measure nothing: no
+  // data, never 0% or 100%.
+  expect(measuredOf(posture({ assigned: 0 }))).toBe(0);
+  expect(measuredOf(posture({ assigned: 3, unknown: 3 }))).toBe(0);
 });
 
 test("matchesFilter is a case-insensitive substring and empty matches all", () => {

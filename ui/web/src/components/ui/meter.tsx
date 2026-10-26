@@ -55,7 +55,8 @@ export function Meter({
       >
         <div className="h-full rounded-[2px]" style={{ width: `${width}%`, background: fills[t] }} />
       </div>
-      {showValue ? <b className="font-medium tabular-nums">{formatPercent(percent)}</b> : null}
+      {/* A fixed-width value keeps every bar in a column the same length. */}
+      {showValue ? <b className="min-w-[3.25rem] text-right font-medium tabular-nums">{formatPercent(percent)}</b> : null}
     </div>
   );
 }

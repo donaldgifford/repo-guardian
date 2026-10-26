@@ -1,5 +1,4 @@
 import type { Schemas } from "../../api/client";
-import type { GridCell } from "../../components/ui/group-grid";
 import { ageDays } from "../../lib/format";
 import { addPosture, emptyPosture, type Posture } from "../../lib/posture";
 
@@ -44,18 +43,11 @@ export function toggleOpen(open: readonly string[], key: string): string[] {
   return open.includes(key) ? open.filter((o) => o !== key) : [...open, key];
 }
 
-// measuredOf is a posture's denominator for shares and shading: the
+// measuredOf is a posture's denominator for its percentage: the
 // assignments that measured something. Unknown, not-applicable and the
 // other unmeasured buckets never make a percentage (DESIGN-0037 OQ4).
 export function measuredOf(p: Posture): number {
   return p.compliant + p.non_compliant;
-}
-
-// postureCells is the Compliant and Non-compliant pair of a row, each
-// over the same measured denominator.
-export function postureCells(p: Posture): { compliant: GridCell; non_compliant: GridCell } {
-  const of = measuredOf(p);
-  return { compliant: { n: p.compliant, of }, non_compliant: { n: p.non_compliant, of } };
 }
 
 // sumOrgs totals the visible org rows: the footer, which must equal

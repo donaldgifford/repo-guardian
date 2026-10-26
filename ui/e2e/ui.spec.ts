@@ -475,17 +475,20 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   await expect(page.getByRole("heading", { level: 1, name: "Orgs" })).toBeVisible();
   const grid = page.getByRole("table", { name: "Orgs" });
   const acme = grid.locator("tr[data-row=acme]");
-  await expect(acme.locator("td[data-heat=compliant]")).toContainText(/\d+%/);
+  // One figure per column: label, assigned, compliant, non-compliant,
+  // compliance (meter and percentage), open PRs, parked.
+  await expect(acme.locator("td").nth(4)).toContainText(/\d+(\.\d)?%/);
   // The footer sums the visible org rows: ada sees acme alone.
   const footer = grid.locator("tr[data-row=__footer]");
   await expect(footer).toContainText("1 orgs");
-  const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { org: string; tracked: number; parked: number; compliance: { compliant: number; non_compliant: number } }[] };
+  const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { org: string; tracked: number; parked: number; compliance: { assigned: number; compliant: number; non_compliant: number } }[] };
   const acmeApi = orgs.items.find((o) => o.org === "acme")!;
-  await expect(acme.locator("td").nth(1)).toHaveText(String(acmeApi.tracked));
-  await expect(footer.locator("td").nth(1)).toHaveText(String(acmeApi.tracked));
-  await expect(footer.locator("td").nth(2)).toContainText(String(acmeApi.compliance.compliant));
-  await expect(footer.locator("td").nth(3)).toContainText(String(acmeApi.compliance.non_compliant));
-  await expect(footer.locator("td").nth(5)).toHaveText(String(acmeApi.parked));
+  await expect(acme).toContainText(`${acmeApi.tracked} repositories`);
+  await expect(acme.locator("td").nth(1)).toHaveText(String(acmeApi.compliance.assigned));
+  await expect(footer.locator("td").nth(1)).toHaveText(String(acmeApi.compliance.assigned));
+  await expect(footer.locator("td").nth(2)).toHaveText(String(acmeApi.compliance.compliant));
+  await expect(footer.locator("td").nth(3)).toHaveText(String(acmeApi.compliance.non_compliant));
+  await expect(footer.locator("td").nth(6)).toHaveText(String(acmeApi.parked));
 
   await grid.getByRole("button", { name: "Expand acme" }).click();
   await expect(page).toHaveURL(/open=acme/);
@@ -497,13 +500,9 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   // An unmeasured cell reads no data, never a percentage.
   const api = grid.locator("tr[data-child='acme/api']");
   await expect(api).toBeVisible();
-  // No colour disagrees with its percentage: every shaded cell shows one.
-  for (const cell of await grid.locator("td[data-heat]").all()) {
-    await expect(cell).toContainText(/\d+%/);
-  }
   // The excluded sandbox has nothing measured: no data, never a percentage.
-  await expect(grid.locator("tr[data-child='acme/sandbox'] td[data-measured=false]").first()).toContainText("no data");
-  await expect(grid.locator("tr:not([data-child='acme/sandbox']) td[data-measured=false]")).toHaveCount(0);
+  await expect(grid.locator("tr[data-child='acme/sandbox'] [data-measured=false]").first()).toContainText("no data");
+  await expect(grid.locator("tr:not([data-child='acme/sandbox']) [data-measured=false]")).toHaveCount(0);
 
   // The filter narrows the loaded children.
   await page.getByRole("textbox", { name: "Filter repositories" }).fill("we");

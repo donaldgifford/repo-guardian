@@ -242,8 +242,11 @@ function Count({ n }: { n: number }) {
   return n === 0 ? <span className="text-muted-foreground">0</span> : <>{n.toLocaleString()}</>;
 }
 
-// byControlColumns is the Compliance-by-control table: counts, N/A, the
-// percentage and a sparkline from the one aggregate=control history.
+// byControlColumns is the Compliance-by-control table: the two counts,
+// the percentage and a sparkline from the one aggregate=control history.
+// No Type (the Controls page has it, and it mostly repeats the id) and
+// no N/A (the Assignments panel has it): the card is half the page and
+// must never scroll sideways.
 export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>): Column<Schemas["ControlSummary"]>[] {
   return [
     {
@@ -255,12 +258,8 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
         </Link>
       ),
     },
-    // Type and N/A drop below xl: at lg the card is half the page, and
-    // seven columns scrolled sideways and clipped the trend.
-    { key: "type", header: "Type", cell: (c) => <Badge tone="outline">{c.type}</Badge>, hideBelow: "xl" },
     { key: "compliant", header: "Compliant", cell: (c) => <Count n={c.compliance.compliant} />, numeric: true },
     { key: "non_compliant", header: "Non-compliant", cell: (c) => <Count n={c.compliance.non_compliant} />, numeric: true },
-    { key: "na", header: "N/A", cell: (c) => <span className="text-muted-foreground">{c.compliance.not_applicable.toLocaleString()}</span>, numeric: true, hideBelow: "xl" },
     // The percentage is the row's answer: set off from the counts by a
     // rule and in the heaviest weight, so it is not one more number in a
     // run of numbers.

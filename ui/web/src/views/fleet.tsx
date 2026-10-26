@@ -150,11 +150,14 @@ export function FleetView() {
             ) : worst.length === 0 ? (
               <Empty>Nothing measured yet.</Empty>
             ) : (
-              <ol className="space-y-2.5" aria-label="Worst controls">
+              // Same row metrics as the Parked by reason bar list beside it
+              // (12.5px text, 4px to the bar, an 8px bar slot, 8px between
+              // rows), so the two cards' rows line up across the page.
+              <ol className="mt-1 grid gap-2" aria-label="Worst controls">
                 {worst.map((c) => {
                   const d = controlHistory.data ? rangeDelta(perControl.get(c.id) ?? []) : undefined;
                   return (
-                    <li key={c.id} className="text-[13px]">
+                    <li key={c.id} className="grid gap-1 text-[12.5px]">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="min-w-0 truncate">
                           <Link to="/controls/$id" params={{ id: c.id }} search={scoped} className="font-mono font-medium hover:text-accent">
@@ -163,10 +166,14 @@ export function FleetView() {
                           <em className="ml-1.5 text-[11px] text-muted-foreground not-italic">{c.type}</em>
                         </span>
                         <b className="font-medium tabular-nums whitespace-nowrap">
-                          {formatPercent(c.compliance.percent)} {d ? <span className="ml-1 text-xs font-normal"><DeltaText delta={d} /></span> : null}
+                          {formatPercent(c.compliance.percent)}
+                          {/* A fixed-width delta keeps the percentages in one column. */}
+                          {d ? <span className="ml-1 inline-block min-w-[4.5rem] text-right text-xs font-normal"><DeltaText delta={d} /></span> : null}
                         </b>
                       </div>
-                      <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />
+                      <div className="flex h-2 flex-col justify-center">
+                        <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />
+                      </div>
                     </li>
                   );
                 })}
@@ -177,7 +184,8 @@ export function FleetView() {
             title="Parked by reason"
             subtitle={
               <>
-                Repositories out of measurement (<code>Summary.parked_by_reason</code>){org ? ", every org" : ""}.
+                {/* One line, like its neighbours: a wrapped subtitle drops this list below the Worst controls rows. */}
+                Why repositories are out of measurement{org ? ", every org" : ""}.
               </>
             }
           >

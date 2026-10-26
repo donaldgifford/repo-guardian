@@ -237,13 +237,28 @@ export function FleetView() {
   );
 }
 
-// Count is a table count; zero is muted so the non-zero ones stand out.
-function Count({ n }: { n: number }) {
-  return n === 0 ? <span className="text-muted-foreground">0</span> : <>{n.toLocaleString()}</>;
+// ResultBadges is a control's measured results as two toned badges,
+// compliant and non-compliant, each named in full for the tooltip and a
+// screen reader; a zero reads muted. Two count columns read as a run of
+// bare numbers beside the percentage.
+function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["compliance"] }) {
+  const one = (n: number, tone: "ok" | "bad", glyph: string, label: string) => (
+    <Badge tone={n === 0 ? "mute" : tone} title={`${n.toLocaleString()} ${label}`}>
+      <span aria-hidden="true">{glyph} </span>
+      {n.toLocaleString()}
+      <span className="sr-only"> {label}</span>
+    </Badge>
+  );
+  return (
+    <span className="inline-flex gap-1.5 whitespace-nowrap">
+      {one(p.compliant, "ok", "✓", "compliant")}
+      {one(p.non_compliant, "bad", "✗", "non-compliant")}
+    </span>
+  );
 }
 
-// byControlColumns is the Compliance-by-control table: the two counts,
-// the percentage and a sparkline from the one aggregate=control history.
+// byControlColumns is the Compliance-by-control table: the results as
+// badges, the percentage and a sparkline from the one aggregate=control history.
 // No Type (the Controls page has it, and it mostly repeats the id) and
 // no N/A (the Assignments panel has it): the card is half the page and
 // must never scroll sideways.
@@ -258,12 +273,9 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
         </Link>
       ),
     },
-    { key: "compliant", header: "Compliant", cell: (c) => <Count n={c.compliance.compliant} />, numeric: true },
-    { key: "non_compliant", header: "Non-compliant", cell: (c) => <Count n={c.compliance.non_compliant} />, numeric: true },
-    // The percentage is the row's answer: set off from the counts by a
-    // rule and in the heaviest weight, so it is not one more number in a
-    // run of numbers.
-    { key: "percent", header: "%", cell: (c) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, numeric: true, className: "border-l border-border" },
+    { key: "results", header: "Results", cell: (c) => <ResultBadges posture={c.compliance} /> },
+    // The percentage is the row's answer, in the heaviest weight.
+    { key: "percent", header: "%", cell: (c) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, numeric: true },
     { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.percent)} /> },
   ];
 }

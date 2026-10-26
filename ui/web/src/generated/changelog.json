@@ -1,6 +1,19 @@
 {
-  "running": "2.0.0-rc.17",
+  "running": "2.0.0-rc.18",
   "entries": [
+    {
+      "version": "2.0.0-rc.18",
+      "date": "2026-10-25",
+      "title": "Clearer numbers on the fleet and orgs pages",
+      "summary": "Each orgs-grid column now holds one figure, with compliance as a meter, and Compliance by control shows its results as two badges and never scrolls sideways. The finding drawer keeps its footer clear of the timeline, folds repeated evidence and marks a re-assigned control. Chart dates no longer skip days, side-by-side cards line up, and a duplicate sign-in callback no longer logs a rejection.",
+      "tags": [
+        "improved",
+        "fixed",
+        "fleet",
+        "findings",
+        "ui"
+      ]
+    },
     {
       "version": "2.0.0-rc.17",
       "date": "2026-10-25",

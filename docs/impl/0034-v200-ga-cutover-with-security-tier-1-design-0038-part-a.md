@@ -214,7 +214,7 @@ DESIGN-0038 A1 (M1), D1.
   Operations and DESIGN-0035 / IMPL-0027 under their sections (docz did
   not see them on `v2`); `docz update design` and `docz update impl`
   regenerate the READMEs; revert unrelated TOC churn.
-- [ ] 1.4 **PR.** `dont-release`, **merge commit** (pick "Create a merge
+- [ ] 1.4 (`deferred - human required`: the maintainer opens and merges the PR) **PR.** `dont-release`, **merge commit** (pick "Create a merge
   commit" by hand; the default squash would flatten `main`'s history
   into `v2`). CI green, including `lint` (rgctl is in the module set).
   *This IMPL's single PR carries the sync, so that PR is the one to
@@ -874,18 +874,21 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 <!--docz:testing:start-->
 ## Testing Plan
 
-- [ ] Phase 2: `mkdocs build --strict` locally and in CI; a mermaid
+- [ ] Phase 2 (local strict build passes; CI and the in-browser
+  mermaid `<svg>` check are `deferred - human required`): `mkdocs build --strict` locally and in CI; a mermaid
   page renders an `<svg>`.
-- [ ] Phase 3: the 3.10 grep; `make lint-docs`; review of
+- [x] Phase 3: the 3.10 grep; `make lint-docs`; review of
   `getting-started.md` against `values.schema.json`.
-- [ ] Phase 4: scratch prepend byte-compare; `actionlint` on every edited
+- [x] Phase 4: scratch prepend byte-compare; `actionlint` on every edited
   workflow.
-- [ ] Phase 5: idempotent re-publish of the current rc with attestation
+- [ ] Phase 5 (`helm unittest` passes, 257/257; the rest is
+  `deferred - human required`): idempotent re-publish of the current rc with attestation
   and verify; the blocked-merge test for required checks; a tag
   move/delete refused; `helm unittest` for the security context; the
   jobs-created check after the permission change.
-- [ ] Phase 6: `scripts/ga-preflight.sh` on `v2`.
-- [ ] Phase 8: the verification page's commands run verbatim against the
+- [x] Phase 6: `scripts/ga-preflight.sh` on `v2`. *(Passed with
+  `--skip-label` on the branch head; rerun on `v2` after merge.)*
+- [ ] Phase 8 (`deferred - human required`): the verification page's commands run verbatim against the
   published 2.0.0 artefacts.
 
 <!--docz:testing:end-->

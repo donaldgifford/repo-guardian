@@ -4,6 +4,50 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-10-27
+
+### Features
+
+- *(security)* SBOMs, ci-ok, pins and pod hardening (IMPL-0034 Phase 5)
+
+### Bug Fixes
+
+- *(ci)* Install the pinned go beside mise go: tools (IMPL-0034 5.6)
+
+### Documentation
+
+- *(impl)* Tick IMPL-0033 5.3, rc.17 published
+- *(site)* Pages inherits mkdocs.yml, strict build in CI (IMPL-0034 Phase 2)
+- *(release)* Changelog prepend, rc dispatch, release line (IMPL-0034 Phase 4)
+- Rewrite the landing and operations docs for v2 (IMPL-0034 Phase 3)
+- *(ui)* 2.0.0 changelog entry (IMPL-0034 6.2)
+- *(release)* 2.0.0 release notes (IMPL-0034 6.4)
+- *(impl)* IMPL-0034 progress, Phases 7-9 deferred to the maintainer
+- *(impl)* IMPL-0034 testing plan status, 1.4 deferred
+
+### Miscellaneous Tasks
+
+- Sync main into v2 (IMPL-0034 Phase 1)
+- *(chart)* 2.0.0 (IMPL-0034 6.1)
+- *(release)* GA preflight script (IMPL-0034 6.3)
+- Run CI on main only (IMPL-0034 4.2)
+
+## [1.14.1] - 2026-10-21
+
+### Features
+
+- *(rgctl)* Standalone CLI to find and close repo-guardian PRs (DESIGN-0035, IMPL-0027) ([#203](https://github.com/donaldgifford/repo-guardian/issues/203))
+
+### Bug Fixes
+
+- *(deps)* Go 1.26.9 and golang.org/x/text v0.42.0 (GO-2026-6617, GO-2026-6629) ([#227](https://github.com/donaldgifford/repo-guardian/issues/227))
+- *(ci)* Bump only from tags reachable from main ([#228](https://github.com/donaldgifford/repo-guardian/issues/228))
+- *(deps)* Go 1.26.10 (GO-2026-6809) ([#229](https://github.com/donaldgifford/repo-guardian/issues/229))
+
+### Documentation
+
+- *(rgctl)* The v2 cutover's two rgctl steps (IMPL-0030 task 8.6) ([#225](https://github.com/donaldgifford/repo-guardian/issues/225))
+
 ## [2.0.0-rc.11] - 2026-10-16
 
 ### Features

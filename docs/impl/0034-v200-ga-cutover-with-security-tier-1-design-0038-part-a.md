@@ -1,7 +1,7 @@
 ---
 id: IMPL-0034
 title: "v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-10-25
 ---
@@ -417,7 +417,7 @@ DESIGN-0038 A5, A6, D3.
   added and every older section is byte-identical. `cliff.toml`'s
   header gained a trailing blank line so the new section is separated
   from it.*
-- [ ] 4.2 **Triggers.** `ci.yml`, `license-check.yml`, `security.yml`:
+- [x] 4.2 **Triggers.** `ci.yml`, `license-check.yml`, `security.yml`:
   `branches: [main]` (keep `security.yml`'s `pull_request` trigger);
   `ct.yaml` `target-branch: main`. These land on `v2` and are correct
   the moment M2 merges; until then `v2` pushes run no CI, so this is
@@ -425,7 +425,9 @@ DESIGN-0038 A5, A6, D3.
   it (OQ3). *Single-PR note: this IMPL ships as one PR against `v2`, and
   a `pull_request: branches: [main]` trigger stops CI on that PR, so
   4.2 is the branch's last commit, pushed after CI is green on
-  everything else.*
+  everything else.* *Done as the branch's last commit; the remaining
+  `v2` strings in the workflows are the rc version in `release.yml`'s
+  comment and action/tool versions.*
 - [x] 4.3 **`prerelease.yml`.** Comment: hand-cut `vX.Y.Z-rc.N` tags on
   `main`, built here because `release.yml`'s bump cannot cut
   pre-releases; dispatch is possible once on `main`, so add
@@ -662,26 +664,34 @@ DESIGN-0038 A1 (the tree before M2), A5.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 6.1 **Chart.** `Chart.yaml` `version: 2.0.0`, `appVersion:
+- [x] 6.1 **Chart.** `Chart.yaml` `version: 2.0.0`, `appVersion:
   "2.0.0"`; `make helm-docs`.
-- [ ] 6.2 **UI changelog.** `ui/CHANGELOG.yaml` `2.0.0` entry (title "v2:
+- [x] 6.2 **UI changelog.** `ui/CHANGELOG.yaml` `2.0.0` entry (title "v2:
   controls, remediation and the UI"; summary written so no Playwright
   substring locator matches it; tags `new`, `breaking`, `fleet`,
   `findings`, `policy`, `ui`, `api`, `chart`); `bun run gen:changelog`;
   `make lint-ui` green.
-- [ ] 6.3 **Preflight script.** `scripts/ga-preflight.sh` (OQ6), run by
+- [x] 6.3 **Preflight script.** `scripts/ga-preflight.sh` (OQ6), run by
   the maintainer on the M2 head before merging: `git merge-base
   --is-ancestor origin/main HEAD`; `git tag --merged HEAD | grep -x
   v2.0.0-rc.17`; no `v2.0.0` tag or release; `grep -c 'base-branch:
   true' .github/workflows/release.yml` = 1; `Chart.yaml` both fields
   `2.0.0`; `make lint-ui lint-docs`; the 3.10 grep; the PR has exactly
   the `major` label (`gh pr view --json labels`). Exit non-zero on any
-  failure with the failing check named.
-- [ ] 6.4 **Release notes.** Draft `docs/releases/2.0.0.md` (or the GitHub
+  failure with the failing check named. *`--pr N` or `--skip-label`.
+  The 3.10 check allowlists the reviewed files, so a new hit elsewhere
+  fails (proven by appending `Valkey` to `docs/index.md`). Passes on
+  `feat/impl-0034-ga-cutover` with `--skip-label`, 2026-10-27.*
+- [x] 6.4 **Release notes.** Draft `docs/releases/2.0.0.md` (or the GitHub
   release body, OQ7): what 2.0 is, fresh install only, `latest` moves,
   the identity-provider page, verification. goreleaser's release header
-  links it.
-- [ ] 6.5 **PR.** `dont-release` against `v2`, together with Phase 4.2's
+  links it. *The header links it only when `.Version` is 2.0.0, and
+  links verifying-releases on every release; `goreleaser check` passes.
+  The page is in the nav under Release notes and linked from the
+  README.*
+- [ ] 6.5 (`deferred - human required`: the maintainer opens or approves
+  the pull request; this IMPL ships as one PR, which needs "Create a
+  merge commit" because it carries Phase 1) **PR.** `dont-release` against `v2`, together with Phase 4.2's
   trigger reverts; merge commit not required (this is a normal squash
   PR onto `v2`).
 
@@ -753,30 +763,30 @@ DESIGN-0038 A1 (M2), A2, A9; D1; OQ2.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 8.1 **M2 PR.** From `v2` into `main`, title "release: v2.0.0", body
+- [ ] 8.1 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **M2 PR.** From `v2` into `main`, title "release: v2.0.0", body
   from 6.4, label **`major`** and nothing else from the semver set;
   `scripts/ga-preflight.sh` output pasted into the PR.
 - [ ] 8.2 **Merge** with "Create a merge commit" (`deferred - human
   required`: the maintainer merges). Immediately open the Actions tab
   and confirm the `Release` run **has jobs** (a `startup_failure` has
   none and shows only on the web page).
-- [ ] 8.3 **Bump.** `bump-version` log says "Only considering tags on
+- [ ] 8.3 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Bump.** `bump-version` log says "Only considering tags on
   branch main" and tags `v2.0.0`; `gh release view v2.0.0` exists with
   goreleaser's archives, `checksums.txt`, its signature, the SBOMs and
   `openapi.yaml`.
-- [ ] 8.4 **Registries.** `publish-ghcr` (and `publish-ecr` if enabled)
+- [ ] 8.4 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Registries.** `publish-ghcr` (and `publish-ecr` if enabled)
   green with every SLSA job; `cosign verify` on
   `ghcr.io/donaldgifford/repo-guardian:2.0.0` and `repo-guardian-ui:2.0.0`;
   `cosign verify-attestation --type spdxjson` on both and on the chart;
   `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian --version
   2.0.0`; `latest` and `2.0` resolve to the 2.0.0 digests.
-- [ ] 8.5 **Docs site.** The `gh-pages.yml` run deploys the inherited
+- [ ] 8.5 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Docs site.** The `gh-pages.yml` run deploys the inherited
   config; the public site's nav shows Usage and Operations as in Phase
   2 and a design page renders its diagram.
-- [ ] 8.6 **Changelog PR.** `changelog-update.yml` opens the prepend PR
+- [ ] 8.6 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Changelog PR.** `changelog-update.yml` opens the prepend PR
   for `v2.0.0`; review that the 1.x sections are intact; merge
   (`dont-release`).
-- [ ] 8.7 **Alerts.** Dependabot alerts #15 and #16 close on their own
+- [ ] 8.7 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Alerts.** Dependabot alerts #15 and #16 close on their own
   (the patched versions are now on `main`); confirm.
 
 <!--docz:tasks:end-->
@@ -806,25 +816,25 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - [ ] 9.1 IMPL-0030 10.3 (`deferred - human required`): upgrade the
   homelab from rc.17 to 2.0.0 in place; OQ8's 14-day database window
   starts.
-- [ ] 9.2 **docz statuses.** DESIGN-0029, 0030, 0031, 0032, 0036 →
+- [ ] 9.2 (`deferred - human required`: after GA) **docz statuses.** DESIGN-0029, 0030, 0031, 0032, 0036 →
   Implemented; IMPL-0028, 0029, 0030, 0031, 0032 → Completed (fix
   IMPL-0025's body status line); DESIGN-0034, IMPL-0026 stay Draft;
   `docz update design`, `docz update impl`; revert TOC churn.
-- [ ] 9.3 **Issues.** Close #232 and #235 (fixed, verified in the
+- [ ] 9.3 (`deferred - human required`: after GA) **Issues.** Close #232 and #235 (fixed, verified in the
   homelab), #199, #200, #73 ("1.x only; component removed in 2.0").
   Check #192 against the `monitoring generate` of 2.0.0 and close or
   re-scope.
-- [ ] 9.4 **`v2` branch.** Delete `origin/v2` and its ruleset (24046649)
+- [ ] 9.4 (`deferred - human required`: after GA) **`v2` branch.** Delete `origin/v2` and its ruleset (24046649)
   once 9.2 is merged; update the memory files that name the branch
   ([[project-v2-branch-docz-ids]] becomes history).
-- [ ] 9.5 **CLAUDE.md and memory.** Record the ship date in CLAUDE.md
+- [ ] 9.5 (`deferred - human required`: after GA) **CLAUDE.md and memory.** Record the ship date in CLAUDE.md
   § Release line and in memory; note anything the fresh install taught
   (IMPL-0030 10.5).
-- [ ] 9.6 **The `file.go` `FIX:`.** `internal/controls/file/file.go`:
+- [ ] 9.6 (`deferred - human required`: after GA) **The `file.go` `FIX:`.** `internal/controls/file/file.go`:
   replace the yaml.v3 struct `Decode` duplicate-key compare with the
   linear node walk `internal/catalog` already uses; benchmark against
   the 50k-key fixture noted in the comment; ships as 2.0.1 by label.
-- [ ] 9.7 **Close out.** IMPL-0034 → Completed; DESIGN-0038 stays In
+- [ ] 9.7 (`deferred - human required`: after GA) **Close out.** IMPL-0034 → Completed; DESIGN-0038 stays In
   Review until IMPL-0035 and IMPL-0036 complete.
 
 <!--docz:tasks:end-->

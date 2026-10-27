@@ -65,7 +65,7 @@ jobs:
       registry: ${{ steps.registry.outputs.registry }}
       ecr_password: ${{ steps.token.outputs.password }}
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6.2.1
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-publish
@@ -104,7 +104,7 @@ jobs:
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6.2.1
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-image
@@ -240,7 +240,7 @@ jobs:
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6.2.1
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_ARN }}
           role-session-name: github-actions-repo-guardian-chart

@@ -378,11 +378,12 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # Pinned in mise.toml (IMPL-0034 5.6); only this tool is installed.
+      # Pinned in mise.toml (IMPL-0034 5.6). mise installs go: tools with
+      # the pinned go, so it is installed alongside.
       - name: Install govulncheck
         uses: jdx/mise-action@v3
         with:
-          install_args: "go:golang.org/x/vuln/cmd/govulncheck"
+          install_args: "go go:golang.org/x/vuln/cmd/govulncheck"
 
       - name: Run govulncheck
         run: govulncheck ./...

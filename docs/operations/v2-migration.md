@@ -213,17 +213,17 @@ in the logs. Remove them:
 
 | Removed | Replacement |
 | --- | --- |
-| `QUEUE_BACKEND`, `SCHEDULER_BACKEND`, `QUEUE_VALKEY_DSN` | `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_TASK_QUEUE` |
+| `QUEUE_BACKEND`, `SCHEDULER_BACKEND`, `QUEUE_VALKEY_DSN` | `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_EVAL_TASK_QUEUE`, `TEMPORAL_REMEDIATE_TASK_QUEUE` |
 | `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL`, `MAX_JOB_ATTEMPTS` | Temporal activity timeouts and retry policies |
 | `POD_NAME` (lock identity) | none; Temporal Schedules need no leader |
 | `STALE_SWEEP_BATCH_SIZE` | none; each repository schedules its own next check |
 | `POSTURE_EXPORT_INTERVAL` | none; the API reads compliance from Postgres |
-| `WORKER_COUNT`, `QUEUE_SIZE` | `WORKER_ACTIVITY_CONCURRENCY` |
-| `SCHEDULE_INTERVAL` | `CHECK_INTERVAL` |
+| `WORKER_COUNT`, `QUEUE_SIZE` | `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY` |
+| `SCHEDULE_INTERVAL` | `EVAL_INTERVAL` |
 | `STORE_BACKEND` | none; Postgres is the only store |
 
-`RECONCILE_FRESHNESS` is read once, by `migrate`, to seed each
-repository's first due time. Otherwise it is ignored.
+`RECONCILE_FRESHNESS` has no replacement: nothing reads it. A fresh
+install spreads first evaluations across `EVAL_INTERVAL` on its own.
 
 ### Removed chart values
 
@@ -233,11 +233,11 @@ Chart 2.x fails the render on each of these, naming the key:
 | --- | --- |
 | `queue.*` | `temporal.*` |
 | `scheduler.*` | none (Temporal Schedules) |
-| `staleSweep.freshness` | `checkInterval` for the cadence; `migrate.freshness` for the backfill |
+| `staleSweep.freshness` | `evalInterval` (`EVAL_INTERVAL`) |
 | `staleSweep.batchSize` | none |
 | `posture.exportInterval` | none |
-| `config.workerCount`, `config.queueSize` | `worker.concurrency` |
-| `config.scheduleInterval` | `checkInterval` |
+| `config.workerCount`, `config.queueSize` | `evaluator.concurrency`, `remediator.concurrency` |
+| `config.scheduleInterval` | `evalInterval` |
 | `config.maxJobAttempts` | none |
 
 The controls line renamed or removed more values since; see [Controls

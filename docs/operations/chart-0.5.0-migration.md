@@ -1,5 +1,8 @@
 # Chart 0.5.0 migration runbook (IMPL-0011)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: chart 2.x is a fresh install, see [Turning on repo-guardian v2](v2-onboarding.md).
+
 > [!NOTE]
 > **Superseded by chart `1.0.0-rc.1` (IMPL-0016).** The
 > memory/ticker defaults this runbook describes are no longer

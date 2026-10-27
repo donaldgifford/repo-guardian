@@ -1,5 +1,8 @@
 # Template migration guide (chart 0.3.x → 0.4.0)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: templates live in the policy root, see [Templates](../usage/policy-reference.md#templates).
+
 Chart `0.4.0` ships [IMPL-0012](../impl/0012-customizable-pr-templates-and-extensible-template-configmap.md):
 PR-template customization at three HCL scopes plus a generic
 `templates.files` map that replaces the legacy hardcoded slots.
@@ -89,7 +92,7 @@ PR titles, bodies, and labels are now configurable at three
 scopes: `defaults { pr {} }`, `rule { pr {} }`, and
 `reconcile { pr {} }`. See the
 ["Customizing PR text" section in
-docs/ADDING_RULES.md](../ADDING_RULES.md#customizing-pr-text) for
+docs/historical/adding-rules-1x.md](../historical/adding-rules-1x.md#customizing-pr-text) for
 the full grammar, available variables, helpers, and resolution
 chain.
 
@@ -169,5 +172,5 @@ rollbacks don't require coordinated binary rollbacks.
 
 - [IMPL-0012](../impl/0012-customizable-pr-templates-and-extensible-template-configmap.md) — full implementation plan
 - [DESIGN-0013](../design/0013-customizable-pr-templates-and-extensible-template-configmap.md) — design rationale
-- [docs/ADDING_RULES.md "Customizing PR text"](../ADDING_RULES.md#customizing-pr-text) — operator-facing reference
+- [the 1.x rule guide, "Customizing PR text"](../historical/adding-rules-1x.md#customizing-pr-text) — operator-facing reference
 - [`charts/repo-guardian/docs/homelab-smoke.md`](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/docs/homelab-smoke.md) — copy-pasteable smoke runbook for chart 0.4.0

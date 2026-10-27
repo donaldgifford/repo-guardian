@@ -139,7 +139,7 @@ rather than silently applying everywhere.
 Out-of-scope evaluations are observable via the
 `repo_guardian_out_of_scope_total{level, org}` counter, providing a
 canary for misconfigured policies. See
-[`docs/ADDING_RULES.md`](docs/ADDING_RULES.md#multi-org-configuration)
+[the 1.x rule guide](docs/historical/adding-rules-1x.md#multi-org-configuration)
 for the full strict-mode error taxonomy.
 
 ## Reporting Vulnerabilities

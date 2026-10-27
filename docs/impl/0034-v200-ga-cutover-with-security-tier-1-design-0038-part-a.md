@@ -302,7 +302,7 @@ DESIGN-0038 A4 (the disposition table), OQ10, OQ12.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 **`README.md`.** Rewrite: what repo-guardian is on the
+- [x] 3.1 **`README.md`.** Rewrite: what repo-guardian is on the
   controls line (two Apps, policy root, controls, evaluate/remediate,
   Temporal + Postgres, UI/API); architecture diagram adapted from
   `docs/operations/v2-overview.md`; install via the chart at `2.0.0`
@@ -310,31 +310,31 @@ DESIGN-0038 A4 (the disposition table), OQ10, OQ12.
   tag; the `latest` note from A9; the release-verification pointer
   (Phase 5). No `guardian.hcl`, `watch = true`, Valkey, `SCHEDULE_INTERVAL`,
   `STORE_BACKEND`.
-- [ ] 3.2 **`docs/index.md`.** Mirror 3.1's opening; link v2 overview,
+- [x] 3.2 **`docs/index.md`.** Mirror 3.1's opening; link v2 overview,
   onboarding, UI, API, identity providers, verifying releases.
-- [ ] 3.3 **`docs/usage/getting-started.md`.** Rewrite as the fresh-install
+- [x] 3.3 **`docs/usage/getting-started.md`.** Rewrite as the fresh-install
   walk: create the two Apps (policy-derived permissions from
   `registerRemediation`'s log line), write a minimal policy root, chart
   values, first evaluation, reading the UI, turning on remediation for
   one org. Cross-check every value name against `values.yaml` and every
   env var against `config/`.
-- [ ] 3.4 **`docs/ADDING_RULES.md` → "Adding a control type".** New
+- [x] 3.4 **`docs/ADDING_RULES.md` → "Adding a control type".** New
   content: `controls/builtin` registration, `Semantics()`,
   `TestRevisionGolden`, `Owns()`/`Reads()`, `repo-guardian controls
   docs` and `make lint-controls-docs`; the old text moves to
   `docs/historical/adding-rules-1x.md` with the admonition (3.7).
   `SECURITY.md` and `mkdocs.yml` links updated.
-- [ ] 3.5 **Operations pages.** `aws.md` (drop ElastiCache/Valkey; RDS for
+- [x] 3.5 **Operations pages.** `aws.md` (drop ElastiCache/Valkey; RDS for
   the controls database with the two roles; Temporal is the
   operator's), `scaling.md` (drop `staleSweep.*`/`queue.valkey.*`; KEDA
   per queue, `evaluator.*`/`remediator.*`, pool sizing ≥ concurrency;
   keep the posture/`max by` section), `ent-setup.md` (two Apps,
   permissions per App, two webhook URLs).
-- [ ] 3.6 **`v2-migration.md`.** Fix the two contradictions:
+- [x] 3.6 **`v2-migration.md`.** Fix the two contradictions:
   `RECONCILE_FRESHNESS` → "none", `staleSweep.freshness` → `EVAL_INTERVAL`
   with `migrate.freshness` removed as a replacement; re-read the whole
   page against the chart values once.
-- [ ] 3.7 **Historical admonitions.** One admonition at the top of each
+- [x] 3.7 **Historical admonitions.** One admonition at the top of each
   1.x-only page (`absent-rules-migration`, `annotation-properties-migration`,
   `chart-0.5.0-migration`, `pr-convergence-migration`,
   `template-migration`, `custom-properties-security-fix`,
@@ -345,16 +345,36 @@ DESIGN-0038 A4 (the disposition table), OQ10, OQ12.
   an MkDocs `!!!` admonition: Starlight renders a GFM alert as an aside
   and MkDocs/TechDocs/GitHub degrade it to a blockquote, so one source
   serves every renderer (claudelint's DESIGN-0003 convention).
-- [ ] 3.8 **Chart README.** `README.md.gotmpl` introduction rewritten for
+- [x] 3.8 **Chart README.** `README.md.gotmpl` introduction rewritten for
   the controls line; `make helm-docs`.
-- [ ] 3.9 **Tombstone.** `git rm deploy/MIGRATED.md` (OQ10) and remove
+- [x] 3.9 **Tombstone.** `git rm deploy/MIGRATED.md` (OQ10) and remove
   its mentions (CLAUDE.md IMPL-0014 entry gets "deleted at GA").
-- [ ] 3.10 **Sweep.** `grep -rn 'guardian\.hcl\|watch = true\|Valkey\|
+- [x] 3.10 **Sweep.** `grep -rn 'guardian\.hcl\|watch = true\|Valkey\|
   staleSweep\|STORE_BACKEND' README.md docs/index.md docs/usage
   docs/operations/{aws,scaling,ent-setup,v2-*}.md
   charts/repo-guardian/README.md.gotmpl` returns only lines inside
   historical admonitions or explicit "was removed" sentences; paste the
-  output on the task.
+  output on the task. *2026-10-27, every hit is a removal sentence, a
+  v1→v2 comparison or under a history admonition:*
+
+  ```text
+  docs/usage/policy-reference.md:418:## From `guardian.hcl`
+  docs/operations/scaling.md:12:> `staleSweep.*` and `queue.valkey.*` were removed in v2, as were
+  docs/operations/v2-overview.md:4,28,82,256,260,470 (guardian.hcl → policy directory comparison)
+  docs/operations/v2-overview.md:364,371,475 (v1 Valkey job system vs Temporal)
+  docs/operations/v2-migration.md:223,236,237,249,276 (removed-value tables)
+  docs/operations/aws.md:21:> Valkey (and ElastiCache with it) was removed in v2.
+  README.md:9,132 (fresh-install note; rgctl reads a 1.x guardian.hcl)
+  docs/operations/v2-onboarding.md:519:`guardian.hcl` is gone. The policy is a **directory**:
+  charts/repo-guardian/README.md.gotmpl:252-363 (rc/1.x upgrade notes under the History admonition)
+  ```
+
+  *The chart README's upgrade notes gained an `## Upgrade notes` heading
+  with a GFM history admonition, since several name values that were
+  later removed. `docs/README.md`'s quick links were rewritten too.
+  Follow-ups found on the way: `rds-terraform-variables.md` is still
+  v1 in places, and `store.controls.enabled` still defaults to `false`
+  with an "off until IMPL-0029" comment.*
 
 <!--docz:tasks:end-->
 

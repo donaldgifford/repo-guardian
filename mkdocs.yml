@@ -9,7 +9,7 @@ nav:
         - Identity providers: operations/identity-provider.md
     - ADRs:
         - Overview: adr/README.md
-    - Adding a New Rule to Repo Guardian: ADDING_RULES.md
+    - Adding a control type: ADDING_RULES.md
     - Design:
         - Overview: design/README.md
         - 'DESIGN-0001: Custom Properties from Backstage': design/0001-custom-properties-from-backstage.md
@@ -122,6 +122,7 @@ nav:
         - Turning on repo-guardian v2: operations/v2-onboarding.md
         - Migrating from v1 to v2: operations/v2-migration.md
         - "rgctl: find and close repo-guardian pull requests": operations/rgctl.md
+        - Verifying releases: operations/verifying-releases.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Generating dashboards and alerts: operations/monitoring-generation.md
@@ -132,6 +133,7 @@ nav:
         - Webhook ingress: operations/ingress.md
         - repo-guardian GitHub Apps — Enterprise Setup Guide: operations/ent-setup.md
     - Historical (1.x):
+        - Adding a rule (1.x): historical/adding-rules-1x.md
         - Absent rules and conditional gates migration: operations/absent-rules-migration.md
         - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
         - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md

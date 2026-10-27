@@ -15,11 +15,11 @@ Design and planning documentation for repo-guardian, managed with
 
 ## Quick Links
 
-- [Configuration reference](../README.md#configuration) -- all environment variables
-- [Adding Rules](ADDING_RULES.md) -- file/setting/branch-protection rules, reconcilers, multi-org configuration
-- [Security](../SECURITY.md) -- webhook protection details
-- [Kubernetes deployment](../README.md#kubernetes-deployment) -- Kustomize manifests and setup
-- [Local development](../README.md#quick-start-local-development) -- Docker Compose quick start
-- [Observability](../README.md#observability) -- Prometheus metrics reference
-- [Metrics catalog](../contrib/README.md) -- exposed metrics, example PromQL, Grafana dashboard, Prometheus alerts
-- [Examples](../examples/README.md) -- HCL policy samples (minimal, renovate, full, multi-org)
+- [Getting started](usage/getting-started.md) -- the two Apps, a policy root, chart values, the first evaluation
+- [repo-guardian and v2 at a glance](operations/v2-overview.md) -- controls, evaluate and remediate, the two Apps
+- [Policy reference](usage/policy-reference.md) and [control-type reference](usage/controls-reference.md)
+- [Adding a control type](ADDING_RULES.md) -- extending repo-guardian itself
+- [Chart values](../charts/repo-guardian/README.md) -- the Helm chart, the only supported deployment
+- [Security](../SECURITY.md) -- reporting vulnerabilities, webhook protection
+- [Generated dashboards and alerts](operations/monitoring-generation.md)
+- [Examples](../examples/README.md) -- policy roots and values files

@@ -1,5 +1,8 @@
 # Custom-property name charset correction (appVersion 1.10.1)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: custom properties are the `custom_properties` control type, in the [control-type reference](../usage/controls-reference.md).
+
 repo-guardian validates the GitHub custom property names declared in an
 `annotation_properties` map against GitHub's charset constraint. That
 validation was wrong on both edges until appVersion 1.10.1

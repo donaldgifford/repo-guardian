@@ -1,4 +1,9 @@
-# Adding a New Rule to Repo Guardian
+# Adding a rule to repo-guardian 1.x
+
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x's `guardian.hcl`
+> rule engine. v2 has no rules engine to extend: see
+> [Adding a control type](../ADDING_RULES.md).
 
 This guide walks through adding a new file rule to repo-guardian. By the end,
 the service will detect when a repository is missing the file and create a PR

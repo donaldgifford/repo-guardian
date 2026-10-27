@@ -36,6 +36,12 @@ CUR_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || git desc
 
 COVERAGE_OUT := coverage.out
 
+## rgctl (DESIGN-0035) is its own Go module, so `go test ./...` and
+## `golangci-lint run ./...` at the root never descend into it. Every
+## aggregate target below calls its rgctl twin explicitly.
+RGCTL_DIR          := tools/rgctl
+RGCTL_COVERAGE_OUT := coverage-rgctl.out
+
 
 ###############
 ##@ Go Development
@@ -47,10 +53,11 @@ COVERAGE_OUT := coverage.out
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
+.PHONY: build-rgctl lint-rgctl test-rgctl test-coverage-rgctl
 
 ## Build Targets
 
-build: build-core ## Build everything (core)
+build: build-core build-rgctl ## Build everything (core + rgctl)
 
 build-core: ## Build core binary
 	@ $(MAKE) --no-print-directory log-$@
@@ -58,9 +65,15 @@ build-core: ## Build core binary
 	@go build -o $(BIN_DIR)/$(PROJECT_NAME) ./cmd/$(PROJECT_NAME)
 	@echo "✓ Core binaries built"
 
+build-rgctl: ## Build the rgctl tool (its own module under tools/rgctl)
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BIN_DIR)
+	@cd $(RGCTL_DIR) && go build -o $(CURDIR)/$(BIN_DIR)/rgctl .
+	@echo "✓ rgctl built"
+
 ## Testing
 
-test: ## Run all tests with race detector
+test: test-rgctl ## Run all tests with race detector (product + rgctl)
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race ./...
 
@@ -75,9 +88,17 @@ test-report: ## Run tests with coverage report then open
 	@go test -coverprofile=$(COVERAGE_OUT) ./...
 	@go tool cover -html=$(COVERAGE_OUT)
 
-test-coverage: ## Run tests with coverage report
+test-coverage: test-coverage-rgctl ## Run tests with coverage report
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race -coverprofile=$(COVERAGE_OUT) ./...
+
+test-rgctl: ## Run rgctl's tests with race detector
+	@ $(MAKE) --no-print-directory log-$@
+	@cd $(RGCTL_DIR) && go test -v -race ./...
+
+test-coverage-rgctl: ## Run rgctl's tests with a coverage profile
+	@ $(MAKE) --no-print-directory log-$@
+	@cd $(RGCTL_DIR) && go test -v -race -coverpkg=./... -coverprofile=$(CURDIR)/$(RGCTL_COVERAGE_OUT) ./...
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	@ $(MAKE) --no-print-directory log-$@
@@ -86,9 +107,19 @@ test-integration: ## Run integration tests (requires Docker for testcontainers)
 
 ## Code Quality
 
-lint: lint-controls-docs ## Run golangci-lint and the controls reference drift gate
+lint: lint-controls-docs lint-rgctl ## Run golangci-lint (product + rgctl) and the controls reference drift gate
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run ./...
+
+# rgctl reuses the root lint config. The grep is the module-boundary
+# check (DESIGN-0035 D4): a require or replace naming the parent module
+# would let tools/rgctl import product packages, so it fails the build.
+lint-rgctl: ## Lint rgctl and assert its go.mod never requires the product module
+	@ $(MAKE) --no-print-directory log-$@
+	@if grep -En '^[[:space:]]*((require|replace)[[:space:]]+)?github\.com/donaldgifford/repo-guardian([[:space:]]|$$)' $(RGCTL_DIR)/go.mod; then \
+		echo "✗ $(RGCTL_DIR)/go.mod names the product module; rgctl must not depend on it (DESIGN-0035 D4)"; exit 1; \
+	fi
+	@cd $(RGCTL_DIR) && golangci-lint run --config $(CURDIR)/.golangci.yml ./...
 
 lint-fix: ## Run golangci-lint with auto-fix
 	@ $(MAKE) --no-print-directory log-$@
@@ -317,7 +348,7 @@ mocks: ## Regenerate mockery mocks (store, github.Client, control clients)
 clean: ## Remove build artifacts
 	@ $(MAKE) --no-print-directory log-$@
 	@rm -rf $(BIN_DIR)/
-	@rm -f $(COVERAGE_OUT) $(RENDERED_ALERTS)
+	@rm -f $(COVERAGE_OUT) $(RGCTL_COVERAGE_OUT) $(RENDERED_ALERTS)
 	@go clean -cache
 	@find . -name "*.test" -delete
 	@echo "✓ Build artifacts cleaned"

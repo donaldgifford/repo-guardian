@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-05T12:00:00Z",
+  "selection": {
+    "repo": "acme/web"
+  },
+  "bot_login": "repo-guardian[bot]",
+  "prs": [
+    {
+      "repository": "acme/web",
+      "number": 1,
+      "url": "https://github.example/acme/web/pull/1",
+      "head_branch": "repo-guardian/add-missing-files",
+      "head_sha": "sha-web-1",
+      "title": "chore: add missing repo configuration files",
+      "created_at": "2026-09-01T00:00:00Z",
+      "updated_at": "2026-09-01T00:00:00Z",
+      "edited": false,
+      "reconcile_log": true
+    },
+    {
+      "repository": "acme/web",
+      "number": 2,
+      "url": "https://github.example/acme/web/pull/2",
+      "head_branch": "repo-guardian/add-catalog-info",
+      "head_sha": "sha-web-2",
+      "title": "",
+      "created_at": "2026-09-01T00:00:00Z",
+      "updated_at": "2026-09-01T00:00:00Z",
+      "edited": true,
+      "edited_by": [
+        "octocat"
+      ],
+      "reconcile_log": false
+    }
+  ],
+  "summary": {
+    "hits": 2,
+    "verified": 2,
+    "dropped": 0,
+    "clean": 1,
+    "edited": 1,
+    "incomplete": 0
+  }
+}

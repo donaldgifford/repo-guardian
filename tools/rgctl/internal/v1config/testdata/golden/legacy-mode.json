@@ -1,0 +1,78 @@
+{
+  "path": "testdata/legacy-mode.hcl",
+  "orgs": null,
+  "legacy_mode": true,
+  "guardian": [
+    {
+      "name": "dry_run",
+      "source": "true",
+      "line": 4
+    },
+    {
+      "name": "auto_close_pr",
+      "source": "false",
+      "line": 5
+    }
+  ],
+  "locals": [
+    {
+      "name": "owner",
+      "source": "\"platform\"",
+      "line": 9
+    }
+  ],
+  "ignore": null,
+  "rules": [
+    {
+      "type": "file",
+      "name": "codeowners",
+      "line": 12,
+      "paths": [
+        "CODEOWNERS",
+        ".github/CODEOWNERS"
+      ],
+      "template": "codeowners",
+      "target": ".github/CODEOWNERS",
+      "pr": {
+        "line": 17,
+        "attrs": [
+          {
+            "name": "title",
+            "source": "\"chore: add CODEOWNERS for ${local.owner}\"",
+            "line": 18
+          }
+        ]
+      },
+      "attrs": [
+        {
+          "name": "enabled",
+          "source": "local.enabled",
+          "line": 16
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "wiki_off",
+      "line": 22,
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"has_wiki\"",
+          "line": 23
+        },
+        {
+          "name": "expected",
+          "source": "false",
+          "line": 24
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 25
+        }
+      ]
+    }
+  ],
+  "unrecognised": null
+}

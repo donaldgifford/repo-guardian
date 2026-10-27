@@ -75,6 +75,9 @@ linters:
     # Security
     - gosec  # Security issues
 
+    # Module boundaries
+    - depguard  # tools/rgctl must never import the product module
+
     # Style & Conventions
     # - stylecheck # Uber: Follow Go style conventions
     - godot  # Comments should end with periods
@@ -85,6 +88,20 @@ linters:
     # Postgres or a control lives behind an activity (DESIGN-0026).
     depguard:
       rules:
+        # rgctl (tools/rgctl) is its own module and must outlive v1's
+        # packages and the controls rewrite (DESIGN-0035 D4). The module
+        # boundary is the real guard: its go.mod never requires the parent,
+        # which `make lint-rgctl` also asserts. This rule restates it so a
+        # stray import fails with a message instead of a module-resolution
+        # error. The glob matches nothing in the product module.
+        rgctl-boundary:
+          files:
+            - "**/tools/rgctl/**"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: rgctl must outlive v1 and the controls rewrite; it imports nothing from the product module
+            - pkg: github.com/donaldgifford/repo-guardian/cmd
+              desc: rgctl must outlive v1 and the controls rewrite; it imports nothing from the product module
         workflows:
           files:
             - "**/internal/workflows/*.go"

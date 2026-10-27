@@ -57,3 +57,6 @@ site/
 
 # Personal working notes, never committed
 notes/
+
+# DS STORE
+.DS_Store

@@ -39,6 +39,10 @@ jobs:
           noop-labels: "dont-release"
           release-notes-prefix: "### RELEASE NOTES"
           with-v: true
+          # Only tags reachable from main. The v2 line's v2.0.0-rc.* tags
+          # live on the v2 branch; without this the bump read them as the
+          # newest version and cut v2.0.0 from v1 code (PR #227).
+          base-branch: true
 
   release:
     name: Release

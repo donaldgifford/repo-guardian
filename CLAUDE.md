@@ -54,6 +54,8 @@ internal/
   workflows/  → deterministic workflow code (EvaluationWorkflow, InstallationWorkflow, WebhookWorkflow, ControlsDiscovery/Rollout/Snapshot; RemediationWorkflow `remediation/<repo>/<control>` and RemediationSweepWorkflow on the remediator, IMPL-0030); RepoWorkflow and the rc service workflows are gone, and TestRegister_EachRoleRegistersOnlyItsSet + the replay suite fail if one comes back (IMPL-0029 7.11)
 charts/
   repo-guardian/ → Helm chart (only supported deployment method)
+tools/
+  rgctl/      → operator CLI, its OWN Go module (DESIGN-0035, IMPL-0027): config show, prs list, prs close
 docs/
   rfc/        → High-level proposals (docz managed)
   design/     → Technical design documents (docz managed)
@@ -76,6 +78,16 @@ docs/
 - **Two Apps, least privilege by role.** The Evaluation App (read-only) is held by the evaluator; the Remediation App by the remediator; ingest holds neither key and no database credential; the api role holds none and dials Temporal only to signal a re-check. The Writer (`internal/github/write`) is unreachable from evaluator-side packages (depguard `writer`, `writer-evaluator-side`).
 - **Installation-scoped clients** — each job creates a GitHub client scoped to the specific installation, with cached transport tokens.
 - **Operator-owned ingress (IMPL-0024, DESIGN-0023)** — the app ships no ingress and reads no client-IP headers. HMAC signature validation is the sole app-layer defense (401); source-IP enforcement lives at the operator's edge per `docs/operations/ingress.md`. The former IP-allowlist middleware and baked Tailscale sidecar are gone: `webhook_rejected_total` now has exactly one producer, the HMAC 401 path (`reason="signature"`); the removed env vars (`WEBHOOK_IP_ALLOWLIST`, `WEBHOOK_IP_ALLOWLIST_FAIL_OPEN`, `TRUST_PROXY_HEADERS`) are warn-and-ignored at startup while the removed `guardian {}` HCL attrs fail load (strict decode) and the removed chart values (`tailscale.*`, `webhookIPAllowlist.*`) fail render (schema `const` + `validateRemovedValues`, both naming the migration URL). Do not reintroduce an in-app IP check — INV-0016 Observation 5: leftmost `X-Forwarded-For` is client-controlled, so it was spoofable behind every documented proxy.
+
+## tools/rgctl (DESIGN-0035, IMPL-0027)
+
+`rgctl` reads a v1 `guardian.hcl` loosely and finds or closes repo-guardian PRs (author = App bot + `repo-guardian/` head prefix + not a fork, every search hit re-read through the Pull Requests API). Things a future edit must not break:
+
+- **Own module, never requires the parent.** `tools/rgctl/go.mod` must not `require` or `replace` `github.com/donaldgifford/repo-guardian`; that is what lets it outlive v1. `make lint-rgctl` greps for it, and a depguard rule (`rgctl-boundary`, files `**/tools/rgctl/**`) in the root `.golangci.yml` denies the product's `internal/` and `cmd/`. Probed once (IMPL-0027 task 0.4): a bare import fails typecheck first, so depguard only speaks once the import resolves. v1 branch names and the reconcile-log marker are copied as literals in `internal/prs/identity.go`; `TestPRIdentity_IsFrozen` in the product freezes the originals.
+- **Root targets do not descend into it.** `go test ./...` and `golangci-lint run ./...` at the root skip nested modules, so `build`/`lint`/`test`/`test-coverage` call `build-rgctl`/`lint-rgctl`/`test-rgctl`/`test-coverage-rgctl`, CI has a second lint step with `working-directory: tools/rgctl`, coverage uploads under the Codecov `rgctl` flag (`-coverpkg=./...` so command tests count), and the `go` paths filter is `**/go.mod`/`**/go.sum`. `go install ./tools/rgctl` from the root fails (different module); run it from inside `tools/rgctl`.
+- **go-github v75, not the product's v68**, because ghinstallation v2.17.0 requires v75. ghinstallation's `BaseURL` must come from go-github's resolved `BaseURL` (it carries `/api/v3` for GHES) or token minting 404s; the User-Agent is set on the base transport because ghinstallation's token request bypasses go-github's.
+- **The fake is stateful** (`internal/ghapi/ghapitest`): writes are visible to later reads and every request is logged, so idempotency tests count requests. A secondary-limit retry test needs a real sleep: go-github blocks client-side until `Retry-After` passes.
+- **Close is comment → close → branch, all idempotent.** The marker `<!-- rgctl:closed-by-migration:v1 -->` is the comment's first line. A re-run finishes an interrupted branch deletion only for PRs carrying that marker, after a `BranchExists` read; edited PRs never lose their branch, even with `--force`.
 
 ## Docker
 

@@ -193,24 +193,32 @@ DESIGN-0038 A1 (M1), D1.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 **Branch.** `chore/sync-main-into-v2` from `v2`; `git merge
+- [x] 1.1 **Branch.** `chore/sync-main-into-v2` from `v2`; `git merge
   --no-ff origin/main`. Expected conflicts: `.github/workflows/release.yml`
   (keep `base-branch: true` and `v2`'s surrounding text), `go.mod`/
   `go.sum` (keep `v2`'s versions; both lines have 1.26.10). Anything
-  else conflicting is noted on this task.
-- [ ] 1.2 **Verify the superset.** `git merge-base --is-ancestor
+  else conflicting is noted on this task. *Done on
+  `feat/impl-0034-ga-cutover` (one PR for the IMPL), not a separate
+  branch. Also conflicted: `ci.yml` (rgctl coverage step kept in
+  test-go, before v2's replay/integration jobs), `.gitignore` (both),
+  `.golangci.yml` (`rgctl-boundary` joined v2's depguard rules),
+  `Makefile` (`lint: lint-controls-docs lint-rgctl`), `mkdocs.yml`
+  and the two docz READMEs (v2's side, then 1.3).*
+- [x] 1.2 **Verify the superset.** `git merge-base --is-ancestor
   origin/main HEAD` exits 0; `git ls-files tools/rgctl | wc -l` > 0;
   `docs/operations/rgctl.md` exists; `grep -c 'base-branch: true'
   .github/workflows/release.yml` = 1; `.codecov.yml` carries the rgctl
   flag; `go build ./... && go vet ./tools/...` (rgctl's module layout
   per IMPL-0027) pass.
-- [ ] 1.3 **Nav.** `mkdocs.yml` gains `docs/operations/rgctl.md` under
+- [x] 1.3 **Nav.** `mkdocs.yml` gains `docs/operations/rgctl.md` under
   Operations and DESIGN-0035 / IMPL-0027 under their sections (docz did
   not see them on `v2`); `docz update design` and `docz update impl`
   regenerate the READMEs; revert unrelated TOC churn.
 - [ ] 1.4 **PR.** `dont-release`, **merge commit** (pick "Create a merge
   commit" by hand; the default squash would flatten `main`'s history
   into `v2`). CI green, including `lint` (rgctl is in the module set).
+  *This IMPL's single PR carries the sync, so that PR is the one to
+  merge with "Create a merge commit".*
 
 <!--docz:tasks:end-->
 

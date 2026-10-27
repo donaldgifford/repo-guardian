@@ -383,24 +383,34 @@ DESIGN-0038 A5, A6, D3.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 **Prepend.** `changelog-update.yml`: `git-cliff --latest
+- [x] 4.1 **Prepend.** `changelog-update.yml`: `git-cliff --latest
   --strip all --prepend CHANGELOG.md` (header and footer already live
   in the file; `--latest` renders the newest tag's section only).
   Verify locally against a scratch copy: run it for `v2.0.0-rc.16` and
   confirm the rc.11 section and the 1.x sections below are unchanged
   byte for byte. Default the `ref` input to `main` only; reword the
-  comment about rc tags.
+  comment about rc tags. *Done with `--latest --prepend` and no
+  `--strip`: tested on a scratch copy (git-cliff 2.14.2, rc.18 as the
+  newest tag), `--strip all` writes the section above `# Changelog`,
+  because git-cliff only swaps the file's header out when it renders
+  one. Without it the header stays on top, exactly one section is
+  added and every older section is byte-identical. `cliff.toml`'s
+  header gained a trailing blank line so the new section is separated
+  from it.*
 - [ ] 4.2 **Triggers.** `ci.yml`, `license-check.yml`, `security.yml`:
   `branches: [main]` (keep `security.yml`'s `pull_request` trigger);
   `ct.yaml` `target-branch: main`. These land on `v2` and are correct
   the moment M2 merges; until then `v2` pushes run no CI, so this is
   the **last** pull request before Phase 6 and is merged together with
-  it (OQ3).
-- [ ] 4.3 **`prerelease.yml`.** Comment: hand-cut `vX.Y.Z-rc.N` tags on
+  it (OQ3). *Single-PR note: this IMPL ships as one PR against `v2`, and
+  a `pull_request: branches: [main]` trigger stops CI on that PR, so
+  4.2 is the branch's last commit, pushed after CI is green on
+  everything else.*
+- [x] 4.3 **`prerelease.yml`.** Comment: hand-cut `vX.Y.Z-rc.N` tags on
   `main`, built here because `release.yml`'s bump cannot cut
   pre-releases; dispatch is possible once on `main`, so add
   `workflow_dispatch` with a `tag` input for re-runs.
-- [ ] 4.4 **CLAUDE.md.** Replace § "The v2 branch (IMPL-0025)" with a
+- [x] 4.4 **CLAUDE.md.** Replace § "The v2 branch (IMPL-0025)" with a
   short § "Release line": GA releases by semver label through
   `release.yml`, never a hand tag; rc tags by hand with `dont-release`
   and `prerelease.yml` + `ghcr.yml` dispatch; the merge-commit rule for
@@ -408,7 +418,7 @@ DESIGN-0038 A5, A6, D3.
   by its semver label". Keep the historical bullets that still explain
   code (UI image, e2e stack, DESIGN-0037 contracts) under a new
   heading "The UI" so nothing load-bearing is lost.
-- [ ] 4.5 **CONTRIBUTING.md.** The release section describes the label
+- [x] 4.5 **CONTRIBUTING.md.** The release section describes the label
   flow for GA and the rc flow; the chart-bump changelog step stays.
 
 <!--docz:tasks:end-->

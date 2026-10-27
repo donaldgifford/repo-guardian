@@ -117,6 +117,8 @@ nav:
         - Overview: rfc/README.md
         - 'RFC-0001: Repo Compliance App (repo-guardian)': rfc/0001-repo-compliance-app-repo-guardian.md
         - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
+    - Release notes:
+        - repo-guardian 2.0.0: releases/2.0.0.md
     - Operations:
         - repo-guardian and v2 at a glance: operations/v2-overview.md
         - Turning on repo-guardian v2: operations/v2-onboarding.md

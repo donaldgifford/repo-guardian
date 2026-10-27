@@ -80,6 +80,10 @@ release:
     - glob: ./api/openapi.yaml
   header: |
     ## Release {{ .Tag }} ({{ .Date }})
+    {{ if eq .Version "2.0.0" }}
+    **Read the [2.0.0 release notes](https://github.com/donaldgifford/repo-guardian/blob/{{ .Tag }}/docs/releases/2.0.0.md) first: 2.0.0 is a fresh install and `latest` now points at it.**
+    {{ end }}
+    Verify what you download: [Verifying releases](https://github.com/donaldgifford/repo-guardian/blob/{{ .Tag }}/docs/operations/verifying-releases.md).
 
     ### Installation
 

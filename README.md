@@ -12,7 +12,8 @@ pull request or makes the API change that fixes it.
 > from the 1.x line should pin `1.14.1` first; the 1.x README is at
 > [`v1.14.1`](https://github.com/donaldgifford/repo-guardian/tree/v1.14.1).
 > Moving from 1.x is covered in
-> [Migrating from v1 to v2](docs/operations/v2-migration.md).
+> [Migrating from v1 to v2](docs/operations/v2-migration.md); what 2.0
+> is, in one page: the [2.0.0 release notes](docs/releases/2.0.0.md).
 
 ## How it works
 

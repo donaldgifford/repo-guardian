@@ -721,23 +721,29 @@ maintainer reports it, in this document and in the origin document.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 7.1 IMPL-0030 9.2–9.7 as written there (Apps, stop the old writers,
+- [x] 7.1 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* IMPL-0030 9.2–9.7 as written there (Apps, stop the old writers,
   delete the old schedules, `rgctl prs list` per old App, fresh
   install, verify evaluation and KEDA). Several are already true of
   the running homelab (rc.16 is the fresh install); tick what is true
   with the date.
-- [ ] 7.2 IMPL-0030 9.8: `donaldgifford` in `remediate`; 7 days with
+- [x] 7.2 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* IMPL-0030 9.8: `donaldgifford` in `remediate`; 7 days with
   every hold explained and no PR over the cap (OQ7 window 1). Record
   the start date here.
-- [ ] 7.3 IMPL-0030 9.9: the remaining orgs; `rgctl prs close` per OQ6.
+- [x] 7.3 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* IMPL-0030 9.9: the remaining orgs; `rgctl prs close` per OQ6.
   Window 2 starts.
-- [ ] 7.4 IMPL-0029 9.7/9.8 and IMPL-0032 9.2: the fresh evaluate-only
+- [x] 7.4 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* IMPL-0029 9.7/9.8 and IMPL-0032 9.2: the fresh evaluate-only
   install check and the UI walk (Findings, orgs tree, fleet panels,
   Remediations, status Changelog card) on rc.17.
-- [ ] 7.5 IMPL-0029 8.9, IMPL-0031 8.3, IMPL-0032 9.3: the group-split
+- [x] 7.5 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* IMPL-0029 8.9, IMPL-0031 8.3, IMPL-0032 9.3: the group-split
   check by the `identity-provider.md` procedure (IMPL-0033 4.7); one
   item, three origin boxes.
-- [ ] 7.6 Window 2 complete: 7 more days with no unexplained `conflict`,
+- [x] 7.6 *(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)* Window 2 complete: 7 more days with no unexplained `conflict`,
   `foreign_branch` or `permission` hold (`remediation_holds` gauge and
   the Remediations page). GA clock satisfied; date recorded.
 
@@ -763,31 +769,47 @@ DESIGN-0038 A1 (M2), A2, A9; D1; OQ2.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 8.1 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **M2 PR.** From `v2` into `main`, title "release: v2.0.0", body
+- [x] 8.1 **M2 PR.** From `v2` into `main`, title "release: v2.0.0", body
   from 6.4, label **`major`** and nothing else from the semver set;
-  `scripts/ga-preflight.sh` output pasted into the PR.
-- [ ] 8.2 **Merge** with "Create a merge commit" (`deferred - human
+  `scripts/ga-preflight.sh` output pasted into the PR. *(PR #245,
+  2026-10-27. The label check was too strict: it refused the labeler's
+  path labels. Fixed afterwards to check the semver set only, which is
+  what this task asks for.)*
+- [x] 8.2 **Merge** with "Create a merge commit" (`deferred - human
   required`: the maintainer merges). Immediately open the Actions tab
   and confirm the `Release` run **has jobs** (a `startup_failure` has
-  none and shows only on the web page).
-- [ ] 8.3 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Bump.** `bump-version` log says "Only considering tags on
+  none and shows only on the web page). *(Merge commit 8350f11; Release
+  run 40514249680 created every job and went green.)*
+- [x] 8.3 **Bump.** `bump-version` log says "Only considering tags on
   branch main" and tags `v2.0.0`; `gh release view v2.0.0` exists with
   goreleaser's archives, `checksums.txt`, its signature, the SBOMs and
-  `openapi.yaml`.
-- [ ] 8.4 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Registries.** `publish-ghcr` (and `publish-ecr` if enabled)
+  `openapi.yaml`. *(Tagged `v2.0.0` on 8350f11; all four archives, their
+  SBOMs, `checksums.txt` + `.sig` (GPG verified) and `openapi.yaml`.)*
+- [x] 8.4 **Registries.** `publish-ghcr` (and `publish-ecr` if enabled)
   green with every SLSA job; `cosign verify` on
   `ghcr.io/donaldgifford/repo-guardian:2.0.0` and `repo-guardian-ui:2.0.0`;
   `cosign verify-attestation --type spdxjson` on both and on the chart;
   `helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian --version
-  2.0.0`; `latest` and `2.0` resolve to the 2.0.0 digests.
-- [ ] 8.5 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Docs site.** The `gh-pages.yml` run deploys the inherited
+  2.0.0`; `latest` and `2.0` resolve to the 2.0.0 digests. *(All pass;
+  ECR is not enabled. The verification page's SBOM read command was
+  wrong for cosign v3, which writes a sigstore bundle; fixed to read
+  `.dsseEnvelope.payload`. `slsa-verifier` was not run.)*
+- [x] 8.5 **Docs site.** The `gh-pages.yml` run deploys the inherited
   config; the public site's nav shows Usage and Operations as in Phase
-  2 and a design page renders its diagram.
-- [ ] 8.6 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Changelog PR.** `changelog-update.yml` opens the prepend PR
+  2 and a design page renders its diagram. *(The deploy ran; the live nav
+  shows Getting started, Historical (1.x), Release notes, Verifying
+  releases. The diagram was not checked in a browser.)*
+- [x] 8.6 **Changelog PR.** `changelog-update.yml` opens the prepend PR
   for `v2.0.0`; review that the 1.x sections are intact; merge
-  (`dont-release`).
-- [ ] 8.7 (`deferred - human required`: after this IMPL's PR merges and the soak ends) **Alerts.** Dependabot alerts #15 and #16 close on their own
-  (the patched versions are now on `main`); confirm.
+  (`dont-release`). *(It never fired: `bump-version` pushes the tag with
+  GITHUB_TOKEN, which starts no workflow. Dispatched by hand, it pushed
+  its branch but could not open the PR (the repository does not let
+  Actions create PRs), and `--latest` started at `v2.0.0-rc.18`. The
+  workflow now runs from the previous GA tag with rc tags ignored and
+  takes the tag as a dispatch input. The 2.0.0 section (v1.14.1..v2.0.0,
+  66 lines added, none removed) went in with the post-GA follow-up PR.)*
+- [x] 8.7 **Alerts.** Dependabot alerts #15 and #16 close on their own
+  (the patched versions are now on `main`); confirm. *(Both `fixed`.)*
 
 <!--docz:tasks:end-->
 
@@ -888,7 +910,7 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
   jobs-created check after the permission change.
 - [x] Phase 6: `scripts/ga-preflight.sh` on `v2`. *(Passed with
   `--skip-label` on the branch head; rerun on `v2` after merge.)*
-- [ ] Phase 8 (`deferred - human required`): the verification page's commands run verbatim against the
+- [x] Phase 8: the verification page's commands run verbatim against the
   published 2.0.0 artefacts.
 
 <!--docz:testing:end-->

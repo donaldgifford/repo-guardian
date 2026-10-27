@@ -6,7 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
 )
 
@@ -38,10 +40,35 @@ func TestInstrumentPostgresConfig_SetsTracer(t *testing.T) {
 		t.Fatal("ConnConfig.Tracer is already set; this test no longer proves anything")
 	}
 
-	observability.InstrumentPostgresConfig(cfg)
+	observability.InstrumentPostgresConfig(cfg, "test")
 
 	if cfg.ConnConfig.Tracer == nil {
 		t.Error("ConnConfig.Tracer = nil after instrumentation; queries will not be measured")
+	}
+}
+
+// TestInstrumentPostgresConfig_TimesPoolWait: the tracer is also the
+// pool's AcquireTracer, so every Acquire lands in
+// store_pool_wait_seconds{role}.
+func TestInstrumentPostgresConfig_TimesPoolWait(t *testing.T) {
+	cfg := poolConfig(t)
+	observability.InstrumentPostgresConfig(cfg, "wait-test")
+
+	at, ok := cfg.ConnConfig.Tracer.(pgxpool.AcquireTracer)
+	if !ok {
+		t.Fatalf("ConnConfig.Tracer is a %T, not a pgxpool.AcquireTracer; pool wait goes unmeasured", cfg.ConnConfig.Tracer)
+	}
+
+	ctx := at.TraceAcquireStart(t.Context(), nil, pgxpool.TraceAcquireStartData{})
+	at.TraceAcquireEnd(ctx, nil, pgxpool.TraceAcquireEndData{})
+
+	var m dto.Metric
+	if err := metrics.StorePoolWaitSeconds.WithLabelValues("wait-test").(promclient.Metric).Write(&m); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := m.GetHistogram().GetSampleCount(); got != 1 {
+		t.Errorf("store_pool_wait_seconds{role=wait-test} samples = %d, want 1", got)
 	}
 }
 

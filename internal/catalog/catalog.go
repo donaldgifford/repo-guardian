@@ -1,5 +1,8 @@
 // Package catalog parses Backstage catalog-info.yaml files and extracts
-// custom property values for GitHub repository metadata.
+// custom property values for GitHub repository metadata. Parse decodes
+// the entity only; ParseDocument also keeps the source bytes, the node
+// tree and each scalar's source span, so a control type can report and
+// edit a field without re-encoding the file.
 package catalog
 
 import (
@@ -78,7 +81,18 @@ func Parse(content string, annotationProps map[string]string) (*Properties, erro
 		return nil, fmt.Errorf("parsing catalog-info: %w", err)
 	}
 
-	if entity.APIVersion != "backstage.io/v1alpha1" || entity.Kind != "Component" {
+	return properties(&entity, annotationProps)
+}
+
+// The Component entity's identity.
+const (
+	componentAPIVersion = "backstage.io/v1alpha1"
+	componentKind       = "Component"
+)
+
+// properties extracts the custom property values from a decoded entity.
+func properties(entity *Entity, annotationProps map[string]string) (*Properties, error) {
+	if entity.APIVersion != componentAPIVersion || entity.Kind != componentKind {
 		return nil, fmt.Errorf("%w: apiVersion=%q kind=%q", ErrNotComponent, entity.APIVersion, entity.Kind)
 	}
 

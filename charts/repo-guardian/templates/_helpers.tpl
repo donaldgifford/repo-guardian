@@ -63,17 +63,6 @@ Create the name of the service account to use.
 {{- end }}
 
 {{/*
-Create the name of the secret to use.
-*/}}
-{{- define "repo-guardian.secretName" -}}
-{{- if .Values.secrets.create }}
-{{- include "repo-guardian.fullname" . }}
-{{- else }}
-{{- required "secrets.existingSecret is required when secrets.create is false" .Values.secrets.existingSecret }}
-{{- end }}
-{{- end }}
-
-{{/*
 Reserved env-var names — keys that the chart already manages on the
 Deployment container env list. `templating.vars` may not redeclare any
 of these because the chart-emitted entry would shadow the operator's
@@ -82,7 +71,7 @@ attempt and produce confusing behavior at runtime.
 Returns a space-separated string for has-element style checks.
 */}}
 {{- define "repo-guardian.reservedEnvVars" -}}
-GITHUB_APP_ID GITHUB_WEBHOOK_SECRET GITHUB_PRIVATE_KEY GITHUB_PRIVATE_KEY_PATH LISTEN_ADDR METRICS_ADDR LOG_LEVEL DRY_RUN WORKER_COUNT QUEUE_SIZE SCHEDULE_INTERVAL SKIP_FORKS SKIP_ARCHIVED TEMPLATE_DIR GUARDIAN_CONFIG STRICT_TEMPLATES STORE_BACKEND QUEUE_BACKEND SCHEDULER_BACKEND STORE_DSN STORE_POSTGRES_MAX_CONNS QUEUE_VALKEY_DSN JOB_ACK_TIMEOUT REAPER_INTERVAL POD_NAME RECONCILE_FRESHNESS STALE_SWEEP_BATCH_SIZE RATE_LIMIT_RESERVE
+LISTEN_ADDR METRICS_ADDR LOG_LEVEL GUARDIAN_CONFIG EVAL_GITHUB_APP_ID EVAL_GITHUB_PRIVATE_KEY_PATH EVAL_WEBHOOK_SECRET REMEDIATE_GITHUB_APP_ID REMEDIATE_GITHUB_PRIVATE_KEY_PATH REMEDIATE_WEBHOOK_SECRET TEMPORAL_ADDRESS TEMPORAL_NAMESPACE TEMPORAL_TASK_QUEUE TEMPORAL_EVAL_TASK_QUEUE TEMPORAL_REMEDIATE_TASK_QUEUE TEMPORAL_TLS_CERT_PATH TEMPORAL_TLS_KEY_PATH TEMPORAL_TLS_CA_PATH TEMPORAL_TLS_SERVER_NAME TEMPORAL_TLS_DISABLED TEMPORAL_OIDC_TOKEN_URL TEMPORAL_OIDC_CLIENT_ID TEMPORAL_OIDC_CLIENT_SECRET_PATH TEMPORAL_OIDC_SCOPES TEMPORAL_OIDC_AUDIENCE TEMPORAL_BUILD_ID EVALUATOR_CONCURRENCY EVALUATOR_DB_POOL_SIZE REMEDIATOR_CONCURRENCY REMEDIATOR_DB_POOL_SIZE REMEDIATION_RESERVATION_TTL REMEDIATION_SWEEP_BATCH REMEDIATION_MAINTENANCE_BATCH REMEDIATION_SWEEP_SPACING EVAL_INTERVAL POLICY_ROLLOUT_WINDOW CHECKS_RETENTION DISCOVERY_ENABLED DISCOVERY_INTERVAL COMPLIANCE_SNAPSHOT_INTERVAL STORE_DSN STORE_DSN_EVALUATOR STORE_DSN_REMEDIATOR POSTGRES_PASSWORD STORE_RO_DSN RO_PASSWORD MIGRATE_WAIT API_LISTEN_ADDR API_AUTH_ENABLED OIDC_ISSUER OIDC_AUDIENCE OIDC_NAME_CLAIM OIDC_GROUPS_CLAIM OIDC_CLIENT_CLAIM API_AUTHZ_CONFIG STATUS_PUBLIC
 {{- end }}
 
 {{/*
@@ -93,14 +82,6 @@ secret is the operator's signal to use external mode).
 */}}
 {{- define "repo-guardian.postgresFullname" -}}
 {{- printf "%s-postgres" (include "repo-guardian.fullname" .) | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Resource name for the chart-rendered Valkey deployment + Service +
-PVC + Secret.
-*/}}
-{{- define "repo-guardian.valkeyFullname" -}}
-{{- printf "%s-valkey" (include "repo-guardian.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -135,28 +116,6 @@ STORE_DSN
 {{- end -}}
 
 {{/*
-Secret name holding QUEUE_VALKEY_DSN.
-*/}}
-{{- define "repo-guardian.queueSecretName" -}}
-{{- if eq .Values.queue.valkey.mode "external" -}}
-{{- required "queue.valkey.existingSecret is required when queue.valkey.mode=external" .Values.queue.valkey.existingSecret -}}
-{{- else -}}
-{{- include "repo-guardian.valkeyFullname" . -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Secret key holding QUEUE_VALKEY_DSN.
-*/}}
-{{- define "repo-guardian.queueSecretKey" -}}
-{{- if eq .Values.queue.valkey.mode "external" -}}
-{{- .Values.queue.valkey.existingSecretKey | default "QUEUE_VALKEY_DSN" -}}
-{{- else -}}
-QUEUE_VALKEY_DSN
-{{- end -}}
-{{- end -}}
-
-{{/*
 Validates that none of the keys in .Values.templating.vars collide with
 chart-managed env vars. Calls `fail` with a clear list of offenders so
 the helm-render step exits with a useful error instead of silently
@@ -164,6 +123,19 @@ shadowing the chart's own env entries.
 
 Renders empty on success; failure aborts the entire template render.
 */}}
+{{/*
+Fail render when extraEnv sets TEMPORAL_BUILD_ID, which the chart now
+sets from worker.buildId / image.tag. A duplicate env name is rejected
+by server-side apply (ArgoCD), and the two would disagree anyway.
+*/}}
+{{- define "repo-guardian.validateExtraEnv" -}}
+{{- range .Values.extraEnv -}}
+{{- if eq (toString .name) "TEMPORAL_BUILD_ID" -}}
+{{- fail "extraEnv sets TEMPORAL_BUILD_ID, which the chart manages: set worker.buildId instead (empty uses image.tag, then appVersion)" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
 {{- define "repo-guardian.validateTemplatingVars" -}}
 {{- $reserved := splitList " " (trim (include "repo-guardian.reservedEnvVars" .)) -}}
 {{- $offenders := list -}}
@@ -179,36 +151,31 @@ Renders empty on success; failure aborts the entire template render.
 
 {{/*
 Render-time guard for mode-scoped secret knobs (INV-0010). Each
-existingSecret value is consumed by exactly one store/queue mode; setting
+existingSecret value is consumed by exactly one store mode; setting
 one under any other mode used to be silently ignored, leaving the
 deployment on a different credential source than the operator intended
 (the chart-generated Secret), which surfaces later as auth failures.
 Fail the render with an actionable message instead.
 
 Extend this guard when adding a new mode or secret knob — the dispatch in
-repo-guardian.storeSecretName / valkeySecretName must never silently drop
+repo-guardian.storeSecretName must never silently drop
 an operator-supplied secret.
 
 Renders empty on success; failure aborts the entire template render.
 */}}
 {{- define "repo-guardian.validateBackendSecrets" -}}
+{{- include "repo-guardian.validateControlsStore" . -}}
 {{- if and .Values.store.postgres.existingSecret (ne .Values.store.postgres.mode "external") -}}
 {{- fail (printf "store.postgres.existingSecret is set but store.postgres.mode=%s never reads it — use store.postgres.baked.existingSecret for baked mode, or set store.postgres.mode=external" .Values.store.postgres.mode) -}}
 {{- end -}}
 {{- if and .Values.store.postgres.baked.existingSecret (ne .Values.store.postgres.mode "baked") -}}
 {{- fail (printf "store.postgres.baked.existingSecret is set but store.postgres.mode=%s never reads it — use store.postgres.existingSecret for external mode, or set store.postgres.mode=baked" .Values.store.postgres.mode) -}}
 {{- end -}}
-{{- if and .Values.queue.valkey.existingSecret (ne .Values.queue.valkey.mode "external") -}}
-{{- fail (printf "queue.valkey.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.baked.existingSecret for baked mode, or set queue.valkey.mode=external" .Values.queue.valkey.mode) -}}
-{{- end -}}
-{{- if and .Values.queue.valkey.baked.existingSecret (ne .Values.queue.valkey.mode "baked") -}}
-{{- fail (printf "queue.valkey.baked.existingSecret is set but queue.valkey.mode=%s never reads it — use queue.valkey.existingSecret for external mode, or set queue.valkey.mode=baked" .Values.queue.valkey.mode) -}}
-{{- end -}}
 {{- end }}
 
 {{/*
-Fail render when a values file still sets a knob removed in
-IMPL-0022 Phase 6. JSON Schema accepts unknown keys (there is no
+Fail render when a values file still sets a removed knob (IMPL-0022
+Phase 6, IMPL-0024, chart 2.0.0). JSON Schema accepts unknown keys (there is no
 additionalProperties: false on this chart), so without this guard a
 stale values file renders happily and the operator silently loses
 the behaviour they think they configured. Same shape as
@@ -216,14 +183,28 @@ validateBackendSecrets — extend when a knob is removed, and delete
 the entry once operators have had a release or two to notice.
 */}}
 {{- define "repo-guardian.validateRemovedValues" -}}
-{{- if hasKey .Values.staleSweep "rateLimitReserve" -}}
-{{- fail "staleSweep.rateLimitReserve was removed in IMPL-0022: the sweep no longer gates on the rate-limit reserve — throttled work defers itself with a due-time instead. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
-{{- end -}}
 {{- if hasKey .Values.discovery "reserveFraction" -}}
 {{- fail "discovery.reserveFraction was removed in IMPL-0022: the BudgetTracker it configured is gone (it never gated anything — INV-0012 finding A). Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
 {{- end -}}
 {{- if hasKey .Values.discovery "estimatedCostPerRepo" -}}
 {{- fail "discovery.estimatedCostPerRepo was removed in IMPL-0022: the BudgetTracker it configured is gone. Delete the value. See docs/operations/migrations.md#removing-the-rate-limit-reserve-knobs-impl-0022" -}}
+{{- end -}}
+{{- /* Chart 2.0.0 (IMPL-0025): the v1 queue runtime is gone. */ -}}
+{{- range $k := list "queue" "scheduler" "staleSweep" -}}
+{{- if hasKey $.Values $k -}}
+{{- fail (printf "%s.* was removed in chart 2.0.0: Temporal replaces the Valkey queue, scheduler and stale sweep. Delete the block. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "workerCount" "queueSize" "scheduleInterval" "maxJobAttempts" -}}
+{{- if hasKey $.Values.config $k -}}
+{{- fail (printf "config.%s was removed in chart 2.0.0 (use evaluator.concurrency and evalInterval). Delete the value. See docs/operations/v2-migration.md#removed-chart-values" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey (.Values.posture | default dict) "exportInterval" -}}
+{{- fail "posture.exportInterval was removed in chart 2.0.0: the posture gauges are gone and the API reads compliance from Postgres. Delete the value. See docs/operations/v2-migration.md#removed-chart-values" -}}
+{{- end -}}
+{{- if hasKey .Values.worker "keda" -}}
+{{- fail "worker.keda.* was removed in IMPL-0028: KEDA scales the evaluator and remediator per queue. Move the block to evaluator.keda / remediator.keda and set keda.trigger. See docs/operations/v2-onboarding.md#autoscaling-with-keda" -}}
 {{- end -}}
 {{- if hasKey .Values "tailscale" -}}
 {{- fail "tailscale.* was removed in IMPL-0024: ingress is operator-owned (the baked sidecar also forced the IP allowlist fail-open — INV-0016). Delete the block and pick an ingress option. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
@@ -231,4 +212,819 @@ the entry once operators have had a release or two to notice.
 {{- if hasKey .Values "webhookIPAllowlist" -}}
 {{- fail "webhookIPAllowlist.* was removed in IMPL-0024: the in-app IP allowlist was spoofable behind every documented proxy and was deleted — source-IP enforcement now lives at the operator's edge layer. Delete the block. See docs/operations/ingress.md#migrating-from-the-baked-sidecar" -}}
 {{- end -}}
+{{- /* The controls switch-over (IMPL-0029 7.9): the rule engine, its
+templates and the single-App credentials are gone. */ -}}
+{{- $controls := "See docs/operations/v2-migration.md#controls-chart-values" -}}
+{{- range $k := list "templates" "secrets" "checkInterval" -}}
+{{- if hasKey $.Values $k -}}
+{{- fail (printf "%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "config" "autoClosePR" "orphanCleanup" -}}
+{{- if hasKey $.Values.policy $k -}}
+{{- fail (printf "policy.%s was removed in the controls switch-over (IMPL-0029): the policy is a directory in policy.files. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "appId" "dryRun" "skipForks" "skipArchived" -}}
+{{- if hasKey $.Values.config $k -}}
+{{- fail (printf "config.%s was removed in the controls switch-over (IMPL-0029). Delete it. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := list "replicas" "concurrency" "resources" -}}
+{{- if hasKey $.Values.worker $k -}}
+{{- fail (printf "worker.%s was removed in the controls switch-over (IMPL-0029): the rc worker is gone; size evaluator.* and remediator.*. %s" $k $controls) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey ($.Values.templating | default dict) "strict" -}}
+{{- fail (printf "templating.strict was removed in the controls switch-over (IMPL-0029): policy load validates every template. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.store.postgres "maxConns" -}}
+{{- fail (printf "store.postgres.maxConns was removed in the controls switch-over (IMPL-0029): use evaluator.dbPoolSize and remediator.dbPoolSize. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.api "prStaleAfter" -}}
+{{- fail (printf "api.prStaleAfter was removed in the controls switch-over (IMPL-0029): the findings endpoints that used it are gone. %s" $controls) -}}
+{{- end -}}
+{{- if hasKey $.Values.migrate "freshness" -}}
+{{- fail (printf "migrate.freshness was removed in the controls switch-over (IMPL-0029): the rc backfill that read it is gone. %s" $controls) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+STORE_DSN (and, for baked Postgres with an operator secret, the
+POSTGRES_PASSWORD it expands) as container env entries. Shared by the
+Deployment and the migrate Job so the two can never disagree on the DSN.
+*/}}
+{{- define "repo-guardian.storeDSNEnv" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret }}
+# Baked Postgres with an operator-supplied password: assemble
+# STORE_DSN at runtime from $(POSTGRES_PASSWORD) so the chart
+# never needs the password at template time (GitOps-safe).
+# POSTGRES_PASSWORD must precede STORE_DSN for $(...) expansion.
+- name: POSTGRES_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.store.postgres.baked.existingSecret }}
+      key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
+- name: STORE_DSN
+  value: "postgres://repoguardian:$(POSTGRES_PASSWORD)@{{ include "repo-guardian.postgresFullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable"
+{{- else }}
+- name: STORE_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.storeSecretName" . }}
+      key: {{ include "repo-guardian.storeSecretKey" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+===========================================================================
+v2 roles (DESIGN-0026 § Chart 2.0.0, IMPL-0025 Phase 17).
+
+topology=split renders one Deployment per role (ingest, the controls
+roles whose App is configured, and api when api.enabled); topology=all
+renders a single Deployment running every role. The rc's worker role is
+gone (IMPL-0029 task 7.1). Each role helper takes a dict: {ctx: $, role: "<name>"}.
+===========================================================================
+*/}}
+
+{{/*
+The roles rendered for the current topology.
+*/}}
+{{- define "repo-guardian.roles" -}}
+{{- if eq .Values.topology "all" -}}
+all
+{{- else -}}
+ingest{{ include "repo-guardian.controlsRoles" . }}{{ if .Values.api.enabled }} api{{ end }}
+{{- end -}}
+{{- end }}
+
+{{/*
+The controls roles split renders (IMPL-0028 task 4.10), each with a
+leading space: a role only when its App is configured, since the role
+refuses to start without its App's credentials.
+*/}}
+{{- define "repo-guardian.controlsRoles" -}}
+{{- if .Values.github.eval.appId }} evaluator{{ end -}}
+{{- if .Values.github.remediate.appId }} remediator{{ end -}}
+{{- end }}
+
+{{/*
+Whether any controls role's ScaledObject renders (split only).
+*/}}
+{{- define "repo-guardian.kedaEnabled" -}}
+{{- if eq .Values.topology "split" -}}
+{{- range $role := splitList " " (trim (include "repo-guardian.controlsRoles" .)) -}}
+{{- if (index $.Values $role).keda.enabled }}true{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+A controls role's task queue: the binary's defaults
+(temporal.TaskQueueEval, temporal.TaskQueueRemediate).
+*/}}
+{{- define "repo-guardian.roleTaskQueue" -}}
+{{- if eq .role "evaluator" }}repo-guardian-eval{{ else }}repo-guardian-remediate{{ end -}}
+{{- end }}
+
+{{/*
+A controls role's default KEDA query (DESIGN-0028 § Prometheus trigger).
+Temporal sanitises label values, `-` becoming `_` (INV-0022 Phase-0
+results); the Temporal namespace sits under keda.prometheus.namespaceLabel,
+exported_namespace behind a ServiceMonitor (IMPL-0028 5.6). The inner max
+stops a partition counting twice while it moves, and groups on
+task_priority and worker_build_id because there is no aggregate series
+across them; unversioned series lack worker_build_id and group apart.
+*/}}
+{{- define "repo-guardian.kedaQuery" -}}
+{{- $ns := .ctx.Values.temporal.namespace | replace "-" "_" -}}
+{{- $q := include "repo-guardian.roleTaskQueue" . | replace "-" "_" -}}
+sum(max by (partition, task_type, task_priority, worker_build_id) (approximate_backlog_count{ {{- .ctx.Values.keda.prometheus.namespaceLabel | default "exported_namespace" }}="{{ $ns }}", taskqueue="{{ $q }}"}))
+{{- end }}
+
+{{/*
+Resource name for one role.
+*/}}
+{{- define "repo-guardian.roleFullname" -}}
+{{- printf "%s-%s" (include "repo-guardian.fullname" .ctx) .role | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Selector labels for one role. The component label keeps a role's
+Service, PDB and ServiceMonitor off every other role's pods (and off the
+baked Postgres pod, which shares the name and instance labels).
+*/}}
+{{- define "repo-guardian.roleSelectorLabels" -}}
+{{ include "repo-guardian.selectorLabels" .ctx }}
+app.kubernetes.io/component: {{ .role }}
+{{- end }}
+
+{{- define "repo-guardian.roleLabels" -}}
+{{ include "repo-guardian.labels" .ctx }}
+app.kubernetes.io/component: {{ .role }}
+{{- end }}
+
+{{/*
+What each role holds. Secret scoping (DESIGN-0026): the rc App key only
+in all, the webhook secret only in ingest and all, Temporal in
+every role that dials it, and nothing but the read-only DSN in api.
+*/}}
+{{- /* Per-App keys (IMPL-0028 task 3.5): each App's key reaches only the roles that act as it, and only when its block is enabled. */ -}}
+{{- define "repo-guardian.roleHasEvalKey" -}}{{ if and .ctx.Values.github.eval.appId (has .role (list "evaluator" "all")) }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasRemediateKey" -}}{{ if and .ctx.Values.github.remediate.appId (has .role (list "remediator" "all")) }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasWebhookSecret" -}}{{ if has .role (list "ingest" "all") }}true{{ end }}{{- end }}
+{{- /* The api role dials only with api.temporal: its client sends the
+re-evaluate POST's signal and probes the queues (DESIGN-0032 § API). */ -}}
+{{- define "repo-guardian.roleDialsTemporal" -}}{{ if or (has .role (list "ingest" "evaluator" "remediator" "all")) (and (eq .role "api") .ctx.Values.api.temporal) }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleHasStore" -}}{{ if has .role (list "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleServesAPI" -}}{{ if has .role (list "api" "all") }}true{{ end }}{{- end }}
+{{- define "repo-guardian.roleReadsPolicy" -}}{{ if has .role (list "ingest" "evaluator" "remediator" "all") }}true{{ end }}{{- end }}
+
+{{/*
+Whether a policy directory is mounted.
+*/}}
+{{- define "repo-guardian.hasPolicy" -}}
+{{- if or .Values.policy.files .Values.policy.existingConfigMap }}true{{ end -}}
+{{- end }}
+
+{{/*
+The policy root's mount path: GUARDIAN_CONFIG on every role that loads
+the policy and on the migrate Job.
+*/}}
+{{- define "repo-guardian.policyRoot" -}}/etc/repo-guardian/policy{{- end }}
+
+{{/*
+policy.files is the policy root as a nested map (IMPL-0029 7.9, OQ11
+(a)): a string is a file, a map is a directory. policyFiles walks it and
+returns JSON {"<path>": "<content>"}, e.g. "catalogue/codeowners.hcl".
+Callers fromJson it.
+*/}}
+{{- define "repo-guardian.policyFiles" -}}
+{{- $out := dict -}}
+{{- include "repo-guardian.policyWalk" (dict "node" (.Values.policy.files | default dict) "prefix" "" "out" $out) -}}
+{{- toJson $out -}}
+{{- end }}
+
+{{- define "repo-guardian.policyWalk" -}}
+{{- range $k, $v := .node -}}
+{{- if or (eq $k "") (eq $k ".") (eq $k "..") (contains "/" $k) -}}
+{{- fail (printf "policy.files entry %q under %q: a name is one path segment, never empty, \".\", \"..\" or containing /" $k (default "/" $.prefix)) -}}
+{{- end -}}
+{{- $p := ternary $k (printf "%s/%s" $.prefix $k) (eq $.prefix "") -}}
+{{- if kindIs "map" $v -}}
+{{- include "repo-guardian.policyWalk" (dict "node" $v "prefix" $p "out" $.out) -}}
+{{- else -}}
+{{- $_ := set $.out $p (toString $v) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The ConfigMap key for a policy path: "/" becomes "." (OQ11:
+catalogue/codeowners.hcl → catalogue.codeowners.hcl). The volume's items
+put each file back at its path, so catalogue/ and orgs/ survive the
+mount (kubelet's ..data layout, which policy.Load follows).
+*/}}
+{{- define "repo-guardian.policyKey" -}}
+{{- regexReplaceAll "[^-._a-zA-Z0-9]" (replace "/" "." .) "_" -}}
+{{- end }}
+
+{{/*
+The policy volume, shared by the Deployment and the migrate Job. An
+operator ConfigMap is mounted whole; policy.files is mounted through
+items, one per file.
+*/}}
+{{- define "repo-guardian.policyVolume" -}}
+- name: policy
+  configMap:
+    name: {{ .Values.policy.existingConfigMap | default (printf "%s-policy" (include "repo-guardian.fullname" .)) }}
+    {{- if not .Values.policy.existingConfigMap }}
+    items:
+      {{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson }}
+      - key: {{ include "repo-guardian.policyKey" $path }}
+        path: {{ $path }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+
+{{/*
+Render-time guard for policy.files: distinct ConfigMap keys, and not
+beside an existingConfigMap. policyWalk refuses names that would leave
+the root.
+*/}}
+{{- define "repo-guardian.validatePolicyFiles" -}}
+{{- if and .Values.policy.files .Values.policy.existingConfigMap -}}
+{{- fail "policy.files and policy.existingConfigMap are mutually exclusive: set one" -}}
+{{- end -}}
+{{- $keys := dict -}}
+{{- range $path, $_ := include "repo-guardian.policyFiles" . | fromJson -}}
+{{- $k := include "repo-guardian.policyKey" $path -}}
+{{- if hasKey $keys $k -}}
+{{- fail (printf "policy.files paths %q and %q map to the same ConfigMap key %q: rename one" (get $keys $k) $path $k) -}}
+{{- end -}}
+{{- $_ := set $keys $k $path -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The API's listen port: the main port when the api role runs alone, the
+sidecar port beside other roles (all).
+*/}}
+{{- define "repo-guardian.apiPort" -}}
+{{- if eq .role "all" }}{{ .ctx.Values.api.port }}{{ else }}{{ .ctx.Values.config.port }}{{ end -}}
+{{- end }}
+
+{{/*
+Temporal connection env (TEMPORAL_*) and, with mTLS, the mounted paths.
+*/}}
+{{- define "repo-guardian.temporalEnv" -}}
+- name: TEMPORAL_ADDRESS
+  value: {{ .Values.temporal.address | quote }}
+- name: TEMPORAL_NAMESPACE
+  value: {{ .Values.temporal.namespace | quote }}
+- name: TEMPORAL_TASK_QUEUE
+  value: {{ .Values.temporal.taskQueue | quote }}
+{{- $tls := .Values.temporal.tls }}
+{{- $oidc := .Values.temporal.auth.oidc }}
+{{- if $tls.existingSecret }}
+- name: TEMPORAL_TLS_CERT_PATH
+  value: /etc/repo-guardian/temporal-tls/tls.crt
+- name: TEMPORAL_TLS_KEY_PATH
+  value: /etc/repo-guardian/temporal-tls/tls.key
+- name: TEMPORAL_TLS_CA_PATH
+  value: /etc/repo-guardian/temporal-tls/ca.crt
+{{- else if $tls.caSecret }}
+- name: TEMPORAL_TLS_CA_PATH
+  value: /etc/repo-guardian/temporal-ca/ca.crt
+{{- end }}
+{{- if and $tls.serverName (or $tls.existingSecret $oidc.tokenUrl) }}
+- name: TEMPORAL_TLS_SERVER_NAME
+  value: {{ $tls.serverName | quote }}
+{{- end }}
+{{- if $tls.disabled }}
+- name: TEMPORAL_TLS_DISABLED
+  value: "true"
+{{- end }}
+{{- if $oidc.tokenUrl }}
+- name: TEMPORAL_OIDC_TOKEN_URL
+  value: {{ $oidc.tokenUrl | quote }}
+- name: TEMPORAL_OIDC_CLIENT_ID
+  value: {{ $oidc.clientId | quote }}
+- name: TEMPORAL_OIDC_CLIENT_SECRET_PATH
+  value: /etc/repo-guardian/temporal-oidc/client-secret
+{{- with $oidc.scopes }}
+- name: TEMPORAL_OIDC_SCOPES
+  value: {{ join " " . | quote }}
+{{- end }}
+{{- with $oidc.audience }}
+- name: TEMPORAL_OIDC_AUDIENCE
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Render guards for Temporal auth and TLS: each combination the binary
+would refuse at startup (or silently misapply) fails here instead.
+*/}}
+{{- define "repo-guardian.validateTemporalAuth" -}}
+{{- $tls := .Values.temporal.tls -}}
+{{- $oidc := .Values.temporal.auth.oidc -}}
+{{- if and (not $oidc.tokenUrl) (or $oidc.clientId $oidc.existingSecret $oidc.scopes $oidc.audience) -}}
+{{- fail "temporal.auth.oidc.tokenUrl is required when any other temporal.auth.oidc value is set" -}}
+{{- end -}}
+{{- if and $oidc.tokenUrl (not (and $oidc.clientId $oidc.existingSecret)) -}}
+{{- fail "temporal.auth.oidc needs clientId and existingSecret (with key client-secret) alongside tokenUrl" -}}
+{{- end -}}
+{{- if and $tls.disabled (or $tls.existingSecret $tls.caSecret $tls.serverName) -}}
+{{- fail "temporal.tls.disabled contradicts temporal.tls.existingSecret, caSecret and serverName" -}}
+{{- end -}}
+{{- if and $tls.caSecret $tls.existingSecret -}}
+{{- fail "temporal.tls.caSecret and temporal.tls.existingSecret are exclusive: put ca.crt in existingSecret for mTLS" -}}
+{{- end -}}
+{{- if and $tls.caSecret (not $oidc.tokenUrl) -}}
+{{- fail "temporal.tls.caSecret is for temporal.auth.oidc (server-verified TLS without a client certificate); for mTLS use temporal.tls.existingSecret" -}}
+{{- end -}}
+{{- $trigger := .Values.keda.trigger -}}
+{{- if not (has $trigger (list "prometheus" "temporal")) -}}
+{{- fail (printf "keda.trigger %q is unknown: set keda.trigger to prometheus or temporal" $trigger) -}}
+{{- end -}}
+{{- if include "repo-guardian.kedaEnabled" . -}}
+{{- if and (eq $trigger "prometheus") (not .Values.keda.prometheus.serverAddress) -}}
+{{- fail "keda.trigger: prometheus needs keda.prometheus.serverAddress (the Prometheus that scrapes the Temporal server)" -}}
+{{- end -}}
+{{- if and (eq $trigger "temporal") $oidc.tokenUrl -}}
+{{- fail "keda.trigger: temporal cannot be combined with temporal.auth.oidc: KEDA's temporal trigger cannot mint OIDC tokens. Set keda.trigger: prometheus" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The api role's env: listener, read-only DSN, auth and status.
+*/}}
+{{- define "repo-guardian.apiEnv" -}}
+{{- $v := .ctx.Values -}}
+- name: API_LISTEN_ADDR
+  value: ":{{ include "repo-guardian.apiPort" . }}"
+{{- if eq .role "api" }}
+{{- include "repo-guardian.storeRODSNEnv" .ctx }}
+{{- end }}
+{{- if and $v.api.enabled $v.api.auth.enabled }}
+- name: API_AUTH_ENABLED
+  value: "true"
+- name: OIDC_ISSUER
+  value: {{ $v.api.auth.issuer | quote }}
+- name: OIDC_AUDIENCE
+  value: {{ $v.api.auth.audience | quote }}
+- name: OIDC_NAME_CLAIM
+  value: {{ $v.api.auth.nameClaim | quote }}
+- name: OIDC_GROUPS_CLAIM
+  value: {{ $v.api.auth.groupsClaim | quote }}
+- name: OIDC_CLIENT_CLAIM
+  value: {{ $v.api.auth.clientClaim | quote }}
+- name: API_AUTHZ_CONFIG
+  value: /etc/repo-guardian/authz/authz.yaml
+{{- else }}
+# The api role has no Service unless api.enabled, and with auth off it is
+# reachable on the pod network only (INV-0009).
+- name: API_AUTH_ENABLED
+  value: "false"
+{{- end }}
+- name: STATUS_PUBLIC
+  value: {{ $v.api.status.public | quote }}
+{{- end }}
+
+{{/*
+STORE_RO_DSN for the api role (DESIGN-0027 § Chart). An operator Secret
+wins; otherwise baked and CNPG derive it from the chart-managed
+read-only role, and external has no source (a guard fails render).
+*/}}
+{{- define "repo-guardian.storeRODSNEnv" -}}
+{{- $pg := include "repo-guardian.postgresFullname" . -}}
+{{- if .Values.api.roDsn.existingSecret }}
+- name: STORE_RO_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.api.roDsn.existingSecret }}
+      key: {{ .Values.api.roDsn.existingSecretKey | default "STORE_RO_DSN" }}
+{{- else if eq .Values.store.postgres.mode "baked" }}
+- name: RO_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.roSecretName" . }}
+      key: {{ include "repo-guardian.roSecretKey" . }}
+- name: STORE_RO_DSN
+  value: "postgres://repoguardian_ro:$(RO_PASSWORD)@{{ $pg }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable"
+{{- else if eq .Values.store.postgres.mode "cnpg" }}
+- name: RO_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.roSecretName" . }}
+      key: password
+{{- /* CNPG's -ro Service routes to replicas only; one instance has none. */}}
+- name: STORE_RO_DSN
+  value: "postgres://repoguardian_ro:$(RO_PASSWORD)@{{ $pg }}-{{ if gt (int .Values.store.postgres.cnpg.instances) 1 }}ro{{ else }}rw{{ end }}.{{ .Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=require"
+{{- end }}
+{{- end }}
+
+{{/*
+Secret holding the read-only role's password: the operator's baked
+Secret (key existingSecretROKey) or the chart-rendered <postgres>-ro.
+*/}}
+{{- define "repo-guardian.roSecretName" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret -}}
+{{- .Values.store.postgres.baked.existingSecret -}}
+{{- else -}}
+{{- printf "%s-ro" (include "repo-guardian.postgresFullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "repo-guardian.roSecretKey" -}}
+{{- if and (eq .Values.store.postgres.mode "baked") .Values.store.postgres.baked.existingSecret -}}
+{{- .Values.store.postgres.baked.existingSecretROKey | default "RO_PASSWORD" -}}
+{{- else -}}
+password
+{{- end -}}
+{{- end }}
+
+{{/*
+Render-time guards for the v2 roles (IMPL-0025 17.6). Renders empty on
+success; failure aborts the render with the fix.
+*/}}
+{{- define "repo-guardian.validateRoles" -}}
+{{- if not .Values.temporal.address -}}
+{{- fail "temporal.address is required: ingest and the controls workers dial Temporal. See docs/operations/v2-migration.md" -}}
+{{- end -}}
+{{- if not (include "repo-guardian.hasPolicy" .) -}}
+{{- fail "policy.files or policy.existingConfigMap is required: ingest and the controls workers will not start without GUARDIAN_CONFIG" -}}
+{{- end -}}
+{{- if and .Values.api.enabled .Values.api.auth.enabled (not .Values.api.auth.issuer) -}}
+{{- fail "api.auth.issuer is required when api.auth.enabled (or set api.auth.enabled=false for a pod-network-only API)" -}}
+{{- end -}}
+{{- if and (eq .Values.topology "split") .Values.api.enabled (eq .Values.store.postgres.mode "external") (not .Values.api.roDsn.existingSecret) -}}
+{{- fail "api.roDsn.existingSecret is required with store.postgres.mode=external: the api role reads through a read-only role the chart cannot create on an external database" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Whether the chart manages the api role's read-only Postgres role
+(DESIGN-0027 § Chart): a split API with no operator DSN on a Postgres
+the chart runs. In `all` the API reads with STORE_DSN.
+*/}}
+{{- define "repo-guardian.needsRORole" -}}
+{{- if and (eq .Values.topology "split") .Values.api.enabled (not .Values.api.roDsn.existingSecret) (has .Values.store.postgres.mode (list "baked" "cnpg")) -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
+SQL that makes repoguardian_ro able to read every table, now and later.
+Idempotent: the OQ24 hook re-runs it on every install and upgrade.
+*/}}
+{{- define "repo-guardian.roGrantsSQL" -}}
+GRANT CONNECT ON DATABASE repoguardian TO repoguardian_ro;
+GRANT USAGE ON SCHEMA public TO repoguardian_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO repoguardian_ro;
+ALTER DEFAULT PRIVILEGES FOR ROLE repoguardian IN SCHEMA public GRANT SELECT ON TABLES TO repoguardian_ro;
+{{- end }}
+
+{{/*
+PGPASSWORD for the baked Postgres admin (repoguardian), from the
+operator's Secret or the chart-rendered one.
+*/}}
+{{- define "repo-guardian.bakedAdminPasswordEnv" -}}
+- name: PGPASSWORD
+  valueFrom:
+    secretKeyRef:
+      {{- if .Values.store.postgres.baked.existingSecret }}
+      name: {{ .Values.store.postgres.baked.existingSecret }}
+      key: {{ .Values.store.postgres.baked.existingSecretKey | default "POSTGRES_PASSWORD" }}
+      {{- else }}
+      name: {{ include "repo-guardian.postgresFullname" . }}
+      key: POSTGRES_PASSWORD
+      {{- end }}
+{{- end }}
+
+{{/*
+The UI's browser-facing origin: ui.publicUrl, else https://<ingress host>.
+*/}}
+{{- define "repo-guardian.uiPublicUrl" -}}
+{{- .Values.ui.publicUrl | default (printf "https://%s" .Values.ui.ingress.host) -}}
+{{- end }}
+
+{{/*
+The API upstream the UI's BFF proxies to: the api Service, which in
+`all` targets the all pods' API port.
+*/}}
+{{- define "repo-guardian.uiApiUpstream" -}}
+{{- printf "http://%s:%v" (include "repo-guardian.roleFullname" (dict "ctx" . "role" "api")) .Values.service.httpPort -}}
+{{- end }}
+
+{{/*
+UI guards (DESIGN-0027 § Chart). The UI is a login front door to the
+API, so it never renders without an authenticated API; the Ingress is
+the chart's only public host and carries INV-0009's hard gate forward.
+*/}}
+{{- define "repo-guardian.validateUI" -}}
+{{- if and .Values.ui.enabled (not (and .Values.api.enabled .Values.api.auth.enabled)) -}}
+{{- fail "ui.enabled requires api.enabled and api.auth.enabled: the UI proxies an authenticated API" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.api.auth.enabled) -}}
+{{- fail "ui.ingress.enabled requires api.auth.enabled: the chart never publishes an unauthenticated API (INV-0009)" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.ui.enabled) -}}
+{{- fail "ui.ingress.enabled requires ui.enabled" -}}
+{{- end -}}
+{{- if and .Values.ui.enabled (not .Values.ui.existingSecret) -}}
+{{- fail "ui.existingSecret is required with ui.enabled: a Secret with oidc-client-secret and session-keys" -}}
+{{- end -}}
+{{- if and .Values.ui.enabled (not .Values.ui.publicUrl) (not .Values.ui.ingress.host) -}}
+{{- fail "ui.publicUrl or ui.ingress.host is required with ui.enabled: the OIDC redirect URI is built from it" -}}
+{{- end -}}
+{{- if and .Values.ui.ingress.enabled (not .Values.ui.ingress.host) -}}
+{{- fail "ui.ingress.host is required with ui.ingress.enabled" -}}
+{{- end -}}
+{{- range $k := list "redirect_uri" "scope" "state" "nonce" "code_challenge" "code_challenge_method" "response_type" "client_id" -}}
+{{- if hasKey ($.Values.ui.oidc.authorizationParams | default dict) $k -}}
+{{- fail (printf "ui.oidc.authorizationParams.%s is reserved: the UI's login flow sets it" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The Secret holding one controls App's private key and webhook secret.
+Takes (dict "ctx" $ "app" "eval"|"remediate").
+*/}}
+{{- define "repo-guardian.appSecretName" -}}
+{{- $a := index .ctx.Values.github .app -}}
+{{- $a.existingSecret | default (printf "%s-%s" (include "repo-guardian.fullname" .ctx) .app) -}}
+{{- end }}
+
+{{/*
+One controls App's env: the webhook secret and App id for ingest, the
+App id and key path for the role that acts as it, and the App id alone
+for an api role with api.temporal, which probes that App's queue. Takes (dict "ctx" $
+"role" <role> "app" "eval"|"remediate").
+*/}}
+{{- define "repo-guardian.appEnv" -}}
+{{- $a := index .ctx.Values.github .app -}}
+{{- $prefix := ternary "EVAL" "REMEDIATE" (eq .app "eval") -}}
+{{- $hasKey := ternary (include "repo-guardian.roleHasEvalKey" .) (include "repo-guardian.roleHasRemediateKey" .) (eq .app "eval") -}}
+{{- $hasHook := and $a.appId (include "repo-guardian.roleHasWebhookSecret" .) -}}
+{{- $probes := and $a.appId (eq .role "api") .ctx.Values.api.temporal -}}
+{{- if or $hasKey $hasHook $probes }}
+- name: {{ $prefix }}_GITHUB_APP_ID
+  value: {{ $a.appId | quote }}
+{{- end }}
+{{- if $hasHook }}
+- name: {{ $prefix }}_WEBHOOK_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.appSecretName" . }}
+      key: webhook-secret
+{{- end }}
+{{- if $hasKey }}
+- name: {{ $prefix }}_GITHUB_PRIVATE_KEY_PATH
+  value: /etc/repo-guardian/{{ .app }}-key/private-key.pem
+{{- end }}
+{{- end }}
+
+{{/*
+===========================================================================
+Controls database roles (IMPL-0028 Phase 6, DESIGN-0032 D8/D31). All of it
+is behind store.controls.enabled, off until IMPL-0029's switch-over.
+===========================================================================
+*/}}
+
+{{/*
+Whether the chart provisions the controls roles: baked and cnpg. External
+mode provisions them with the documented SQL.
+*/}}
+{{- define "repo-guardian.controlsProvisioned" -}}
+{{- if and .Values.store.controls.enabled (has .Values.store.postgres.mode (list "baked" "cnpg")) }}true{{ end -}}
+{{- end }}
+
+{{/*
+The roles the chart provisions. Baked adds rg_owner: the image's
+POSTGRES_USER is a superuser, so the migrate Job connects as a
+non-superuser owner without CREATEROLE instead (INV-0022 spike 6). CNPG's
+application owner is already a non-superuser.
+*/}}
+{{- define "repo-guardian.controlsDBRoles" -}}
+{{- if eq .Values.store.postgres.mode "baked" }}rg_owner {{ end }}rg_evaluator rg_remediator rg_all
+{{- end }}
+
+{{/*
+A controls role's password env var name: rg_evaluator → RG_EVALUATOR_PASSWORD.
+*/}}
+{{- define "repo-guardian.controlsPasswordVar" -}}
+{{- printf "%s_PASSWORD" (upper .) -}}
+{{- end }}
+
+{{/*
+Each provisioned role's password, from its Secret.
+*/}}
+{{- define "repo-guardian.controlsPasswordEnv" -}}
+{{- $pg := include "repo-guardian.postgresFullname" . -}}
+{{- range $role := include "repo-guardian.controlsDBRoles" . | splitList " " }}
+- name: {{ include "repo-guardian.controlsPasswordVar" $role }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ printf "%s-%s" $pg ($role | replace "_" "-") }}
+      key: password
+{{- end }}
+{{- end }}
+
+{{/*
+psql -v flags binding each role's password to :'<role>_pw'.
+*/}}
+{{- define "repo-guardian.controlsPasswordVars" -}}
+{{- $flags := list -}}
+{{- range $role := include "repo-guardian.controlsDBRoles" . | splitList " " -}}
+{{- $flags = append $flags (printf "-v %s_pw=\"$%s\"" $role (include "repo-guardian.controlsPasswordVar" $role)) -}}
+{{- end -}}
+{{- join " " $flags -}}
+{{- end }}
+
+{{/*
+Creates each missing controls role, resets its password and re-runs the
+grants. Idempotent: the init script and the hook Job share it, and
+pgtest.ControlsRoles creates the same roles.
+*/}}
+{{- define "repo-guardian.controlsRolesSQL" -}}
+{{- $attrs := dict "rg_owner" "NOSUPERUSER NOCREATEROLE" "rg_evaluator" "NOSUPERUSER" "rg_remediator" "NOSUPERUSER" "rg_all" "NOSUPERUSER" -}}
+{{- range $role := include "repo-guardian.controlsDBRoles" . | splitList " " }}
+SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ $role }}') AS missing \gset
+\if :missing
+  CREATE ROLE {{ $role }};
+\endif
+ALTER ROLE {{ $role }} WITH LOGIN {{ index $attrs $role }} PASSWORD :'{{ $role }}_pw';
+{{- end }}
+GRANT rg_evaluator, rg_remediator TO rg_all;
+{{- if eq .Values.store.postgres.mode "baked" }}
+GRANT ALL ON SCHEMA public TO rg_owner;
+{{- end }}
+GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
+{{- end }}
+
+{{/*
+The controls DSNs for one role's pods (DESIGN-0032 § Config): the
+evaluator's STORE_DSN_EVALUATOR as rg_evaluator, the remediator's
+STORE_DSN_REMEDIATOR as rg_remediator, and in all both, as rg_all, each
+only when that half runs.
+*/}}
+{{- define "repo-guardian.controlsDSNEnv" -}}
+{{- $v := .ctx.Values -}}
+{{- if $v.store.controls.enabled -}}
+{{- $halves := list -}}
+{{- if include "repo-guardian.roleHasEvalKey" . }}{{ $halves = append $halves "evaluator" }}{{ end -}}
+{{- if include "repo-guardian.roleHasRemediateKey" . }}{{ $halves = append $halves "remediator" }}{{ end -}}
+{{- $pg := include "repo-guardian.postgresFullname" .ctx -}}
+{{- $mode := $v.store.postgres.mode -}}
+{{- $passwordSet := false -}}
+{{- range $half := $halves }}
+{{- $env := printf "STORE_DSN_%s" (upper $half) }}
+{{- $dbRole := ternary "rg_all" (printf "rg_%s" $half) (eq $.role "all") }}
+{{- if eq $mode "external" }}
+{{- $sec := index $v.store.controls (ternary "all" $half (eq $.role "all")) }}
+- name: {{ $env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $sec.existingSecret }}
+      key: {{ $sec.existingSecretKey }}
+{{- else }}
+{{- $pwVar := include "repo-guardian.controlsPasswordVar" $dbRole }}
+{{- if not $passwordSet }}
+{{- $passwordSet = eq $.role "all" }}
+- name: {{ $pwVar }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ printf "%s-%s" $pg ($dbRole | replace "_" "-") }}
+      key: password
+{{- end }}
+- name: {{ $env }}
+  value: {{ include "repo-guardian.controlsDSN" (dict "ctx" $.ctx "role" $dbRole "pwVar" $pwVar) | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+A chart-provisioned role's DSN, with its password expanded from pwVar at
+runtime so it never appears in the rendered manifest.
+*/}}
+{{- define "repo-guardian.controlsDSN" -}}
+{{- $v := .ctx.Values -}}
+{{- $pg := include "repo-guardian.postgresFullname" .ctx -}}
+{{- if eq $v.store.postgres.mode "cnpg" -}}
+postgres://{{ .role }}:$({{ .pwVar }})@{{ $pg }}-rw.{{ .ctx.Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=require
+{{- else -}}
+postgres://{{ .role }}:$({{ .pwVar }})@{{ $pg }}.{{ .ctx.Release.Namespace }}.svc.cluster.local:5432/repoguardian?sslmode=disable
+{{- end -}}
+{{- end }}
+
+{{/*
+The migrate Job's owner DSN on the controls chain: baked connects as
+rg_owner; cnpg and external keep STORE_DSN, whose user is already a
+non-superuser owner.
+*/}}
+{{- define "repo-guardian.migrateDSNEnv" -}}
+{{- if and .Values.store.controls.enabled (eq .Values.store.postgres.mode "baked") }}
+- name: RG_OWNER_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "repo-guardian.postgresFullname" . }}-rg-owner
+      key: password
+- name: STORE_DSN
+  value: {{ include "repo-guardian.controlsDSN" (dict "ctx" . "role" "rg_owner" "pwVar" "RG_OWNER_PASSWORD") | quote }}
+{{- else }}
+{{- include "repo-guardian.storeDSNEnv" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+store.controls guards: the per-role DSN Secrets are read only in external
+mode, where the controls roles need them.
+*/}}
+{{- define "repo-guardian.validateControlsStore" -}}
+{{- $c := .Values.store.controls -}}
+{{- $external := eq .Values.store.postgres.mode "external" -}}
+{{- range $k := list "evaluator" "remediator" "all" -}}
+{{- if and (index $c $k).existingSecret (not (and $c.enabled $external)) -}}
+{{- fail (printf "store.controls.%s.existingSecret is read only with store.controls.enabled and store.postgres.mode=external; baked and cnpg provision the role's Secret" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- if and $c.enabled $external -}}
+{{- $needs := list -}}
+{{- if eq .Values.topology "all" -}}
+{{- if or .Values.github.eval.appId .Values.github.remediate.appId }}{{ $needs = append $needs "all" }}{{ end -}}
+{{- else -}}
+{{- if .Values.github.eval.appId }}{{ $needs = append $needs "evaluator" }}{{ end -}}
+{{- if .Values.github.remediate.appId }}{{ $needs = append $needs "remediator" }}{{ end -}}
+{{- end -}}
+{{- range $k := $needs -}}
+{{- if not (index $c $k).existingSecret -}}
+{{- fail (printf "store.controls.%s.existingSecret is required with store.controls.enabled on store.postgres.mode=external: a Secret holding the role's DSN (docs/operations/v2-onboarding.md#controls-database-roles)" $k) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Argo CD sync order (IMPL-0028 Phase 8). Argo cannot tell install from
+upgrade: it maps a bare helm.sh/hook by phase (pre-* to PreSync, post-* to
+PostSync), so a pre-upgrade Job ran before the release's ServiceAccount
+and store existed and a first install never came up. Every hook Job
+therefore carries an Argo Sync hook beside its Helm annotations (Argo then
+ignores helm.sh/hook for it), on this ladder:
+  0  everything else, unannotated (ServiceAccount, RBAC, ConfigMaps,
+     Secrets, the store, Services)
+  1  the controls-roles Job      (Helm weight -5)
+  2  the migrate Job             (Helm weight 0)
+  3  the read-only role Job      (Helm weight 10, post-upgrade)
+  4  the Deployments, their PDBs and ScaledObjects
+so upgrades still migrate before new pods roll. Helm ignores these.
+Takes the wave as a string.
+*/}}
+{{- define "repo-guardian.argoHook" -}}
+argocd.argoproj.io/hook: Sync
+argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+argocd.argoproj.io/sync-wave: {{ . | quote }}
+{{- end }}
+
+{{/* The workload wave of the ladder above. */}}
+{{- define "repo-guardian.argoWorkloadWave" -}}
+argocd.argoproj.io/sync-wave: "4"
+{{- end }}
+
+{{/*
+The migrate Job waits for the database inside its own deadline
+(IMPL-0028 8.2): a wait as long as the deadline would have the pod killed
+mid-wait instead of failing with the last connection error.
+*/}}
+{{- define "repo-guardian.validateMigrate" -}}
+{{- $d := .Values.migrate.activeDeadlineSeconds -}}
+{{- if and $d (ge (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- fail (printf "migrate.waitSeconds (%d) must be less than migrate.activeDeadlineSeconds (%d)" (int .Values.migrate.waitSeconds) (int $d)) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Shell lines for the baked psql hook Jobs: wait for Postgres to accept
+connections (IMPL-0028 8.3). Under Argo CD a Job can start before the
+StatefulSet's Postgres is up; this waits up to 240s, inside the Jobs'
+300s deadline, instead of spending backoffLimit on refused connections.
+pg_isready reads the Job's PGHOST/PGUSER/PGDATABASE.
+*/}}
+{{- define "repo-guardian.pgWaitScript" -}}
+i=0
+until pg_isready -q; do
+  i=$((i + 1))
+  if [ "$i" -ge 60 ]; then
+    echo "postgres not accepting connections after 240s" >&2
+    exit 1
+  fi
+  echo "waiting for postgres (attempt $i)"
+  sleep 4
+done
 {{- end }}

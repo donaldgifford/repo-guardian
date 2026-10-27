@@ -1,0 +1,1429 @@
+---
+id: IMPL-0028
+title: "Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema"
+status: Draft
+author: Donald Gifford
+created: 2026-10-07
+---
+
+<!-- markdownlint-disable-file MD024 MD025 MD041 -->
+
+# IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+
+**Status:** Draft
+**Author:** Donald Gifford
+**Date:** 2026-10-07
+
+<!--toc:start-->
+- [Objective](#objective)
+- [Scope](#scope)
+  - [In Scope](#in-scope)
+  - [Out of Scope](#out-of-scope)
+- [How the phases are ordered](#how-the-phases-are-ordered)
+- [Implementation Phases](#implementation-phases)
+  - [Phase 0: Spikes and dev checks](#phase-0-spikes-and-dev-checks)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
+  - [Phase 1: Delete the v1 runtime](#phase-1-delete-the-v1-runtime)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
+  - [Phase 2: GitHub client layer](#phase-2-github-client-layer)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
+  - [Phase 3: Two GitHub Apps](#phase-3-two-github-apps)
+    - [Tasks](#tasks-3)
+    - [Success Criteria](#success-criteria-3)
+  - [Phase 4: Two task queues, two roles, two worker deployments](#phase-4-two-task-queues-two-roles-two-worker-deployments)
+    - [Tasks](#tasks-4)
+    - [Success Criteria](#success-criteria-4)
+  - [Phase 5: KEDA per queue on the Prometheus trigger](#phase-5-keda-per-queue-on-the-prometheus-trigger)
+    - [Tasks](#tasks-5)
+    - [Success Criteria](#success-criteria-5)
+  - [Phase 6: The controls schema chain and the two database roles](#phase-6-the-controls-schema-chain-and-the-two-database-roles)
+    - [Tasks](#tasks-6)
+    - [Success Criteria](#success-criteria-6)
+  - [Phase 7: Documentation, verification and the release candidate](#phase-7-documentation-verification-and-the-release-candidate)
+    - [Tasks](#tasks-7)
+    - [Success Criteria](#success-criteria-7)
+- [File Changes](#file-changes)
+- [Testing Plan](#testing-plan)
+- [Dependencies](#dependencies)
+- [Open Questions](#open-questions)
+  - [OQ1: Does Foundations keep the v2 rc releasable?](#oq1-does-foundations-keep-the-v2-rc-releasable)
+  - [OQ2: Where do the Phase-0 results go?](#oq2-where-do-the-phase-0-results-go)
+  - [OQ3: Does the v1 runtime deletion land before the client split?](#oq3-does-the-v1-runtime-deletion-land-before-the-client-split)
+  - [OQ4: Which GraphQL client?](#oq4-which-graphql-client)
+  - [OQ5: What is the Writer package called?](#oq5-what-is-the-writer-package-called)
+  - [OQ6: Where do the client interfaces live before IMPL-0029?](#oq6-where-do-the-client-interfaces-live-before-impl-0029)
+  - [OQ7: Is the temporal KEDA trigger kept alongside prometheus?](#oq7-is-the-temporal-keda-trigger-kept-alongside-prometheus)
+  - [OQ8: How many release candidates does Foundations cut?](#oq8-how-many-release-candidates-does-foundations-cut)
+  - [OQ9: How many PRs?](#oq9-how-many-prs)
+  - [OQ10: Does all topology carry both Apps' keys?](#oq10-does-all-topology-carry-both-apps-keys)
+  - [OQ11: Where does the controls chain live?](#oq11-where-does-the-controls-chain-live)
+- [References](#references)
+<!--toc:end-->
+
+## Objective
+
+Build the structure the controls model runs on, without yet evaluating a
+control: delete the v1 runtime IMPL-0025 left behind, split the GitHub
+client into the `Reader`, `PRObserver` and `Writer` surfaces with the
+GraphQL write path and a throttle classifier that sees it, introduce the
+second GitHub App, the second task queue and the evaluator/remediator
+roles on their own worker deployments, move KEDA to one Prometheus-
+triggered object per queue, and lay down the fresh controls schema chain
+with its two operator-provisioned database roles. Phase 0 settles every
+GitHub, Temporal and database behaviour the designs rely on but neither
+the code nor the documentation confirms (INV-0022), on the homelab dev
+install, before any phase that depends on the answer.
+
+The v2 release candidate stays releasable throughout (OQ1): new pieces
+land beside the old ones. IMPL-0029 performs the switch-over that
+retires `internal/checker`, `internal/findings`, `RepoWorkflow` and the
+rc schema.
+
+**Implements:** DESIGN-0029, DESIGN-0030, DESIGN-0031 and DESIGN-0032 as
+amended 2026-10-06 (D28 to D32), the KEDA half of DESIGN-0028 (folded in
+from IMPL-0026), and the INV-0022 decisions.
+
+## Scope
+
+### In Scope
+
+- Phase 0: the ten INV-0022 spikes, and IMPL-0025's homelab checks 9.1,
+  9.3, 9.8, 11.7 and 11.8, run against the dev install (which runs the
+  v2 rc; prod runs v1, and both are replaced by one fresh v2 install at
+  the end of IMPL-0030).
+- Deleting the v1 runtime (IMPL-0025 16.1 to 16.8) and the dead Valkey
+  templates (17.5).
+- `internal/control` created as a leaf holding only the client-facing
+  interfaces and value types (`Reader`, `PRObserver`, `Writer`,
+  `RepositorySettings`, `Ruleset`, `Label`, `PullRequest`, `Commit`,
+  `FileChange`) (OQ6); IMPL-0029 adds `Definition`, `Rule` and the rest.
+- The Reader and PRObserver implemented on `internal/github`; the Writer
+  in its own package with a depguard rule; the GraphQL client; the
+  throttle classifier for GraphQL and REST 429; per-bucket budget
+  snapshots; update-branch with `expected_head_sha`; ruleset reads with
+  parents and pagination; PR listing with author id, type and head
+  repository id.
+- Two Apps: two credential sets in config and the chart, one webhook
+  URL per App (D29), the `installation.app_id` cross-check, the
+  permission printer.
+- Two task queues (`repo-guardian-eval`, `repo-guardian-remediate`), the
+  `evaluator` and `remediator` roles, one worker deployment per role
+  (D28), per-role schedules and registration, priority 1, the
+  App-keyed budget workflow, `DescribeTaskQueue` on both queues, a
+  signal-with-start activity helper, the replacement env vars.
+- KEDA: one `ScaledObject` per role on the Prometheus trigger, from
+  IMPL-0026 tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and 6.9.
+- The controls goose chain as its own directory, `00001_core` and the
+  role grants, `rg_evaluator` and `rg_remediator` provisioned the way
+  `repoguardian_ro` is today (D31), and `pgtest` extended to an owner
+  plus the two roles.
+
+### Out of Scope
+
+- The catalogue, the policy loader, resolution, control types,
+  `EvaluationWorkflow`, `control_results`, the API and UI re-key,
+  posture and monitoring regeneration, and the switch-over that deletes
+  the checker, findings, `RepoWorkflow` and the rc schema (IMPL-0029).
+- `00002_controls_policy`, `00003_controls_results` and
+  `00004_compliance` (IMPL-0029 and IMPL-0030 own their tables; this
+  plan creates the chain, `00001_core` and the role plumbing).
+- `RemediationWorkflow`, the PR lifecycle, every write a control type
+  makes, the cutover runbook and the fresh homelab install (IMPL-0030).
+- Credential reload and OpenBao-issued certificates (IMPL-0026, now
+  auth-only).
+- Any change to the rc's behaviour beyond what deleting the v1 runtime
+  removes.
+- **Follow-up: a test-org provisioning tool** (noted 2026-10-09). Phase 0's
+  GitHub spikes run against a test org prepared by hand: one repository
+  with an initialised, unprotected default branch, a `CODEOWNERS` with
+  one valid and one broken line, an org ruleset and a repository ruleset
+  in evaluate mode, an org custom property with a value on the
+  repository, and Dependabot alerts enabled. A Go tool (or script) that
+  creates and resets exactly that, idempotently, from a declared spec,
+  is the seed of an end-to-end toolset for preparing an org for testing,
+  and later for running the controls end to end in CI. It needs its own
+  design (docz) before it is built: credentials, which org it may touch,
+  teardown, and how CI gets a disposable org are open questions. Not
+  part of this plan; the spikes do not wait for it.
+
+## How the phases are ordered
+
+Phase 0 runs first because four of its answers change code in later
+phases: the GraphQL commit's error shape and limits (Phase 2), the
+Evaluation App's minimal permissions (Phase 3), per-queue backlog labels
+(Phase 5) and role provisioning on each Postgres mode (Phase 6). A spike
+whose answer contradicts a design amends the design, in the same PR as
+the spike's write-up, before the dependent phase starts.
+
+Phase 1 runs next (OQ3): every later phase edits `cmd/repo-guardian`,
+`internal/config`, the chart and `internal/metrics`, and doing that
+around a dead v1 runtime doubles the edits. Phases 2 and 6 are
+independent of each other and of Phase 3. Phase 4 needs Phase 3 (the
+App dimension on budgets and discovery) and Phase 2 (the client split
+the roles wire). Phase 5 needs Phase 4's queues and the Phase 0 label
+answer. Phase 7 needs all.
+
+```mermaid
+flowchart TD
+  P0["0 spikes + dev checks"] --> P1["1 delete v1 runtime"]
+  P1 --> P2["2 client layer"]
+  P1 --> P3["3 two Apps"]
+  P1 --> P6["6 schema chain + DB roles"]
+  P2 --> P4["4 queues, roles, deployments"]
+  P3 --> P4
+  P4 --> P5["5 KEDA per queue"]
+  P5 --> P7["7 docs, verify, rc"]
+  P6 --> P7
+```
+
+The plan lands as one PR into `v2` with the `dont-release` label (OQ9).
+Each phase still leaves `make ci` and `make test-integration` green, and
+a task that needs the maintainer is marked `deferred - human required`
+instead of holding up the rest. The release
+candidate is cut once, at the end (OQ8).
+
+## Implementation Phases
+
+Each phase builds on the previous one. A phase is complete when all its
+tasks are checked off and its success criteria are met.
+
+---
+
+### Phase 0: Spikes and dev checks
+
+Every spike below names what to run, what to record and which design
+text its answer can change. Results go in an addendum to INV-0022,
+"Phase-0 results" (OQ2). Spikes that write to GitHub or need homelab
+access are run by the maintainer; Claude prepares the scripts and the
+write-up.
+
+#### Tasks
+
+- [x] 0.1 **Dev Temporal baseline (IMPL-0025 9.1, human-run).** On the
+  dev install, record the server version (must be at least 1.31),
+  persistence and visibility stores, `matching.enableFairness`, frontend
+  TLS, and whether the `repo-guardian` namespace exists. Also record the
+  current version of worker deployment `repo-guardian` and the task
+  queues it has polled (`temporal worker deployment describe
+  --deployment-name repo-guardian`).
+  Done 2026-10-10 (maintainer run): server 1.32.0, Postgres default and visibility stores, 512 shards, namespace `repo-guardian-dev` (7d); fairness off and edge TLS + OIDC in place of mTLS (0.2); `2.0.0-rc.4` current on queue `repo-guardian`. Results in INV-0022 § Phase-0 results.
+- [x] 0.2 **Bring dev in line with `contrib/temporal/` (IMPL-0025 9.3,
+  human-run).** Apply the deviations 0.1 found or record why each stays.
+  Done 2026-10-10 (maintainer run): fairness turned on; edge TLS + OIDC kept and documented in `contrib/temporal/README.md`, with DESIGN-0028's mTLS + JWT (OpenBao CA, IMPL-0026) as the follow-up.
+- [x] 0.3 **mTLS smoke (IMPL-0025 9.8, human-run).** From a dev machine,
+  start and terminate a throwaway workflow on the dev frontend over the
+  client certificate the chart mounts.
+  Done 2026-10-10 (maintainer run) over the credential dev's chart actually mounts, an OIDC token on edge TLS: start, describe and terminate succeeded. The mTLS run moves to the DESIGN-0028 cut-over (IMPL-0026). Results in INV-0022 § Phase-0 results.
+- [x] 0.4 **Budget burst (IMPL-0025 11.7, human-run).** Run `cmd/rg-burst`
+  (`-tags burst`) with 20,000 acquire/report pairs against one
+  installation on dev. Record p50/p99 latency, history size and frontend
+  CPU, and set the `InstallationWorkflow` ContinueAsNew threshold from
+  them. The budget workflow is reused under `installation/<app>/<id>`,
+  so the threshold carries into Phase 4.
+  Done 2026-10-10 (maintainer run): 20,000 pairs at 61/s, p50 376 ms, p99 5.3 s, 5 handoff failures; a run ends at about 3,500 events / 670 KB; frontend peak about 0.6 core. The bound stays at 2,000. Results in INV-0022 § Phase-0 results.
+- [x] 0.5 **Budget branch on the live build (IMPL-0025 11.8,
+  human-run).** Confirm dev's running build takes the `budget-v1` branch
+  with zero `WorkflowTaskFailed` over a day of checks, and capture a
+  fresh `InstallationWorkflow` history for the replay suite.
+  Done 2026-10-10 (maintainer run): `budget-v1` at version 1, zero `WorkflowTaskFailed` across every running execution, and `testdata/histories/installation_dev_rc4.json` (two days of dev traffic) replays clean on this branch. Results in INV-0022 § Phase-0 results.
+- [x] 0.6 **GraphQL commit (INV-0022 spike 1, human-run against a
+  throwaway repository).** Through a client built on the real transport
+  chain (otelhttp → rate-limit transport → ghinstallation): a
+  `createCommitOnBranch` with a correct `expectedHeadOid`, with a stale
+  one, with 100 and 101 files, and with a 1 MiB and a 1 MiB + 1 file.
+  Record the stale-head error's exact shape (HTTP status, `errors[].type`,
+  message), the real limits, the `x-ratelimit-resource` and remaining
+  headers, and whether the commit is signed. Can change DESIGN-0031 D8
+  and AR-0031-09.
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
+- [x] 0.7 **update-branch (spike 2, human-run).** On a throwaway
+  repository: an up-to-date PR, a PR with a conflicting base change, and
+  a call with a stale `expected_head_sha`. Record status codes and
+  bodies, and how long the background merge takes to move the head. Can
+  change DESIGN-0032 D17 and the flowchart.
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
+- [x] 0.8 **Evaluation App minimal permissions (spike 3, human-run).**
+  Register a test App with Metadata read, Contents read, Pull requests
+  read and organisation Custom properties read only. Confirm
+  `GET /repos` returns the merge-policy settings fields, rulesets return
+  `source_type` and, fetched by id, `rules`, and property values are
+  readable. Record any field that needs Administration read. Can change
+  the DESIGN-0032 permission table and A23.
+  Done 2026-10-09 (maintainer, three runs): merge-policy settings are read through GraphQL; Administration read covers vulnerability alerts and `security_and_analysis`; property values need no Custom properties permission; the org schema needs Organization Custom properties read (DESIGN-0032 amended). Inherited org rulesets are untestable on the test org's plan.
+- [x] 0.9 **`installation_repositories` on an all-repositories install
+  (spike 4, human-run).** Create a repository in an org where a test App
+  is installed on all repositories; record whether the event fires. If
+  not, record that the Remediation App learns of new repositories only
+  through its own discovery.
+  Done 2026-10-10 (maintainer run): it fires for both Apps (`repository_selection: "all"`), about a second after `repository.created`; DESIGN-0032 amended. Finding: on the Evaluation App it also starts a full installation discovery per new repository (INV-0022 Phase-0 OQ2). Results in INV-0022 § Phase-0 results.
+- [x] 0.10 **Temporal behaviours (spike 5).** On the dev server or
+  `temporaltest`: (a) signal-with-start into a workflow that is
+  completing, asserting no lost signal with `GetUnhandledSignalNames`;
+  (b) the labels of `approximate_backlog_count` across two queues
+  (per-`priority` series, `worker_build_id` splits), recorded for the
+  Phase 5 query; (c) evaluation history growth with maximum-size
+  changed-path signals and N signal-with-start activities per iteration
+  against the ContinueAsNew bounds.
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.11 **Database role provisioning (spike 6).** Prototype
+  `rg_evaluator` and `rg_remediator` in baked mode (init script plus the
+  existing-database hook pattern of `store-postgres-ro.yaml`), CNPG mode
+  (`spec.managed.roles`) and external mode (documented SQL), and the
+  extended `pgtest` harness. Record anything a mode cannot do.
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.12 **Template sourcing (spike 7).** Prototype rendering operator
+  templates into the policy ConfigMap under the policy root and hashing
+  them with the policies, with the embedded `rules.TemplateStore` as the
+  fallback. Record the ConfigMap size limits that apply. Can change
+  DESIGN-0030 D20.
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.13 **Policy revert (spike 8).** Against the rc schema, show the
+  `ON CONFLICT DO NOTHING` revert bug with a test, then prototype the
+  `activated_at` upsert DESIGN-0030 D14 specifies.
+  Done 2026-10-07; results in INV-0022 § Phase-0 results.
+- [x] 0.14 **Per-role deployment rehearsal (spike 9, human-run).** On
+  dev: start a build that polls `repo-guardian-eval` under deployment
+  `repo-guardian-eval` while the rc's `repo-guardian` deployment keeps
+  its backlog; confirm the new build becomes current at first start;
+  stop it and confirm the rc resumes with no `set-current-version`.
+  Confirm a `repo-guardian-remediate` deployment at zero replicas does
+  not block the evaluator's promotion.
+  Done 2026-10-10 by substitution (maintainer decision): no phase waits on it. `TestControlsDeployments_DevServer` (task 4.11) runs this scenario on the Temporal dev server, and dev's history (0.1) shows rc.1 to rc.4 each becoming current at first start. Seeing it on the cluster is part of 7.6, when rc.5 reaches dev. Results in INV-0022 § Phase-0 results.
+- [x] 0.15 **Label case (spike 10, human-run).** Create and update a
+  label whose name differs from an existing one only in case; record
+  GitHub's behaviour for DESIGN-0031's `labels` control.
+  Done 2026-10-09 (maintainer run); results in INV-0022 § Phase-0 results.
+- [x] 0.16 Write the "Phase-0 results" addendum to INV-0022 with every
+  recorded value, and apply any design change a result forces to the
+  affected design in the same PR, marked "Amended (INV-0022 Phase-0
+  results)".
+  Results for 0.1–0.5, 0.9 and 0.14 were added 2026-10-10.
+  In progress: the addendum holds results for 0.10 to 0.13, and the corrections they force are applied to DESIGN-0028, DESIGN-0030, DESIGN-0032 and IMPL-0029. Phase-0 OQ1 is resolved (a): the migrate Job activates (task 6.8 here, IMPL-0029 4.5 and 5.6). The human-run results are added as they arrive.
+
+#### Success Criteria
+
+- Every spike has a recorded result in INV-0022, or a recorded reason it
+  could not run and the decision taken instead.
+- Every design statement a result contradicts is amended before the
+  phase that depends on it starts.
+- The `InstallationWorkflow` ContinueAsNew threshold is set from
+  measured numbers.
+
+---
+
+### Phase 1: Delete the v1 runtime
+
+IMPL-0025 deferred 16.1 to 16.8 and 17.5 because the auto-mode
+permission classifier refuses a large `git rm` (Irreversible Local
+Destruction). The maintainer approves the deletion when this phase runs.
+The v2 roles still use `internal/checker` inside the `CheckRepo`
+activity, so this phase deletes the v1 runtime only, never the checker.
+
+#### Tasks
+
+- [x] 1.1 Delete `internal/queue/**`, `internal/scheduler/**`,
+  `internal/worker/**`, `internal/webhook/**` (if no v2 code imports
+  it), `checker/{sweep,posture}*`, `multireplica_integration_test.go`,
+  `observability/valkey*`, and the v1 store implementation and
+  interface with its mock. Keep the v1 `migrations/` directory and
+  `pgtest/v1sql` as test fixtures until IMPL-0029 retires the rc schema.
+  Move `internal/observability/http_test.go` off `internal/webhook`.
+- [x] 1.2 `cmd/repo-guardian/main.go`: remove the `v1` subcommand
+  (`cmdV1`), `bringUp`, `newQueue`, `newScheduler`, `scheduleHandlers`,
+  `podID` and `newStore`. Shutdown per role: the worker drains within
+  `shutdownTimeout`, then the client and pool close, then the HTTP
+  servers shut down.
+- [x] 1.3 Metrics: reconcile the removal list against the current
+  registrations and record it in this task; delete the v1 business,
+  queue and scheduler series and `github_rate_remaining`. Do **not**
+  delete `installation_info` here: DESIGN-0032 keeps it with an `app`
+  label (Phase 3 task 3.6). Add `checks_total{outcome}`.
+  `metrics_test.go` asserts the exact set of names.
+  **Done 2026-10-09.** Reconciled against the 56 registrations on the
+  branch: removed the 21 series with no producer after task 1.1 —
+  `github_rate_remaining`; the queue series (`queue_depth`,
+  `queue_delayed_depth`, `queue_enqueued_total`, `queue_claimed_total`,
+  `queue_acked_total`, `queue_reaped_total`,
+  `queue_attempts_exhausted_total`, `queue_delayed_total`,
+  `queue_delay_seconds`, `queue_wait_seconds`); the scheduler series
+  (`scheduler_sweep_batch_size`, `scheduler_is_leader`); the v1 business
+  series (`posture_export_total`, `posture_export_duration_seconds`,
+  `repos_actionable`, `repos_tracked`, `repos_unmeasurable`,
+  `discovery_duration_seconds`, `store_writeback_total`,
+  `store_writeback_duration_seconds`). The checker's own counters
+  (`files_missing_total`, `prs_created_total`, …) stay: the rc's
+  `CheckRepo` activity still increments them until IMPL-0029 retires the
+  checker. `checks_total{outcome=checked|deferred|parked|error}` is
+  incremented by the `CheckRepo` activity; 36 names remain, pinned by
+  `TestMetricNames_ExactSet`. The generated dashboards and the chart's
+  PrometheusRule still name the removed posture and queue series; their
+  re-cut is IMPL-0029's (IMPL-0025 17.1/17.2/17.9).
+- [x] 1.4 `internal/monitoring/dashboard/e4.go`, in the same commit as
+  1.1: remove the matchers whose log lines are deleted and add "check
+  deferred until budget reset" and "check failed after retries";
+  `TestLogLines_AreStillEmittedByTheBinary` passes against the remaining
+  emitters. The full re-cut for control emitters is IMPL-0029.
+- [x] 1.5 Config: add the 13 removed env vars to `removedEnvVars` so they
+  warn and are ignored, with the runbook link (IMPL-0025 OQ17, closing
+  IMPL-0025 16.5's gap noted in `docs/operations/v2-migration.md`);
+  remove the three v1 HCL attributes from `guardianBodySchema`,
+  `setGuardianAttr` and `mergeGuardianConfig` in lockstep so they fail
+  load with a migration hint (regression test proven non-vacuous); fix
+  the five `examples/` files and `examples_test.go` in the same commit.
+  **Done 2026-10-09.** `removedEnvVars` now carries the 13 v1 runtime
+  vars (`STORE_BACKEND`, `QUEUE_BACKEND`, `SCHEDULER_BACKEND`,
+  `QUEUE_VALKEY_DSN`, `JOB_ACK_TIMEOUT`, `REAPER_INTERVAL`,
+  `MAX_JOB_ATTEMPTS`, `POD_NAME`, `STALE_SWEEP_BATCH_SIZE`,
+  `POSTURE_EXPORT_INTERVAL`, `WORKER_COUNT`, `QUEUE_SIZE`,
+  `SCHEDULE_INTERVAL`) beside the IMPL-0024 trio, one warning per
+  runbook; `config.Load`/`Validate` and the backend validation went
+  with them. The three attributes fail load with "Removed argument"
+  naming the replacement (`TestLoad_RemovedGuardianAttrs`; neutralising
+  the hint fails it nine ways). Only three `examples/` files set them
+  (`guardian-{minimal,full,enterprise}.hcl`); `examples_test.go` needed
+  no change.
+- [x] 1.6 Drop go-redis, redisotel and rediscmd; `go mod tidy`. Remove the
+  `v1` compose profile and Valkey from `docker-compose.dev.yaml`. Remove
+  the v1 `policy.Version`.
+- [x] 1.7 Chart: delete `templates/queue-valkey.yaml` and
+  `templates/queue-valkey-secret.yaml` (IMPL-0025 17.5); remove any
+  remaining Valkey values and helpers; helm-unittest still passes.
+- [x] 1.8 Remove the queue, scheduler and v1 `Store` entries from
+  `.mockery.yaml`; `make mocks`.
+- [x] 1.9 Update `docs/operations/v2-migration.md`: the removed env vars
+  now warn (the note added 2026-10-06 is replaced).
+
+#### Success Criteria
+
+- No package under `internal/` imports a deleted package; `make ci` and
+  `make test-integration` are green; the rc's roles behave as before.
+- `go.mod` carries no Redis dependency.
+- Starting a role with a removed env var logs one warning naming it.
+- `metrics_test.go` pins the exact metric set.
+
+---
+
+### Phase 2: GitHub client layer
+
+#### Tasks
+
+- [x] 2.1 Create `internal/control` as a dependency leaf holding only the
+  client-facing interfaces and value types from DESIGN-0031: `Reader`,
+  `PRObserver`, `Writer`, `RepositorySettings`, `Ruleset`, `Label`,
+  `PullRequest` (number, head ref, head SHA, head repository id, author
+  user id, author type, state, created at), `Commit`, `FileChange`, and
+  the sentinel `ErrExpectedHeadMismatch` (OQ6). `Writer.UpdateBranch`
+  takes the expected head SHA (DESIGN-0031's signature is amended in the
+  same PR). It imports nothing of ours.
+- [x] 2.2 Reader on `GitHubClient`, per repository (a small adapter bound
+  to owner and repo): `GetContents`, `ListDirectory`, `GetRepository`,
+  `ListRulesets` (`includes_parents=true`, paginated past 30, each
+  fetched by id for `rules`, `Source` from `source_type`, replacing the
+  `false` at `client.go:653`), `GetCustomProperties`,
+  `OrgPropertySchema`, `ListLabels`. Ref-pinned reads where DESIGN-0031
+  asks for them. `RepositorySettings` comes from one GraphQL
+  `repository { ... }` query (the merge-policy fields REST omits without
+  a write permission) plus `security_and_analysis` from REST; a field
+  the response lacks maps to `unknown{reason=permission}`, never false
+  (INV-0022 Phase-0 results, spike 3). The GraphQL client is the one
+  task 2.4 adds for `Writer.Commit`.
+  Done: `GitHubClient.RepoReader(owner, repo, ref)` in
+  `internal/github/reader.go`, memoized per evaluation. The v1
+  `ListRepositoryRulesets` keeps its `false` for the rc's reconciler
+  (task 2.8, OQ1); controls read rulesets through the Reader.
+- [x] 2.3 PRObserver: `ListPullRequests(headPrefix)` lists open PRs and
+  filters client-side (GitHub's `head` filter is an exact ref), paginated
+  to completion, capturing author user id and type and head repository
+  id (`client.go:144-180` today captures neither); `GetPullRequest`,
+  `ListCommits`, `GetRef`.
+  Done: `GitHubClient.RepoObserver(owner, repo)` in
+  `internal/github/observer.go`; uncached, and `ListCommits` is bounded
+  at 250 (a branch listing walks main's ancestry).
+- [x] 2.4 GraphQL client (OQ4): add the dependency; the client takes the
+  same `*http.Client` the REST client uses, so every GraphQL call goes
+  through `instrumentedClient`'s order (otelhttp outermost, then the
+  rate-limit transport, then ghinstallation).
+  `TestTransportOrder_ThrottledRequestIsStillMeasured` gains a GraphQL
+  case.
+- [x] 2.5 Throttle classification in `internal/github/ratelimit.go`:
+  `isRateLimited` recognises REST 429 as well as 403; GraphQL responses
+  are classified from the body (`errors[].type == "RATE_LIMITED"` on a
+  200, and secondary-limit 200 and 403) into the same `*ThrottledError`,
+  so `AsThrottled` is still the only detector. `updateFromResponse`
+  keeps one snapshot per `x-ratelimit-resource` (`core`, `graphql`,
+  `search`), and `shouldThrottle` consults the bucket the request will
+  spend. Table tests for each shape, and a non-vacuous check (revert the
+  429 branch, watch the test fail).
+  Done: `TestRateLimitTransport_ThrottleShapes` (six shapes),
+  `_BucketsAreSeparate`, `_GraphQLBodyRestored`. Probe: with the 429
+  branch removed, the `rest 429` and `rest 429 without headers` cases
+  fail; restored. `Usage` (the installation budget report) also keeps
+  only the core bucket's headers.
+- [x] 2.6 Writer in its own package, `internal/github/write` (OQ5),
+  implementing `control.Writer`: `Commit` over `createCommitOnBranch`
+  with `expectedHeadOid` (mapping the Phase 0 stale-head error to
+  `ErrExpectedHeadMismatch`), `CreateRef` (REST, fails when the branch
+  exists), `UpdateBranch` (passes `expected_head_sha`; 202 returns a
+  typed deferral error telling the caller to re-read the head, 422 "merge
+  conflict" returns a typed conflict error, 422 SHA mismatch returns a
+  deferral, other 422 an error), `UpdatePullRequestBase`,
+  `CreatePullRequest`, `UpdatePullRequest`, `ClosePullRequest`,
+  `UpsertPRComment`, `UpdateRepository`, `UpsertRuleset`,
+  `SetCustomProperties`. No branch delete (D30).
+  Done: `internal/github/write.Writer`. STALE_DATA is read through
+  `github.WithGraphQLErrorTypes`, a per-context collector the transport
+  fills (githubv4 keeps only an error's message). A 422 from
+  update-branch is classified from state per the INV-0022 spike 2
+  amendment: head moved → `ErrExpectedHeadMismatch`, `behind_by == 0` →
+  no-op, still behind → `ErrMergeConflict`. `Commit` enforces the
+  100-file / 1 MiB change-set bound. Probe: with the STALE_DATA branch
+  disabled, `TestCommit/stale_head` fails; restored.
+- [x] 2.7 depguard: a rule denying `internal/github/write` to every path
+  except the remediation activities' package and `cmd/repo-guardian`,
+  and denying it to `internal/control`, `internal/controls/**`,
+  `internal/policy` and the evaluation activities. Probe once: add a
+  deliberate import from an evaluator-side file, record the lint failure
+  in this task, revert.
+  Done: rules `writer` (`$all` minus `internal/github/write`,
+  `internal/activities/remediate*.go` — IMPL-0030's file names — and
+  `cmd/repo-guardian`) and `writer-evaluator-side` (named paths, so a
+  future exception to `writer` cannot open them). Probes:
+  `internal/checker/zz_probe.go` → `import '.../internal/github/write'
+  is not allowed from list 'writer': only the remediation activities
+  write to GitHub`; with `internal/policy` temporarily excepted from
+  `writer`, `internal/policy/zz_probe.go` → `... not allowed from list
+  'writer-evaluator-side': evaluation reads through control.Reader and
+  never writes`. Both reverted. Globs use explicit `*.go` and `*/*.go`
+  depths: `**/internal/policy/**/*.go` matched nothing in the directory
+  itself.
+- [x] 2.8 The existing `github.Client` interface keeps serving the rc's
+  checker and reconcilers unchanged (OQ1); the new surfaces sit beside
+  it. `make mocks` regenerates mocks for `control.Reader`,
+  `control.PRObserver` and `control.Writer` into
+  `internal/control/mocks`.
+  Done: `.mockery.yaml` gains the `internal/control` package;
+  `github.Client` and its mock are untouched.
+- [x] 2.9 Go doc comments on every new type and function; `make lint`
+  and `make test` green.
+
+#### Success Criteria
+
+- Each interface has an implementation tested against `httptest`
+  servers, including pagination, parents, every update-branch outcome
+  and the stale-head commit.
+- A GraphQL 200 carrying a rate-limit error, a REST 429 and a
+  secondary-limit 403 all produce a `*ThrottledError` through
+  `AsThrottled`, and a GraphQL response leaves the `core` snapshot
+  untouched.
+- The depguard probe fails the lint as recorded; nothing on the
+  evaluator side can import the Writer package.
+
+---
+
+### Phase 3: Two GitHub Apps
+
+#### Tasks
+
+- [x] 3.1 Config: two credential sets, `EVAL_GITHUB_APP_ID` /
+  `EVAL_GITHUB_PRIVATE_KEY_PATH` / `EVAL_WEBHOOK_SECRET` and
+  `REMEDIATE_GITHUB_APP_ID` / `REMEDIATE_GITHUB_PRIVATE_KEY_PATH` /
+  `REMEDIATE_WEBHOOK_SECRET` (DESIGN-0032 § Config; adopted 2026-10-07,
+  and may still be renamed while this phase runs). The rc's single-App variables
+  keep working for the rc roles until IMPL-0029's switch-over (OQ1).
+  `ValidateRole` refuses an evaluator without the evaluation set and a
+  remediator without the remediation set.
+  Done: `internal/config/apps.go` (`App`, `AppCredentials`,
+  `Config.Credentials`); keys are paths only. `RoleEvaluator` and
+  `RoleRemediator` are declared here for validation and join `RoleAll`
+  with their subcommands in task 4.1.
+- [x] 3.2 Ingest: two routes, `/webhooks/github/eval` and
+  `/webhooks/github/remediate` (D29). Each route validates with its own
+  secret (`ValidatePayload` per route) and stamps the App on
+  `WebhookInput`; the App never comes from a header. Installation and
+  installation-repositories payloads whose `installation.app_id` is not
+  the route's App are rejected with 401 and counted under
+  `webhook_rejected_total{reason="app_mismatch"}`. The rc's
+  `/webhooks/github` route stays until the switch-over.
+  Done: `ingest.NewApp` stamps `WebhookInput.App` and refuses another
+  App's installation payloads; `cmd/repo-guardian` mounts a route per
+  App whose `*_WEBHOOK_SECRET` is set. Ingest requires the App id with
+  the secret and, alone, refuses either App's key path.
+- [x] 3.3 Router: `RouteWebhook` and its helpers carry the App;
+  Remediation App `installation` and `installation_repositories` events
+  upsert that App's access (written to the controls tables once
+  IMPL-0029 switches over; until then routed to a no-op recorder behind
+  the rc's store interface).
+  Done: `activities.AppAccessRecorder` (default logs and records
+  nothing; `Router.WithAccessRecorder` swaps it). The Evaluation App's
+  installation events route exactly as the rc's.
+- [x] 3.4 Permission printer: at startup each role logs the App
+  permission set it needs, derived from the registered control types
+  (Workflows read and write on the Remediation App only when a type
+  declares workflow apply). Until IMPL-0029 registers types the printer
+  prints the base sets from DESIGN-0032's table.
+  Done: `control.EvaluationPermissions` / `RemediationPermissions(resources,
+  workflowApply)`; `cmd/repo-guardian` logs each running role's set at
+  startup (the rc's worker logs both).
+- [x] 3.5 Chart: `github.eval` and `github.remediate` credential blocks
+  (existing Secret or created), mounted by role: the evaluation key into
+  evaluator and `all` pods, the remediation key into remediator and
+  `all` pods (OQ10), each webhook secret into ingest and `all`.
+  `roleHasAppKey` splits per App. helm-unittest asserts by env and
+  Secret name that a split evaluator pod carries neither the remediation
+  key nor (after Phase 6) the remediator DSN.
+  Done: `github.eval` / `github.remediate` (off until `appId`), Secret
+  per App in `templates/secret-apps.yaml`, helpers `roleHasEvalKey` /
+  `roleHasRemediateKey` / `appEnv` / `appSecretName`; keys always mount
+  as files. `secret_scoping_test.yaml` covers ingest, the rc worker and
+  `all`; the split evaluator/remediator pod assertions land with their
+  Deployments in task 4.10. Probe: adding `ingest` to `roleHasEvalKey`
+  fails the ingest case; reverted.
+- [x] 3.6 `installation_info` gains an `app` label; `topology` moves to a
+  deployment-level info series (DESIGN-0029 D7 as amended).
+  Done: `installation_info{app, installation_id, org}` (the rc's
+  activities label `app="single"`); new
+  `repo_guardian_deployment_info{topology}`, set at startup (`all` when
+  one process runs every role). Dashboards join with `max by
+  (installation_id, org)`, so the generated tier is unchanged.
+- [x] 3.7 Tests: a delivery on each path validates only with that path's
+  secret; a payload signed with the other App's secret is 401; the
+  app-id mismatch is rejected; config refusals per role.
+  Done with tasks 3.1–3.3: `TestNewApp_EachRouteValidatesOnlyItsOwnSecret`,
+  `TestNewApp_AppMismatch` (counter asserted), `TestNew_SingleAppRouteStampsNoApp`,
+  `TestLoadRole_ControlsWorkers`, `TestLoadRole_IngestAppRoutes`,
+  `TestRouteWebhook_RemediationAppAccess`.
+
+#### Success Criteria
+
+- Each webhook path accepts only its own App's signature and payloads;
+  the mismatch counter increments in the test.
+- The chart renders both credential blocks with per-role mounts, and the
+  secret-scoping tests pass.
+- The rc's single-App path still works unchanged.
+
+---
+
+### Phase 4: Two task queues, two roles, two worker deployments
+
+#### Tasks
+
+- [x] 4.1 Roles: `RoleEvaluator` and `RoleRemediator` in
+  `internal/config/role.go`; `RoleAll` includes both. `repo-guardian
+  evaluator` and `repo-guardian remediator` subcommands in
+  `cmd/repo-guardian/roles.go`. The rc's `worker` role stays until the
+  switch-over.
+  Done. So the rc's single-App `all` keeps loading, a combined process
+  runs a controls half only when its App id is set
+  (`Config.RunsControls`, `AppConfigured`); `evaluator` or `remediator`
+  alone always requires its App's full set.
+- [x] 4.2 Task queues `repo-guardian-eval` and `repo-guardian-remediate`
+  as constants and config. `startV2Worker` becomes one function per
+  role; `all` starts one worker per queue. Each worker registers only its
+  role's set (`workflows.RegisterEvaluator`, `RegisterRemediator`); the
+  replay test registers the union.
+  Done: `temporal.TaskQueueEval`/`TaskQueueRemediate`
+  (`TEMPORAL_EVAL_TASK_QUEUE`/`TEMPORAL_REMEDIATE_TASK_QUEUE`);
+  `cmd/repo-guardian/controls.go` starts one worker per half
+  (`controlsHalves`), the rc worker unchanged beside them. Both sets hold
+  only `InstallationWorkflow` (each App's budget) until IMPL-0029/0030;
+  `RegisterUnion` dedupes for the replayer.
+- [x] 4.3 Worker deployments (D28): `DeploymentName` becomes a function
+  of the role, `repo-guardian-eval` or `repo-guardian-remediate`, with
+  no version suffix. `PromoteBuild`, `RequireCurrentVersion`, the
+  promotion log hint and the `deployment` readiness check take the
+  deployment name. The rc's `repo-guardian` deployment is untouched.
+  Done: `temporal.DeploymentName(role)`, `DeploymentRC/Eval/Remediate`,
+  `WorkerConfig.Deployment`; `PromoteBuild`/`RequireCurrentVersion` and
+  `workerChecks` take the name, and the promote-manually hint names it.
+- [x] 4.4 Schedules: `serviceStarter.ensureSchedules` takes the role and
+  ensures only that role's schedules (evaluation: controls discovery,
+  snapshot; remediation: sweep, maintenance), so pods of one role never
+  create the other's.
+  Done: `serviceStarter.schedules(role)` is the per-role table and
+  `ensureSchedules(ctx, role)` applies it. The rc worker keeps discovery
+  and snapshot; the evaluator's and remediator's entries are empty until
+  their workflows exist (IMPL-0029, IMPL-0030).
+- [x] 4.5 Priorities: add `PriorityHuman = 1`; document in
+  `internal/workflows/types.go` that priority orders tasks within one
+  queue only (INV-0022 F5).
+- [x] 4.6 Budget: the `InstallationWorkflow` id becomes
+  `installation/<app>/<id>` (`names.go`, `repo.go`, `activities/budget.go`,
+  `route.go`, `cmd/rg-burst`); `NewBudget` takes the App's queue;
+  `DefaultLeaseTTL` is set per App to cover that App's longest activity
+  timeout; the budget `Holder` format follows. Recapture
+  `installation_grant_report.json` when `InstallationWorkflowInput` gains
+  the App.
+  Done: `InstallationWorkflowID(app, id)` and `BudgetHolder(app, wfID)`;
+  the rc (app `""`) keeps `installation/<id>` and its bare holder, so no
+  running rc execution changes id and `repo.go`'s command order is
+  untouched (no `GetVersion` needed). `App` is `omitempty` on
+  `InstallationWorkflowInput` and `AcquireInput`, so the rc's payloads,
+  and `installation_grant_report.json`, are byte-identical: replay passes
+  without a recapture. `NewBudget(c, app, queue, threshold)` refuses
+  another App's request; `LeaseTTL(app)` is the per-App hook (all
+  `DefaultLeaseTTL` until IMPL-0029/0030 add their activities);
+  `rg-burst -app`.
+- [x] 4.7 Signal-with-start helper: one activity,
+  `StartRemediations(ctx, []RemediationStart)`, calling
+  `client.SignalWithStartWorkflow` once per entry on the remediation
+  queue (batched to bound evaluation history, INV-0022 F4). Registered
+  with no caller until IMPL-0029.
+  Done: `activities.RemediationStarter` registered on the evaluator
+  worker; targets `remediation/<repository id>/<control>`
+  (`RemediationWorkflowName`, `RemediateSignal`, `RemediationInput` fixed
+  in `internal/workflows` for IMPL-0030). Every entry is attempted and
+  failures are joined.
+- [x] 4.8 The api role's Temporal client calls `DescribeTaskQueue` on both
+  queues; `internal/temporal/backlog.go` returns a backlog per queue and
+  the status page shows both.
+  Done: `DescribeBacklog` takes the queue; `StatusConfig.Backlogs` is one
+  `QueueProbe` per queue, rendered as components `backlog` (rc),
+  `backlog_evaluation` and `backlog_remediation`. A half the process does
+  not run is not probed (its queue has no pollers here by design).
+- [x] 4.9 Env vars: `EVALUATOR_CONCURRENCY`, `REMEDIATOR_CONCURRENCY`,
+  `EVALUATOR_DB_POOL_SIZE`, `REMEDIATOR_DB_POOL_SIZE` replace
+  `WORKER_ACTIVITY_CONCURRENCY` and `STORE_POSTGRES_MAX_CONNS` for the
+  new roles; the old names keep serving the rc's `worker` role until the
+  switch-over, then join `removedEnvVars`.
+  Done: `config.WorkerSizing` (`Config.Evaluator`/`Remediator`, zero =
+  default) carried on each `controlsHalf`; the pool is built with
+  `pgxpool.NewWithConfig`. The old names still serve the rc worker; they
+  join `removedEnvVars` with the switch-over (Phase 5).
+- [x] 4.10 Chart: `evaluator` and `remediator` in `repo-guardian.roles`
+  with a Deployment each in split topology, `evaluator.*` and
+  `remediator.*` values (replicas, concurrency, resources), the helpers
+  `roleDialsTemporal`, `roleHasStore` and `roleReadsPolicy` extended, and
+  the new env vars wired. helm-unittest per role.
+  Done: `repo-guardian.controlsRoles` adds each role to split only when
+  its App's `appId` is set (the role refuses to start without it);
+  `evaluator.*`/`remediator.*` add `dbPoolSize`. Each split controls role
+  gets a metrics Service and a ServiceMonitor entry; the rc-only env
+  (`WORKER_ACTIVITY_CONCURRENCY`, discovery, snapshot, intervals) stays
+  on worker/all. `tests/controls_roles_test.yaml` plus the split
+  secret-scoping assertions deferred from 3.5.
+- [x] 4.11 Integration test on the dev server: an evaluator and a
+  remediator start under their own deployments, each becomes current at
+  first start, and a remediator at zero replicas does not block the
+  evaluator's promotion (the code-level twin of Phase 0 task 0.14).
+  Done: `TestControlsDeployments_DevServer`
+  (`internal/temporal/deployment_integration_test.go`): the evaluator is
+  promoted and dispatched to with no remediator worker, then the
+  remediator's promotion leaves the evaluator current.
+
+#### Success Criteria
+
+- `all` runs two workers, one per queue; split runs one per role, each on
+  its own deployment.
+- Promotion of one role never waits on the other.
+- The replay suite passes with the union registration and the recaptured
+  fixture.
+
+---
+
+### Phase 5: KEDA per queue on the Prometheus trigger
+
+Folded in from IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3 and
+6.9), adapted from one worker object to one per role.
+
+#### Tasks
+
+- [x] 5.1 `templates/worker-scaledobject.yaml` becomes one `ScaledObject`
+  per role (`evaluator`, `remediator`), each targeting that role's
+  Deployment, with a `prometheus` trigger: `serverAddress`, a `query`
+  defaulting to that role's queue (`taskqueue="repo_guardian_eval"` or
+  `"repo_guardian_remediate"`) built from `temporal.namespace` and the
+  queue name with `-` replaced by `_`, the grouping Phase 0 task 0.10(b)
+  recorded (`max by (partition, task_type, task_priority,
+  worker_build_id)` inside the `sum`, DESIGN-0028), `threshold`
+  from `targetQueueSize`, optional `authenticationRef`, and `fallback`
+  (`failureThreshold: 3`, `replicas` from `fallbackReplicas` or the
+  role's replicas). The `temporal` trigger remains selectable (OQ7) with
+  `authenticationRef` when a client certificate is configured. A
+  template comment explains why KEDA's composite running-workflows
+  metric is never set.
+  Done: ranged over `repo-guardian.controlsRoles` (split only; a role
+  renders only with its App), default query from
+  `repo-guardian.kedaQuery`, per-role `keda.query` override, `fallback`
+  replicas `null` → the role's `replicas` (`kindIs "invalid"`, so an
+  explicit 0 survives). The rc worker's ScaledObject is gone; a leftover
+  `worker.keda` fails render in `validateRemovedValues`.
+- [x] 5.2 `templates/worker-triggerauthentication.yaml`: `cert`, `key`,
+  `ca` from the effective TLS Secret, rendered only for `trigger:
+  temporal` with a client certificate; `tlsServerName` from
+  `temporal.tls.serverName`.
+  Done: one shared `<fullname>-temporal-keda`; `tlsServerName` is set in
+  the trigger metadata (KEDA reads it there, not from auth params).
+- [x] 5.3 Guards in `validateTemporalAuth`: `trigger: prometheus` without
+  `serverAddress` fails; the OIDC guard fails only for `trigger:
+  temporal`, naming `trigger: prometheus` as the fix; an unknown
+  `trigger` fails. Messages name the value to change.
+  Done: the serverAddress and OIDC guards apply once a role's
+  ScaledObject renders (`repo-guardian.kedaEnabled`); the unknown-trigger
+  guard is unconditional (the schema enum also refuses it).
+- [x] 5.4 Values and `values.schema.json`: `evaluator.keda.*` and
+  `remediator.keda.*` (enabled, min, max, targetQueueSize,
+  fallbackReplicas), a shared `keda.trigger` enum and
+  `keda.prometheus.*`. Minimum replicas may be 0 for the remediator
+  (promotion no longer depends on it, D28).
+  Done: the evaluator's floor is 1, the remediator's 0.
+- [x] 5.5 helm-unittest `keda_test.yaml`: both roles, both triggers,
+  default and custom query per queue, `authenticationRef`, `fallback`,
+  composite metric absent, TriggerAuthentication only for temporal with
+  a client certificate. `make lint-alerts-chart` passes.
+  Done: `tests/keda_test.yaml` (16 cases); the old worker-KEDA cases in
+  `topology_test.yaml`/`temporal_auth_test.yaml` were replaced.
+  `make lint-alerts-chart`: 16 rules, SUCCESS.
+- [x] 5.6 Homelab (human-run, on dev): list the series and labels of
+  `approximate_backlog_count{namespace="repo_guardian"}` for both queues
+  (label values are sanitised, `-` to `_`: INV-0022 Phase-0 results);
+  with each queue non-empty, compare the default query's value with
+  `temporal task-queue describe`; if they disagree, fix the default
+  query and its helm-unittest and record why (IMPL-0026 6.1 to 6.3).
+  deferred - human required: homelab Prometheus query against the dev
+  cluster.
+  In progress 2026-10-10 (maintainer run): the series exist, but the Temporal namespace sits under `exported_namespace` behind a ServiceMonitor, so the default query matched nothing. Fixed with `keda.prometheus.namespaceLabel` (default `exported_namespace`) and a helm-unittest case. The value comparison moved to IMPL-0029 5.14 (maintainer decision): the controls queues have no work before IMPL-0029. Results in INV-0022 § Phase-0 results.
+- [x] 5.7 Homelab (human-run): enable KEDA for the evaluator with the
+  Prometheus trigger, generate a backlog with `rg-burst` or a policy
+  change, and watch it scale out and back (IMPL-0026 6.9).
+  deferred - human required: homelab scale-out/in run.
+  Moved to IMPL-0029 5.14 (maintainer decision, 2026-10-10): the evaluator has no work to create a backlog before IMPL-0029, and KEDA is not yet installed on the homelab. Installing it is that task's prerequisite.
+- [x] 5.8 Docs: the KEDA values change in
+  `docs/operations/v2-onboarding.md` (per-role objects, default trigger
+  `prometheus`, `serverAddress` required) (IMPL-0026 5.3's intent; the
+  migration page is rewritten in IMPL-0030).
+  Done: `docs/operations/v2-onboarding.md` § Autoscaling with KEDA (the
+  anchor the `worker.keda` removal guard links to).
+
+#### Success Criteria
+
+- Each role scales on its own queue's backlog; the default query matches
+  `DescribeTaskQueue` on dev within one scrape interval.
+- OIDC installs can use KEDA through the Prometheus trigger.
+- helm-unittest and `make lint-alerts-chart` pass.
+
+---
+
+### Phase 6: The controls schema chain and the two database roles
+
+#### Tasks
+
+- [x] 6.1 Create the controls goose chain as its own directory,
+  `internal/store/postgres/migrations_controls/` (OQ11), embedded and
+  applied by a `migrate` mode that is not wired to any chart default
+  until IMPL-0029 switches over. `SchemaVersion` for the chain is
+  tracked separately from the rc's `SchemaVersion = 3`.
+  Done: `internal/store/postgres/controls_migrate.go` embeds the chain;
+  `repo-guardian migrate --chain controls` applies it (default `v2`, the
+  rc chain). Version table `goose_controls_version` (an rc database then
+  fails on the first `CREATE TABLE`, `TestControlsChain_RefusesAnRCDatabase`);
+  `ControlsSchemaVersion = 1`, `RequireControlsSchema`.
+- [x] 6.2 `00001_core`: `repositories` without `last_check_outcome`,
+  `policy_version`, `catalog_parse_ok` and `installation_id`;
+  `repository_events` with the extended `kind` CHECK; `policy_versions`
+  with `first_seen_at`, `activated_at` and `rollout_completed_at`
+  (DESIGN-0030 D14); `checks` with the `pr_event` and `manual` triggers;
+  `service_runs` with its `kind` CHECK extended to `sweep`,
+  `maintenance` and Remediation App discovery. `00002` to `00004` are
+  reserved for IMPL-0029 and IMPL-0030.
+  Done: `migrations_controls/00001_core.sql`, identity keys. No table
+  references installations (`installation_id` is gone). The "extended"
+  `repository_events.kind` adds `suspended`/`unsuspended` (and
+  `park_reason` gains `suspended`), the only values the designs imply;
+  `bootstrap` is dropped from `checks.trigger` and `service_runs.kind`
+  (D27: no bootstrap). The Remediation App's discovery kind is
+  `remediation_discovery`.
+- [x] 6.3 Grants in the chain grant to `rg_evaluator` and
+  `rg_remediator` and never create a role (D31). `00001_core`'s grants
+  follow DESIGN-0032's grant matrix for its tables.
+  Done: grants name both roles, so a missing role fails the migration.
+  `service_runs` INSERT goes to both roles; the matrix fences its kinds
+  only in prose, so the SQL does not.
+- [x] 6.4 Chart role provisioning, mirroring `repoguardian_ro`:
+  `store-postgres-roles.yaml` creates both roles in baked mode (an init
+  script for a new volume plus a hook that creates missing roles and
+  resets passwords for an existing one); `store-cnpg-cluster.yaml` adds
+  both to `spec.managed.roles` with their password Secrets; external
+  mode documents the SQL. One Secret and one DSN per role
+  (`STORE_DSN_EVALUATOR`, `STORE_DSN_REMEDIATOR`, DESIGN-0032
+  § Config), mounted only into that role's pods; the migrate Job keeps
+  the owner DSN. In baked mode the init script also creates a
+  non-superuser owner role without `CREATEROLE` and the migrate Job
+  connects as it, since the image's `POSTGRES_USER` is a superuser
+  (INV-0022 Phase-0 results, spike 6). `rg_all` for the `all` topology
+  is `IN ROLE rg_evaluator, rg_remediator` (CNPG: `inRoles`).
+  Done: all behind `store.controls.enabled` (default false: the switch-
+  over is IMPL-0029's). `templates/store-postgres-roles.yaml` renders one
+  basic-auth Secret per role (lookup-preserved), and in baked mode the
+  `<pg>-controls-init` script (projected with the ro init into
+  `/docker-entrypoint-initdb.d`) plus a `post-install,pre-upgrade` hook at
+  weight -5, before migrate, sharing `repo-guardian.controlsRolesSQL`
+  with it. CNPG: `managed.roles` with `rg_all` `inRoles`. `all` gets both
+  DSNs as `rg_all`. The migrate Job's owner DSN is `rg_owner` on baked,
+  `STORE_DSN` elsewhere. External SQL: `docs/operations/v2-onboarding.md`
+  § Controls database roles. Controls DSNs are mounted but not yet read
+  by the binary (IMPL-0029).
+- [x] 6.5 `pgtest`: `AppRole` becomes an owner role plus `EvaluatorRole`
+  and `RemediatorRole`, created the way the chart creates them, with
+  per-role DSNs (Phase 0's `pgtest.ControlsRoles` is the starting point;
+  surrogate keys are identity columns, and every row-level security
+  write policy has its `FOR SELECT ... USING (true)` pair, DESIGN-0032). Tests for `00001_core`'s grants run as each role, never
+  as the owner, and assert a prohibited cross-writer statement fails.
+  Done: `pgtest.OwnerRole`/`EvaluatorRole`/`RemediatorRole`/`AllRole`,
+  `ControlsRoles` (now authoritative, not a prototype) and `ControlsDB`
+  (roles + whole chain as the owner). `AppRole` stays for the rc chain.
+  `TestControlsChain_GrantsHoldAsEachRole`: 21 statements as the three
+  roles. Probe: granting the remediator UPDATE on `repositories` fails it.
+- [x] 6.6 `migrate --dry-run` for the controls chain applies the whole
+  chain to an empty database in one rolled-back transaction.
+  Done: `postgres.ControlsDryRun` replays every pending file's Up section
+  (no per-file wiring); `migrate --chain controls --dry-run` reports them
+  as pending. `TestControlsChain_DryRunRollsBack`.
+- [x] 6.7 helm-unittest for the three provisioning modes and the per-role
+  DSN mounts; `validateBackendSecrets` extended for the new Secret
+  knobs.
+  Done: `tests/controls_store_test.yaml` (17 cases); guards live in
+  `validateControlsStore`, included from `validateBackendSecrets`
+  (per-role Secrets read only on external, required there per running
+  half). Probe: leaking the remediator DSN into the evaluator fails it.
+- [x] 6.8 Policy activation plumbing (INV-0022 Phase-0 OQ1 (a)): a store
+  method `ActivatePolicyVersion(ctx, version, summary) (firstSeen bool,
+  err error)` running the upsert spike 8 proved (`ON CONFLICT (version)
+  DO UPDATE SET activated_at = now() RETURNING (xmax = 0)`), and
+  `CurrentActivation(ctx) (version string, activatedAt time.Time, err
+  error)` ordered by `activated_at`; the migrate Job gains
+  `pre-rollback` in its hook list and mounts the policy ConfigMap. The
+  Job does not compute a version yet: the controls policy loader is
+  IMPL-0029's, which wires the call (IMPL-0029 4.5). Integration test:
+  A, B, A activates A last and keeps both `first_seen_at` values;
+  helm-unittest asserts the hook list and the mount.
+  Done: `postgres.ControlsStore.ActivatePolicyVersion`/`CurrentActivation`
+  (`json.RawMessage` summary, stored on first sight only);
+  `TestControlsStore_ActivationHonoursARevert`. The spike's prototype half
+  is removed. The migrate Job's hook list is `post-install,pre-upgrade,
+  pre-rollback` and it mounts the policy with `GUARDIAN_CONFIG`.
+
+#### Success Criteria
+
+- The chain applies cleanly to an empty database and rolls back in
+  dry-run; the rc's chain and behaviour are untouched.
+- Each role exists in all three Postgres modes as Phase 0 task 0.11
+  proved, and `00001_core`'s grants hold as each role.
+
+---
+
+### Phase 7: Documentation, verification and the release candidate
+
+#### Tasks
+
+- [x] 7.1 CLAUDE.md (on `v2`): the new contracts: the Writer package and
+  its depguard rule; GraphQL through the same transport chain and
+  per-bucket snapshots; the 429 and GraphQL throttle shapes through
+  `AsThrottled`; one webhook URL per App and the app-id cross-check;
+  per-role worker deployments with no version suffix; priority orders
+  within a queue only; the controls chain and the operator-provisioned
+  roles; repo-guardian never deletes a branch.
+  Done: the per-phase CLAUDE.md paragraphs (Phases 2–6) state each
+  contract; Phase 2's names the Writer depguard rules, the shared
+  transport chain and per-bucket snapshots, the throttle shapes through
+  `AsThrottled`, and the no-branch-delete rule; Phase 4's the unsuffixed
+  per-role deployments and queue-local priority.
+- [x] 7.2 `docs/operations/v2-onboarding.md`: the two credential blocks,
+  the two webhook URLs and the role DSNs as optional new values, marked
+  as not yet active until IMPL-0029 (the full rewrite is IMPL-0029's).
+  Done: § The controls Apps (optional, not yet active), the per-App
+  webhook URL table in § 5, and § Controls database roles marked not yet
+  active.
+- [x] 7.3 `make ci`, `make test-integration`, `make lint-monitoring` and
+  the replay suite green; the docs site builds with no new warnings.
+  Done 2026-10-09: `make ci` green; `make test-integration` 28 packages
+  ok (replay included); `make lint-monitoring` current; mkdocs build
+  14 warnings, identical to the merge base's.
+- [x] 7.4 `Chart.yaml` `version` and `appVersion` bumped by hand to the
+  next rc (OQ8); helm-docs regenerated from `README.md.gotmpl`.
+  Done: chart `2.0.0-rc.5` / appVersion `2.0.0-rc.5`; README regenerated.
+- [x] 7.5 PR to `v2` with `dont-release` (Rule 6). After merge the
+  maintainer tags the rc and confirms the image and chart publish
+  (human-run).
+  PR opened: #205 into `v2`, labelled `dont-release`.
+  Done 2026-10-10: #205 merged as `24a59e2`; the maintainer tagged
+  `v2.0.0-rc.5` and dispatched `ghcr.yml`. Image `2.0.0-rc.5`
+  (`sha256:ff9119c7…`) and UI image (`sha256:2e48959e…`) are cosign-signed
+  and pass `slsa-verifier` (generator v2.1.0, commit `24a59e2`); chart
+  `2.0.0-rc.5` pulls. Image tags drop the `v`.
+- [x] 7.6 Deploy the rc to dev (human-run): the rc roles keep running;
+  an evaluator and a remediator start on their deployments with both
+  Apps' credentials and report ready. In the Temporal UI, check that
+  `repo-guardian-eval` reaches Current on its first start while
+  `repo-guardian` keeps rc.4 or rc.5 (this absorbs 0.14).
+  Done 2026-10-15 on rc.6 (maintainer): new Evaluation App (5332276) and
+  Remediation App (5332308) with their Secrets; `repo-guardian-all` ran
+  both halves beside the rc worker, each printing its App's permission
+  set; `repo-guardian-eval` and `repo-guardian-remediate` became current
+  on `2.0.0-rc.6` while `repo-guardian` stayed current. INV-0022 § rc.6
+  through Argo CD. Found the misrouting fixed in Phase 9.
+
+#### Success Criteria
+
+- The rc is tagged and published, and dev runs it with the rc roles
+  unchanged and the new roles ready.
+- CLAUDE.md states every new contract this plan introduced.
+
+### Phase 8: First install through Argo CD (chart 2.0.0-rc.6)
+
+Found 2026-10-11 by the dev teardown and reinstall (homelab INV-0013,
+OQ-2 (a)): **a fresh install of the v2 chart through Argo CD has never
+worked.** Argo CD does not tell install from upgrade. It maps a Helm hook
+it has no Argo annotation for by phase: `pre-*` → PreSync, `post-*` →
+PostSync. So the migrate Job's `pre-upgrade` makes it a PreSync hook, and
+it runs before anything else in the release exists. The ServiceAccount
+is missing (the pod is forbidden). Once that exists, so are the CNPG
+Cluster and its `-app` Secret. The Job reaches its 600 s deadline, Argo
+retries five times, and the application stays down. Upgrades only worked
+because everything already existed. Dev came back with a two-commit
+workaround: `migrate.enabled: false`, then `true`.
+
+The same mapping catches the baked controls-roles Job
+(`post-install,pre-upgrade`, so PreSync before the baked StatefulSet
+exists). The read-only role Job (`post-install,post-upgrade`) lands in
+PostSync, after the api Deployment it grants for. Both psql Jobs, and
+`repo-guardian migrate`, fail on the first refused connection and rely on
+`backoffLimit` for a database that is not up yet. Argo can report a CNPG
+Cluster healthy before Postgres accepts connections.
+
+A second problem follows from the fix. Argo re-runs a Sync hook on every
+sync. `ActivatePolicyVersion` sets `activated_at = now()` on every call,
+so once IMPL-0029 activates from the migrate Job and keys rollouts on
+`activated_at`, every Argo sync, self-heal included, would start a fleet
+rollout. Re-activating the version that is already current must be a
+no-op. A revert (A → B → A) is still honoured, because A is not current
+when it comes back.
+
+Helm users see no change: every `helm.sh/hook*` annotation stays, and
+Argo's annotations mean nothing to Helm.
+
+#### Tasks
+
+- [x] 8.1 Argo hook annotations on every chart hook Job, beside the Helm
+  ones: `argocd.argoproj.io/hook: Sync` and
+  `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation`. With
+  `argocd.argoproj.io/hook` set, Argo ignores `helm.sh/hook*` for that
+  resource. Sync waves (OQ12):
+  - wave 0 (Argo's default, left unannotated): ServiceAccount, RBAC,
+    ConfigMaps, Secrets, the store (baked StatefulSet, CNPG Cluster and
+    Pooler), Services;
+  - wave 1: the controls-roles Job (baked, `store.controls.enabled`);
+  - wave 2: the migrate Job;
+  - wave 3: the read-only role Job (baked, split with api);
+  - wave 4: the role Deployments and what scales them (ScaledObjects,
+    PDBs), so upgrades still migrate before new pods roll out.
+  Done: `repo-guardian.argoHook` (takes the wave) and
+  `repo-guardian.argoWorkloadWave` in `_helpers.tpl`, whose comment holds
+  the ladder; the three hook Jobs, the role and UI Deployments, both PDB
+  templates and the ScaledObjects use them. The UI Service stays in wave 0.
+- [x] 8.2 `repo-guardian migrate` waits for the database. It retries the
+  connection with capped exponential backoff (1 s doubling to 30 s) until
+  `--wait` (env `MIGRATE_WAIT`, default 5m) runs out, then fails naming
+  the last error. Only connection refusals and DNS failures are retried;
+  an authentication or schema error fails at once. Chart value
+  `migrate.wait`, with a guard that it stays under
+  `migrate.activeDeadlineSeconds`. Unit test against a listener that
+  accepts only after a delay; a refused-then-ready integration case.
+  Done: `postgres.WaitReady` (`internal/store/postgres/wait.go`) retries
+  refused or timed-out dials, DNS misses and SQLSTATE 57P03 ("starting
+  up"); any other error, a bad password included, fails at once. Both
+  migrate chains call it through `openReady`; progress goes to stderr.
+  `--wait` / `MIGRATE_WAIT` (default 5m). The chart value is
+  `migrate.waitSeconds` (300), not `migrate.wait`, so `validateMigrate`
+  can compare it with `activeDeadlineSeconds` (Helm has no duration
+  parser). Tests: `TestWaitReady`, `TestNotReady`,
+  `TestParseMigrateFlags_Wait`, `TestWaitReady_RefusedThenReady` (a real
+  refusal, then a proxy to pgtest Postgres), and three helm-unittest
+  cases. Probe: dropping the refusal case fails the wait and
+  classification tests; restored.
+- [x] 8.3 The two psql Jobs wait the same way, with an
+  `until pg_isready …` loop bounded inside their `activeDeadlineSeconds`,
+  in place of relying on `backoffLimit`.
+  Done: `repo-guardian.pgWaitScript` (up to 240s, 60 × 4s, inside the
+  300s deadline) runs before psql in the controls-roles and read-only role
+  Jobs. A helm-unittest case covers both Jobs; dropping it from the
+  read-only Job fails the case.
+- [x] 8.4 `ActivatePolicyVersion` is a no-op when `version` is already the
+  current activation (OQ13): the upsert updates `activated_at` only when
+  the newest activation is a different version, and `firstSeen` keeps its
+  meaning. Integration tests: A, A again (no change to `activated_at`),
+  B, then A (re-activated).
+  Done: the conflict update carries `WHERE policy_versions.version IS
+  DISTINCT FROM` the newest activation; a skipped update returns no row,
+  read as `(false, nil)`. `TestControlsStore_ReactivatingTheCurrentVersionIsANoOp`
+  covers it beside the existing revert test. Probe: dropping the `WHERE`
+  moves `activated_at` on the re-activation and fails the test; restored.
+- [x] 8.5 helm-unittest: every hook Job carries both annotation sets and
+  its wave; the Deployments carry wave 4; resources at wave 0 carry no
+  wave annotation; `helm.sh/hook*` unchanged (Helm installs and upgrades
+  keep today's order). Non-vacuous check: drop the migrate Job's
+  `argocd.argoproj.io/hook` and confirm the suite fails.
+  Done: `tests/argo_sync_test.yaml`, 9 cases (246 chart tests pass).
+  Probe: dropping the migrate Job's `argoHook` and the Deployment wave
+  failed both cases; restored.
+- [x] 8.6 Docs: `docs/operations/v2-onboarding.md` § Installing with Argo
+  CD (the waves, why `helm.sh/hook` alone breaks a first install, and that
+  dev's two-commit workaround is no longer needed); a CLAUDE.md line in
+  the chart notes: every new hook Job needs both annotation sets and a
+  wave.
+  Done: v2-onboarding § Installing with Argo CD (the cause, the wave
+  table, the per-sync re-run and the kept Job), linked from the install
+  step, plus `migrate.waitSeconds` in § Postgres; CLAUDE.md § Chart hooks
+  under Argo CD.
+- [x] 8.7 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.6`;
+  helm-docs regenerated; `make ci`, `make helm-test` and
+  `make test-integration` green; PR to `v2` with `dont-release`.
+  Done 2026-10-12: chart and appVersion `2.0.0-rc.6`, README regenerated;
+  `make ci` green, `make helm-test` 250/250, `make test-integration` 28
+  packages ok. PR #206.
+- [x] 8.8 Release and prove it (human-run): merge, tag `v2.0.0-rc.6`,
+  dispatch `ghcr.yml`. Then delete the dev Application, clear the
+  `repo-guardian-dev` Temporal namespace, and reinstall rc.6 through Argo
+  from nothing. Record in INV-0022: the Sync-phase order Argo ran, that
+  it ignored `helm.sh/hook`, the migrate Job's wait lines, and the app
+  healthy with no workaround. This also covers 7.6 (the evaluator's
+  deployment reaching Current).
+  **Deferred - human required.**
+  2026-10-15: release done (rc.6 tagged at `2e929df`, images signed with
+  SLSA provenance, chart published). The reinstall reused the surviving
+  CNPG Cluster, so migrate adopted v1: the upgrade path through Argo is
+  proven (hook order, re-runs, one rollout; INV-0022 § rc.6 through Argo
+  CD). A sync onto an empty database is deferred (maintainer decision,
+  2026-10-15): the empty-database ordering is covered by the chart tests
+  (`tests/argo_sync_test.yaml`) and migrate's wait by
+  `TestWaitReady_RefusedThenReady`. 7.6 done 2026-10-15.
+
+#### Success Criteria
+
+- A first install through Argo CD comes up healthy with no workaround.
+  Upgrades still migrate before new pods roll.
+- Helm install and upgrade behaviour is unchanged.
+- An Argo sync with an unchanged policy activates nothing.
+
+### Phase 9: Drop Evaluation App deliveries until the switch-over (chart 2.0.0-rc.7)
+
+Found 2026-10-15 while closing 7.6 (INV-0022 § rc.6 through Argo CD).
+Ingest stamps each delivery with the App whose route validated it, but
+`RouteWebhook` handled the Evaluation App's events exactly as the single
+App's, carrying the Evaluation App's installation id into a worker that
+holds only the single App's key. Installing or unsuspending the
+Evaluation App started a `DiscoveryWorkflow` that could not mint a token
+and failed every attempt. Worse, both Apps send `repository.created` and
+`installation_repositories.added` for a new repository; when the
+Evaluation App's delivery won, `repo/<id>` started with its installation
+id and every check of that repository failed until IMPL-0029. Renames
+and transfers could likewise overwrite the stored installation id. Dev
+is safe only because the Evaluation App's webhook is inactive, one
+checkbox from the failure.
+
+#### Tasks
+
+- [x] 9.1 `RouteWebhook` drops every Evaluation App delivery (an Info log,
+  no store or Temporal call) until IMPL-0029 task 5.7 replaces it with the
+  controls routing. Test: the strict store and Temporal mocks see nothing
+  for installation, installation_repositories, repository and push
+  events. Probe: disabling the guard fails every case; restored.
+  Done: the guard sits after the Remediation App's access branch;
+  `TestRouteWebhook_EvaluationAppDropped` replaces the 3.3 subtest that
+  pinned the old routing.
+- [x] 9.2 Docs: v2-onboarding § A public route for webhooks says the
+  Evaluation App's deliveries are dropped and its webhook can stay
+  inactive; CLAUDE.md's Phase 3 paragraph; IMPL-0029 5.7 deletes the
+  drop and its test.
+- [x] 9.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.7`;
+  helm-docs regenerated; `make ci` and `make helm-test` green; PR to `v2`
+  with `dont-release`.
+  Done 2026-10-15: chart and appVersion `2.0.0-rc.7`, README regenerated;
+  `make ci` green, `make helm-test` 250/250. PR #208.
+- [x] 9.4 Release (human-run): merge, tag `v2.0.0-rc.7`, dispatch
+  `ghcr.yml`, sync dev. With the Evaluation App's webhook still inactive
+  nothing changes on dev; a redelivery from the App's Advanced tab, if
+  tried, logs the drop and starts nothing.
+  Done 2026-10-16: tagged `v2.0.0-rc.7` at `2cd5df5`, ghcr.yml run
+  38849173424 green; both images verified with cosign and slsa-verifier,
+  chart pulled at `2.0.0-rc.7`; dev deployed rc.7 healthy (maintainer).
+
+#### Success Criteria
+
+- An Evaluation App delivery changes no store row and starts or signals
+  no workflow while the rc's single App does the work.
+
+### Phase 10: Fleet history refetch loop (chart 2.0.0-rc.8)
+
+Issue #207, found on dev after the v2 cutover: the UI's fleet home page
+(and its org view) called `GET /api/v1/compliance/history` about 400
+times a minute while open. The view passed `from` as a millisecond
+timestamp computed on every render, and `useHistory` keys its query on
+its filters, so each render was a new query that fetched and
+re-rendered. The history view is unaffected (its filters come from the
+URL).
+
+#### Tasks
+
+- [x] 10.1 `trendFrom(days, now)` in `ui/web/src/lib/viewmodel.ts` starts
+  the window at midnight UTC, so the key is stable all day and the cache
+  can hit; both fleet views use it. Unit tests: midnight UTC, and the
+  same value at the first and last millisecond of a day.
+- [x] 10.2 Playwright: the fleet and org views each fetch history at most
+  twice in the three seconds after they render. Probe: the old
+  per-render timestamp makes 1,738 fetches and fails the test; restored.
+- [x] 10.3 `Chart.yaml` `version` and `appVersion` → `2.0.0-rc.8`;
+  helm-docs regenerated; `make lint-ui`, `make test-ui`,
+  `make test-ui-e2e`, `make ci` and `make helm-test` green; PR to `v2`
+  with `dont-release`, closing #207.
+- [x] 10.4 Release (human-run): merge, tag `v2.0.0-rc.8`, dispatch
+  `ghcr.yml`, deploy to dev; the browser's network tab shows one history
+  request on the home page.
+  Done 2026-10-16: tagged `v2.0.0-rc.8` at `90a2b90`, ghcr.yml run
+  38852565558 green; both images verified with cosign and slsa-verifier,
+  chart pulled at `2.0.0-rc.8`; #207 closed. Dev deployed rc.8 and the
+  maintainer confirmed the fix on https://repo-guardian.fartlab.dev/.
+
+#### Success Criteria
+
+- The fleet home page fetches compliance history once per day's window,
+  not once per render.
+
+## File Changes
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| `internal/queue/**`, `internal/scheduler/**`, `internal/worker/**`, `internal/webhook/**`, `internal/checker/{sweep,posture}*`, v1 store | Delete | the v1 runtime (Phase 1) |
+| `cmd/repo-guardian/main.go`, `roles.go`, `services.go`, `api.go` | Modify | v1 removal, evaluator/remediator roles, per-role workers, schedules, backlog |
+| `internal/control/` | Create | client-facing interfaces and value types (leaf) |
+| `internal/github/client.go`, `ratelimit.go` | Modify | Reader, PRObserver, rulesets, PR listing, throttle classification, per-bucket snapshots |
+| `internal/github/write/` | Create | the Writer, GraphQL commit, update-branch |
+| `internal/ingest/ingest.go` | Modify | per-App routes and the app-id check |
+| `internal/activities/route.go`, `budget.go` | Modify | App dimension, App-keyed budget, signal-with-start helper |
+| `internal/workflows/names.go`, `types.go`, `register.go` | Modify | queues, priority 1, per-role registration |
+| `internal/temporal/worker.go`, `deployment.go`, `backlog.go` | Modify | per-role deployment names, two-queue backlog |
+| `internal/config/config.go`, `role.go` | Modify | two credential sets, new roles, env vars, removed vars |
+| `internal/metrics/metrics.go` | Modify | v1 series removed, `installation_info{app}`, `checks_total` |
+| `internal/monitoring/dashboard/e4.go` | Modify | matchers for deleted lines |
+| `internal/store/postgres/migrations_controls/` | Create | the controls chain, `00001_core` |
+| `internal/store/postgres/pgtest/` | Modify | owner plus two roles |
+| `.golangci.yml` | Modify | depguard rule for the Writer package |
+| `charts/repo-guardian/templates/{deployment,worker-scaledobject,worker-triggerauthentication,store-postgres-roles,store-cnpg-cluster}.yaml`, `_helpers.tpl`, `values.yaml`, `values.schema.json` | Modify/Create | roles, credentials, KEDA per queue, DB roles |
+| `charts/repo-guardian/templates/queue-valkey*.yaml` | Delete | dead templates |
+| `docs/investigation/0022-*.md` | Modify | Phase-0 results addendum |
+| `docs/operations/v2-onboarding.md`, `v2-migration.md` | Modify | KEDA values, removed env vars, new optional values |
+| `CLAUDE.md` | Modify | new contracts |
+
+## Testing Plan
+
+- Unit: throttle shapes (REST 403 and 429, GraphQL 200 rate-limited,
+  secondary 200 and 403, per-bucket snapshots), ruleset pagination and
+  parents, PR listing fields, every update-branch outcome, the
+  stale-head commit, config refusals per role, the webhook path and
+  app-id checks.
+- Transport order: GraphQL calls are measured by otelhttp and refused by
+  the rate-limit transport under the reserve.
+- Integration (`-tags integration`): per-role deployment promotion on
+  the dev server; the controls chain on an empty database and its
+  dry-run; grants as each role through `pgtest`.
+- Replay: the union registration with `check_then_park.json` and the
+  recaptured `installation_grant_report.json`.
+- Chart: helm-unittest for roles, credential mounts and secret scoping,
+  KEDA per queue and both triggers, DB role provisioning in three modes;
+  `make lint-alerts-chart`.
+- Non-vacuous checks: the depguard probe (2.7), the 429 branch (2.5), the
+  removed HCL attributes (1.5), each proven failing once with the fix
+  reverted.
+
+## Dependencies
+
+- INV-0022 decisions (all eight decided 2026-10-06) and DESIGN-0029 to
+  DESIGN-0032 as amended.
+- Homelab dev install running the v2 rc, with Temporal 1.31 or newer, a
+  Prometheus scraping the Temporal server, KEDA 2.21 or newer (Phase 5).
+- Throwaway GitHub repositories and a test App the maintainer controls
+  (Phase 0 tasks 0.6 to 0.9 and 0.15).
+- Maintainer approval of the Phase 1 deletion.
+- IMPL-0026 (auth-only after the KEDA fold) is independent and may run
+  in parallel; its TLS values and this plan's KEDA values do not
+  overlap.
+
+## Open Questions
+
+### OQ1: Does Foundations keep the v2 rc releasable?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **yes.** New pieces land beside the old: new
+  packages, new routes, new roles, a separate migration chain. The rc's
+  `worker` role, single-App config, `/webhooks/github` and rc schema keep
+  working, and IMPL-0029 performs one switch-over that deletes the
+  checker, findings, `RepoWorkflow` and the rc schema. Dev keeps running
+  the rc between phases.
+- (b) Allow the branch to stop producing a working release between
+  phases, replacing pieces in place. Less parallel code, but no rc can be
+  cut until IMPL-0029 finishes, and dev cannot follow the branch.
+- other:
+
+### OQ2: Where do the Phase-0 results go?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **an addendum section in INV-0022**, "Phase-0
+  results", one subsection per spike. The questions are INV-0022's, so
+  the answers sit beside them.
+- (b) A new INV-0023, "Controls phase-0 spike results". Keeps INV-0022
+  as a fixed record of the audit.
+- other:
+
+### OQ3: Does the v1 runtime deletion land before the client split?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **before** (Phase 1). Every later phase edits
+  `cmd/repo-guardian`, config, metrics and the chart, and editing around
+  a dead runtime doubles the work.
+- (b) After Phase 2, so the deletion's human approval does not hold up
+  the client work.
+- other:
+
+### OQ4: Which GraphQL client?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **`github.com/shurcooL/githubv4`**. Typed against
+  GitHub's schema, takes any `*http.Client` so it rides the existing
+  transport chain, and is what go-github's maintainers point to for
+  GraphQL.
+- (b) A minimal hand-rolled client: one POST of a fixed mutation string
+  through the existing `*http.Client`. No dependency, but the response
+  and error types are ours to maintain.
+- (c) `genqlient` with generated code from the schema. Strongest typing,
+  but a code-generation step and a schema file to keep current.
+- other:
+
+### OQ5: What is the Writer package called?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **`internal/github/write`**. It sits next to the
+  client it shares the transport with, and depguard can still deny it by
+  path.
+- (b) `internal/githubwrite`, a sibling of `internal/github`.
+- (c) Inside the remediation activities' package. Nothing else could
+  import it, but the GitHub code would split across two places.
+- other:
+
+### OQ6: Where do the client interfaces live before IMPL-0029?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **create `internal/control` now with only the
+  client-facing interfaces and value types**; IMPL-0029 adds
+  `Definition`, `Rule`, the registry and the rest to the same package.
+  The import edges DESIGN-0031 fixes hold from day one.
+- (b) Define them in `internal/github` now and move them in IMPL-0029.
+  Less up front, but a move that touches every implementation and mock.
+- other:
+
+### OQ7: Is the `temporal` KEDA trigger kept alongside `prometheus`?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **keep both, `prometheus` the default**, as
+  DESIGN-0028 decided. mTLS installs without a Prometheus can still use
+  the `temporal` trigger; OIDC installs must use `prometheus`.
+- (b) `prometheus` only. One code path and fewer guards, but every KEDA
+  install then needs a Prometheus that scrapes Temporal.
+- other:
+
+### OQ8: How many release candidates does Foundations cut?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **one, at the end** (`2.0.0-rc.5` if IMPL-0026 has
+  not taken it, otherwise the next number). Dev can follow the branch
+  under OQ1 (a) without intermediate tags.
+- (b) One after Phase 4 (the new roles) and one at the end, so dev runs
+  the roles before KEDA and the schema land.
+- other:
+
+### OQ9: How many PRs?
+
+**Resolved 2026-10-07: (a).** The maintainer's direction: one PR per plan, so the agent does every task it can without waiting on a merge between phases. A task that needs the maintainer (homelab runs, GitHub App registration, approving a large `git rm`, release tags) is marked `deferred - human required` and done by the maintainer, during review or after the merge.
+
+- (a) ✅ recommended: **one PR for the whole plan** into `v2`, with
+  `dont-release`; human-only tasks are `deferred - human required`.
+- (b) One PR per phase into `v2`. Smaller reviews, but every phase waits
+  on a merge before the next starts.
+- other:
+
+### OQ10: Does `all` topology carry both Apps' keys?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **yes.** `all` is for small installs and the
+  homelab and runs every role, so it carries both credential sets and
+  both DSNs; the secret-scoping guarantee applies to split topology.
+- (b) `all` runs the evaluator, ingest and api only, and remediation
+  always needs split topology. Keeps the write key out of the shared pod
+  at the cost of the one-pod install.
+- other:
+
+### OQ11: Where does the controls chain live?
+
+**Resolved 2026-10-07: (a).**
+
+- (a) ✅ recommended: **a new directory, `migrations_controls/`**, with
+  its own embed and `migrate` mode, unused by the chart until IMPL-0029
+  switches over and deletes `migrations_v2/`.
+- (b) Replace `migrations_v2/` in place in IMPL-0029 and write no chain
+  in Foundations. Fewer directories, but Phase 6's role grants cannot be
+  tested until then.
+- other:
+
+### OQ12: Which sync-wave ladder?
+
+**Resolved 2026-10-12: (a).**
+
+- (a) ✅ recommended: **the five-step ladder in 8.1** (0 base, 1
+  controls-roles, 2 migrate, 3 read-only role, 4 Deployments). It is the
+  brief's "base → migrate → Deployments" with the two psql Jobs slotted in
+  where their Helm weights put them today (-5 before migrate, 10 after),
+  so Argo and Helm run the Jobs in the same order.
+- (b) The brief's three waves exactly (0, migrate 1, Deployments 2), with
+  the controls-roles Job in wave 1 beside migrate and the read-only Job
+  left in PostSync. Fewer numbers, but two Jobs in one wave run in
+  parallel, and the controls grants race the migration that needs them.
+- other:
+
+### OQ13: Does re-activating the current policy version change anything?
+
+**Resolved 2026-10-12: (a).**
+
+- (a) ✅ recommended: **no, it is a no-op** (8.4). Argo re-runs the migrate
+  Job on every sync, so activation must be idempotent for an unchanged
+  policy, or every sync becomes a fleet rollout once IMPL-0029 keys
+  rollouts on `activated_at`. A revert is still honoured, because the
+  reverted-to version is not current.
+- (b) Leave the store method alone and make IMPL-0029's rollout skip an
+  activation whose version equals the previous one. Same effect, but the
+  meaningless `activated_at` writes stay, and the rule lives in two
+  places.
+- other:
+
+## References
+
+- DESIGN-0029, DESIGN-0030, DESIGN-0031, DESIGN-0032 (as amended
+  2026-10-06; D28 to D32)
+- DESIGN-0028 (the KEDA half folded in here)
+- INV-0021, INV-0022 (findings, decisions, phase-0 spikes)
+- IMPL-0025 (tasks 9.1, 9.3, 9.8, 11.7, 11.8, 16.1 to 16.8, 17.5 moved
+  here)
+- IMPL-0026 (tasks 2.4, 2.5, 2.6, 2.9, 5.3, 6.1 to 6.3, 6.9 moved here)
+- IMPL-0029 (evaluation and the switch-over), IMPL-0030 (remediation and
+  the fresh install)
+- CLAUDE.md (Rule 6, the transport-ordering contract, the delayed-requeue
+  contract)

@@ -1,0 +1,296 @@
+package api
+
+import (
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/donaldgifford/repo-guardian/internal/api/gen"
+	"github.com/donaldgifford/repo-guardian/internal/store"
+)
+
+var statusNow = time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+
+func ptrTime(d time.Duration) *time.Time {
+	t := statusNow.Add(-d)
+
+	return &t
+}
+
+var statusCfg = StatusConfig{
+	CheckInterval: 24 * time.Hour, DiscoveryInterval: time.Hour, SnapshotInterval: 24 * time.Hour,
+}
+
+func component(t *testing.T, s *gen.Status, name string) gen.Component {
+	t.Helper()
+
+	for _, c := range s.Components {
+		if c.Name == name {
+			return c
+		}
+	}
+
+	t.Fatalf("no %s component in %+v", name, s.Components)
+
+	return gen.Component{}
+}
+
+func TestStatus_ChecksThresholds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		last           *time.Time
+		finished, errs int
+		want           string
+	}{
+		{name: "never", want: stateUnknown},
+		{name: "recent", last: ptrTime(3 * time.Minute), finished: 100, errs: 10, want: stateOperational},
+		{name: "error ratio over 10%", last: ptrTime(3 * time.Minute), finished: 100, errs: 11, want: stateDegraded},
+		{name: "last success over 2h", last: ptrTime(2*time.Hour + time.Minute), want: stateDegraded},
+		{name: "no success in 2x interval", last: ptrTime(48*time.Hour + time.Minute), want: stateDown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := evaluateStatus(&store.StatusInputs{LastCheckSuccess: tt.last, ChecksLastHour: tt.finished, ErrorsLastHour: tt.errs},
+				nil, &statusCfg, statusNow)
+			if got := component(t, &s, "checks").State; got != tt.want {
+				t.Errorf("checks = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStatus_ServiceThresholds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		component string
+		kind      store.ServiceRunKind
+		ago       time.Duration
+		want      string
+	}{
+		{name: "discovery never", component: "discovery", want: stateUnknown},
+		{name: "discovery fresh", component: "discovery", kind: store.ServiceRunDiscovery, ago: time.Hour, want: stateOperational},
+		{name: "discovery over 2x interval", component: "discovery", kind: store.ServiceRunDiscovery, ago: 3 * time.Hour, want: stateDegraded},
+		{name: "discovery over 24h", component: "discovery", kind: store.ServiceRunDiscovery, ago: 25 * time.Hour, want: stateDown},
+		{name: "snapshot fresh", component: "snapshots", kind: store.ServiceRunSnapshot, ago: 30 * time.Hour, want: stateOperational},
+		{name: "snapshot never down", component: "snapshots", kind: store.ServiceRunSnapshot, ago: 72 * time.Hour, want: stateDegraded},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			in := &store.StatusInputs{LastServiceSuccess: map[store.ServiceRunKind]time.Time{}}
+			if tt.kind != "" {
+				in.LastServiceSuccess[tt.kind] = statusNow.Add(-tt.ago)
+			}
+
+			s := evaluateStatus(in, nil, &statusCfg, statusNow)
+			if got := component(t, &s, tt.component).State; got != tt.want {
+				t.Errorf("%s = %s, want %s", tt.component, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStatus_WebhooksAreInformational(t *testing.T) {
+	t.Parallel()
+
+	in := &store.StatusInputs{
+		LastCheckSuccess: ptrTime(time.Minute), LastWebhookCheck: ptrTime(25 * time.Hour), ActiveRepositories: 3,
+		LastServiceSuccess: map[store.ServiceRunKind]time.Time{
+			store.ServiceRunDiscovery: statusNow.Add(-time.Minute), store.ServiceRunSnapshot: statusNow.Add(-time.Minute),
+		},
+	}
+
+	s := evaluateStatus(in, nil, &statusCfg, statusNow)
+	if got := component(t, &s, "webhooks").State; got != stateDegraded {
+		t.Errorf("webhooks after 24h quiet = %s, want degraded", got)
+	}
+
+	if s.State != stateOperational {
+		t.Errorf("overall = %s, want operational: webhooks are informational", s.State)
+	}
+
+	in.ActiveRepositories = 0
+
+	s = evaluateStatus(in, nil, &statusCfg, statusNow)
+	if got := component(t, &s, "webhooks").State; got != stateOperational {
+		t.Errorf("webhooks with no active repositories = %s, want operational", got)
+	}
+}
+
+// The page names the topology and each App by closed enums and counts
+// only; an App the enum does not know is dropped, never echoed.
+func TestStatus_AppsAndTopology(t *testing.T) {
+	t.Parallel()
+
+	in := &store.StatusInputs{Apps: []store.AppInstallations{
+		{App: "eval", Installations: 2, Suspended: 1, Repositories: 40},
+		{App: "remediate", Installations: 1, Repositories: 12},
+		{App: "acme-secret-app", Installations: 9},
+	}}
+
+	cfg := statusCfg
+	cfg.Topology = "split"
+
+	s := evaluateStatus(in, nil, &cfg, statusNow)
+
+	want := []gen.StatusApp{
+		{App: gen.Eval, Installations: 2, Suspended: 1, Repositories: 40},
+		{App: gen.Remediate, Installations: 1, Repositories: 12},
+	}
+	if s.Topology != gen.Split || !slices.Equal(s.Apps, want) {
+		t.Errorf("topology = %s, apps = %+v, want split and %+v", s.Topology, s.Apps, want)
+	}
+
+	if s = evaluateStatus(&store.StatusInputs{}, nil, &statusCfg, statusNow); s.Topology != gen.All || s.Apps == nil {
+		t.Errorf("unset topology = %s, apps = %v, want all and an empty list", s.Topology, s.Apps)
+	}
+}
+
+func TestStatus_BacklogThresholds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		backlog backlogResult
+		want    string
+	}{
+		{name: "probe failed", backlog: backlogResult{err: errCursor}, want: stateUnknown},
+		{name: "no pollers", backlog: backlogResult{Backlog: Backlog{Pollers: 0}}, want: stateDown},
+		{name: "old backlog", backlog: backlogResult{Backlog: Backlog{Pollers: 2, Age: 16 * time.Minute}}, want: stateDegraded},
+		{name: "healthy", backlog: backlogResult{Backlog: Backlog{Pollers: 2, Age: time.Minute}}, want: stateOperational},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			b := tt.backlog
+			b.component = ComponentBacklogEvaluation
+
+			s := evaluateStatus(&store.StatusInputs{}, []backlogResult{b}, &statusCfg, statusNow)
+			if got := component(t, &s, ComponentBacklogEvaluation).State; got != tt.want {
+				t.Errorf("backlog = %s, want %s", got, tt.want)
+			}
+		})
+	}
+
+	if s := evaluateStatus(&store.StatusInputs{}, nil, &statusCfg, statusNow); len(s.Components) != 4 {
+		t.Errorf("without a probe there are %d components, want 4 (no backlog)", len(s.Components))
+	}
+}
+
+// TestStatus_BacklogPerQueue shows each probed queue as its own
+// component, so a remediation queue with no pollers never hides behind
+// a healthy evaluation queue.
+func TestStatus_BacklogPerQueue(t *testing.T) {
+	t.Parallel()
+
+	backlogs := []backlogResult{
+		{Backlog: Backlog{Pollers: 2, Age: time.Minute}, component: ComponentBacklogEvaluation},
+		{Backlog: Backlog{Pollers: 0}, component: ComponentBacklogRemediation},
+	}
+
+	s := evaluateStatus(&store.StatusInputs{}, backlogs, &statusCfg, statusNow)
+	if got := component(t, &s, ComponentBacklogEvaluation).State; got != stateOperational {
+		t.Errorf("%s = %s, want %s", ComponentBacklogEvaluation, got, stateOperational)
+	}
+
+	if got := component(t, &s, ComponentBacklogRemediation).State; got != stateDown {
+		t.Errorf("%s = %s, want %s", ComponentBacklogRemediation, got, stateDown)
+	}
+
+	if len(s.Components) != 6 {
+		t.Errorf("with two probes there are %d components, want 6", len(s.Components))
+	}
+}
+
+func TestStatus_OverallIsWorstMeasured(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		states []string
+		want   string
+	}{
+		{states: []string{stateUnknown, stateUnknown}, want: stateUnknown},
+		{states: []string{stateUnknown, stateOperational}, want: stateOperational},
+		{states: []string{stateOperational, stateDegraded}, want: stateDegraded},
+		{states: []string{stateDegraded, stateDown, stateOperational}, want: stateDown},
+	}
+
+	for _, tt := range tests {
+		var cs []gen.Component
+		for _, st := range tt.states {
+			cs = append(cs, gen.Component{Name: "checks", State: st})
+		}
+
+		if got := overallState(cs); got != tt.want {
+			t.Errorf("overall(%v) = %s, want %s", tt.states, got, tt.want)
+		}
+	}
+}
+
+func TestStatus_ComplianceIsUnmeasuredWithoutFindings(t *testing.T) {
+	t.Parallel()
+
+	s := evaluateStatus(&store.StatusInputs{}, nil, &statusCfg, statusNow)
+	if s.Compliance.Measured || s.Compliance.Percent != nil {
+		t.Errorf("compliance with no findings = %+v, want unmeasured", s.Compliance)
+	}
+
+	var fleet store.ControlPosture
+	fleet = fleet.Plus(&store.ControlPosture{Compliant: 2, NonCompliant: 1, Pending: 1, Assigned: 4})
+
+	s = evaluateStatus(&store.StatusInputs{Compliance: fleet}, nil, &statusCfg, statusNow)
+	if !s.Compliance.Measured || s.Compliance.Percent == nil || *s.Compliance.Percent != 66.6 ||
+		s.Compliance.Coverage == nil || *s.Compliance.Coverage != 75 {
+		t.Errorf("compliance = %+v, want 66.6%% at 75%% coverage", s.Compliance)
+	}
+}
+
+// The operations strip maps the newest version's rollout onto a closed
+// enum and carries counts and times through unchanged (IMPL-0031 7.4).
+func TestStatus_Operations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		rollout   *store.Rollout
+		want      gen.StatusOperationsRolloutState
+		completed bool
+	}{
+		{name: "no version", want: gen.StatusOperationsRolloutStateNone},
+		{name: "in progress", rollout: &store.Rollout{}, want: gen.StatusOperationsRolloutStateInProgress},
+		{name: "complete", rollout: &store.Rollout{CompletedAt: ptrTime(time.Hour)}, want: gen.StatusOperationsRolloutStateComplete, completed: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			in := &store.StatusInputs{
+				ActiveRepositories: 4, EvaluatedLastDay: 3, Overdue: 1, Rollout: tt.rollout, LastSnapshot: ptrTime(2 * time.Hour),
+				History: []store.CompliancePoint{{At: statusNow.Add(-24 * time.Hour)}},
+			}
+
+			s := evaluateStatus(in, nil, &statusCfg, statusNow)
+			ops := s.Operations
+
+			if ops.RolloutState != tt.want || (ops.RolloutCompletedAt != nil) != tt.completed {
+				t.Errorf("rollout = %s completed at %v, want %s (completed %t)", ops.RolloutState, ops.RolloutCompletedAt, tt.want, tt.completed)
+			}
+
+			if ops.Evaluated24h != 3 || ops.Overdue != 1 || ops.Tracked != 4 || ops.LastSnapshotAt == nil || len(s.Compliance.History) != 1 {
+				t.Errorf("operations = %+v, history = %+v", ops, s.Compliance.History)
+			}
+		})
+	}
+}

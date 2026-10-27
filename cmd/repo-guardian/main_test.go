@@ -275,17 +275,14 @@ func TestMonitoringGenerate_WritesArtifacts(t *testing.T) {
 				t.Fatalf("ReadFile(%s) = %v, want nil", path, err)
 			}
 
-			// The default policy configures file rules and auto-close but
-			// no custom_properties reconciler, so the always-on service
-			// health alerts must be present and the property alerts must
-			// not. An artifact carrying both would mean the mechanism
-			// scoping never ran.
-			if !strings.Contains(string(body), "RepoGuardianNoRepoChecks") {
+			// The always-on evaluation alerts must be present, and no
+			// alert over a series the switch-over deletes may survive.
+			if !strings.Contains(string(body), "RepoGuardianEvaluationErrorRate") {
 				t.Errorf("%s has no service-health alert:\n%s", tt.alert, body)
 			}
 
-			if strings.Contains(string(body), "RepoGuardianPropertySchemaMissing") {
-				t.Errorf("%s carries an alert whose reconciler is not configured:\n%s", tt.alert, body)
+			if strings.Contains(string(body), "RepoGuardianNoRepoChecks") {
+				t.Errorf("%s carries an alert over the rc check counters:\n%s", tt.alert, body)
 			}
 		})
 	}
@@ -417,12 +414,35 @@ func TestWarnRemovedEnvVars(t *testing.T) {
 	}
 }
 
+// TestWarnRemovedEnvVars_V1Runtime pins the IMPL-0028 Phase 1
+// breadcrumb: a v1 runtime knob left on the Deployment logs one warning
+// naming it and the v2 runbook, separate from the ingress warning.
+func TestWarnRemovedEnvVars_V1Runtime(t *testing.T) {
+	t.Setenv("QUEUE_VALKEY_DSN", "redis://valkey:6379")
+	t.Setenv("WORKER_COUNT", "5")
+
+	var buf bytes.Buffer
+
+	warnRemovedEnvVars(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	out := buf.String()
+	if n := strings.Count(out, "removed configuration env vars"); n != 1 {
+		t.Errorf("warnRemovedEnvVars logged %d warnings, want 1:\n%s", n, out)
+	}
+
+	for _, want := range []string{"QUEUE_VALKEY_DSN", "WORKER_COUNT", "v2-migration.md"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("warnRemovedEnvVars output = %q, want it to contain %q", out, want)
+		}
+	}
+}
+
 // TestWarnRemovedEnvVars_SilentWhenUnset pins the negative: no stale
 // vars, no output.
 func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
-	for _, name := range removedEnvVars {
-		t.Setenv(name, "")
-		os.Unsetenv(name)
+	for _, v := range removedEnvVars {
+		t.Setenv(v.name, "")
+		os.Unsetenv(v.name)
 	}
 
 	var buf bytes.Buffer
@@ -431,5 +451,15 @@ func TestWarnRemovedEnvVars_SilentWhenUnset(t *testing.T) {
 
 	if got := buf.String(); got != "" {
 		t.Errorf("warnRemovedEnvVars output = %q, want empty when nothing is set", got)
+	}
+}
+
+func TestDispatch_RolesRejectUnknownFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, role := range []string{"ingest", "worker", "api", "all"} {
+		if err := dispatch([]string{"repo-guardian", role, "--no-such-flag"}); err == nil {
+			t.Errorf("dispatch(%s --no-such-flag) = nil, want a flag error", role)
+		}
 	}
 }

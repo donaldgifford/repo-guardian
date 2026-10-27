@@ -49,8 +49,9 @@ RGCTL_COVERAGE_OUT := coverage-rgctl.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: monitoring-generate lint-monitoring
+.PHONY: lint-docs controls-docs lint-controls-docs monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
+.PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
 .PHONY: build-rgctl lint-rgctl test-rgctl test-coverage-rgctl
 
@@ -106,7 +107,7 @@ test-integration: ## Run integration tests (requires Docker for testcontainers)
 
 ## Code Quality
 
-lint: lint-rgctl ## Run golangci-lint (product + rgctl)
+lint: lint-controls-docs lint-rgctl ## Run golangci-lint (product + rgctl) and the controls reference drift gate
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run ./...
 
@@ -143,9 +144,8 @@ lint-alerts-chart: ## Validate the alert rules the Helm chart renders
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BUILD_DIR)
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder \
+		--set temporal.address=temporal:7233 \
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}' \
 		--set prometheusRule.enabled=true \
 		| yq 'select(.kind == "PrometheusRule") | {"groups": .spec.groups}' \
 		> $(RENDERED_ALERTS)
@@ -204,15 +204,154 @@ lint-monitoring: ## Fail if the committed static monitoring tier is stale
 	fi
 	@echo "✓ committed monitoring tier is current"
 
+## The control-type reference (IMPL-0029 3.11), rendered from every
+## registered type's RuleKinds() and diffed the same way as the
+## monitoring tier.
+CONTROLS_REFERENCE = docs/usage/controls-reference.md
+
+controls-docs: ## Regenerate docs/usage/controls-reference.md
+	@ $(MAKE) --no-print-directory log-$@
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(CONTROLS_REFERENCE)
+
+# The public Pages build, strict, the same command and pin as the CI
+# `docs` job and gh-pages.yml. Writes under build/mkdocs (site_dir).
+# renovate: datasource=pypi depName=mkdocs-material
+MKDOCS_MATERIAL_VERSION := 9.8.0
+
+lint-docs: ## Strict build of the Pages docs site into build/mkdocs
+	@ $(MAKE) --no-print-directory log-$@
+	@NO_MKDOCS_2_WARNING=1 uvx --with mkdocs-material==$(MKDOCS_MATERIAL_VERSION) --from mkdocs mkdocs build --strict --config-file mkdocs-ghpages.yml
+
+lint-controls-docs: ## Fail if docs/usage/controls-reference.md is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BUILD_DIR)
+	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(BUILD_DIR)/controls-reference.md
+	@# diff, not git diff: a reference never committed must fail too.
+	@if ! diff -u $(CONTROLS_REFERENCE) $(BUILD_DIR)/controls-reference.md; then \
+		echo "error: $(CONTROLS_REFERENCE) is stale" >&2; \
+		echo "       run 'make controls-docs' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ controls reference is current"
+
+## Temporal reference configuration (IMPL-0025 Phase 9). The upstream
+## chart is pinned here and in contrib/temporal/README.md; bump both.
+TEMPORAL_CHART_REPO    := https://go.temporal.io/helm-charts
+TEMPORAL_CHART_VERSION := 1.7.0
+TEMPORAL_CONTRIB       := contrib/temporal
+
+lint-temporal-contrib: ## Render contrib/temporal against the pinned chart, every visibility mode
+	@ $(MAKE) --no-print-directory log-$@
+	@for vis in visibility-postgres visibility-opensearch-baked visibility-external; do \
+		out=$$(helm template temporal temporal --repo $(TEMPORAL_CHART_REPO) --version $(TEMPORAL_CHART_VERSION) \
+			--namespace temporal \
+			-f $(TEMPORAL_CONTRIB)/values-base.yaml \
+			-f $(TEMPORAL_CONTRIB)/values-persistence-cnpg.yaml \
+			-f $(TEMPORAL_CONTRIB)/$$vis.yaml) || { echo "error: $$vis failed to render" >&2; exit 1; }; \
+		kinds=$$(printf '%s\n' "$$out" | grep -c '^kind: Deployment'); \
+		if [ "$$kinds" -lt 4 ]; then \
+			echo "error: $$vis rendered $$kinds Deployments, want the four server services" >&2; exit 1; \
+		fi; \
+		printf '%s\n' "$$out" | grep -q 'enableFairness' || { echo "error: $$vis lost matching.enableFairness" >&2; exit 1; }; \
+		echo "✓ $$vis renders ($$kinds Deployments)"; \
+	done
+	@for m in persistence-cnpg namespace-job networkpolicy; do \
+		yq -e '.kind' $(TEMPORAL_CONTRIB)/$$m.yaml >/dev/null || { echo "error: $$m.yaml is not a manifest" >&2; exit 1; }; \
+	done
+	@echo "✓ contrib/temporal manifests parse"
+
+## The sqlc-generated query layer (IMPL-0025). Committed, then diffed
+## by `make lint-sql` the same way lint-monitoring guards its tier.
+SQLC_CONTROLS_OUT := internal/store/postgres/controlsdb
+
+generate-sql: ## Regenerate the sqlc query layer
+	@ $(MAKE) --no-print-directory log-$@
+	@sqlc generate
+	@echo "✓ sqlc output regenerated under $(SQLC_CONTROLS_OUT)"
+
+# Generates into $(BUILD_DIR) from a copy of sqlc.yaml with the paths
+# rewritten, then diff -r's against the committed package: the same
+# shape as lint-monitoring, so a query file added without regenerating
+# fails too (git diff would not see the untracked output).
+lint-sql: ## Fail if sqlc vet fails or the committed sqlc output is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@sqlc vet
+	@rm -rf $(BUILD_DIR)/sqlc && mkdir -p $(BUILD_DIR)/sqlc
+	@# sqlc resolves every path relative to its config file, so the copy under $(BUILD_DIR)/sqlc reaches the repo with ../../.
+	@yq '.sql[] |= (.schema = "../../" + .schema | .queries = "../../" + .queries | .gen.go.out = "out/" + .gen.go.package)' sqlc.yaml > $(BUILD_DIR)/sqlc/sqlc.yaml
+	@cd $(BUILD_DIR)/sqlc && sqlc generate
+	@if ! diff -r -u $(BUILD_DIR)/sqlc/out/controlsdb $(SQLC_CONTROLS_OUT); then \
+		echo "error: the committed sqlc output is stale" >&2; \
+		echo "       run 'make generate-sql' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ committed sqlc output is current"
+
+## The API server is generated from api/openapi.yaml by oapi-codegen
+## (a go.mod tool) into internal/api/gen, and drift-gated by
+## `make lint-api` the same way as lint-sql (IMPL-0025 14.3).
+API_SPEC := api/openapi.yaml
+API_GEN := internal/api/gen
+
+generate-api: ## Regenerate the API server from api/openapi.yaml
+	@ $(MAKE) --no-print-directory log-$@
+	@go tool oapi-codegen -config api/oapi-codegen.yaml $(API_SPEC)
+	@echo "✓ API server regenerated under $(API_GEN)"
+
+lint-api: ## Lint the OpenAPI spec and fail if the generated server is stale
+	@ $(MAKE) --no-print-directory log-$@
+	@vacuum lint --details --no-banner --fail-severity warn --ruleset api/vacuum.yaml $(API_SPEC)
+	@rm -rf $(BUILD_DIR)/api && mkdir -p $(BUILD_DIR)/api
+	@yq '.output = "$(BUILD_DIR)/api/api.gen.go"' api/oapi-codegen.yaml > $(BUILD_DIR)/api-codegen.yaml
+	@go tool oapi-codegen -config $(BUILD_DIR)/api-codegen.yaml $(API_SPEC)
+	@if ! diff -r -u $(BUILD_DIR)/api $(API_GEN); then \
+		echo "error: the committed API server is stale" >&2; \
+		echo "       run 'make generate-api' and commit the result" >&2; \
+		exit 1; \
+	fi
+	@echo "✓ API spec lints clean and the generated server is current"
+
+## UI (IMPL-0025 Phase 20): the Bun BFF and React SPA under ui/.
+
+ui-install: ## Install the UI's dependencies from the lockfile
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun install --frozen-lockfile
+
+generate-ui-api: ## Regenerate the UI's API types from api/openapi.yaml
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run gen:api
+
+test-ui: ## Run the UI's bun tests
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run test
+
+test-ui-e2e: ## Run the UI's Playwright suite (needs Docker and Go)
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bunx playwright install chromium && bun run e2e
+
+test-ui-e2e-visual: ## Compare the UI's screenshots against ui/e2e/__screenshots__ using the pinned Playwright image's Chromium (needs Docker and Go)
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun scripts/visual.ts
+
+test-ui-e2e-update-snapshots: ## Regenerate ui/e2e/__screenshots__ through the pinned Playwright image (needs Docker and Go)
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun scripts/visual.ts --update-snapshots
+
+lint-ui: ## Typecheck and ESLint the UI; fail if its generated API types or changelog are stale, the changelog's newest entry is not the chart appVersion, or its build breaks the CSP
+	@ $(MAKE) --no-print-directory log-$@
+	@cd ui && bun run typecheck && bun run lint && bun run check:api && bun run check:changelog && bun run check:dist
+
 fmt: ## Format code with gofmt and goimports
 	@ $(MAKE) --no-print-directory log-$@
 	@gofmt -s -w .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG) .
 	@goimports -w $(GOIMPORTS_LOCAL_ARG)  cmd/ internal/
 
-mocks: ## Regenerate mockery mocks (Store, Queue, Scheduler, github.Client)
+mocks: ## Regenerate mockery mocks (store, github.Client, control clients)
 	@ $(MAKE) --no-print-directory log-$@
 	@mockery --config .mockery.yaml
+	@# mockery orders imports its own way; match the committed gci layout so a regeneration is diff-free.
+	@goimports -w $(GOIMPORTS_LOCAL_ARG) internal/*/mocks/
 	@echo "✓ Mocks regenerated under internal/*/mocks/"
 
 clean: ## Remove build artifacts
@@ -229,20 +368,20 @@ run: ## Run CLI command
 	@ $(MAKE) --no-print-directory log-$@
 	./build/bin/repo-guardian
 
-run-local: build dev-services ## Run binary against local Postgres + Valkey
+run-local: build ## Migrate, then run every role against local Postgres + Temporal
 	@ $(MAKE) --no-print-directory log-$@
-	@STORE_BACKEND=postgres \
-		STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
-		QUEUE_BACKEND=valkey \
-		QUEUE_VALKEY_DSN="redis://localhost:6379/0" \
-		SCHEDULER_BACKEND=valkey \
+	@docker compose -f docker-compose.dev.yaml up -d --wait
+	@STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
+		$(BIN_DIR)/$(PROJECT_NAME) migrate
+	@STORE_DSN="postgres://repoguardian:repoguardian@localhost:5432/repoguardian?sslmode=disable" \
+		TEMPORAL_ADDRESS=localhost:7233 \
 		$(BIN_DIR)/$(PROJECT_NAME)
 
-dev-services: ## Start local Postgres + Valkey (docker-compose.dev.yaml)
+dev-services: ## Start local Postgres + Temporal dev server (docker-compose.dev.yaml)
 	@ $(MAKE) --no-print-directory log-$@
 	@docker compose -f docker-compose.dev.yaml up -d
 
-dev-stop: ## Stop local Postgres + Valkey
+dev-stop: ## Stop the local dev services
 	@ $(MAKE) --no-print-directory log-$@
 	@docker compose -f docker-compose.dev.yaml down
 
@@ -281,7 +420,7 @@ release-local: ## Test goreleaser without publishing
 ###############
 ##@ Docker
 
-.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push
+.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push docker-build-ui
 
 docker-build: ## Build local dev image (single-arch)
 	@ $(MAKE) --no-print-directory log-$@
@@ -298,6 +437,10 @@ docker-bake-print: ## Print resolved bake config (debug)
 docker-push: ## Build and push multi-arch image to registry
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake release
+
+docker-build-ui: ## Build local UI dev image (single-arch)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake -f docker-bake.hcl ui-dev
 
 ###############
 ##@ Compose
@@ -338,9 +481,8 @@ helm-lint: ## Lint Helm chart
 helm-template: ## Render Helm templates with default values
 	@ $(MAKE) --no-print-directory log-$@
 	@helm template $(PROJECT_NAME) $(CHART_DIR) \
-		--set config.appId=12345 \
-		--set secrets.webhookSecret=placeholder \
-		--set secrets.privateKey=placeholder
+		--set temporal.address=temporal:7233 \
+		--set-string 'policy.files.enterprise\.hcl=enterprise {}'
 
 helm-template-ci: ## Render Helm templates with CI values
 	@ $(MAKE) --no-print-directory log-$@

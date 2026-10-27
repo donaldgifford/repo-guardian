@@ -19,7 +19,7 @@ import (
 func TestValidateSuite_AcceptsTheSuite(t *testing.T) {
 	t.Parallel()
 
-	suite := dashboard.Suite(&monitoring.Model{}, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(&monitoring.Model{}, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 	if err := dashboard.ValidateSuite(suite); err != nil {
 		t.Errorf("ValidateSuite(Suite(...)) = %v, want nil", err)
@@ -66,8 +66,8 @@ func TestValidateSuite_Rejections(t *testing.T) {
 		},
 		{
 			name: "over the length limit",
-			in:   []dashboard.Dashboard{{Slug: strings.Repeat("a", 254), Builder: builder().Builder}},
-			want: "longer than 253",
+			in:   []dashboard.Dashboard{{Slug: strings.Repeat("a", 41), Builder: builder().Builder}},
+			want: "longer than 40",
 		},
 		{
 			name: "no builder",

@@ -12,7 +12,7 @@ import (
 // honest.
 //
 // Every LogQL matcher on E4 is a string literal pointed at a log line
-// somewhere in internal/. Nothing in the compiler connects the two, and
+// in internal/activities or internal/workflows — the controls runtime. Nothing in the compiler connects the two, and
 // the failure when they drift is the worst kind available here: a
 // matcher that no longer matches returns no rows, and no rows renders
 // exactly like "this never happens". An operator would read a blank
@@ -29,24 +29,20 @@ import (
 func TestLogLines_AreStillEmittedByTheBinary(t *testing.T) {
 	t.Parallel()
 
-	// The internal/ tree, from this package's directory.
-	const root = "../.."
-
-	sources := goSources(t, root)
+	// The two emitting trees, from this package's directory.
+	sources := append(goSources(t, "../../activities"), goSources(t, "../../workflows")...)
 
 	for _, line := range []struct{ name, text string }{
-		{"logCatalogParseFailed", logCatalogParseFailed},
 		{"logRepositoryParked", logRepositoryParked},
-		{"logAttemptCapDropped", logAttemptCapDropped},
-		{"logStoreWriteback", logStoreWriteback},
-		{"logRuleStateWriteback", logRuleStateWriteback},
-		{"logDeferringJob", logDeferringJob},
-		{"logSweepComplete", logSweepComplete},
-		{"logInvalidPayload", logInvalidPayload},
-		{"logEnqueueFailed", logEnqueueFailed},
+		{"logEvaluationDeferred", logEvaluationDeferred},
+		{"logEvaluationFailed", logEvaluationFailed},
+		{"logAwaitsResolution", logAwaitsResolution},
+		{"logDiscoveryPartial", logDiscoveryPartial},
+		{"logRemediationHeld", logRemediationHeld},
+		{"logRemediationAdopted", logRemediationAdopted},
 	} {
 		if !emitted(sources, line.text) {
-			t.Errorf("%s = %q, but nothing under internal/ logs it any more; "+
+			t.Errorf("%s = %q, but nothing under internal/activities or internal/workflows logs it any more; "+
 				"the E4 panel matching it now renders empty, which reads as 'this never happens'",
 				line.name, line.text)
 		}

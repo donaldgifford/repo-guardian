@@ -1,0 +1,64 @@
+{{- /* One ScaledObject per controls role, each on its own queue's backlog
+(DESIGN-0028 § KEDA, IMPL-0028 Phase 5). Split only: in all one pod runs
+every role, so there is nothing per-role to scale. */ -}}
+{{- if eq .Values.topology "split" }}
+{{- range $role := splitList " " (trim (include "repo-guardian.controlsRoles" .)) }}
+{{- $r := dict "ctx" $ "role" $role }}
+{{- $rv := index $.Values $role }}
+{{- $k := $rv.keda }}
+{{- if $k.enabled }}
+---
+# Scales the {{ $role }} on its queue's backlog.
+#
+# KEDA 2.21's composite running-workflows metric is never set (INV-0020
+# Observation 6): every RepoWorkflow is a running workflow parked on a
+# timer, so it would hold the role at maxReplicas for ever.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "repo-guardian.roleFullname" $r }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "repo-guardian.roleLabels" $r | nindent 4 }}
+  annotations:
+    {{- include "repo-guardian.argoWorkloadWave" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "repo-guardian.roleFullname" $r }}
+  minReplicaCount: {{ $k.minReplicas }}
+  maxReplicaCount: {{ $k.maxReplicas }}
+  {{- /* KEDA holds the role here when the trigger fails three polls in a
+  row, instead of going silent (INV-0020 Observation 2). */}}
+  fallback:
+    failureThreshold: 3
+    replicas: {{ if kindIs "invalid" $k.fallbackReplicas }}{{ $rv.replicas }}{{ else }}{{ $k.fallbackReplicas }}{{ end }}
+  triggers:
+    {{- if eq $.Values.keda.trigger "prometheus" }}
+    - type: prometheus
+      metadata:
+        serverAddress: {{ $.Values.keda.prometheus.serverAddress | quote }}
+        query: {{ $k.query | default (include "repo-guardian.kedaQuery" $r) | quote }}
+        threshold: {{ $k.targetQueueSize | quote }}
+      {{- with $.Values.keda.prometheus.authenticationRef }}
+      authenticationRef:
+        name: {{ . }}
+      {{- end }}
+    {{- else }}
+    - type: temporal
+      metadata:
+        endpoint: {{ $.Values.temporal.address | quote }}
+        namespace: {{ $.Values.temporal.namespace | quote }}
+        taskQueue: {{ include "repo-guardian.roleTaskQueue" $r | quote }}
+        queueTypes: workflow,activity
+        targetQueueSize: {{ $k.targetQueueSize | quote }}
+        {{- with $.Values.temporal.tls.serverName }}
+        tlsServerName: {{ . | quote }}
+        {{- end }}
+      {{- if $.Values.temporal.tls.existingSecret }}
+      authenticationRef:
+        name: {{ include "repo-guardian.fullname" $ }}-temporal-keda
+      {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

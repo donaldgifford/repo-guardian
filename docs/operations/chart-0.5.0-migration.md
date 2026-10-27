@@ -1,5 +1,8 @@
 # Chart 0.5.0 migration runbook (IMPL-0011)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: chart 2.x is a fresh install, see [Turning on repo-guardian v2](v2-onboarding.md).
+
 > [!NOTE]
 > **Superseded by chart `1.0.0-rc.1` (IMPL-0016).** The
 > memory/ticker defaults this runbook describes are no longer
@@ -124,7 +127,7 @@ The IMPL-0011 payoff. Pick the Postgres mode based on CNPG availability:
   ```
 
   Reference for `external` (managed Postgres + Redis-compatible service)
-  is documented in the chart [README](../../charts/repo-guardian/README.md#choosing-a-deployment-shape).
+  is documented in the chart [README](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/README.md#choosing-a-deployment-shape).
 
 - [ ] **`helm template` again** and diff. Expected new resources:
 
@@ -281,5 +284,5 @@ kubectl delete sts,svc,secret -l app.kubernetes.io/instance=repo-guardian \
   `workerCount`, `maxConns`, `staleSweep.*`.
 - [`migrations.md`](migrations.md) — Postgres schema operations,
   out-of-band migration runs, backups, schema rollback.
-- [Chart README — Choosing a deployment shape](../../charts/repo-guardian/README.md#choosing-a-deployment-shape)
+- [Chart README — Choosing a deployment shape](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/README.md#choosing-a-deployment-shape)
   — the four shapes with use-case mapping.

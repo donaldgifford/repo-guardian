@@ -227,7 +227,7 @@ against the current binary anyway.
   Decision Q5: replace the Kustomize-based deployment example
   with a one-line "deployed via the Helm chart at
   `charts/repo-guardian/` — see [chart
-  README](charts/repo-guardian/README.md) for installation
+  README](https://github.com/donaldgifford/repo-guardian/blob/main/charts/repo-guardian/README.md) for installation
   recipe."
 - [x] Verify no CI workflow references the deploy tree
   (`grep -rn "deploy/" .github/`). Audit confirmed zero

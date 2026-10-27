@@ -1,14 +1,76 @@
 # Postgres schema operations
 
-This is the operator-facing guide for managing the `repo_state` table
-under `STORE_BACKEND=postgres`. The schema is small (one table, three
-indexes) and migrations apply at binary startup; most operators won't
-touch this page in normal operation.
+This is the operator-facing guide to repo-guardian's Postgres schema.
+v2 manages it with goose, from a hook Job. The v1 sections further down
+describe v1's golang-migrate schema; they apply only to a v1 deployment
+and to rolling back to one. v2 never reads or migrates v1's tables, or
+the v2 release candidates' findings schema: it starts on an empty
+database ([Moving to repo-guardian v2](v2-migration.md)).
 
-## Migration runtime
+## v2: the controls chain and the migrate hook
 
-`repo-guardian` calls `golang-migrate` against an embedded `migrations/`
-directory at startup. Migration is idempotent: `migrate.Up()` returns
+`repo-guardian migrate` applies the embedded controls chain
+(`internal/store/postgres/migrations_controls/`, version table
+`goose_controls_version`). Pods never migrate at startup: one Job holds
+the DDL-capable credential, instead of every replica racing, and every
+role refuses to serve against a schema older than the one its build
+expects.
+
+| Situation | What `migrate` does |
+|---|---|
+| empty database | applies the whole chain |
+| `goose_controls_version` exists | applies pending migrations |
+| a database holding other tables (v1, or a release candidate's findings schema) | fails on its first `CREATE TABLE`; there is no adoption |
+
+After applying, it activates the policy at `--policy` (default
+`$GUARDIAN_CONFIG`) as the owner; re-activating the current version is a
+no-op, so a re-run never starts a rollout.
+
+The chart runs it as the `<release>-migrate` hook Job
+(`migrate.enabled`, default `true`):
+
+- **`post-install`**, so a baked Postgres and a chart-rendered store
+  Secret exist to connect to; the Job waits for the database itself
+  (`migrate.waitSeconds`, `MIGRATE_WAIT`).
+- **`pre-upgrade`** and **`pre-rollback`**, so the schema is current
+  before new pods roll.
+
+Failed Jobs are replaced on the next attempt
+(`before-hook-creation`); successful ones are deleted.
+
+**Flags:** `--chain controls` (the only chain), `--dsn` (default
+`$STORE_DSN`), `--policy`, `--wait`, `--dry-run` (applies every pending
+migration in one transaction and rolls it back) and `--json`.
+
+**Roles.** Migrations grant to `rg_evaluator` and `rg_remediator` by
+column (the API's read-only role reads through `pg_read_all_data`), and
+never create a role: a missing role
+fails the migration. The chart provisions the roles in `baked` and
+`cnpg` modes; for an external database see
+[Controls database roles](v2-onboarding.md#controls-database-roles).
+Run migrations as the owner role, never a superuser, wherever you
+control the role.
+
+### Out-of-band runs
+
+Set `migrate.enabled: false` and run the same command yourself, before
+upgrading the chart:
+
+```bash
+kubectl -n repo-guardian run rg-migrate --rm -it --restart=Never \
+  --image=ghcr.io/donaldgifford/repo-guardian:<tag> \
+  --env=STORE_DSN="$STORE_DSN" -- migrate --chain controls
+```
+
+## v1: golang-migrate runtime
+
+!!! note "v1 only"
+    This and the following v1 sections describe the pre-2.0 schema. v2
+    never reads or migrates it; keep it only for a v1 deployment and
+    for rolling back to one.
+
+v1 calls `golang-migrate` against an embedded `migrations/` directory
+at startup. Migration is idempotent: `migrate.Up()` returns
 `ErrNoChange` when the schema is already current.
 
 Failures abort startup before the HTTP servers come up, so a botched
@@ -16,7 +78,7 @@ schema never serves a single webhook. The most common failure mode is
 DSN misconfiguration (network, auth, missing database) — the binary
 prints the underlying pgx error before exiting.
 
-## Schema overview
+## v1 schema overview
 
 ```sql
 CREATE TABLE repo_state (
@@ -144,7 +206,7 @@ archived and fork parks are routine bookkeeping. A steady access-denied
 trickle is normal in a large org (repositories get deleted); a step
 change means the App lost access to something it used to have.
 
-## Out-of-band migration runs
+## v1 out-of-band migration runs
 
 Multi-replica deployments may want to apply migrations from a one-shot
 Job rather than letting every pod race at startup. The `Migrate`
@@ -174,13 +236,15 @@ CNPG-managed Postgres exposes a `backup` field on the `Cluster` CR;
 see the upstream operator docs for the supported configurations
 (volume snapshots, S3 backups, scheduled WAL archiving).
 
-The baked single-pod StatefulSet has no built-in backup. Treat it as
-ephemeral state — losing it means the next reconcile cycle re-checks
-every repo from scratch (slow but harmless). Production deployments
+The baked single-pod StatefulSet has no built-in backup. Losing it
+means every repository is re-discovered and re-checked from scratch
+(slow but harmless), but compliance history is gone for good.
+Take a `pg_dump` before every major upgrade, and always before the
+v1 → v2 cutover. Production deployments
 should either move to `mode=cnpg` or `mode=external` with a managed
 Postgres provider.
 
-## Migration 0003 — posture state (IMPL-0023)
+## v1 migration 0003 — posture state (IMPL-0023)
 
 `0003_rule_state.up.sql` is additive only, so applying it is safe on a
 live fleet and needs no downtime:
@@ -208,7 +272,7 @@ machinery ships initially — revisit if you pass a few million rows.
 **Dead installations.** Same recipe as `repo_state`: one more
 `DELETE ... WHERE installation_id = <id>` at cutover.
 
-## Rolling back the schema
+## Rolling back the v1 schema
 
 Every migration ships a matching `.down.sql`, and
 `TestPostgresStore_MigrateUpDownUp` verifies the pair round-trips
@@ -249,12 +313,20 @@ forward (a new migration that mutates the schema) than down.
 
 ## Monitoring schema operations
 
+In v2, database latency and errors come from the otelpgx instrumentation
+on the same `/metrics` endpoint, and a failed migration shows as a
+failed `<release>-migrate` Job. The histogram below is v1's.
+
 `repo_guardian_store_query_seconds{operation="get_repo_state"|"update_repo_state"|"stale_repos",outcome="ok"|"error"}` exposes the per-query duration histogram. The starter PrometheusRule includes
 a `RepoGuardianStoreQueryErrors` alert that fires when error rate
 exceeds 10% over 10 minutes — usually a sign of pool exhaustion,
 network flap, or migration drift.
 
 ## Removing memory backend
+
+!!! note "v1 only"
+    Historical v1 upgrade notes. v2 has no Valkey, sweep or queue; see
+    [Migrating from v1 to v2](v2-migration.md).
 
 Chart `1.0.0-rc.1` / appVersion `1.9.0` (IMPL-0016) deletes the
 in-memory store, queue, and ticker scheduler. The chart now ships
@@ -338,6 +410,10 @@ discarded the state. Moving to Postgres means future restarts
 fresh database to populate via normal reconcile activity.
 
 ## Removing the rate-limit reserve knobs (IMPL-0022)
+
+!!! note "v1 only"
+    Historical v1 upgrade notes. v2 has no Valkey, sweep or queue; see
+    [Migrating from v1 to v2](v2-migration.md).
 
 The chart version shipping IMPL-0022 removes three published values.
 **A values file that still sets any of them fails at render time** —

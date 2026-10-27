@@ -156,7 +156,9 @@ func TestGetRepository(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 
 		repo := &gh.Repository{
-			Name:          gh.Ptr("repo"),
+			ID:            gh.Ptr(int64(123456789)),
+			Name:          gh.Ptr("Repo"),
+			Owner:         &gh.User{Login: gh.Ptr("Owner")},
 			Archived:      gh.Ptr(false),
 			Fork:          gh.Ptr(false),
 			DefaultBranch: gh.Ptr("main"),
@@ -181,6 +183,16 @@ func TestGetRepository(t *testing.T) {
 
 	if repo.DefaultRef != "main" {
 		t.Errorf("expected default branch 'main', got %q", repo.DefaultRef)
+	}
+
+	if repo.ID != 123456789 {
+		t.Errorf("ID = %d, want 123456789", repo.ID)
+	}
+
+	// Canonical names come from the response, not the request, so a
+	// renamed repository reports its new name.
+	if repo.Owner != "Owner" || repo.Name != "Repo" {
+		t.Errorf("owner/name = %s/%s, want the response's Owner/Repo", repo.Owner, repo.Name)
 	}
 }
 

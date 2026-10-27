@@ -34,6 +34,19 @@ type FileVars struct {
 	Org string
 }
 
+// Vars is the variable context a control template sees (DESIGN-0031):
+// {{ .Org }}, {{ .Repo }}, {{ .Owner }}, {{ .DefaultBranch }} and, for
+// catalog-aware templates, {{ .Catalog }}. It replaces FileVars for
+// control code. The zero value is a valid empty context.
+type Vars struct {
+	Common
+	// Org is the repository's org; the same value as Owner.
+	Org string
+	// Catalog is non-nil only for catalog-info-aware templates. Guard
+	// with `{{ if .Catalog }}` where it may be nil.
+	Catalog *CatalogInfo
+}
+
 // PRVars is the variable context passed to PR title and PR body
 // rendering. Single-rule PRs populate Rule and leave Rules nil; bundled
 // multi-rule PRs leave Rule zero-valued and populate Rules. The zero
@@ -50,6 +63,30 @@ type PRVars struct {
 	// Reconciler is the reconciler name when the PR is opened by a
 	// reconciler (e.g. "custom_properties"); empty string otherwise.
 	Reconciler string
+
+	// The controls line's remediation PR (IMPL-0030 4.13): the control,
+	// the failing rules this PR fixes, the ones that need a human, and
+	// the notes explaining those. ControlsURL links the repository's
+	// controls page; empty when no UI is configured.
+	Control     ControlRef
+	Fixed       []RuleRef
+	Manual      []RuleRef
+	Notes       []string
+	ControlsURL string
+}
+
+// ControlRef names the control a remediation PR is for.
+type ControlRef struct {
+	// ID is slug@version.
+	ID    string
+	Slug  string
+	Title string
+}
+
+// RuleRef names one rule of a control.
+type RuleRef struct {
+	ID    string
+	Title string
 }
 
 // Rule names a rule by its HCL label and the file path it targets.

@@ -15,6 +15,12 @@ Every PR must carry exactly one semver label — `major`, `minor`,
 `patch`, or `dont-release`. The release workflow uses these to
 auto-tag the binary release on merge to `main`.
 
+A PR that bumps the chart's `appVersion` (a release or an rc) also adds
+an entry at the top of `ui/CHANGELOG.yaml` and runs
+`cd ui && bun run gen:changelog`; `make lint-ui` fails when the newest
+entry is not the chart's `appVersion`. The status page renders the
+newest five entries as its Changelog card.
+
 ## Commit messages
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/).
@@ -29,10 +35,28 @@ commits get bucketed into "Other."
 
 ### Binary releases
 
-Triggered automatically on merge to `main` when a PR carries a
-`major`, `minor`, or `patch` label. The release workflow bumps the
-tag, builds binaries via goreleaser (CGO disabled), and pushes
-artifacts. GPG-signed.
+A GA release is cut by its semver label, never by a hand tag. Merging
+a PR into `main` labelled `major`, `minor` or `patch` runs
+`release.yml`: it tags the merge commit with the next version (only
+tags reachable from `main` count), builds GPG-signed binaries via
+goreleaser (CGO disabled) with an SPDX SBOM per archive, and publishes
+the images and chart through `ghcr.yml` (and `ecr.yml` when enabled).
+Check which tag a label will produce before applying it.
+
+### Release candidates
+
+`release.yml` cannot cut pre-releases, so an rc is cut by hand:
+
+1. Open a PR labelled `dont-release` that bumps the chart to the rc
+   (`version` and `appVersion`, for example `2.1.0-rc.1`), adds the
+   `ui/CHANGELOG.yaml` entry and runs `cd ui && bun run gen:changelog`.
+2. After it merges, push a signed tag on the merge commit:
+   `git tag -s v2.1.0-rc.1 <sha> -m v2.1.0-rc.1 && git push origin v2.1.0-rc.1`.
+   `prerelease.yml` builds the GitHub pre-release from the tag.
+3. Publish the images and chart:
+   `gh workflow run ghcr.yml --ref v2.1.0-rc.1 -f tag=v2.1.0-rc.1`.
+
+A tag with a `-` suffix never moves `latest`.
 
 ### Helm chart releases
 
@@ -47,11 +71,12 @@ workflow and packaged inside the `.tgz`. Do not edit it by hand.
 
 ### Root CHANGELOG
 
-Regenerated automatically when a binary release tag (`v*`) is pushed
-to the repo. The `changelog-update` workflow runs `git-cliff`
-against `cliff.toml` and opens a PR titled
-`docs(changelog): update root CHANGELOG for <tag>`. Merging the PR
-keeps the root `CHANGELOG.md` current.
+Updated automatically when a GA release tag (`v*` without a `-`) is
+pushed. The `changelog-update` workflow runs `git-cliff --latest
+--prepend CHANGELOG.md` against `cliff.toml`, which adds the new
+release's section above the existing ones and leaves them untouched,
+and opens a `dont-release` PR titled
+`docs(changelog): update root CHANGELOG for <tag>`.
 
 ## Local development
 

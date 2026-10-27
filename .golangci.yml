@@ -38,6 +38,7 @@ linters:
     - prealloc  # Uber: Preallocate slices when size is known
     - gocritic  # Performance and style checks
     - nolintlint  # Ensure nolint directives are properly used
+    - depguard  # Keep workflow code free of side-effecting packages (IMPL-0025 OQ12)
 
     # Complexity & Maintainability
     - gocyclo  # Uber: Limit cyclomatic complexity
@@ -83,14 +84,16 @@ linters:
     - goheader  # License header
 
   settings:
-    # rgctl (tools/rgctl) is its own module and must outlive v1's packages
-    # and the controls rewrite (DESIGN-0035 D4). The module boundary is the
-    # real guard: its go.mod never requires the parent, which `make
-    # lint-rgctl` also asserts. This rule restates it so a stray import
-    # fails with a message instead of a module-resolution error. The glob
-    # matches nothing in the product module.
+    # Workflow code must stay deterministic: everything that reads GitHub,
+    # Postgres or a control lives behind an activity (DESIGN-0026).
     depguard:
       rules:
+        # rgctl (tools/rgctl) is its own module and must outlive v1's
+        # packages and the controls rewrite (DESIGN-0035 D4). The module
+        # boundary is the real guard: its go.mod never requires the parent,
+        # which `make lint-rgctl` also asserts. This rule restates it so a
+        # stray import fails with a message instead of a module-resolution
+        # error. The glob matches nothing in the product module.
         rgctl-boundary:
           files:
             - "**/tools/rgctl/**"
@@ -99,6 +102,136 @@ linters:
               desc: rgctl must outlive v1 and the controls rewrite; it imports nothing from the product module
             - pkg: github.com/donaldgifford/repo-guardian/cmd
               desc: rgctl must outlive v1 and the controls rewrite; it imports nothing from the product module
+        workflows:
+          files:
+            - "**/internal/workflows/*.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/store
+              desc: the store is reached only through activities
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github
+              desc: GitHub is reached only through activities
+            - pkg: github.com/donaldgifford/repo-guardian/internal/activities
+              desc: workflows call activities by name, not by import
+            - pkg: github.com/donaldgifford/repo-guardian/internal/control
+              desc: controls run only inside activities (DESIGN-0031 D17)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/controls
+              desc: controls run only inside activities (DESIGN-0031 D17)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/policy
+              desc: policy is resolved only inside activities (DESIGN-0031 D17)
+        # DESIGN-0031 D17's package graph, one rule per edge, so the graph
+        # is a lint failure rather than a diagram. The more specific allow
+        # wins over the module-wide deny.
+        template-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/template/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/template
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/template is the leaf (renderer, Vars, PRConfig) and imports nothing of ours
+        control-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/control/*.go"
+            - "**/internal/control/*/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/control imports internal/template and nothing else of ours
+        controls-types:
+          list-mode: lax
+          files:
+            - "**/internal/controls/*.go"
+            - "**/internal/controls/*/*.go"
+            - "!**/internal/controls/builtin/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/catalog
+            - github.com/donaldgifford/repo-guardian/internal/metrics
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: a control type imports internal/control, internal/template, the catalog-info parser and the metrics leaf only
+        catalog-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/catalog/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/catalog
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: internal/catalog is a parser leaf the control types share; it imports nothing of ours
+        policy-leaf:
+          list-mode: lax
+          files:
+            - "**/internal/policy/*.go"
+          allow:
+            - github.com/donaldgifford/repo-guardian/internal/policy
+            - github.com/donaldgifford/repo-guardian/internal/control
+            - github.com/donaldgifford/repo-guardian/internal/template
+            - github.com/donaldgifford/repo-guardian/internal/rules
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal
+              desc: resolution is pure (DESIGN-0030), so internal/policy imports control, template and the embedded templates only, never github or the store
+        controls-consumers:
+          files:
+            - "$all"
+            - "!**/internal/controls/**"
+            - "!**/internal/activities/*.go"
+            - "!**/cmd/repo-guardian/*.go"
+            - "!**/examples/*_test.go"
+            # monitoring derives mechanisms from built-in type names; its
+            # tests load real policies to pin those names.
+            - "!**/internal/monitoring/*_test.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/controls
+              desc: control types are registered by the binary and run by activities only
+        api:
+          files:
+            - "**/internal/api/*.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github
+              desc: the api role holds no GitHub client (DESIGN-0027)
+            - pkg: github.com/donaldgifford/repo-guardian/internal/store/postgres
+              desc: the api reads through its Reader interface, never the store implementation
+            - pkg: github.com/jackc/pgx/v5
+              desc: the api reads through its Reader interface, never the database driver
+        # Only remediation writes to GitHub (DESIGN-0031 D17, IMPL-0028
+        # task 2.7): the Writer is importable from the remediation
+        # activities and the binary that wires them, nowhere else.
+        writer:
+          files:
+            - "$all"
+            - "!**/internal/github/write/*.go"
+            - "!**/internal/activities/remediate*.go"
+            - "!**/cmd/repo-guardian/*.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github/write
+              desc: only the remediation activities write to GitHub
+        # The evaluator side, named so a later exception to the rule
+        # above can never open it.
+        writer-evaluator-side:
+          files:
+            - "**/internal/control/*.go"
+            - "**/internal/control/*/*.go"
+            - "**/internal/controls/*.go"
+            - "**/internal/controls/*/*.go"
+            - "**/internal/policy/*.go"
+            - "**/internal/policy/*/*.go"
+            - "**/internal/activities/evaluate*.go"
+            - "**/internal/activities/check.go"
+          deny:
+            - pkg: github.com/donaldgifford/repo-guardian/internal/github/write
+              desc: evaluation reads through control.Reader and never writes
+        api-contract:
+          files:
+            - "**/internal/api/*_test.go"
+          deny:
+            - pkg: net/http/httptest
+              desc: API tests go through apitest.New, which validates every response against the spec
 
     # Error handling
     errcheck:

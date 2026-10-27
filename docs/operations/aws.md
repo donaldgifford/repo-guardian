@@ -1,27 +1,63 @@
 # Running repo-guardian on AWS
 
-The chart defaults install Postgres via CloudNativePG (CNPG) and Valkey
-as a baked StatefulSet. On AWS those primitives have native managed
-equivalents — RDS / Aurora Postgres and ElastiCache for Valkey. This
-guide covers wiring the chart at those services, plus the
-"one-noisy-org" workload-isolation question that comes up at
-enterprise scale.
+How to run repo-guardian v2 on EKS with the AWS-managed pieces around
+it: RDS or Aurora for Postgres, Secrets Manager and the External
+Secrets Operator (ESO) for credentials, and an AWS load balancer for
+the webhook route. Nothing in the binary is AWS-aware. The work is in
+provisioning the managed services and getting their credentials into
+Kubernetes Secrets that the chart references.
 
-The chart already supports external Postgres and external Valkey via
-`store.postgres.mode=external` and `queue.valkey.mode=external`. Both
-modes read connection strings from operator-supplied k8s Secrets;
-nothing in the binary is AWS-aware. The work is in provisioning the
-managed services and plumbing their credentials into k8s.
-
-For prior reading: `docs/operations/scaling.md` covers the sizing
-math for multi-org GHEC fleets — this doc covers how to land that
-sizing on AWS infrastructure specifically.
+Read [Turning on repo-guardian v2](v2-onboarding.md) first. This page
+covers only what is different on AWS. [Scaling repo-guardian](scaling.md)
+covers sizing.
 
 If you provision with `libtftest-tf-modules/modules/rds/*`, the
-variable-level companion to this guide is
+variable-level companion to this page is
 [External Postgres on RDS — Terraform variable reference](rds-terraform-variables.md):
-exact settings for `instance` / `cluster` / `serverless`, each with and
+settings for `instance` / `cluster` / `serverless`, each with and
 without `proxy`.
+
+> [!NOTE]
+> Valkey (and ElastiCache with it) was removed in v2.
+> There is no queue or scheduler backend: Temporal holds every workflow,
+> timer and schedule.
+> If you are coming from 1.x, delete the ElastiCache cluster once the
+> cutover in [Moving to repo-guardian v2](v2-migration.md) is done.
+
+## What runs where
+
+| Piece | On AWS | Owned by |
+| --- | --- | --- |
+| `ingest`, `evaluator`, `remediator`, `api`, `ui` | EKS, one Deployment per role (`topology: split`) | this chart |
+| Postgres (the controls database) | RDS for PostgreSQL or Aurora PostgreSQL, ideally behind RDS Proxy | you |
+| Temporal | Temporal Cloud, or a self-hosted cluster (for example on EKS with its own RDS database) | you |
+| Credentials | Secrets Manager, synced into Kubernetes Secrets by ESO | you |
+| Webhook route | an ALB or NLB through the AWS Load Balancer Controller | you |
+| Images and chart | GHCR (public), or the private ECR mirror | maintainers publish, you pull |
+
+## Temporal
+
+Temporal is required and is not part of this chart. repo-guardian is a
+client of it: the workers dial the frontend, nothing more. Running
+Temporal (its own persistence database, upgrades, retention) is the
+operator's job, the same way the database is.
+
+What repo-guardian needs from it is listed in
+[2. A Temporal cluster](v2-onboarding.md#2-a-temporal-cluster): server
+1.31 or newer, a namespace, reachability on port 7233 from the
+repo-guardian namespace, and mTLS or OIDC credentials. On AWS that
+usually means one more security-group rule (EKS nodes to the Temporal
+frontend) and one more Secret.
+
+KEDA's default trigger reads the Temporal **server's**
+`approximate_backlog_count` from Prometheus. If your Prometheus does
+not scrape the Temporal server (a managed Temporal, for example), use
+`keda.trigger: temporal` with mTLS, or set `evaluator.keda.query` /
+`remediator.keda.query` to a query your metrics can answer. See
+[Autoscaling with KEDA](v2-onboarding.md#autoscaling-with-keda). For
+Amazon Managed Service for Prometheus, point
+`keda.prometheus.serverAddress` at its query endpoint and name your
+SigV4 TriggerAuthentication in `keda.prometheus.authenticationRef`.
 
 ## Postgres on AWS
 
@@ -29,60 +65,139 @@ without `proxy`.
 
 | Service | Best for | Notes |
 |---|---|---|
-| **RDS Postgres** (provisioned) | Predictable steady-state workloads | Cheapest per-hour for known load. Manual instance-class sizing. Multi-AZ for HA. |
-| **RDS Postgres Serverless v2** | Spiky / unpredictable workloads | ACU-based autoscaling. Scale-to-zero possible (0.5 ACU floor without scale-to-zero enabled). Sweet spot for repo-guardian if you want auto-pause during the long quiet windows between weekly sweeps. |
-| **Aurora Postgres** | HA + read scaling | Storage-replicated cluster with separate reader/writer endpoints. Best fault tolerance. Reader endpoint can offload `StaleRepos` queries — but the chart doesn't surface separate reader/writer DSNs today (see Gaps below). |
+| **RDS for PostgreSQL** (provisioned) | Predictable steady-state load | Cheapest per hour for a known load. Manual instance-class sizing. Multi-AZ for HA. |
+| **Aurora Serverless v2** | Spiky or idle load | ACU-based scaling. repo-guardian is mostly idle between evaluations, which suits it, but only with RDS Proxy in front. |
+| **Aurora PostgreSQL** (provisioned) | HA and read scaling | Separate writer and reader endpoints. The api role's read-only DSN can use the reader endpoint (see [Reader endpoint for the API](#reader-endpoint-for-the-api)). |
 
-All three speak vanilla Postgres protocol, so the binary's
-`internal/store/postgres/` works unchanged. The decision is
-operational, not architectural.
+All three speak plain Postgres, so `internal/store/postgres` works
+unchanged. The decision is operational, not architectural.
 
 **Version and parameter parity with the chart.** The chart's two
-managed shapes both pin Postgres 18 (`baked.image: postgres:18.4`,
-`cnpg.imageName: ...postgresql:18.4`) — pin the RDS `engine_version`
-to the same major so dev/test on the chart-managed shapes exercises
-the major prod runs on. Neither chart mode sets any custom Postgres
-parameters, so the default-valued parameter groups the Terraform
-modules create are already correct; there is nothing to mirror. Both
-points in detail:
+managed shapes both pin Postgres 18 (`store.postgres.baked.image:
+postgres:18.4`, `store.postgres.cnpg.imageName: ...postgresql:18.4`).
+Pin the RDS `engine_version` to the same major so dev and test on the
+chart-managed shapes run the major production runs. Neither chart mode
+sets custom Postgres parameters, so default parameter groups are
+correct. Details:
 [Parameter groups and engine version](rds-terraform-variables.md#parameter-groups-and-engine-version).
 
-### Connection pooling: use RDS Proxy
+The database must be **empty** before the first migration: the controls
+schema chain refuses a database that already holds an older schema.
 
-For any of the three Postgres variants, put **RDS Proxy** in front
-of it. RDS Proxy is AWS's managed PgBouncer-equivalent:
+### Database users
 
-- Transaction-mode pooling reduces backend connection count
-- Holds DB credentials internally and handles rotation transparently
-- Survives instance failovers without dropping client connections
-- ~5ms RTT added — irrelevant at repo-guardian's QPS
-- Required practice for Serverless v2 (scaling events cause
-  connection storms otherwise)
+v2 does not connect as one user. Column-level grants are the boundary
+between the evaluator and the remediator, so each role gets its own
+login. Migrations grant to these users and never create them, so on RDS
+you create them yourself, before the first `helm install`.
 
-The binary connects to the Proxy endpoint, not the DB instance
-endpoint. The Proxy maintains the actual pool of backend
-connections. This replaces the CNPG `pooler` block from the
-homelab pattern.
+| User | Used by | Secret (chart value) | Env var in the pod |
+| --- | --- | --- | --- |
+| `rg_owner` | the migrate Job only: owns the schema, runs `repo-guardian migrate` | `store.postgres.existingSecret` | `STORE_DSN` |
+| `rg_evaluator` | evaluator pods | `store.controls.evaluator.existingSecret` | `STORE_DSN_EVALUATOR` |
+| `rg_remediator` | remediator pods | `store.controls.remediator.existingSecret` | `STORE_DSN_REMEDIATOR` |
+| `rg_all` | `topology: all` pods only (a member of both roles above) | `store.controls.all.existingSecret` | both of the above |
+| a read-only login, here `rg_api_ro` | api pods | `api.roDsn.existingSecret` | `STORE_RO_DSN` |
+
+The chart-managed shapes (`baked`, `cnpg`) create the same users for
+you, and call the read-only one `repoguardian_ro`. On `external` the
+names are yours; only the grants matter.
+
+As the RDS master user, before the first install:
+
+```sql
+-- The owner. Not a superuser, so the grants the migrations write bind.
+CREATE ROLE rg_owner LOGIN PASSWORD '...' NOSUPERUSER NOCREATEROLE;
+GRANT ALL ON SCHEMA public TO rg_owner;
+
+-- The application users.
+CREATE ROLE rg_evaluator  LOGIN PASSWORD '...' NOSUPERUSER;
+CREATE ROLE rg_remediator LOGIN PASSWORD '...' NOSUPERUSER;
+GRANT USAGE ON SCHEMA public TO rg_evaluator, rg_remediator;
+-- Only for topology: all.
+-- CREATE ROLE rg_all LOGIN PASSWORD '...' NOSUPERUSER IN ROLE rg_evaluator, rg_remediator;
+
+-- The API's read-only login.
+CREATE ROLE rg_api_ro LOGIN PASSWORD '...' NOSUPERUSER;
+GRANT CONNECT ON DATABASE repoguardian TO rg_api_ro;
+GRANT USAGE ON SCHEMA public TO rg_api_ro;
+```
+
+Then, connected **as `rg_owner`**, give the read-only login every table
+the migrations create now and later:
+
+```sql
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO rg_api_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO rg_api_ro;
+```
+
+The row-level-security read policies on the controls tables are
+`PUBLIC`, so plain `SELECT` is enough for the API to see every row.
+Change `repoguardian` to your `database_name`.
+
+### Chart values for external Postgres
+
+```yaml
+store:
+  postgres:
+    mode: external
+    existingSecret: repo-guardian-db-owner          # rg_owner; the migrate Job
+    existingSecretKey: STORE_DSN
+  controls:
+    enabled: true                                   # per-role users; off by default
+    evaluator:
+      existingSecret: repo-guardian-db-evaluator
+      existingSecretKey: STORE_DSN_EVALUATOR
+    remediator:
+      existingSecret: repo-guardian-db-remediator
+      existingSecretKey: STORE_DSN_REMEDIATOR
+
+api:
+  enabled: true
+  roDsn:
+    existingSecret: repo-guardian-db-ro             # required on external with split + api
+    existingSecretKey: STORE_RO_DSN
+```
+
+With `store.controls.enabled: true`, a split evaluator or remediator
+pod gets only its own DSN and no `STORE_DSN`; only the migrate Job keeps
+the owner's credentials. With it off, every controls pod falls back to
+`STORE_DSN`, which on RDS means the workers run as the owner. Turn it on.
+
+The chart refuses to render when a needed Secret is missing:
+`store.controls.evaluator.existingSecret` while `github.eval.appId` is
+set, `store.controls.remediator.existingSecret` while
+`github.remediate.appId` is set (`store.controls.all.existingSecret`
+under `topology: all`), and any `store.controls.*.existingSecret` set
+outside `mode: external`.
+
+Each controls worker logs which DSN it used at startup (`dsn_env` and
+`db_user` on the "controls store" line). Check it after the first
+deploy.
 
 ### Credentials via External Secrets Operator
 
-The recommended flow:
+Keep one Secrets Manager secret per database user, and one ESO
+`ExternalSecret` per Kubernetes Secret. RDS Proxy needs a Secrets
+Manager secret per user anyway, and a pod then can only ever be handed
+its own credentials.
 
-```
-AWS Secrets Manager (DB credentials)
+```text
+Secrets Manager: rds/repo-guardian/evaluator
    ↓ ESO ExternalSecret
-k8s Secret (`repo-guardian-store-dsn`, key `STORE_DSN`)
-   ↓ chart references via existingSecret
-repo-guardian Pod
+k8s Secret repo-guardian-db-evaluator (key STORE_DSN_EVALUATOR)
+   ↓ store.controls.evaluator.existingSecret
+evaluator pods
 ```
 
-Example `ExternalSecret`:
+Example for the evaluator; repeat it for the owner (`STORE_DSN`), the
+remediator (`STORE_DSN_REMEDIATOR`) and the API (`STORE_RO_DSN`):
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: repo-guardian-store-dsn
+  name: repo-guardian-db-evaluator
   namespace: repo-guardian
 spec:
   refreshInterval: 1h
@@ -90,7 +205,7 @@ spec:
     name: aws-secrets-manager
     kind: ClusterSecretStore
   target:
-    name: repo-guardian-store-dsn
+    name: repo-guardian-db-evaluator
     template:
       data:
         # urlquery percent-encodes reserved characters; the replace
@@ -99,344 +214,218 @@ spec:
         # produces a DSN that fails to parse or authenticates with the
         # wrong password. ESO templates are Go text/template + Sprig,
         # so both functions are available.
-        STORE_DSN: "postgres://{{ .username }}:{{ .password | urlquery | replace \"+\" \"%20\" }}@{{ .endpoint }}:5432/{{ .dbname }}?sslmode=require"
+        STORE_DSN_EVALUATOR: "postgres://{{ .username }}:{{ .password | urlquery | replace \"+\" \"%20\" }}@{{ .endpoint }}:5432/{{ .dbname }}?sslmode=require"
   data:
     - secretKey: username
       remoteRef:
-        key: rds/repo-guardian/master
+        key: rds/repo-guardian/evaluator
         property: username
     - secretKey: password
       remoteRef:
-        key: rds/repo-guardian/master
+        key: rds/repo-guardian/evaluator
         property: password
     - secretKey: endpoint
       remoteRef:
-        key: rds/repo-guardian/master
+        key: rds/repo-guardian/evaluator
         property: endpoint
     - secretKey: dbname
       remoteRef:
-        key: rds/repo-guardian/master
+        key: rds/repo-guardian/evaluator
         property: dbname
 ```
 
-The endpoint in the DSN should be the **RDS Proxy endpoint**, not
-the DB instance/cluster endpoint.
+Point the worker DSNs at the **RDS Proxy endpoint**. The owner and API
+DSNs can point elsewhere (below). Why the encoding matters, and how a
+mis-encoded password fails:
+[Building the DSN](rds-terraform-variables.md#building-the-dsn).
 
-### Chart values for external Postgres
+### Connection pooling: RDS Proxy
 
-```yaml
-store:
-  backend: postgres
-  postgres:
-    mode: external
-    existingSecret: repo-guardian-store-dsn   # k8s Secret name
-    existingSecretKey: STORE_DSN              # key inside the Secret
-    maxConns: 10                              # per-replica pool cap
-```
+Put RDS Proxy in front of any of the three Postgres variants for the
+evaluator and remediator:
 
-With 3 replicas × `maxConns=10` = 30 client connections into RDS
-Proxy. RDS Proxy's `MaxConnectionsPercent` defaults to 100% of the
-DB's `max_connections`; set it to 50-75% to leave headroom for
-direct admin connections.
+- It survives instance failovers without dropping client connections.
+- It absorbs the reconnect burst when a KEDA scale-out or a rollout
+  starts several pods at once.
+- It is close to required with Serverless v2, where scaling events
+  otherwise drop connections.
+- It adds a few milliseconds per round trip, which does not matter at
+  repo-guardian's query rate.
+
+Register a Secrets Manager secret for each user that connects through
+the proxy (`rg_evaluator`, `rg_remediator`). Size the proxy's
+`max_connections_percent` to the sum of the worker pools; the math is
+in [Connection math](scaling.md#connection-math).
+
+Two DSNs do not need the proxy:
+
+- **The owner (`STORE_DSN`)** is used only by the migrate Job, a few
+  times per release. Goose holds a session-level advisory lock while it
+  migrates, which pins a proxy connection for the duration. That is
+  harmless, but with `store.controls.enabled` the owner DSN is its own
+  Secret, so you can point it at the instance or cluster endpoint
+  directly and skip the proxy.
+- **The API (`STORE_RO_DSN`)** sets `default_transaction_read_only` and
+  a 5s `statement_timeout` on every new session. Those `SET`s pin each
+  connection to the proxy (at most 8 per api replica). Point it at the
+  database or a reader endpoint directly instead.
+
+### Reader endpoint for the API
+
+The api role opens its own pool (8 connections per replica) on
+`STORE_RO_DSN`, runs every read in a read-only transaction, and writes
+nothing. On Aurora you can point `api.roDsn` at the **reader endpoint**
+to keep dashboard and UI traffic off the writer. The workers must stay
+on the writer: they write on every evaluation and remediation.
 
 ### Gaps and workarounds
 
-- **No IAM authentication.** The binary expects a static DSN; IAM
-  tokens expire every 15 minutes and the binary has no refresh
-  loop. Workaround: use password auth via Secrets Manager. RDS
-  Proxy can use IAM internally between Proxy and DB even if clients
-  use password auth, so you still get IAM at the DB level.
-- **No reader/writer split.** `StaleRepos` is read-heavy and could
-  go to an Aurora reader endpoint, but the chart has one DSN slot.
-  Today everything goes through the writer (or Proxy fronting the
-  writer). Design lives at
-  [DESIGN-0016: Separate Postgres read and write endpoints](../design/0016-separate-postgres-read-and-write-endpoints.md).
-- **Secrets Manager rotation gap.** If AWS rotates the DB password
-  via Secrets Manager → ESO re-syncs the k8s Secret → but the
-  binary's open pgxpool connections still use the OLD password
-  until they hit a transient failure and reconnect, and the
-  Deployment needs a restart to pick up the new env value at all.
-  **RDS Proxy does not eliminate this.** Clients authenticate to the
-  Proxy with the same credentials the Proxy holds in Secrets Manager
-  — there is no separate static client credential — so a rotation
-  invalidates the password the pods are using. The escape hatches
-  are automating the restart, or setting
-  `manage_master_user_password = false` and rotating on your own
-  schedule.
+- **No IAM database authentication.** The pools are built from static
+  DSNs with no per-connection token hook, and IAM tokens expire after
+  15 minutes. Use password auth through Secrets Manager. RDS Proxy can
+  still use IAM between the proxy and the database.
+- **Password rotation is not transparent.** A pod reads its DSN from
+  the environment at start. When Secrets Manager rotates a password and
+  ESO re-syncs the Kubernetes Secret, open connections keep working
+  until they are recycled, but new ones fail until the pod restarts.
+  RDS Proxy does not remove this: clients authenticate to the proxy with
+  the same credentials it holds. Automate a rollout on Secret change
+  (a reloader-style annotation), or rotate on your own schedule. Each
+  user rotates separately, so only that role's pods restart.
 
-## ElastiCache for Valkey
+## Webhook route
 
-### Pick Valkey, not Redis
+The chart ships no webhook Ingress. On EKS, the AWS Load Balancer
+Controller with the Gateway API is the documented option:
+[AWS LBC + Gateway API (EKS)](ingress.md#aws-lbc-gateway-api-eks). Route
+both App paths, `/webhooks/github/eval` and `/webhooks/github/remediate`,
+to the ingest Service. If you want to restrict source IPs to GitHub's
+hook ranges, do it on the load balancer: the app checks only the HMAC
+signature.
 
-AWS announced ElastiCache for Valkey in late 2024. It is the
-forward-compatible managed option:
+## Images, ECR and IAM
 
-- API-compatible with Redis 7.2; existing `go-redis` clients work
-  unchanged
-- Roughly 33% cheaper than ElastiCache for Redis at equivalent
-  shape (per AWS's own pricing posts)
-- Avoids the Redis BSL / SSPL relicensing situation that motivated
-  the Linux Foundation Valkey fork
+The public images and chart are on GHCR. Maintainers also publish to a
+private ECR mirror (`repo-guardian` for the image, `repo-guardian-chart`
+for the chart); pulling from it needs ECR read on the node role or the
+pull identity. See
+[Consumer-side install](ecr-publish-setup.md#consumer-side-install).
 
-Both queue and scheduler backends use the same client connection
-under the hood (`scheduler.backend=valkey` requires
-`queue.backend=valkey`), so a single ElastiCache cluster serves
-both.
+The repo-guardian pods need **no AWS permissions**: they speak Postgres,
+Temporal and the GitHub API. The IAM role (IRSA or EKS Pod Identity)
+belongs to ESO's ServiceAccount, with `secretsmanager:GetSecretValue`
+on the repo-guardian secrets listed below. Leave
+`serviceAccount.annotations` empty unless something else in your
+cluster needs it.
 
-### Cluster mode: pick **disabled**
+## One busy organisation
 
-ElastiCache for Valkey offers two cluster topologies:
+At enterprise scale the question is what happens when one large
+organisation has far more work than the rest. In v2 it is answered by
+the rate budget, not by the infrastructure:
 
-| Mode | Topology | Use case |
-|---|---|---|
-| **Cluster mode disabled** | Single shard with primary + N replicas | **Recommended** for repo-guardian |
-| **Cluster mode enabled** | N shards with M replicas each, key-space partitioned by hash slot | NOT useful for repo-guardian today (see "Sharding and noisy orgs" below) |
+- Each App's installation has its own budget workflow,
+  `installation/eval/<installation id>` and
+  `installation/remediate/<installation id>`, tracking that
+  installation's GitHub rate limit. A busy organisation that exhausts
+  its budget makes its own evaluations wait for its own reset. It
+  cannot spend another organisation's budget.
+- A waiting evaluation is a durable Temporal timer, not a held worker
+  slot, so other installations' work keeps flowing through the same
+  pods.
+- Every activity and workflow start carries the installation id as its
+  Temporal fairness key.
 
-A single Valkey shard sustains 80-100k ops/sec. repo-guardian's
-queue traffic at 3000 repos × 25 orgs is in the low hundreds of
-ops/sec at peak burst, so one shard is comfortably oversized. Pick:
-
-- 1 primary + 1 replica for HA
-- `cache.t4g.small` or `cache.m7g.large` depending on memory budget
-  (queue + ZSET + reaper lock fit in single-digit MB; the smallest
-  node class is plenty)
-- Enable in-transit encryption (TLS)
-- Enable an AUTH token
-
-### Chart values for external Valkey
-
-```yaml
-queue:
-  backend: valkey
-  valkey:
-    mode: external
-    existingSecret: repo-guardian-queue-dsn
-    existingSecretKey: QUEUE_VALKEY_DSN
-    jobAckTimeout: "5m"
-    reaperInterval: "30s"
-
-scheduler:
-  backend: valkey                          # MANDATORY for multi-replica
-```
-
-The DSN format for ElastiCache:
-
-```
-rediss://default:<auth-token>@<primary-endpoint>:6379/0
-```
-
-`rediss://` (with the extra `s`) is the TLS variant — match it to
-your in-transit-encryption setting.
-
-The same `ExternalSecret` pattern from the Postgres section applies;
-the only change is the AWS Secrets Manager key (typically
-`elasticache/repo-guardian/auth`) and the template assembling the
-`rediss://` URL.
-
-## Partitioning, sharding, and the noisy-org problem
-
-This is the question most operators bring up after running
-repo-guardian against a real fleet: one large GitHub org has
-hundreds of actionable repos every sweep, and its work backs up
-the queue so the smaller orgs wait. The instinct is to reach for
-Valkey cluster mode (sharding). That instinct is wrong — the
-right tool is application-level **partitioning**, not Valkey
-sharding.
-
-The two terms get conflated. They're different things at different
-layers:
-
-| Term | Definition | Layer | Helps the noisy-org problem? |
-|---|---|---|---|
-| **Sharding** | Valkey cluster mode splits the *key space* across N shards by hash slot | Valkey server | No — single-key queue → single shard |
-| **Partitioning** | Single logical queue split into *multiple keys* by a business dimension (installation, priority) | Application code | Yes — that's the whole point |
-
-Sharding moves the work for different *keys* onto different
-servers. Partitioning creates *multiple keys* in the first place.
-You need partitioning to have anything to shard, but partitioning
-alone (on a single Valkey node) already solves the fairness
-problem. Sharding is a separate axis that buys you per-key
-throughput parallelism once you have enough keys to make it
-worthwhile.
-
-### Why Valkey sharding does NOT help
-
-ElastiCache cluster mode partitions Valkey's key space by hash
-slot, routing each key to one of N shards. The benefit is per-key
-throughput parallelism — different keys land on different shards
-and serve traffic in parallel.
-
-repo-guardian's queue uses **a small number of single keys**:
-
-- `repo-guardian:queue:jobs` — the work LIST
-- `repo-guardian:queue:inflight` — the ZSET of dispatched jobs
-- `repo-guardian:scheduler:leader` — the SETNX-held leader lock
-
-Every queue operation touches the same key (`jobs`). Sharding sends
-all queue traffic to one shard regardless of how many shards exist.
-The other shards sit idle. You pay for them and gain nothing.
-
-(Strictly: hash tags can force multiple keys onto the same shard
-when multi-key Lua scripts need them together. We do use multi-key
-operations — LIST + ZSET coordinated atomically. So even if we
-sharded, we'd need the LIST and ZSET on the same shard, which
-defeats the purpose.)
-
-There's also a code-level gap: `cmd/repo-guardian/main.go` builds a
-`redis.NewClient` (single-node) from the parsed DSN, not a
-`redis.NewClusterClient`. Cluster mode would require the wiring to
-detect cluster topology and pick the right client type. Not done
-today.
-
-### Partitioning (the actual answer, code change required)
-
-Strict per-installation fairness needs the queue split into multiple
-keys — one per installation — so workers can schedule across them
-intentionally rather than draining a single FIFO. This is the real
-fix; it's also the one that requires code changes.
-
-**Proposed key layout:**
-
-```
-repo-guardian:queue:install-{id}:jobs        LIST  (work for installation {id})
-repo-guardian:queue:install-{id}:inflight    ZSET  (jobID → dispatch_ts)
-repo-guardian:queue:installations            SET   (registry of known installation IDs)
-```
-
-`Enqueue` picks the key from `job.InstallationID`:
-
-```
-LPUSH repo-guardian:queue:install-{job.InstallationID}:jobs <job-json>
-SADD  repo-guardian:queue:installations {job.InstallationID}    -- idempotent registry
-```
-
-**Worker scheduling strategies** — three workable shapes, listed
-in increasing complexity:
-
-| Strategy | How it works | Pros | Cons |
-|---|---|---|---|
-| **A. `BLPOP` across all keys** | Worker reads `SMEMBERS installations`, calls `BLPOP key1 key2 … keyN timeout` — Valkey returns from whichever has work | Trivial code; natural fairness for ready work; no extra state | No per-installation concurrency cap (a noisy org can still grab every worker); `BLPOP` key-list scales but degrades at thousands |
-| **B. Round-robin with per-installation concurrency cap** | Maintain `repo-guardian:queue:install-{id}:in_flight_count`; worker iterates installations in round-robin order, skips any at cap | Strict fairness; bounds noisy org's parallelism; predictable | More state; needs an atomic check-and-incr Lua script |
-| **C. Weighted random by depth + rate-limit headroom** | Worker picks an installation at random, weighted by `(queue_depth × rate_limit_remaining)` | Adapts dynamically to rate limits; statistically fair | Most state; needs depth + headroom snapshots; harder to reason about |
-
-Recommended starting point: **A with a soft cap** — `BLPOP`-many
-plus a configurable per-installation concurrency limit (e.g.,
-`min(workerCount, ceil(workerCount/N))`). Combines simplicity
-with bounded blast radius.
-
-**Implementation surface:**
-
-| File | Change |
-|---|---|
-| `internal/queue/Queue` (interface) | `Enqueue` unchanged externally; internally selects key by `job.InstallationID`. `Subscribe` accepts an installation-registry watch so workers discover new installations as they appear. |
-| `internal/queue/valkey/valkey.go` | LUA scripts updated to operate on per-installation keys. `Reaper` iterates `SMEMBERS installations` to scan every in-flight ZSET. |
-| ~~`internal/queue/memory/`~~ | Removed in IMPL-0016. The partitioning refactor now applies only to `internal/queue/valkey/`. |
-| `internal/worker/pool.go` | Schedule strategy plug — A initially, with hooks for B/C later. |
-| `internal/metrics/metrics.go` | `queue_depth` becomes `queue_depth{installation_id}` GaugeVec. `queue_dispatched_total` gains the same label. |
-| `charts/repo-guardian/values.yaml` | New knobs: `queue.partitioning.enabled` (default false during rollout), `queue.partitioning.perInstallationCap`. |
-
-Effort estimate: ~1 sprint week for one engineer (refactor +
-tests + metrics + integration test against ElastiCache). The
-queue interface stays binary-compatible — opt-in via the new
-chart value.
-
-**What partitioning gives you:**
-
-- Strict per-installation work scheduling (no noisy-org starvation)
-- Per-installation queue-depth metrics — you can see at a glance
-  which installations are backed up
-- Bounded blast radius when one installation's token goes stale —
-  others keep draining
-- A foundation for installation-aware HPA (`queue_depth{installation_id}`
-  → custom-metric autoscaling) later
-
-**When to invest:** the `staleSweep` + `workerCount` mitigations
-below give *eventual fairness* — every org's work clears within a
-sweep cycle, just not in strict round-robin. That's sufficient for
-most fleets. Reach for partitioning when:
-
-- One installation routinely has > 5x the queue depth of any other
-- Smaller orgs' webhook-triggered reconciles regularly wait > 5
-  minutes behind a sweep burst
-- You need per-org SLA reporting
-
-Until one of those triggers fires: tune the values below, not the
-topology. The full design lives at
-[DESIGN-0015: Per-installation Valkey queue partitioning](../design/0015-per-installation-valkey-queue-partitioning.md)
-— promote it to IMPL when you cross the threshold.
-
-### What helps today (without code changes)
-
-The mitigations referenced above:
-
-| Lever | Where | Effect |
-|---|---|---|
-| `config.maxJobAttempts` | values.yaml | Caps how many times a job may be redelivered (deferred or reaper-requeued) before it is dropped with a terminal `repo_state` error. Rate-limited work from a noisy org defers itself instead of starving the queue — see docs/operations/scaling.md §Delayed requeue. |
-| `staleSweep.batchSize` smaller | values.yaml | Spreads the noisy org's enqueues across more sweep ticks instead of dumping 500 jobs in one tick. The queue depth stays lower; smaller orgs aren't buried. |
-| `config.workerCount` higher | values.yaml | Drains bursts faster. 30 workers × 3 replicas = 90 concurrent processors. Even a 500-job burst clears in <30 sec at 3 sec/repo. |
-| Vertical-scale Valkey | ElastiCache instance class | A larger single shard sustains more ops/sec. Almost certainly not the bottleneck, but cheap to bump if it is. |
-
-The combination gives **eventual fairness** — every org's work
-gets done within a sweep cycle, just not strict round-robin. For
-most operators that's sufficient.
+There is no queue to partition and nothing to shard. The levers that
+remain are the ones in
+[The GitHub rate budget](scaling.md#the-github-rate-budget).
 
 ## End-to-end example
 
-Full chart values for a 3000-repo × 25-org GHEC fleet on AWS:
+Values for a fleet of a few thousand repositories across tens of GitHub
+Enterprise Cloud organisations, with remediation on:
 
 ```yaml
-replicaCount: 3
+topology: split
 
-config:
-  workerCount: 15
-  scheduleInterval: "12h"
+temporal:
+  address: temporal-frontend.temporal.svc:7233
+  namespace: repo-guardian
+  tls:
+    existingSecret: repo-guardian-temporal-mtls
 
-staleSweep:
-  freshness: "24h"
-  batchSize: 500
+github:
+  eval:
+    appId: "123456"
+    existingSecret: rg-eval-app            # private-key, webhook-secret
+  remediate:
+    appId: "234567"
+    existingSecret: rg-remediate-app
+
+ingest:
+  replicas: 2
+
+evaluator:
+  concurrency: 10
+  dbPoolSize: 12
+  keda:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+
+remediator:
+  concurrency: 10
+  dbPoolSize: 0                            # concurrency + 4 = 14
+  keda:
+    enabled: true
+    minReplicas: 0
+    maxReplicas: 2
+
+keda:
+  trigger: prometheus
+  prometheus:
+    serverAddress: http://prometheus.monitoring:9090
 
 store:
-  backend: postgres
   postgres:
     mode: external
-    existingSecret: repo-guardian-store-dsn
-    existingSecretKey: STORE_DSN
-    maxConns: 10
+    existingSecret: repo-guardian-db-owner
+  controls:
+    enabled: true
+    evaluator:
+      existingSecret: repo-guardian-db-evaluator
+    remediator:
+      existingSecret: repo-guardian-db-remediator
 
-queue:
-  backend: valkey
-  valkey:
-    mode: external
-    existingSecret: repo-guardian-queue-dsn
-    existingSecretKey: QUEUE_VALKEY_DSN
-    jobAckTimeout: "5m"
-    reaperInterval: "30s"
+api:
+  enabled: true
+  replicas: 2
+  roDsn:
+    existingSecret: repo-guardian-db-ro
+  auth:
+    issuer: https://idp.example.com/realms/platform
 
-scheduler:
-  backend: valkey
+# plus policy.files (or policy.existingConfigMap): see v2-onboarding.md
 ```
 
-Companion AWS resources (provisioned via Terraform, CDK, or
-manually):
+Companion AWS resources:
 
 | Resource | Purpose | Sizing |
 |---|---|---|
-| Aurora Postgres cluster | Store backend | `db.r6g.large` writer + 1 reader; storage auto-scaling enabled |
-| RDS Proxy | Connection pool | Fronts the Aurora writer endpoint; `MaxConnectionsPercent=50` |
-| ElastiCache Valkey | Queue + scheduler | `cache.t4g.small` primary + 1 replica, cluster mode disabled, TLS + AUTH token enabled |
-| Secrets Manager: `rds/repo-guardian/master` | DB credentials | Auto-rotation on a 30-day schedule |
-| Secrets Manager: `elasticache/repo-guardian/auth` | Valkey AUTH token | Manual rotation (ElastiCache doesn't auto-rotate) |
-| ESO ClusterSecretStore: `aws-secrets-manager` | Bridges Secrets Manager → k8s | IRSA-based access; one IAM role for the namespace |
-| EKS namespace `repo-guardian` | Pod placement | Private subnets, NAT egress to github.com |
-| VPC endpoints | Secrets Manager + STS + ECR | Optional but reduces NAT cost at scale |
+| Aurora PostgreSQL cluster (or RDS for PostgreSQL, Multi-AZ) | The controls database | `db.r6g.large` writer + 1 reader; storage auto-scaling |
+| RDS Proxy | Pool for the evaluator and remediator | Fronts the writer; one auth secret per worker user; `max_connections_percent` 50–75 |
+| Secrets Manager: `rds/repo-guardian/{owner,evaluator,remediator,api-ro}` | One secret per database user | Rotation on your schedule, see above |
+| Secrets Manager: the two App keys and webhook secrets | `rg-eval-app`, `rg-remediate-app` | Keys rotate by adding a second key on the App registration |
+| ESO ClusterSecretStore `aws-secrets-manager` | Secrets Manager to Kubernetes | IRSA or Pod Identity on ESO's ServiceAccount |
+| Temporal | Workflows, timers, schedules | Yours: Temporal Cloud, or self-hosted with its own database |
+| EKS namespace `repo-guardian` | Pod placement | Private subnets; egress to `api.github.com` and the Temporal frontend |
+| ALB or NLB via the AWS Load Balancer Controller | Webhook route to ingest | Optionally restricted to GitHub's hook ranges |
+| VPC endpoints | Secrets Manager, STS, ECR | Optional; cut NAT cost at scale |
 
-Security-group rules to remember:
+Security-group rules:
 
-- EKS node SG → RDS Proxy SG on 5432
-- EKS node SG → ElastiCache SG on 6379
-- RDS Proxy SG → Aurora SG on 5432
-
-The IRSA role for the repo-guardian ServiceAccount needs:
-`secretsmanager:GetSecretValue` on the two secrets above. Nothing
-else AWS-side — the binary speaks plain Postgres + plain
-Valkey/Redis protocol once it has the DSNs.
+- EKS nodes → RDS Proxy on 5432 (evaluator, remediator)
+- EKS nodes → the database writer on 5432 (migrate Job, if it skips the proxy)
+- EKS nodes → the reader endpoint on 5432 (api, if it uses the reader)
+- RDS Proxy → the database on 5432
+- EKS nodes → the Temporal frontend on 7233

@@ -1,29 +1,35 @@
-# Compliance report: acme
+# Compliance report: ac\|me
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-1 of 2 rule evaluations pass across 1 rule(s).
+Compliance: 100.0% (1 of 1 measured assignments pass).
+Coverage: 100.0% of 1 assignments (0 pending, 0 stale, 0 unmeasurable, 0 unknown); 0 excluded.
 
-## Compliance by rule
+## Baseline controls
 
-| Rule | Kind | Failing | Applies to | Compliant |
-|---|---|---:|---:|---:|
-| pipe\|rule | file | 1 | 2 | 50.0% |
+| Control | Decision | Failing | Passing | Pending | Stale | Unmeasurable | N/A | Unknown | Excluded | Compliant | Coverage |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| code\`owners | baseline | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 100.0% | 100.0% |
 
+## Org-added controls
 
-No previous snapshot exists, so no trend is shown. Trends appear once
-the `compliance-snapshot` handler has run at least twice.
+No org-added control is assigned.
 
-## Findings
+## Exclusions
 
-| Repository | Rule | Failing since |
-|---|---|---|
-| a\|b | pipe\|rule | — |
-
+| Repository | Control | State | Reason | Excluded by |
+|---|---|---|---|---|
+| pipe\|repo | code\`owners | excluded | line one line \| two |  |
 
 ---
 
-Parked repositories — archived, forked, or unreadable by the App — are
-excluded from every number above. A repository nobody can measure is
-neither compliant nor failing, and counting it either way would be a
-guess.
+Compliant is Passing / (Passing + Failing), floored to one decimal, and
+reads "no data" when nothing is measured. Coverage is measured
+(Passing + Failing + N/A) over assigned. Pending (assigned, not yet
+evaluated), Stale (evaluated under an older assignment or revision),
+Unmeasurable (access lost, installation suspended, or an ownership
+conflict) and Unknown are counted beside the percentage, never in it.
+
+A replaced control is the org's version of a baseline control and
+counts in the baseline lineage. Exclusions are never in either side of
+the percentage: they are listed above with their reasons.

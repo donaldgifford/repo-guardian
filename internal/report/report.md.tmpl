@@ -1,46 +1,57 @@
+{{- define "controls" -}}
+| Control | Decision | Failing | Passing | Pending | Stale | Unmeasurable | N/A | Unknown | Excluded | Compliant | Coverage |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+{{ range . -}}
+| {{ mdcell .Control }} | {{ mdcell .Decision }} | {{ .NonCompliant }} | {{ .Compliant }} | {{ .Pending }} | {{ .Stale }} | {{ .Unmeasurable }} | {{ .NotApplicable }} | {{ .Unknown }} | {{ .Excluded }} | {{ pct .Percent }} | {{ pct .Coverage }} |
+{{ end -}}
+{{- end -}}
 # Compliance report: {{ mdcell .Name }}
 
 Generated {{ .GeneratedAt.UTC.Format "2006-01-02 15:04:05 UTC" }} by repo-guardian.
 
-{{ if .Rules -}}
-{{ .Compliant }} of {{ .Evaluated }} rule evaluations pass across {{ len .Rules }} rule(s).
+{{ if .HasControls -}}
+{{ with .Totals -}}
+Compliance: {{ pct .Percent }} ({{ .Compliant }} of {{ .Measured }} measured assignments pass).
+Coverage: {{ pct .Coverage }} of {{ .Assigned }} assignments ({{ .Pending }} pending, {{ .Stale }} stale, {{ .Unmeasurable }} unmeasurable, {{ .Unknown }} unknown); {{ .Excluded }} excluded.
+{{- end }}
 {{- else -}}
-No rules have been evaluated for this organisation yet.
+No control is assigned in this organisation yet.
 {{- end }}
 
-## Compliance by rule
+## Baseline controls
 
-{{ if .Rules -}}
-| Rule | Kind | Failing | Applies to | Compliant |{{ if .HasHistory }} Trend |{{ end }}
-|---|---|---:|---:|---:|{{ if .HasHistory }}---|{{ end }}
-{{ range .Rules -}}
-| {{ mdcell .Name }} | {{ mdcell .Kind }} | {{ .Actionable }} | {{ .Tracked }} | {{ pct . }} |{{ if $.HasHistory }} {{ trend . }} |{{ end }}
-{{ end -}}
+{{ if .Baseline -}}
+{{ template "controls" .Baseline }}
 {{- else -}}
-Nothing to report.
-{{- end }}
-{{ if and .Rules (not .HasHistory) }}
-No previous snapshot exists, so no trend is shown. Trends appear once
-the `compliance-snapshot` handler has run at least twice.
+No baseline control is assigned.
 {{ end }}
-## Findings
+## Org-added controls
 
-{{ if .Findings -}}
-| Repository | Rule | Failing since |{{ if .ShowLinks }} Open PR |{{ end }}
-|---|---|---|{{ if .ShowLinks }}---|{{ end }}
-{{ range .Findings -}}
-| {{ mdcell .Repo }} | {{ mdcell .RuleName }} | {{ since .Since }} |{{ if $.ShowLinks }} {{ if .PRURL }}[open]({{ .PRURL }}){{ else }}—{{ end }} |{{ end }}
+{{ if .OrgAdded -}}
+{{ template "controls" .OrgAdded }}
+{{- else -}}
+No org-added control is assigned.
+{{ end }}
+## Exclusions
+
+{{ if .Exclusions -}}
+| Repository | Control | State | Reason | Excluded by |
+|---|---|---|---|---|
+{{ range .Exclusions -}}
+| {{ mdcell .Repository }} | {{ control . }} | {{ mdcell .State }} | {{ mdcell .Reason }} | {{ mdcell .ExcludedBy }} |
 {{ end -}}
 {{- else -}}
-Every evaluated rule passes on every active repository.
-{{- end }}
-{{ if .LinkFailures }}
-{{ .LinkFailures }} PR link lookup(s) failed, so the Open PR column is
-incomplete. A blank cell here does not necessarily mean no PR exists.
+Nothing is excluded.
 {{ end }}
 ---
 
-Parked repositories — archived, forked, or unreadable by the App — are
-excluded from every number above. A repository nobody can measure is
-neither compliant nor failing, and counting it either way would be a
-guess.
+Compliant is Passing / (Passing + Failing), floored to one decimal, and
+reads "no data" when nothing is measured. Coverage is measured
+(Passing + Failing + N/A) over assigned. Pending (assigned, not yet
+evaluated), Stale (evaluated under an older assignment or revision),
+Unmeasurable (access lost, installation suspended, or an ownership
+conflict) and Unknown are counted beside the percentage, never in it.
+
+A replaced control is the org's version of a baseline control and
+counts in the baseline lineage. Exclusions are never in either side of
+the percentage: they are listed above with their reasons.

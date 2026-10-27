@@ -1,0 +1,69 @@
+# The UI's release notes (DESIGN-0037 §Status page changelog, IMPL-0032
+# Phase 7). Newest first. `bun run gen:changelog` writes
+# web/src/generated/changelog.json for the status page's Changelog card;
+# `bun run check:changelog` (part of `make lint-ui`) fails when the
+# newest entry's version is not the chart's appVersion, a tag is outside
+# the closed set, dates ascend, or a version repeats.
+#
+# tags: one or more of new | improved | fixed | breaking, plus areas
+# from fleet | findings | policy | ui | api | chart.
+- version: 2.0.0
+  date: 2026-10-27
+  title: "v2: controls, remediation and the UI"
+  summary: repo-guardian 2.0 evaluates every repository against a policy directory of versioned controls through a read-only GitHub App, and fixes what the policy marks for remediation through a second App, one pull request per control or a direct API change. Temporal schedules every repository and Postgres keeps every result and its history. This UI and a read-only API read that history behind your identity provider. 2.0 is a fresh install; a 1.x policy file and 1.x chart values are refused.
+  tags: [new, breaking, fleet, findings, policy, ui, api, chart]
+- version: 2.0.0-rc.18
+  date: 2026-10-25
+  title: Clearer numbers on the fleet and orgs pages
+  summary: Each orgs-grid column now holds one figure, with compliance as a meter, and Compliance by control shows its results as two badges and never scrolls sideways. The finding drawer keeps its footer clear of the timeline, folds repeated evidence and marks a re-assigned control. Chart dates no longer skip days, side-by-side cards line up, and a duplicate sign-in callback no longer logs a rejection.
+  tags: [improved, fixed, fleet, findings, ui]
+- version: 2.0.0-rc.17
+  date: 2026-10-25
+  title: Identity providers beyond Keycloak
+  summary: Okta, Entra ID and Auth0 sign-ins work without code changes. The API reads a machine client from a configurable claim, the UI can authenticate to the token endpoint with HTTP Basic and add authorize parameters such as an audience, and a new operations page gives a recipe per provider with a sign-in check.
+  tags: [new, api, ui, chart]
+- version: 2.0.0-rc.16
+  date: 2026-10-23
+  title: Findings, the orgs tree, fleet panels and Remediations
+  summary: The Findings page lists every non-compliant result with filter chips, a drawer and CSV export. The orgs tree carries each cell's own denominator, the fleet panels read the history aggregates, and the Remediations page shows every pull request, API change and hold as a sentence. The status page counts the remediations waiting to run and carries this changelog.
+  tags: [new, findings, fleet, ui]
+- version: 2.0.0-rc.15
+  date: 2026-10-23
+  title: Remediation resumes and the controls grants
+  summary: A reserved remediation resumes after a throttle instead of abandoning its branch, journaled reservations survive expiry, holds back off a day and the sweep is paced per installation. The worker roles can read the controls schema version. Icons are Tabler.
+  tags: [fixed, api, ui, chart]
+- version: 2.0.0-rc.14
+  date: 2026-10-21
+  title: Go 1.26.10
+  summary: Rebuilt on Go 1.26.10 for GO-2026-6809.
+  tags: [fixed, chart]
+- version: 2.0.0-rc.13
+  date: 2026-10-20
+  title: Remediation
+  summary: The Remediation App opens one pull request per control, applies or recommends API changes, and keeps every write behind the epoch fence. The API lists remediations and each repository's remediation.
+  tags: [new, api, ui, chart]
+- version: 2.0.0-rc.12
+  date: 2026-10-19
+  title: Repository page fixes
+  summary: Failing rules read red, the breadcrumb names the repository, evidence lines are text and the stale badge sits beside the pull request (INV-0023).
+  tags: [fixed, ui]
+- version: 2.0.0-rc.11
+  date: 2026-10-17
+  title: Controls evaluation
+  summary: Policies are a directory of controls; each repository is evaluated against its resolved assignments.
+  tags: [new, policy, ui, api]
+- version: 2.0.0-rc.10
+  date: 2026-10-16
+  title: Repository page polish
+  summary: The stale badge is spaced from the pull request link on the repository page.
+  tags: [fixed, ui]
+- version: 2.0.0-rc.9
+  date: 2026-10-16
+  title: Design refresh
+  summary: The DESIGN-0036 frontend — one surface, the tone table, charts, drawers and the keyboard pass.
+  tags: [improved, ui]
+- version: 2.0.0-rc.8
+  date: 2026-10-16
+  title: Fleet history refetch fix
+  summary: The fleet view no longer refetches compliance history on every render.
+  tags: [fixed, fleet, ui]

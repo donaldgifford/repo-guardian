@@ -1,0 +1,20 @@
+{
+  "state": "managed",
+  "assignments": [
+    {
+      "control": "codeowners@1",
+      "revision": "625cd32cfc882c8768ef3cf27492448e0bb65598088dd078ea3223560715e488",
+      "state": "active",
+      "decision": "baseline",
+      "baseline_control": "codeowners",
+      "source": "org:acme/repos[old]",
+      "source_block": "old",
+      "ordinal": 1,
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    }
+  ],
+  "max_open_prs": 3,
+  "reopen_after": 1209600000000000
+}

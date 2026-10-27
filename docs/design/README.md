@@ -30,8 +30,10 @@ docz create design "Your Design Title"
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 ## All Design
 
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 | ID | Title | Status | Date | Author | Link |
-|----|-------|--------|------|--------|------|
+| --- | --- | --- | --- | --- | --- |
 | DESIGN-0001 | Custom Properties from Backstage | Approved | 2026-03-01 | Donald Gifford | [0001-custom-properties-from-backstage.md](0001-custom-properties-from-backstage.md) |
 | DESIGN-0002 | GitHub API Rate Limit Handling | Implemented | 2026-03-01 | Donald Gifford | [0002-github-api-rate-limit-handling.md](0002-github-api-rate-limit-handling.md) |
 | DESIGN-0003 | Tailscale Integration Research | Superseded | 2026-03-01 | Donald Gifford | [0003-tailscale-integration-research.md](0003-tailscale-integration-research.md) |
@@ -55,5 +57,19 @@ docz create design "Your Design Title"
 | DESIGN-0021 | Delayed-requeue job contract and rate-limit consolidation | Implemented | 2026-07-26 | Donald Gifford | [0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md](0021-delayed-requeue-job-contract-and-rate-limit-consolidation.md) |
 | DESIGN-0022 | Compliance posture state, dashboard suite, and OTEL-first observability | Implemented | 2026-08-02 | Donald Gifford | [0022-compliance-posture-state-dashboard-suite-and-otel-first.md](0022-compliance-posture-state-dashboard-suite-and-otel-first.md) |
 | DESIGN-0023 | Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware | Implemented | 2026-08-15 | Donald Gifford | [0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md](0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md) |
+| DESIGN-0025 | v2 findings model and v1 data migration | Superseded | 2026-09-24 | Donald Gifford | [0025-v2-findings-model-and-v1-data-migration.md](0025-v2-findings-model-and-v1-data-migration.md) |
+| DESIGN-0026 | v2 Temporal control plane and role split | Implemented | 2026-09-24 | Donald Gifford | [0026-v2-temporal-control-plane-and-role-split.md](0026-v2-temporal-control-plane-and-role-split.md) |
+| DESIGN-0027 | v2 read-only API, business UI, and status page | Implemented | 2026-09-24 | Donald Gifford | [0027-v2-read-only-api-business-ui-and-status-page.md](0027-v2-read-only-api-business-ui-and-status-page.md) |
+| DESIGN-0028 | Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics | Draft | 2026-10-01 | Donald Gifford | [0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md](0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued.md) |
+| DESIGN-0029 | Controls and policies: opinionated compliance with separate evaluation and remediation | Draft | 2026-10-02 | Donald Gifford | [0029-controls-and-policies-opinionated-compliance-with-separate.md](0029-controls-and-policies-opinionated-compliance-with-separate.md) |
+| DESIGN-0030 | Policy model: enterprise and org policies and control assignment | Implemented | 2026-10-02 | Donald Gifford | [0030-policy-model-enterprise-and-org-policies-and-control-assignment.md](0030-policy-model-enterprise-and-org-policies-and-control-assignment.md) |
+| DESIGN-0031 | Control framework: controls, control rules and file controls | Implemented | 2026-10-02 | Donald Gifford | [0031-control-framework-controls-control-rules-and-file-controls.md](0031-control-framework-controls-control-rules-and-file-controls.md) |
+| DESIGN-0032 | Evaluation and remediation workflows: change-driven remediation with per-control PRs | Draft | 2026-10-02 | Donald Gifford | [0032-evaluation-and-remediation-workflows-change-driven-remediation.md](0032-evaluation-and-remediation-workflows-change-driven-remediation.md) |
+| DESIGN-0033 | fwsync as inspiration: shared HCL concepts and whether to reuse it | Draft | 2026-10-02 | Donald Gifford | [0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md](0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md) |
+| DESIGN-0034 | CODEOWNERS ownership control | Draft | 2026-10-04 | Donald Gifford | [0034-codeowners-ownership-control.md](0034-codeowners-ownership-control.md) |
 | DESIGN-0035 | rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests | Implemented | 2026-10-05 | Donald Gifford | [0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close.md](0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close.md) |
+| DESIGN-0036 | Frontend design cleanup and refresh for the v2 UI | Approved | 2026-10-15 | Donald Gifford | [0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md](0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md) |
+| DESIGN-0037 | Controls UI: org tree, findings, fleet panels and status changelog | Implemented | 2026-10-18 | Donald Gifford | [0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md](0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md) |
+| DESIGN-0038 | v2.0.0 GA cutover and identity-provider portability | In Review | 2026-10-24 | Donald Gifford | [0038-v200-ga-cutover-and-identity-provider-portability.md](0038-v200-ga-cutover-and-identity-provider-portability.md) |
+<!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

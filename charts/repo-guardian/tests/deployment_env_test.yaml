@@ -2,11 +2,18 @@ suite: deployment-templating
 templates:
   - templates/deployment.yaml
 set:
-  config:
-    appId: "12345"
-  secrets:
-    webhookSecret: "test-secret"
-    privateKey: "test-key"
+  # One Deployment (topology: all) keeps these single-document; the
+  # split shape is covered by topology_test.yaml.
+  topology: all
+  temporal:
+    address: temporal:7233
+  policy:
+    files:
+      enterprise.hcl: "enterprise {}"
+  # The schedule env rides on the evaluator, in all only with its App.
+  github:
+    eval: {appId: "11", existingSecret: eval-app}
+
 tests:
   - it: emits templating.vars entries onto the container env list
     set:
@@ -30,91 +37,10 @@ tests:
     set:
       templating:
         vars:
-          GITHUB_APP_ID: "anything"
+          EVAL_INTERVAL: "anything"
     asserts:
       - failedTemplate:
-          errorMessage: "templating.vars keys collide with chart-managed env vars: GITHUB_APP_ID"
-
-  - it: emits STRICT_TEMPLATES=true when templating.strict is enabled
-    set:
-      templating:
-        strict: true
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: STRICT_TEMPLATES
-            value: "true"
-
-  - it: omits STRICT_TEMPLATES env when templating.strict is unset
-    asserts:
-      - notContains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: STRICT_TEMPLATES
-            value: "true"
-
-  - it: mounts the chart-rendered templates ConfigMap by default
-    asserts:
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: templates
-            configMap:
-              name: RELEASE-NAME-repo-guardian-templates
-
-  - it: mounts templates.existingConfigMap when set
-    set:
-      templates:
-        existingConfigMap: my-shared-templates
-    asserts:
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: templates
-            configMap:
-              name: my-shared-templates
-
-  - it: emits ORPHAN_CLEANUP=true by default (INV-0014)
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: ORPHAN_CLEANUP
-            value: "true"
-
-  # The false case is asserted explicitly: a bool rendered through sprig
-  # `default` collapses false to the default, and this kill switch is
-  # worthless if setting it to false silently renders "true".
-  - it: respects policy.orphanCleanup=false override (INV-0014 kill switch)
-    set:
-      policy:
-        orphanCleanup: false
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: ORPHAN_CLEANUP
-            value: "false"
-
-  - it: emits AUTO_CLOSE_PR=true by default (IMPL-0013 Phase 5)
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: AUTO_CLOSE_PR
-            value: "true"
-
-  - it: respects policy.autoClosePR=false override
-    set:
-      policy:
-        autoClosePR: false
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: AUTO_CLOSE_PR
-            value: "false"
+          errorMessage: "templating.vars keys collide with chart-managed env vars: EVAL_INTERVAL"
 
   - it: emits IMPL-0015 Phase 1 discovery env vars with defaults
     asserts:
@@ -134,27 +60,7 @@ tests:
   # so a chart that stopped emitting the var would keep working and
   # the drift would only surface when an operator set the value and
   # nothing happened.
-  - it: emits the posture export interval with its default
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: POSTURE_EXPORT_INTERVAL
-            value: "60s"
-
-  - it: respects posture.exportInterval override
-    set:
-      posture:
-        exportInterval: 5m
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: POSTURE_EXPORT_INTERVAL
-            value: "5m"
-
-  # IMPL-0023 task 7.3. Same reasoning as the export interval above,
-  # with one addition: the compliance-history rows are permanent, so an
+  # IMPL-0023 task 7.3: the compliance-history rows are permanent, so an
   # operator who sets this expecting a slower cadence and silently gets
   # the 24h default is accruing rows they did not ask for.
   - it: emits the compliance snapshot interval with its default
@@ -176,36 +82,6 @@ tests:
             name: COMPLIANCE_SNAPSHOT_INTERVAL
             value: "168h"
 
-  # IMPL-0022 Phase 7: the attempt cap. Schema enforces >= 1, so the
-  # binary's own MAX_JOB_ATTEMPTS < 1 startup error is a second line
-  # of defence for operators bypassing the chart.
-  - it: renders MAX_JOB_ATTEMPTS from config.maxJobAttempts
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-            value: "10"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-          any: true
-
-  - it: honours a maxJobAttempts override
-    set:
-      config:
-        maxJobAttempts: 3
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: MAX_JOB_ATTEMPTS
-            value: "3"
-
-  # IMPL-0022 Phase 6: the BudgetTracker and the sweep reserve gate
-  # are gone — one throttle mechanism (delayed requeue) replaced
-  # three. These env vars must not come back with the values removed.
   - it: does not render the removed reserve knobs
     asserts:
       - notContains:

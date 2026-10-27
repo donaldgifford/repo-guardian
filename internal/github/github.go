@@ -35,11 +35,20 @@ type PullRequest struct {
 type Installation struct {
 	ID      int64
 	Account string
+	// Personal is an installation on a user account rather than an
+	// organization.
+	Personal bool
+	// RepositorySelection is "all" or "selected".
+	RepositorySelection string
 }
 
 // Repository represents a GitHub repository with metadata needed
-// for the checker engine to decide whether to process it.
+// for discovery and evaluation to decide whether to process it.
 type Repository struct {
+	// ID is GitHub's numeric repository id. It survives renames and
+	// transfers, so v2 matches repositories by it (DESIGN-0025 §
+	// Identity). Zero when the API did not return one.
+	ID         int64
 	Owner      string
 	Name       string
 	Archived   bool
@@ -229,11 +238,12 @@ type Client interface {
 	DeleteLabel(ctx context.Context, owner, repo, name string) error
 
 	// RateLimitRemaining returns the current core rate-limit budget for
-	// the given installation. Used by the stale-sweep reserve gate
-	// (IMPL-0011 Phase 5e) and IMPL-0015 BudgetTracker.
+	// the given installation. Its one production caller, the v1 stale
+	// sweep, was deleted in IMPL-0028 Phase 1; check activities read
+	// the budget from response headers instead (ghclient.WithUsage).
 	//
 	// Returns (remaining, limit, resetAt, err); limit ≤ 0 means
-	// "unknown" and the reserve gate falls open. resetAt is the
+	// "unknown". resetAt is the
 	// GitHub-reported hourly window rollover; callers may compare it
 	// against time.Now() to trigger a refresh.
 	RateLimitRemaining(ctx context.Context, installationID int64) (remaining, limit int, resetAt time.Time, err error)

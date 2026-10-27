@@ -1,0 +1,36 @@
+{
+  "state": "managed",
+  "assignments": [
+    {
+      "control": "codeowners@1",
+      "revision": "625cd32cfc882c8768ef3cf27492448e0bb65598088dd078ea3223560715e488",
+      "state": "excluded",
+      "decision": "excluded",
+      "baseline_control": "legacy_codeowners",
+      "source": "org:acme/repos[holdout]",
+      "source_block": "holdout",
+      "ordinal": 1,
+      "replaced": "legacy_codeowners@1",
+      "excluded_by": "org:acme/repos[holdout]",
+      "reason": "not migrated yet",
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    },
+    {
+      "control": "legacy_codeowners@1",
+      "revision": "bdc40f96a88f839ac06cd1201482f24fac33811e542c4592e0157553c86d6bb5",
+      "state": "active",
+      "decision": "baseline",
+      "baseline_control": "legacy_codeowners",
+      "source": "org:acme/repos[holdout]",
+      "source_block": "holdout",
+      "ordinal": 2,
+      "requested_mode": "evaluate",
+      "effective_mode": "evaluate",
+      "mode_source": "default"
+    }
+  ],
+  "max_open_prs": 3,
+  "reopen_after": 1209600000000000
+}

@@ -3,20 +3,26 @@ image:
   repository: busybox
   tag: latest
 
+# The role arg (ingest, evaluator, ...) follows the command; `sh -c` takes
+# it as $0 so busybox sleep sees only its duration.
 command:
-  - sleep
-  - "900"
+  - sh
+  - -c
+  - sleep 900
 
-config:
-  appId: "12345"
-  dryRun: true
+temporal:
+  address: temporal-frontend.temporal.svc.cluster.local:7233
 
-secrets:
-  webhookSecret: "test-secret"
-  privateKey: "test-key"
-  privateKeyAsFile: false
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise {}
 
 livenessProbe: null
 readinessProbe: null
 
 resources: {}
+
+# busybox has no `migrate`; the hook Job is covered by helm-unittest.
+migrate:
+  enabled: false

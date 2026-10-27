@@ -1,8 +1,6 @@
 package report
 
 import (
-	"context"
-	"errors"
 	"flag"
 	"os"
 	"path/filepath"
@@ -25,54 +23,11 @@ var updateGolden = flag.Bool("update", false, "rewrite golden report fixtures")
 // make every run a failure.
 var fixedNow = time.Date(2026, 8, 10, 14, 30, 0, 0, time.UTC)
 
-// lastWeek dates the previous snapshot in the trend fixtures.
-var lastWeek = time.Date(2026, 8, 3, 2, 0, 0, 0, time.UTC)
-
-func ptrTime(t time.Time) *time.Time { return &t }
-
-// stubLinker stands in for the GitHub-backed resolver.
-//
-// It counts calls per repository because the per-repository (not
-// per-finding) call budget is a real contract: a repository failing
-// five rules produces five findings and must still cost one API call.
-type stubLinker struct {
-	urls  map[string]string
-	fail  map[string]bool
-	calls map[string]int
-
-	// installations records the ID Enrich scoped each lookup with, so a
-	// test can prove the finding's installation reached the linker
-	// rather than a zero value that would authenticate as nobody.
-	installations map[string]int64
-}
-
-func newStubLinker() *stubLinker {
-	return &stubLinker{
-		urls:          make(map[string]string),
-		fail:          make(map[string]bool),
-		calls:         make(map[string]int),
-		installations: make(map[string]int64),
-	}
-}
-
-func (s *stubLinker) PRURL(_ context.Context, installationID int64, owner, repo string) (string, error) {
-	key := owner + "/" + repo
-	s.calls[key]++
-	s.installations[key] = installationID
-
-	if s.fail[key] {
-		return "", errors.New("installation 1 lacks access")
-	}
-
-	return s.urls[key], nil
-}
-
 // newRenderer builds a Renderer with the clock pinned.
-func newRenderer(t *testing.T, links PRLinker) *Renderer {
+func newRenderer(t *testing.T) *Renderer {
 	t.Helper()
 
 	r, err := New(Options{
-		Links:  links,
 		Now:    func() time.Time { return fixedNow },
 		Logger: testLogger(),
 	})
@@ -83,7 +38,30 @@ func newRenderer(t *testing.T, links PRLinker) *Renderer {
 	return r
 }
 
-// assertGolden compares rendered markdown against testdata.
+// buckets is one compliance row's counts, in the order the table prints
+// them.
+type buckets struct {
+	compliant, nonCompliant, pending, stale, unmeasurable, na, unknown, excluded int
+}
+
+// row builds one compliance row with its assigned count, percentage and
+// coverage filled the way the SQL fills them: excluded and conflicted
+// assignments are not assigned, and both percentages floor.
+func row(org, control, decision string, b buckets) store.ControlPosture {
+	return store.ControlPosture{
+		Org: org, ControlID: control, Decision: decision,
+		Compliant: b.compliant, NonCompliant: b.nonCompliant, Pending: b.pending, Stale: b.stale,
+		UnmeasurableAccessDenied: b.unmeasurable, NotApplicable: b.na, Unknown: b.unknown, Excluded: b.excluded,
+		Assigned: assigned(b),
+		Percent:  floorPercent(b.compliant, b.compliant+b.nonCompliant),
+		Coverage: floorPercent(b.compliant+b.nonCompliant+b.na, assigned(b)),
+	}
+}
+
+func assigned(b buckets) int {
+	return b.compliant + b.nonCompliant + b.pending + b.stale + b.unmeasurable + b.na + b.unknown
+}
+
 func assertGolden(t *testing.T, name, got string) {
 	t.Helper()
 
@@ -111,185 +89,109 @@ func assertGolden(t *testing.T, name, got string) {
 	}
 }
 
-// fullData is the everything-at-once fixture: an improving rule, a flat
-// rule, a rule with no history, and — critically — a rule present only
-// in the history, which must NOT appear in the output.
-func fullData() *store.ReportData {
-	return &store.ReportData{
-		Findings: []store.ReportFinding{
-			{
-				InstallationID:  11,
-				Owner:           "acme",
-				Repo:            "api",
-				RuleName:        "codeowners",
-				RuleKind:        "file",
-				ActionableSince: ptrTime(time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)),
-			},
-			// No ActionableSince: the column must render an em dash
-			// rather than a zero date claiming year 1.
-			{
-				InstallationID: 11,
-				Owner:          "acme",
-				Repo:           "web",
-				RuleName:       "codeowners",
-				RuleKind:       "file",
-			},
-			{
-				InstallationID:  11,
-				Owner:           "acme",
-				Repo:            "web",
-				RuleName:        "renovate",
-				RuleKind:        "file",
-				ActionableSince: ptrTime(time.Date(2026, 8, 9, 22, 0, 0, 0, time.UTC)),
-			},
+// fullData is acme with every lineage and an exclusion of each kind.
+func fullData() *Data {
+	return &Data{
+		Posture: []store.ControlPosture{
+			row("acme", "codeowners", DecisionBaseline, buckets{compliant: 40, nonCompliant: 8, pending: 2}),
+			row("acme", "labels", DecisionOrgAdded, buckets{compliant: 12, na: 3}),
+			row("acme", "renovate", DecisionReplaced, buckets{compliant: 30, nonCompliant: 10, excluded: 2}),
 		},
-		Current: []store.SnapshotRow{
-			{Org: "acme", RuleName: "codeowners", ActionableCount: 2, TrackedCount: 10},
-			{Org: "acme", RuleName: "dependabot", ActionableCount: 0, TrackedCount: 10},
-			{Org: "acme", RuleName: "renovate", ActionableCount: 1, TrackedCount: 4},
-		},
-		Previous: []store.SnapshotRow{
-			{Org: "acme", RuleName: "codeowners", ActionableCount: 5, TrackedCount: 10, SnapshotAt: lastWeek},
-			{Org: "acme", RuleName: "dependabot", ActionableCount: 0, TrackedCount: 9, SnapshotAt: lastWeek},
-			{Org: "acme", RuleName: "retired-rule", ActionableCount: 3, TrackedCount: 10, SnapshotAt: lastWeek},
+		Exclusions: []store.Exclusion{
+			{Org: "acme", Repository: "legacy", ControlID: "renovate", State: "excluded", Reason: "frozen until Q4", ExcludedBy: "orgs/acme.hcl"},
+			{Org: "acme", Repository: "sandbox", State: "excluded", Reason: "throwaway experiments"},
 		},
 	}
 }
 
-// TestRender_Golden pins the rendered markdown for the shapes an
-// operator will actually receive.
+// TestRender_Golden renders each fixture and compares it byte for byte.
 func TestRender_Golden(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name string
-		data func() *store.ReportData
-
-		// links non-nil turns on the PR column. nil is not the same as
-		// an empty linker: nil omits the column entirely, because a
-		// column of dashes is indistinguishable from "no repository has
-		// an open PR".
-		links func() *stubLinker
+		data *Data
+		org  string
 	}{
 		{
-			name: "full_with_history",
-			data: fullData,
+			name: "full",
+			data: fullData(),
+			org:  "acme",
 		},
 		{
-			// The first run a deployment ever makes. No trend column at
-			// all, plus the note explaining why, rather than a column of
-			// zeroes claiming stability nobody measured.
-			name: "no_history",
-			data: func() *store.ReportData {
-				d := fullData()
-				d.Previous = nil
-
-				return d
-			},
+			// The case the whole percent definition exists for: assigned
+			// everywhere, measured nowhere. "no data", never 100%.
+			name: "no_data",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{pending: 25}),
+			}},
+			org: "acme",
 		},
 		{
-			// The happy fleet. Rules evaluated, nothing failing.
-			name: "all_passing",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 0, TrackedCount: 12},
-					},
-					Previous: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 4, TrackedCount: 12, SnapshotAt: lastWeek},
-					},
-				}
-			},
+			// One measurement out of a hundred assignments reads 100% of
+			// one measurement beside 1% coverage, never as a measured
+			// fleet (DESIGN-0030 posture tests).
+			name: "pending_heavy",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 1, pending: 99}),
+			}},
+			org: "acme",
 		},
 		{
-			// A configured rule nothing matched. Must read "n/a", never
-			// 100% — an unmeasured rule scoring perfectly is the most
-			// misleading cell this format could produce.
-			name: "unmeasured_rule",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "branch-protection", ActionableCount: 0, TrackedCount: 0},
-					},
-				}
-			},
+			name: "stale",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 5, nonCompliant: 1, stale: 14}),
+			}},
+			org: "acme",
 		},
 		{
-			// 1999 of 2000 is 99.95%: it must read 99.9%, not the 100.0%
-			// a rounding rule would print. A report calling a fleet fully
-			// compliant while one repository is not has told a lie
-			// somebody will act on.
-			//
-			// 2000 rather than the more obvious 1000 because 999-of-1000
-			// floors and rounds to the same 99.9% — a fixture built on it
-			// would look like it pinned this and pin nothing.
-			name: "floored_percent",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Findings: []store.ReportFinding{
-						{InstallationID: 11, Owner: "acme", Repo: "straggler", RuleName: "codeowners", RuleKind: "file"},
-					},
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "codeowners", ActionableCount: 1, TrackedCount: 2000},
-					},
-				}
-			},
+			// Access loss keeps the last results but measures nothing new:
+			// the assignments are unmeasurable and out of the percentage.
+			name: "unmeasurable",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 6, nonCompliant: 2, unmeasurable: 4, unknown: 1}),
+			}},
+			org: "acme",
 		},
 		{
-			// Two orgs in one read must render as two independent
-			// documents; nothing from acme may leak into globex.
-			name: "second_org",
-			data: func() *store.ReportData {
-				d := fullData()
-				d.Findings = append(d.Findings, store.ReportFinding{
-					InstallationID: 22, Owner: "globex", Repo: "tools", RuleName: "dependabot", RuleKind: "file",
-				})
-				d.Current = append(d.Current, store.SnapshotRow{
-					Org: "globex", RuleName: "dependabot", ActionableCount: 1, TrackedCount: 3,
-				})
-
-				return d
-			},
+			name: "replaced_version",
+			data: &Data{Posture: []store.ControlPosture{
+				row("acme", "codeowners", DecisionBaseline, buckets{compliant: 9}),
+				row("acme", "renovate", DecisionReplaced, buckets{compliant: 3, nonCompliant: 3}),
+			}},
+			org: "acme",
 		},
 		{
-			// Names carrying a pipe would silently shift every column to
-			// their right, turning a compliance report into a misleading
-			// one rather than an obviously broken one.
+			// An org that excluded everything still gets a report; that it
+			// measures nothing is the finding.
+			name: "exclusions_only",
+			data: &Data{Exclusions: []store.Exclusion{
+				{Org: "acme", Repository: "archive-mirror", State: "excluded", Reason: "mirror of an upstream"},
+				{Org: "acme", Repository: "widgets", ControlID: "codeowners", State: "conflict", Reason: "two controls own CODEOWNERS"},
+			}},
+			org: "acme",
+		},
+		{
+			name: "second_org_acme",
+			data: twoOrgs(),
+			org:  "acme",
+		},
+		{
+			name: "second_org_globex",
+			data: twoOrgs(),
+			org:  "globex",
+		},
+		{
+			// Operator-authored reasons and API-supplied names reach table
+			// cells; a pipe would shift every column to its right.
 			name: "escaped_cells",
-			data: func() *store.ReportData {
-				return &store.ReportData{
-					Findings: []store.ReportFinding{
-						{InstallationID: 11, Owner: "acme", Repo: "a|b", RuleName: "pipe|rule", RuleKind: "file"},
-					},
-					Current: []store.SnapshotRow{
-						{Org: "acme", RuleName: "pipe|rule", ActionableCount: 1, TrackedCount: 2},
-					},
-				}
+			data: &Data{
+				Posture: []store.ControlPosture{row("ac|me", "code`owners", DecisionBaseline, buckets{compliant: 1})},
+				Exclusions: []store.Exclusion{
+					{Org: "ac|me", Repository: "pipe|repo", ControlID: "code`owners", State: "excluded", Reason: "line one\nline | two"},
+				},
 			},
-		},
-		{
-			name: "with_pr_links",
-			data: fullData,
-			links: func() *stubLinker {
-				l := newStubLinker()
-				l.urls["acme/api"] = "https://github.example/acme/api/pull/7"
-
-				return l
-			},
-		},
-		{
-			// A partially enriched report must say so. A short list of
-			// links otherwise reads as "these repositories have no open
-			// PR", which is a different and wrong statement.
-			name: "pr_link_failure",
-			data: fullData,
-			links: func() *stubLinker {
-				l := newStubLinker()
-				l.urls["acme/api"] = "https://github.example/acme/api/pull/7"
-				l.fail["acme/web"] = true
-
-				return l
-			},
+			org: "ac|me",
 		},
 	}
 
@@ -297,54 +199,39 @@ func TestRender_Golden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var links PRLinker
-			if tt.links != nil {
-				links = tt.links()
-			}
+			r := newRenderer(t)
 
-			r := newRenderer(t, links)
-			data := tt.data()
+			for _, o := range r.Build(tt.data) {
+				if o.Name != tt.org {
+					continue
+				}
 
-			orgs := r.Build(data)
-			r.Enrich(t.Context(), data, orgs)
-
-			if len(orgs) == 0 {
-				t.Fatalf("Build() returned no orgs; the fixture renders nothing")
-			}
-
-			for _, o := range orgs {
-				body, err := r.Render(o)
+				got, err := r.Render(o)
 				if err != nil {
 					t.Fatalf("Render(%s) = %v, want nil", o.Name, err)
 				}
 
-				name := tt.name
-				if len(orgs) > 1 {
-					name = tt.name + "_" + o.Name
-				}
+				assertGolden(t, tt.name, got)
 
-				assertGolden(t, name, body)
+				return
 			}
+
+			t.Fatalf("Build() produced no org %q", tt.org)
 		})
 	}
 }
 
-// TestRender_NoRulesEvaluated covers the defensive branch Build cannot
-// reach.
-//
-// Build derives orgs from the Current tallies, so an org with zero
-// rules never comes out of it. The template still handles the case, and
-// this pins what it says — an empty document with no explanation would
-// look like a bug in the tool rather than an absence of data.
-func TestRender_NoRulesEvaluated(t *testing.T) {
-	t.Parallel()
-
-	r := newRenderer(t, nil)
-
-	body, err := r.Render(Org{Name: "acme", GeneratedAt: fixedNow})
-	if err != nil {
-		t.Fatalf("Render() = %v, want nil", err)
+// twoOrgs is two orgs sharing a control, so neither report may carry the
+// other's rows.
+func twoOrgs() *Data {
+	return &Data{
+		Posture: []store.ControlPosture{
+			row("acme", "codeowners", DecisionBaseline, buckets{compliant: 10, nonCompliant: 2}),
+			row("globex", "codeowners", DecisionBaseline, buckets{compliant: 1, nonCompliant: 7}),
+			row("globex", "labels", DecisionOrgAdded, buckets{pending: 4}),
+		},
+		Exclusions: []store.Exclusion{
+			{Org: "globex", Repository: "infra", ControlID: "codeowners", State: "excluded", Reason: "owned by the platform team"},
+		},
 	}
-
-	assertGolden(t, "no_rules_evaluated", body)
 }

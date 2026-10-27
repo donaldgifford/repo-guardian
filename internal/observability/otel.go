@@ -82,6 +82,11 @@ type Options struct {
 	// Version is reported as service.version. Empty is fine; the
 	// attribute is simply omitted rather than reporting a placeholder.
 	Version string
+
+	// Views reshape instruments whose defaults do not fit, such as the
+	// Temporal SDK's histograms (temporal.MetricViews). They reach
+	// only instruments they match.
+	Views []sdkmetric.View
 }
 
 // Provider is the bootstrapped SDK and its shutdown hook.
@@ -194,6 +199,7 @@ func New(opts Options) (*Provider, error) {
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(opts.Views...),
 	)
 
 	otel.SetMeterProvider(provider)

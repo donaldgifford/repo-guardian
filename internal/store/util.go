@@ -1,8 +1,3 @@
-// Package store utility helpers shared by callers writing into
-// the persistent state. Currently exposes a single Truncate helper
-// for clipping error strings before they enter the RepoState.LastError
-// field (Postgres TEXT is unbounded but the operator-facing
-// dashboards / log lines need predictable widths).
 package store
 
 // Truncate returns s clipped to at most maxRunes runes. When s is
@@ -12,6 +7,8 @@ package store
 //
 // Operates on runes, not bytes, so multibyte UTF-8 sequences (e.g.
 // non-ASCII paths in error messages) are never split mid-codepoint.
+// Postgres TEXT is unbounded, but the operator-facing dashboards and
+// log lines need predictable widths.
 func Truncate(s string, maxRunes int) string {
 	if maxRunes <= 0 {
 		return ""

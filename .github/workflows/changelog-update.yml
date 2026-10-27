@@ -2,17 +2,23 @@
 # $schema=https://www.schemastore.org/github-action.json
 name: Changelog Update
 
-# Regenerates the root CHANGELOG.md from conventional commits and
+# Prepends the newest release's section to the root CHANGELOG.md and
 # opens a PR with the diff. Triggered on every binary release tag
-# (the release workflow tags v* via pr-semver-bump). The PR goes
-# through normal review and respects branch protection — no
-# bot-commit directly to main.
+# (the release workflow tags v* via pr-semver-bump). Prepending keeps
+# the hand-curated older sections byte for byte, so the PR shows one
+# new section. The PR goes through normal review and respects branch
+# protection — no bot-commit directly to main.
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to take the newest release's section from
+        required: false
+        default: main
 
 permissions:
   contents: write
@@ -22,16 +28,21 @@ jobs:
   update-changelog:
     name: Regenerate root CHANGELOG and open PR
     runs-on: ubuntu-latest
+    # Pre-release tags (vX.Y.Z-rc.N) are cut by hand (prerelease.yml);
+    # a changelog PR for each would be noise. The GA section covers them.
+    if: github.event_name != 'push' || !contains(github.ref_name, '-')
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ inputs.ref || 'main' }}
 
       - uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          args: --output CHANGELOG.md
+          # No --strip: git-cliff swaps cliff.toml's header out of the
+          # file and writes it back above the new section.
+          args: --latest --prepend CHANGELOG.md
 
       - name: Resolve tag name
         id: tag
@@ -54,7 +65,7 @@ jobs:
             Automated CHANGELOG regeneration triggered by tag
             `${{ steps.tag.outputs.tag }}`.
 
-            Generated with `git-cliff --config cliff.toml --output CHANGELOG.md`.
+            Generated with `git-cliff --config cliff.toml --latest --prepend CHANGELOG.md`.
             Review the diff and merge to keep the root CHANGELOG current.
           labels: |
             chore

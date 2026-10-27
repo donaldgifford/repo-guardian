@@ -13,3 +13,4 @@ compose.yaml
 .env.example
 mise.toml
 coverage.out
+ui

@@ -1,0 +1,11 @@
+# oapi-codegen configuration (IMPL-0025 14.2). Regenerate with
+# `make generate-api`; `make lint-api` fails on drift.
+package: gen
+output: internal/api/gen/api.gen.go
+generate:
+  std-http-server: true
+  strict-server: true
+  models: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

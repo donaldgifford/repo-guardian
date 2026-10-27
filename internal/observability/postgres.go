@@ -1,10 +1,14 @@
 package observability
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/donaldgifford/repo-guardian/internal/metrics"
 )
 
 // InstrumentPostgresConfig attaches query instrumentation to a pgxpool
@@ -22,8 +26,35 @@ import (
 // store operation is slow" — it knows the difference between StaleRepos
 // and UpsertIfMissing, where semconv sees only SQL verbs. Semconv is
 // authoritative for "why".
-func InstrumentPostgresConfig(cfg *pgxpool.Config) {
-	cfg.ConnConfig.Tracer = otelpgx.NewTracer()
+//
+// role labels store_pool_wait_seconds, timed around every pool Acquire.
+func InstrumentPostgresConfig(cfg *pgxpool.Config, role string) {
+	cfg.ConnConfig.Tracer = &poolTracer{Tracer: otelpgx.NewTracer(), wait: metrics.StorePoolWaitSeconds.WithLabelValues(role)}
+}
+
+// poolTracer is otelpgx's tracer plus store_pool_wait_seconds: pgxpool
+// takes its AcquireTracer from the connection tracer, so the two share
+// one value.
+type poolTracer struct {
+	*otelpgx.Tracer
+
+	wait interface{ Observe(float64) }
+}
+
+var _ pgxpool.AcquireTracer = (*poolTracer)(nil)
+
+type acquireStartKey struct{}
+
+func (t *poolTracer) TraceAcquireStart(ctx context.Context, pool *pgxpool.Pool, data pgxpool.TraceAcquireStartData) context.Context {
+	return t.Tracer.TraceAcquireStart(context.WithValue(ctx, acquireStartKey{}, time.Now()), pool, data)
+}
+
+func (t *poolTracer) TraceAcquireEnd(ctx context.Context, pool *pgxpool.Pool, data pgxpool.TraceAcquireEndData) {
+	if start, ok := ctx.Value(acquireStartKey{}).(time.Time); ok {
+		t.wait.Observe(time.Since(start).Seconds())
+	}
+
+	t.Tracer.TraceAcquireEnd(ctx, pool, data)
 }
 
 // InstrumentPostgresPool publishes connection-pool statistics.

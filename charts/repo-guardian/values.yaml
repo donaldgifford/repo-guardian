@@ -35,14 +35,22 @@ podAnnotations: {}
 # -- Pod labels
 podLabels: {}
 
-# -- Pod security context
-podSecurityContext: {}
-
-# -- Container security context
-securityContext:
-  readOnlyRootFilesystem: true
+# -- Pod security context for every role and the migrate Job: non-root
+# (nobody), the runtime's default seccomp profile.
+podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65534
+  runAsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context for every role and the migrate Job
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   # -- Service type
@@ -79,96 +87,366 @@ readinessProbe:
 
 # -- repo-guardian application configuration (env vars)
 config:
-  # -- GitHub App ID
-  appId: ""
   # -- Webhook listen port
   port: 8080
   # -- Metrics listen port
   metricsPort: 9090
   # -- Log level (debug, info, warn, error)
   logLevel: "info"
-  # -- Dry run mode
-  dryRun: false
-  # -- Worker count for check queue
-  workerCount: 5
-  # -- Queue size for check queue
-  queueSize: 100
-  # -- Deliveries a single job may accumulate (rate-limit deferrals
-  # plus reaper requeues) before it is dropped with a terminal error
-  # written to repo_state. The next stale sweep re-enqueues the repo,
-  # so this bounds retry cost without permanently abandoning work.
-  # Must be >= 1.
-  maxJobAttempts: 10
-  # -- Reconciliation schedule interval (Go duration)
-  scheduleInterval: "168h"
-  # -- Skip forked repositories
-  skipForks: true
-  # -- Skip archived repositories
-  skipArchived: true
 
-# -- GitHub App secrets
-secrets:
-  # -- Create secret resource (false = use existing secret)
-  create: true
-  # -- Name of existing secret (when create=false)
+# -- Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one
+# Deployment per role: `ingest` (webhooks), `evaluator` and `remediator`
+# (each when its App is set) and, when `api.enabled`, `api`. `all`
+# renders a single Deployment running every role, for small installs
+# and the homelab.
+topology: split
+
+# -- Temporal connection. Every role that dials Temporal (ingest,
+# worker, all) gets these; api never does.
+temporal:
+  # -- Frontend `host:port`. Required.
+  address: ""
+  # -- Temporal namespace.
+  namespace: repo-guardian
+  # -- Task queue the worker polls and ingest signals through.
+  taskQueue: repo-guardian
+  tls:
+    # -- Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for
+    # mTLS. Mounted only into roles that dial Temporal.
+    existingSecret: ""
+    # -- Server name to verify the frontend certificate against.
+    serverName: ""
+    # -- Secret with only `ca.crt`: verify the frontend's certificate
+    # without presenting one, for `auth.oidc` against a private CA.
+    # Empty with OIDC uses the system roots.
+    caSecret: ""
+    # -- Plaintext to the frontend (TEMPORAL_TLS_DISABLED). Only for a
+    # cluster-internal frontend that serves no TLS; with `auth.oidc`
+    # the bearer token is then readable on the wire, and the worker
+    # logs a warning.
+    disabled: false
+  auth:
+    # -- Authenticate with a bearer token from an OAuth2
+    # client-credentials grant (Keycloak and the like) instead of mTLS.
+    # The token is cached and renewed a minute before it expires.
+    # KEDA's temporal trigger cannot mint these, so use
+    # `keda.trigger: prometheus` with OIDC.
+    oidc:
+      # -- The IdP's token endpoint, e.g.
+      # `https://keycloak/realms/<realm>/protocol/openid-connect/token`.
+      tokenUrl: ""
+      # -- OAuth2 client ID.
+      clientId: ""
+      # -- Secret holding the client secret under `client-secret`.
+      # Mounted as a file, never an env var.
+      existingSecret: ""
+      # -- Scopes to request.
+      scopes: []
+      # -- `audience` parameter, for IdPs that take one. Keycloak sets
+      # the audience with a client-scope mapper instead.
+      audience: ""
+
+# -- Each repository's evaluation cadence (EVAL_INTERVAL, Go duration).
+evalInterval: "24h"
+# -- Span a policy change is spread across: every repository is
+# re-checked at a random point inside it, not all at once.
+policyRolloutWindow: "24h"
+# -- How long check history is kept before SnapshotWorkflow prunes it.
+checksRetention: "2160h"
+
+# -- The ingest role: receives webhooks and signals workflows. Stateless.
+ingest:
+  # -- Replica count (split only).
+  replicas: 2
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+
+# -- The controls workers' shared Temporal settings.
+worker:
+  # -- Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses
+  # `image.tag`, then the chart's appVersion. Each worker promotes its
+  # build to the deployment's current version at startup, and the newest
+  # semver build wins, so it must change whenever the image does. Set it
+  # only for images whose tag is not a version.
+  buildId: ""
+
+# -- The evaluator role: the controls evaluation worker on the
+# `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when
+# `github.eval.appId` is set; in `all` only when it is set.
+evaluator:
+  # -- Replica count (split only). Ignored when `evaluator.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (EVALUATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps
+  # pgxpool's default.
+  dbPoolSize: 0
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
+  keda:
+    # -- Render a ScaledObject. KEDA then owns the replica count.
+    enabled: false
+    # -- Floor.
+    minReplicas: 1
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out (either trigger).
+    targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `evaluator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
+
+# -- The remediator role: the controls remediation worker on the
+# `repo-guardian-remediate` queue. Rendered in split when
+# `github.remediate.appId` is set. Zero replicas never blocks the
+# evaluator's promotion: each role has its own worker deployment.
+remediator:
+  # -- Replica count (split only). Ignored when `remediator.keda.enabled`.
+  replicas: 1
+  # -- Concurrent activities per pod (REMEDIATOR_CONCURRENCY).
+  concurrency: 10
+  # -- Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means
+  # concurrency + 4; the remediator refuses to start with fewer
+  # connections than `concurrency`, since every running remediation
+  # holds one for its row lock.
+  dbPoolSize: 0
+  # -- How long a reserved pull-request slot waits for its PR before
+  # the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL).
+  reservationTTL: 1h
+  # -- Due remediations one hourly `remediation-sweep` starts
+  # (REMEDIATION_SWEEP_BATCH).
+  sweepBatch: 500
+  # -- Gap between two remediations one sweep starts on the same
+  # installation (REMEDIATION_SWEEP_SPACING). A pull request costs about
+  # four of GitHub's 500 content-creating requests an hour, so 30s
+  # (about 120 runs an hour) keeps a first enablement under the secondary
+  # rate limit; starts past the hour wait for the next sweep. "0s" starts
+  # them all at once.
+  sweepSpacing: 30s
+  # -- Lifecycle candidates (expire, withdraw, supersede,
+  # close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH).
+  maintenanceBatch: 200
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- KEDA autoscaling on this role's queue backlog (split only).
+  # Requires the KEDA CRDs. The trigger is the shared `keda.trigger`.
+  keda:
+    # -- Render a ScaledObject. KEDA then owns the replica count.
+    enabled: false
+    # -- Floor. 0 is allowed: promotion does not depend on a
+    # running remediator (DESIGN-0032 D28).
+    minReplicas: 0
+    # -- Ceiling. Size it to the GitHub budget, not the backlog: checks
+    # are rate-limit bound, so pods past the budget only park more
+    # timers (INV-0018 Obs 7).
+    maxReplicas: 4
+    # -- Backlog per replica before KEDA scales out (either trigger).
+    targetQueueSize: "50"
+    # -- Replicas KEDA holds when the trigger fails three polls in a
+    # row. null uses `remediator.replicas`.
+    fallbackReplicas: null
+    # -- Prometheus query (trigger `prometheus`). Empty builds the
+    # default from `temporal.namespace` and this role's queue.
+    query: ""
+
+# -- Settings shared by the controls roles' ScaledObjects.
+keda:
+  # -- `prometheus` (default) scales on the Temporal server's
+  # `approximate_backlog_count` and works with `temporal.auth.oidc`;
+  # `temporal` asks the frontend directly and is refused with OIDC.
+  trigger: prometheus
+  prometheus:
+    # -- The Prometheus that scrapes the Temporal server. Required with
+    # `trigger: prometheus` once a role enables KEDA.
+    serverAddress: ""
+    # -- An operator-owned TriggerAuthentication for that Prometheus.
+    authenticationRef: ""
+    # -- The label holding the Temporal namespace on
+    # `approximate_backlog_count`. A ServiceMonitor scrape (prometheus-
+    # operator) renames Temporal's `namespace` to `exported_namespace`
+    # because `namespace` is the pod's; use `namespace` with
+    # `honorLabels: true` or a scrape that keeps the original.
+    namespaceLabel: exported_namespace
+
+# -- The api role: the read-only JSON API (DESIGN-0027). It holds only
+# a read-only database credential: no App key, no webhook secret.
+api:
+  # -- Render the api role (split) and its Service. In `all` the API
+  # always runs on `api.port`; this gates its Service and auth.
+  enabled: false
+  # -- Replica count (split only).
+  replicas: 2
+  # -- API port beside other roles (`all`). The api role alone serves
+  # on `config.port`.
+  port: 8081
+  # -- Resources; empty falls back to `resources`.
+  resources: {}
+  # -- Give the api role (split) the `temporal.*` connection, so `POST
+  # /repositories/{id}/evaluate` can signal a re-evaluation and `/status`
+  # can probe both queues. Off, the POST answers 501 and the UI hides the
+  # button. The client only signals and describes queues; give it its
+  # own mTLS identity so its calls are attributable. `all` always dials.
+  temporal: false
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  roDsn:
+    # -- Secret holding STORE_RO_DSN. Required for `store.postgres.mode:
+    # external`; baked and cnpg derive it from the chart-managed
+    # `repoguardian_ro` role when empty.
+    existingSecret: ""
+    # -- Key inside existingSecret.
+    existingSecretKey: STORE_RO_DSN
+  auth:
+    # -- Require an OIDC bearer token on every data endpoint.
+    enabled: true
+    # -- OIDC issuer URL. Required when auth is enabled.
+    issuer: ""
+    # -- Expected token audience.
+    audience: repo-guardian-api
+    # -- Claim naming the caller in logs.
+    nameClaim: preferred_username
+    # -- Claim listing the caller's groups.
+    groupsClaim: groups
+    # -- Top-level claim naming a machine client for `authz.clients`:
+    # `azp` (Keycloak, Auth0), `cid` (Okta), `appid` (Entra ID v1). See
+    # docs/operations/identity-provider.md.
+    clientClaim: azp
+  authz:
+    # -- Group → org grants, rendered into the authz ConfigMap. Keys are
+    # group names; values list orgs (`["*"]` for every org).
+    groups: {}
+    # -- Orgs granted to every authenticated caller.
+    defaultOrgs: []
+    # -- Machine clients, by the claim `api.auth.clientClaim` names, →
+    # groups above, for IdPs that put no groups on client-credentials
+    # tokens.
+    clients: {}
+  status:
+    # -- Serve /status without a token.
+    public: true
+
+# -- The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying
+# /api to the api Service and holding the OIDC session. Requires
+# api.enabled and api.auth.enabled.
+ui:
+  # -- Render the ui Deployment, Service and PDB.
+  enabled: false
+  # -- Replica count.
+  replicas: 2
+  image:
+    # -- UI image repository.
+    repository: ghcr.io/donaldgifford/repo-guardian-ui
+    # -- UI image tag; defaults to the chart's appVersion, because both
+    # images are released together from one tag.
+    tag: ""
+  # -- Container port the BFF listens on.
+  port: 3000
+  oidc:
+    # -- OIDC client ID (a confidential client). The issuer is
+    # api.auth.issuer: the UI and the API trust the same IdP.
+    clientId: repo-guardian-ui
+    # -- Scopes requested at login. No `groups` scope by default:
+    # Keycloak's audience and group mappers need none, and Okta's custom
+    # authorization servers reject a scope they do not define. Add it
+    # where your provider issues groups only for that scope.
+    scopes: [openid, profile, email, offline_access]
+    # -- How the client secret reaches the token endpoint:
+    # `client_secret_post` or `client_secret_basic`.
+    tokenAuthMethod: client_secret_post
+    # -- Extra authorize-request parameters (string values), e.g.
+    # `{audience: "https://repo-guardian-api"}` for Auth0. May not set
+    # redirect_uri, scope, state, nonce, code_challenge,
+    # code_challenge_method, response_type or client_id.
+    authorizationParams: {}
+  # -- Secret with keys `oidc-client-secret` and `session-keys`
+  # (comma-separated, at least 32 bytes each; the first seals). Required.
   existingSecret: ""
-  # -- GitHub webhook secret
-  webhookSecret: ""
-  # -- GitHub App private key (PEM format)
-  privateKey: ""
-  # -- Mount private key as file (true) or env var (false)
-  privateKeyAsFile: true
+  # -- Absolute session length; token refresh never extends it.
+  sessionTTL: 8h
+  # -- Browser-facing origin (https://host). Defaults to
+  # https://<ui.ingress.host>; set it when the ingress is yours.
+  publicUrl: ""
+  # -- GitHub host PR and repository links point at.
+  githubHost: github.com
+  # -- https URL of the operator's documentation. When set the sidebar
+  # shows a Docs group linking to it; unset hides the group.
+  docsUrl: ""
+  # -- Resources for the ui container.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  pdb:
+    # -- Render a PodDisruptionBudget.
+    enabled: true
+    # -- Pods kept through voluntary disruptions.
+    minAvailable: 1
+  ingress:
+    # -- Render an Ingress sending the whole host to the ui Service. The
+    # only Ingress the chart renders; fails render unless
+    # api.auth.enabled.
+    enabled: false
+    # -- IngressClass name.
+    className: ""
+    # -- Annotations for the Ingress.
+    annotations: {}
+    # -- The UI's host name.
+    host: ""
+    # -- TLS blocks, as in networking.k8s.io/v1 IngressTLS.
+    tls: []
 
-# -- File-template overrides for the binary's TemplateStore.
-#
-# Breaking change in chart 0.4.0: the legacy `templates.codeowners`,
-# `templates.dependabot`, and `templates.renovate` slots have been
-# removed. Move existing values into `templates.files` keyed by
-# filename (with `.tmpl` suffix), e.g.:
-#
-#   templates:
-#     files:
-#       codeowners.tmpl: |
-#         * @platform-team
-#       dependabot.tmpl: |
-#         version: 2
-#         updates: ...
-#
-# When `templates.existingConfigMap` is non-empty the chart skips
-# rendering its own ConfigMap and the Deployment mounts the named
-# ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators
-# who manage templates out-of-band (GitOps, Argo ApplicationSet, etc).
-templates:
-  # -- Map of filename to template content. Each entry becomes a
-  # key in the rendered ConfigMap and is loaded by the binary at
-  # startup. Filenames must end in `.tmpl`.
-  files: {}
-  # -- Name of an existing ConfigMap to mount at TEMPLATE_DIR
-  # instead of rendering one from `templates.files`.
-  existingConfigMap: ""
+# -- The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 §
+# Two Apps). Each block is off until its appId is set. The private key
+# is always mounted as a file. Keys go only to the roles that act as
+# that App: the Evaluation App's to evaluator and `all` pods, the
+# Remediation App's to remediator and `all` pods. Each webhook secret
+# (and App id, for the app-mismatch check) goes to ingest and `all`.
+github:
+  eval:
+    # -- The Evaluation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-eval` from the two values below.
+    existingSecret: ""
+    # -- The Evaluation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Evaluation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
+  remediate:
+    # -- The Remediation App's numeric id. Empty disables the block.
+    appId: ""
+    # -- Existing Secret with keys `private-key` and `webhook-secret`.
+    # Empty: the chart creates `<release>-remediate` from the two values below.
+    existingSecret: ""
+    # -- The Remediation App's private key (PEM), when the chart creates the Secret.
+    privateKey: ""
+    # -- The Remediation App's webhook secret, when the chart creates the Secret.
+    webhookSecret: ""
 
-# -- Templating configuration: env-var injection and strict-mode
-# validation.
-#
-# `templating.vars` exposes arbitrary environment variables to the
-# binary's `env "VAR"` template helper. Values flow through to the
-# Deployment's container env list; they are NOT secrets — use
-# `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for
-# secret material. The chart rejects keys that collide with
-# chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).
-#
-# `templating.strict` toggles `STRICT_TEMPLATES=true` on the
-# Deployment. When enabled the binary validates every compiled PR
-# template against a zero-value PRVars context at startup and
-# fails fast on missing-field references.
+# -- Environment for the policy templates' `env "VAR"` helper, set on
+# every role that loads the policy. Values are NOT secrets: use
+# `extraEnv` with valueFrom for secret material. The chart rejects keys
+# that collide with chart-managed env vars.
 templating:
-  # -- Map of env-var key to value. Keys must not collide with
-  # chart-managed env vars; the chart fails template rendering on
-  # collisions.
+  # -- Map of env-var key to value.
   vars: {}
-  # -- Enable startup-time strict validation of compiled PR
-  # templates (sets STRICT_TEMPLATES=true on the Deployment).
-  strict: false
 
 serviceMonitor:
   # -- Create Prometheus ServiceMonitor
@@ -190,6 +468,32 @@ prometheusRule:
   # PrometheusRule template for the canonical alert names.
   alerts: {}
 
+migrate:
+  # -- Run `repo-guardian migrate` as a hook Job (v2 schema migrations
+  # and the one-time v1 backfill): post-install, so a baked Postgres
+  # exists to connect to, and pre-upgrade, so the schema lands before
+  # new pods roll.
+  enabled: true
+  # -- Job retries before the release fails.
+  backoffLimit: 6
+  # -- Upper bound on the Job's run time, in seconds. The v1 backfill is
+  # one transaction; raise this for very large fleets.
+  activeDeadlineSeconds: 600
+  # -- How long `repo-guardian migrate` waits for the database to accept
+  # connections, in seconds (MIGRATE_WAIT). Under Argo CD the Job can
+  # start before Postgres does, even after the CNPG Cluster reports
+  # healthy. Must stay under `activeDeadlineSeconds`, so a database that
+  # never comes up fails with its last error rather than a killed pod.
+  waitSeconds: 300
+  # -- Resources for the migrate container.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 # -- Persistent state store (per-repo reconcile state). See
 # DESIGN-0012 §Backend modes. The in-memory backend was removed
 # in IMPL-0016 (chart 1.0); postgres is the only supported value.
@@ -208,8 +512,6 @@ store:
     existingSecret: ""
     # -- Key inside existingSecret holding the DSN. Default: STORE_DSN.
     existingSecretKey: STORE_DSN
-    # -- Connection cap for the pgx pool.
-    maxConns: 16
     # -- Baked Postgres-only configuration.
     baked:
       # -- Pinned image. Bump intentionally.
@@ -226,6 +528,10 @@ store:
       existingSecret: ""
       # -- Key inside existingSecret holding the password.
       existingSecretKey: POSTGRES_PASSWORD
+      # -- Key inside existingSecret holding the api role's read-only
+      # password (`repoguardian_ro`). Read only for a split API with no
+      # `api.roDsn.existingSecret`. URL-safe, like the admin password.
+      existingSecretROKey: RO_PASSWORD
       # -- Persistent volume size.
       storageSize: 10Gi
       # -- StorageClass name. Empty → cluster default.
@@ -293,109 +599,48 @@ store:
           labels:
             bgp.cilium.io/advertise-service: default
             bgp.cilium.io/ip-pool: default
-
-# -- Work queue for reconcile jobs. The in-memory backend was
-# removed in IMPL-0016 (chart 1.0); valkey is the only supported
-# value.
-queue:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-  # -- (deprecated) Buffered channel size; ignored since the
-  # in-memory backend was removed in IMPL-0016. Retained for
-  # values-schema backwards compatibility; will be deleted in a
-  # future chart-major release.
-  size: 1000
-  # -- Valkey-specific configuration. Ignored when backend != valkey.
-  valkey:
-    # -- Source of the Valkey deployment. One of:
-    # "baked"    — chart renders a single-pod Valkey Deployment;
-    # "external" — operator provides DSN via existingSecret.
-    mode: baked
-    # -- Operator-supplied secret holding QUEUE_VALKEY_DSN.
-    existingSecret: ""
-    # -- Key inside existingSecret holding the DSN.
-    existingSecretKey: QUEUE_VALKEY_DSN
-    # -- How long an in-flight job may sit before the reaper
-    # requeues it.
-    jobAckTimeout: "5m"
-    # -- Cadence between reaper iterations.
-    reaperInterval: "60s"
-    # -- Baked Valkey-only configuration.
-    baked:
-      # -- Pinned image. Bump intentionally.
-      image: valkey/valkey:9.1
-      # -- Operator-supplied Secret holding the Valkey password. Same
-      # GitOps rationale as store.postgres.baked.existingSecret. When set,
-      # the chart skips its generated password Secret; the baked Valkey
-      # reads the password from this Secret and the app assembles
-      # QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe
-      # (alphanumeric) password required.
+  # -- The controls line's database roles (IMPL-0028 Phase 6,
+  # DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in
+  # baked mode a non-superuser owner, rg_owner, for the migrate Job.
+  controls:
+    # -- Provision the roles, mount STORE_DSN_EVALUATOR /
+    # STORE_DSN_REMEDIATOR into the controls roles' pods (a split
+    # controls pod then gets no STORE_DSN), and point the migrate Job at
+    # the controls chain as the owner. Off until
+    # IMPL-0029's switch-over; enable it only against an empty database.
+    enabled: false
+    evaluator:
+      # -- External mode: Secret holding rg_evaluator's DSN.
       existingSecret: ""
-      # -- Key inside existingSecret holding the password.
-      existingSecretKey: VALKEY_PASSWORD
-      # -- Persistent volume size.
-      storageSize: 1Gi
-      # -- StorageClass name. Empty → cluster default.
-      storageClassName: ""
-      # -- Generated AUTH password length (random alphanumeric).
-      authPasswordLength: 32
-      # -- Pod securityContext. Runs Valkey as the image's built-in
-      # non-root user (uid/gid 999) so the entrypoint skips its
-      # root-only chown of /data (which fails on clusters/storage
-      # that forbid chown); fsGroup makes kubelet set volume group
-      # ownership instead. Set to `{}` to restore the image default
-      # (root entrypoint + chown).
-      podSecurityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        fsGroupChangePolicy: OnRootMismatch
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_EVALUATOR
+    remediator:
+      # -- External mode: Secret holding rg_remediator's DSN.
+      existingSecret: ""
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_REMEDIATOR
+    all:
+      # -- External mode, `topology: all`: Secret holding rg_all's DSN.
+      existingSecret: ""
+      # -- Key inside existingSecret.
+      existingSecretKey: STORE_DSN_ALL
 
-# -- Scheduler (sweep cadence) backend. The single-replica ticker
-# scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only
-# supported value. Scheduler shares the queue's Valkey instance.
-scheduler:
-  # -- Backend implementation. Only "valkey" is supported.
-  backend: valkey
-
-# -- Stale-sweep tuning (IMPL-0011 Phase 5d).
-staleSweep:
-  # -- Maximum age of a stored last_checked_at before the sweep
-  # requeues. Default 24h. Effective only with store.backend=postgres.
-  freshness: "24h"
-  # -- Cap on rows returned per StaleRepos query.
-  batchSize: 200
-
-# -- Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on
-# the leader pod, enumerates installations + repos via the GitHub
-# API, and persists discovery rows via Store.UpsertIfMissing so the
-# stale-sweeper picks them up on the next tick. Webhook-driven
-# discovery (`installation_repositories.added` + `repository.created`)
-# is the primary on-ramp; the periodic Discoverer is the safety net
-# for missed deliveries.
+# -- Repository discovery. The discovery schedule enumerates every
+# installation's repositories and starts a RepoWorkflow for each new one.
+# Webhooks (`installation_repositories.added`, `repository.created`) are
+# the primary on-ramp; this is the safety net for missed deliveries.
 discovery:
-  # -- Toggle the Discoverer schedule. When false the binary still
-  # responds to discovery via webhooks; only the periodic enumeration
-  # path is disabled.
+  # -- Toggle the discovery schedule. When false, webhooks still
+  # discover repositories; only the periodic enumeration stops.
   enabled: true
-  # -- Cadence between Discoverer.Discover invocations. Lower values
-  # burn more API budget on list_installations +
-  # list_installation_repos; higher values delay discovery of repos
-  # the webhook path missed.
+  # -- Cadence between discovery runs. Lower values spend more API
+  # budget on list_installation_repos; higher values delay discovery
+  # of repositories the webhook path missed.
   interval: "1h"
 
-# -- Compliance posture export (IMPL-0023 / DESIGN-0022). The elected
-# leader projects the rule_state table onto the repos_actionable /
-# repos_tracked / repos_unmeasurable gauges on this cadence.
+# -- Compliance history (IMPL-0023 / DESIGN-0022). SnapshotWorkflow
+# writes one compliance_history row per org on this cadence.
 posture:
-  # -- Cadence between posture exporter ticks. Unlike the sweep and
-  # discovery intervals this costs no GitHub API budget — it is a few
-  # aggregates over an indexed table — so it is tuned against how stale
-  # the compliance gauges may be, not against rate limit. Values above
-  # 60s leave the exporter behind its own duration histogram, whose
-  # buckets stop there.
-  exportInterval: "60s"
   # -- Cadence between compliance-history snapshots, the rows
   # `repo-guardian report --since` reads. This is not the posture
   # gauges: Prometheus already keeps those for its retention window,
@@ -407,30 +652,21 @@ posture:
   # requested.
   snapshotInterval: "24h"
 
-# -- HCL policy configuration
+# -- The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted
+# at GUARDIAN_CONFIG on ingest (push routing reads its watched paths),
+# the controls workers and the migrate Job (which activates its version).
 policy:
-  # -- Inline HCL policy config (creates a ConfigMap)
-  config: ""
-  # -- Use an existing ConfigMap for policy config
+  # -- The policy root as a nested map by directory (OQ11): a string is
+  # a file, a map is a directory, e.g. `enterprise.hcl: ...`,
+  # `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`,
+  # `templates: {...}`. Rendered into one ConfigMap (keys joined with
+  # dots, `catalogue.codeowners.hcl`); the volume puts each file back at
+  # its path.
+  files: {}
+  # -- An existing ConfigMap holding the policy root, mounted whole in
+  # place of `files` (flat keys only, unless the operator mounts it with
+  # its own items through extraVolumes).
   existingConfigMap: ""
-  # -- Auto-close repo-guardian PRs when every file rule is
-  # satisfied on the default branch (IMPL-0013 Phase 3). When
-  # `true` (default), the PR is closed with a sticky comment and
-  # the reconcile branch is deleted. When `false`, the PR stays
-  # open until a human closes it.
-  autoClosePR: true
-  # -- Remove files from repo-guardian's own reconcile branch once the
-  # rule that added them is satisfied on the default branch (IMPL-0013
-  # Phase 3). When `true` (default), a PR stops proposing files that are
-  # no longer needed. When `false`, no file is ever deleted from the
-  # reconcile branch and PR bodies may list rules already satisfied on
-  # the default branch.
-  #
-  # This is a kill switch, not a tuning knob: orphan cleanup is the only
-  # path that deletes files, and INV-0014 is a fixed defect in it that
-  # produced PRs proposing to remove files repositories legitimately
-  # owned. Leave it enabled unless you have reason not to.
-  orphanCleanup: true
 
 # -- Additional environment variables
 extraEnv: []

@@ -1,0 +1,12 @@
+{
+  "repository": {
+    "org": "acme",
+    "name": "api",
+    "active": true
+  },
+  "access": {
+    "evaluable": true,
+    "remediable": false,
+    "remediation_suspended": true
+  }
+}

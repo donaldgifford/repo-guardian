@@ -63,7 +63,7 @@ func TestE4_EveryQueryStartsFromTheStreamSelector(t *testing.T) {
 
 	ds := dashboard.Datasources{LogStream: `job="platform/repo-guardian"`}.WithDefaults()
 
-	suite := dashboard.Suite(strictModel(), ds)
+	suite := dashboard.Suite(strictModel(), ds, dashboard.Identity{})
 
 	var found bool
 
@@ -92,31 +92,6 @@ func TestE4_EveryQueryStartsFromTheStreamSelector(t *testing.T) {
 
 	if !found {
 		t.Fatalf("no dashboard with slug %q", e4Slug)
-	}
-}
-
-// TestE4_MatchesTheLockedCatalogParseLine ties the panel to the log.
-//
-// The literal is duplicated from internal/reconciler/log_contract_test.go
-// on purpose: it is a contract between two packages that do not import
-// each other, and a shared constant would let a rename move both ends at
-// once and pass. Two independent copies means a rename fails here.
-func TestE4_MatchesTheLockedCatalogParseLine(t *testing.T) {
-	t.Parallel()
-
-	const locked = "catalog-info parse failed"
-
-	var matched bool
-
-	for _, tgt := range e4Targets(t) {
-		if strings.Contains(tgt.Expr, locked) {
-			matched = true
-		}
-	}
-
-	if !matched {
-		t.Errorf("no E4 panel matches %q; the counter says how many repositories have a broken "+
-			"catalog and only the log says which", locked)
 	}
 }
 
@@ -190,7 +165,7 @@ func TestE4_IsModelIndependent(t *testing.T) {
 	render := func(m *monitoring.Model) string {
 		t.Helper()
 
-		suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
+		suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 		for i := range suite {
 			if suite[i].Slug != e4Slug {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gh "github.com/google/go-github/v68/github"
+	"github.com/shurcooL/githubv4"
 
 	"github.com/donaldgifford/repo-guardian/internal/metrics"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
@@ -115,6 +116,12 @@ func newClientFromTransport(transport *ghinstallation.AppsTransport, logger *slo
 	}
 }
 
+// graphQL returns the GraphQL client for the same installation and
+// transport chain as ghClient.
+func (c *GitHubClient) graphQL() *githubv4.Client {
+	return graphQLFor(c.ghClient())
+}
+
 // ghClient returns the appropriate go-github client. If this GitHubClient
 // is scoped to an installation, it returns the installation client;
 // otherwise, it returns the app-level client.
@@ -186,9 +193,21 @@ func (c *GitHubClient) GetRepository(ctx context.Context, owner, repo string) (*
 		return nil, fmt.Errorf("getting repository %s/%s: %w", owner, repo, err)
 	}
 
+	// The API follows renames and transfers, so the response carries
+	// the canonical owner and name; fall back to the request when absent.
+	canonicalOwner, canonicalName := r.GetOwner().GetLogin(), r.GetName()
+	if canonicalOwner == "" {
+		canonicalOwner = owner
+	}
+
+	if canonicalName == "" {
+		canonicalName = repo
+	}
+
 	return &Repository{
-		Owner:      owner,
-		Name:       repo,
+		ID:         r.GetID(),
+		Owner:      canonicalOwner,
+		Name:       canonicalName,
 		Archived:   r.GetArchived(),
 		Fork:       r.GetFork(),
 		HasBranch:  r.GetDefaultBranch() != "",
@@ -348,8 +367,10 @@ func (c *GitHubClient) ListInstallations(ctx context.Context) ([]*Installation, 
 
 		for _, install := range installs {
 			allInstalls = append(allInstalls, &Installation{
-				ID:      install.GetID(),
-				Account: install.GetAccount().GetLogin(),
+				ID:                  install.GetID(),
+				Account:             install.GetAccount().GetLogin(),
+				Personal:            install.GetAccount().GetType() == "User",
+				RepositorySelection: install.GetRepositorySelection(),
 			})
 		}
 
@@ -382,6 +403,7 @@ func (c *GitHubClient) ListInstallationRepos(ctx context.Context, installationID
 
 		for _, repo := range result.Repositories {
 			allRepos = append(allRepos, &Repository{
+				ID:         repo.GetID(),
 				Owner:      repo.GetOwner().GetLogin(),
 				Name:       repo.GetName(),
 				Archived:   repo.GetArchived(),

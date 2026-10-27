@@ -3,12 +3,11 @@
 #
 # Run: make mocks
 #
-# Covers the DESIGN-0012 interfaces (Store, Queue, Scheduler) and
-# github.Client. The Client mock is not driven by expectations in any
-# test — the checker/scheduler/reconciler packages keep hand-written
-# stateful fakes and embed MockClient only so that adding a method to
-# github.Client stops breaking three test files at once. See CLAUDE.md
-# "Mock generation policy" and IMPL-0021 Phase 7.
+# Covers github.Client and the controls client surface (control.Reader,
+# PRObserver, Writer; IMPL-0028 task 2.8). The store mocks went with the
+# rc findings store (IMPL-0029 7.4). The Client mock is embedded by hand-written stateful fakes
+# so that adding a method to github.Client stops breaking their test
+# files at once (IMPL-0021 Phase 7).
 #
 # Pinned to mockery v3 in mise.toml: v2's final release (2.53.6) is
 # built against go1.25 and cannot load this module at all
@@ -21,23 +20,15 @@ template: testify
 template-data:
   unroll-variadic: true
 packages:
-  github.com/donaldgifford/repo-guardian/internal/store:
-    config:
-      dir: internal/store/mocks
-    interfaces:
-      Store: {}
-  github.com/donaldgifford/repo-guardian/internal/queue:
-    config:
-      dir: internal/queue/mocks
-    interfaces:
-      Queue: {}
-  github.com/donaldgifford/repo-guardian/internal/scheduler:
-    config:
-      dir: internal/scheduler/mocks
-    interfaces:
-      Scheduler: {}
   github.com/donaldgifford/repo-guardian/internal/github:
     config:
       dir: internal/github/mocks
     interfaces:
       Client: {}
+  github.com/donaldgifford/repo-guardian/internal/control:
+    config:
+      dir: internal/control/mocks
+    interfaces:
+      Reader: {}
+      PRObserver: {}
+      Writer: {}

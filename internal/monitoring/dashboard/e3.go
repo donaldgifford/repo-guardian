@@ -27,23 +27,23 @@ const (
 // publishes `db_client_connections_*` with `db_system="redis"`; and the
 // two carry different pool-name labels (`pool_name` versus
 // `db_client_connection_pool_name`). A panel built from the spec would
-// render empty and look like a quiet, healthy service.
-func e3System(_ *monitoring.Model, ds Datasources) Dashboard {
-	b := New("repo-guardian-system", "repo-guardian — system",
+// render empty and look like a quiet, healthy service. The Temporal SDK
+// series are the names the alert catalogue already charts; IMPL-0029
+// task 6.6 checks them against a live scrape.
+func e3System(_ *monitoring.Model, ds Datasources, id Identity) Dashboard {
+	b := New(id.slug(kindSystem), id.title(labelSystem),
 		"Service and infrastructure health. No compliance numbers: those are E1's and E2's.",
 		[]string{tagProject, tagGenerated})
 
 	b = withHTTPSection(b, ds)
-	b = withQueueSection(b, ds)
+	b = withTemporalSection(b, ds)
+	b = withEvaluationSection(b, ds)
+	b = withBudgetSection(b, ds)
 	b = withStoreSection(b, ds)
+	b = withAPISection(b, ds)
 	b = withRuntimeSection(b, ds)
 
-	return Dashboard{
-		Slug:    "repo-guardian-system",
-		Title:   "repo-guardian — system",
-		Folder:  GrafanaFolder,
-		Builder: b,
-	}
+	return id.dashboard(kindSystem, labelSystem, b)
 }
 
 // withHTTPSection charts the semconv HTTP server and client.
@@ -59,8 +59,8 @@ func withHTTPSection(b *Builder, ds Datasources) *Builder {
 				Legend: "{{ http_response_status_code }}",
 			})).
 		WithPanel(TimeSeries(ds, "Webhook latency p99",
-			"Server-side request duration. A rise here with a flat error rate usually means the "+
-				"handler is blocking on the queue rather than failing.",
+			"Server-side request duration. A rise here with a flat error rate usually means "+
+				"ingest is waiting on Temporal to start the webhook workflow rather than failing.",
 			unitSeconds, Query{
 				Expr: `histogram_quantile(0.99,
   sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket[5m]))
@@ -77,7 +77,7 @@ func withHTTPSection(b *Builder, ds Datasources) *Builder {
 				Legend: "{{ http_response_status_code }}",
 			})).
 		WithPanel(TimeSeries(ds, "GitHub API latency p99",
-			"Client-side request duration to GitHub. The usual cause of a rising check duration.",
+			"Client-side request duration to GitHub. The usual cause of a rising evaluation duration.",
 			unitSeconds, Query{
 				Expr: `histogram_quantile(0.99,
   sum by (le) (rate(http_client_request_duration_seconds_bucket[5m]))
@@ -86,69 +86,144 @@ func withHTTPSection(b *Builder, ds Datasources) *Builder {
 			}))
 }
 
-// withQueueSection charts the durable queue, USE-style.
-func withQueueSection(b *Builder, ds Datasources) *Builder {
+// withTemporalSection charts the Temporal SDK's worker-side series.
+func withTemporalSection(b *Builder, ds Datasources) *Builder {
 	return b.
-		WithRow(Row("Queue")).
-		WithPanel(TimeSeries(ds, "Queue depth",
-			"Jobs waiting in each key. `jobs` is the ready list; a depth that only grows means "+
-				"workers are not keeping up.",
-			unitShort, Query{
-				Expr:   `max by (queue) (repo_guardian_queue_depth)`,
-				Legend: "{{ queue }}",
-			})).
-		WithPanel(TimeSeries(ds, "Delayed (deferred) jobs",
-			"Jobs parked in the delayed ZSET awaiting promotion. Sustained depth is rate-limit "+
-				"backpressure: work is not being lost, but the fleet is not converging either. "+
-				"Promotion lags due-time by up to one REAPER_INTERVAL by design.",
-			unitShort, Query{Expr: `max(repo_guardian_queue_delayed_depth)`, Legend: "delayed"})).
-		WithPanel(TimeSeries(ds, "Deferrals by reason",
-			"Why jobs were parked. A deferral is not a failure — the check never ran, so it is "+
-				"deliberately absent from errors_total and from the repo's write-back.",
-			unitShort, Query{
-				Expr:   `sum by (reason) (rate(repo_guardian_queue_delayed_total[15m]))`,
-				Legend: "{{ reason }}",
-			})).
-		WithPanel(TimeSeries(ds, "Reaps and exhausted jobs",
-			"Reaps mean workers died mid-job or exceeded JOB_ACK_TIMEOUT, and every reap "+
-				"duplicates work against an API budget that is probably already tight. Exhausted "+
-				"means a job hit MAX_JOB_ATTEMPTS and was dropped; the stale sweep is its "+
-				"recovery path.",
-			unitShort,
-			Query{Expr: `sum(rate(repo_guardian_queue_reaped_total[15m]))`, Legend: "reaped"},
-			Query{Expr: `sum(rate(repo_guardian_queue_attempts_exhausted_total[15m]))`, Legend: "exhausted"})).
-		WithPanel(TimeSeries(ds, "Queue wait p99",
-			"How long a job sat before a worker claimed it.",
+		WithRow(Row("Temporal")).
+		WithPanel(TimeSeries(ds, "Activity schedule-to-start p99",
+			"How long an evaluation waited for a worker slot, per task queue. The evaluation "+
+				"queue and the remediation queue scale separately, so read them separately.",
 			unitSeconds, Query{
-				Expr:   `histogram_quantile(0.99, sum by (le) (rate(repo_guardian_queue_wait_seconds_bucket[15m])))`,
-				Legend: legendP99,
+				Expr: `histogram_quantile(0.99,
+  sum by (le, task_queue) (rate(temporal_activity_schedule_to_start_latency_seconds_bucket[15m]))
+)`,
+				Legend: "{{ task_queue }}",
 			})).
-		WithPanel(TimeSeries(ds, "Valkey connection pool",
-			"redisotel's semconv pool gauge. Note db_system is \"redis\" — the library reports "+
-				"the protocol, not the server, and repo-guardian runs Valkey.",
+		WithPanel(TimeSeries(ds, "Workflow task schedule-to-start p99",
+			"Workflow tasks are short; waiting here means workers are saturated or gone. "+
+				"Temporal recommends alerting above 200ms.",
+			unitSeconds, Query{
+				Expr: `histogram_quantile(0.99,
+  sum by (le, task_queue) (rate(temporal_workflow_task_schedule_to_start_latency_seconds_bucket[15m]))
+)`,
+				Legend: "{{ task_queue }}",
+			})).
+		WithPanel(TimeSeries(ds, "Free worker task slots",
+			"Lowest free slot count per queue and worker type. Zero on every pod is "+
+				"saturation; zero on one busy pod is normal.",
 			unitShort, Query{
-				Expr:   `sum by (state) (db_client_connections_usage{db_system="redis"})`,
-				Legend: "{{ state }}",
+				Expr:   `min by (task_queue, worker_type) (temporal_worker_task_slots_available)`,
+				Legend: "{{ task_queue }} {{ worker_type }}",
+			})).
+		WithPanel(TimeSeries(ds, "Sticky cache forced evictions",
+			"More long-lived workflows than the sticky cache holds. Every EvaluationWorkflow "+
+				"is one, so this tracks fleet size against the worker cache.",
+			unitShort, Query{
+				Expr:   `sum(rate(temporal_sticky_cache_total_forced_eviction[15m]))`,
+				Legend: "evictions",
 			}))
 }
 
-// withStoreSection charts Postgres and the state write-back.
+// withEvaluationSection charts the evaluator's own counters.
+func withEvaluationSection(b *Builder, ds Datasources) *Builder {
+	return b.
+		WithRow(Row("Evaluation")).
+		WithPanel(TimeSeries(ds, "Evaluations by outcome",
+			"Evaluations finished per second. A deferral is not here: the evaluation never ran, "+
+				"so it has no outcome.",
+			unitShort, Query{
+				Expr:   `sum by (outcome) (rate(repo_guardian_evaluations_total[15m]))`,
+				Legend: "{{ outcome }}",
+			})).
+		WithPanel(TimeSeries(ds, "Evaluation errors by control",
+			"Control evaluations with an error status. One control erroring everywhere is a "+
+				"control or permission problem; every control erroring is the evaluator.",
+			unitShort, Query{
+				Expr:   `sum by (control) (rate(repo_guardian_evaluation_errors_total[15m]))`,
+				Legend: legendControl,
+			})).
+		WithPanel(TimeSeries(ds, "Recorded changes and stale-epoch discards",
+			"Changes are results whose generation moved. Discards are staged results the record "+
+				"step dropped because the assignment changed underneath the evaluation; a steady "+
+				"trickle during a policy rollout is expected, a sustained rate is not.",
+			unitShort,
+			Query{Expr: `sum(rate(repo_guardian_evaluation_changes_total[15m]))`, Legend: "changes"},
+			Query{
+				Expr:   `sum by (reason) (rate(repo_guardian_results_discarded_total[15m]))`,
+				Legend: "discarded ({{ reason }})",
+			})).
+		WithPanel(TimeSeries(ds, "Evaluation freshness",
+			"Age of a control's previous result when it is re-evaluated. The p50 sits near "+
+				"EVAL_INTERVAL by design; a p95 well past it means the fleet is not keeping up.",
+			unitSeconds,
+			Query{
+				Expr:   `histogram_quantile(0.5, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[1h])))`,
+				Legend: "p50",
+			},
+			Query{
+				Expr:   `histogram_quantile(0.95, sum by (le) (rate(repo_guardian_evaluation_freshness_seconds_bucket[1h])))`,
+				Legend: "p95",
+			}))
+}
+
+// withBudgetSection charts the GitHub rate budget and discovery.
+func withBudgetSection(b *Builder, ds Datasources) *Builder {
+	return b.
+		WithRow(Row("Budget and discovery")).
+		WithPanel(TimeSeries(ds, "Budget acquisitions by result",
+			"The per-installation budget's answers. optimistic means no rate report yet, so the "+
+				"budget granted blind; wait means the evaluation sleeps until the reset.",
+			unitShort, Query{
+				Expr:   `sum by (result) (rate(repo_guardian_budget_acquire_total[15m]))`,
+				Legend: "{{ result }}",
+			})).
+		WithPanel(TimeSeries(ds, "GitHub API budget remaining",
+			"Remaining core budget per installation, as the last response reported it.",
+			unitShort, Query{
+				Expr:   `min by (installation_id) (repo_guardian_rate_limit_remaining)`,
+				Legend: "{{ installation_id }}",
+			})).
+		WithPanel(TimeSeries(ds, "Repositories discovered",
+			"New or reactivated repositories per installation. Discovery is the only path that "+
+				"un-parks a repository.",
+			unitShort, Query{
+				Expr:   `sum by (installation_id) (increase(repo_guardian_repo_discovered_total[1h]))`,
+				Legend: "{{ installation_id }}",
+			})).
+		WithPanel(TimeSeries(ds, "Discovery API calls",
+			"Listing calls per endpoint. Discovery is not budget-gated, so this is its whole "+
+				"cost against the rate limit.",
+			unitShort, Query{
+				Expr:   `sum by (endpoint) (increase(repo_guardian_discovery_api_calls_total[1h]))`,
+				Legend: "{{ endpoint }}",
+			}))
+}
+
+// withStoreSection charts Postgres.
 func withStoreSection(b *Builder, ds Datasources) *Builder {
 	return b.
 		WithRow(Row("Store")).
 		WithPanel(TimeSeries(ds, "Store query latency p99",
 			"repo-guardian's own query timer, which measures the statement rather than the "+
-				"connection. Pair it with the pool panels: a p99 that rises while acquisitions "+
-				"stay flat is Postgres, not saturation here.",
+				"connection. Pair it with pool wait: a p99 that rises while pool wait stays flat "+
+				"is Postgres, not saturation here.",
 			unitSeconds, Query{
-				Expr:   `histogram_quantile(0.99, sum by (le, query) (rate(repo_guardian_store_query_seconds_bucket[15m])))`,
-				Legend: "{{ query }}",
+				Expr:   `histogram_quantile(0.99, sum by (le, operation) (rate(repo_guardian_store_query_seconds_bucket[15m])))`,
+				Legend: "{{ operation }}",
 			})).
 		WithPanel(TimeSeries(ds, "Store query failure rate",
-			"Share of store queries returning an error. Backs RepoGuardianStoreQueryErrors.",
+			"Share of store queries returning an error. The `> 0` keeps an idle store at 'no "+
+				"data' rather than a division by zero.",
 			unitPercent, Query{Expr: `sum(rate(repo_guardian_store_query_seconds_count{outcome="error"}[10m]))
 /
-clamp_min(sum(rate(repo_guardian_store_query_seconds_count[10m])), 1)`})).
+(sum(rate(repo_guardian_store_query_seconds_count[10m])) > 0)`})).
+		WithPanel(TimeSeries(ds, "Pool wait p99 by role",
+			"Time a store call waited for a connection. Postgres is shared capacity: this is "+
+				"where evaluator, remediator and api load meet.",
+			unitSeconds, Query{
+				Expr:   `histogram_quantile(0.99, sum by (le, role) (rate(repo_guardian_store_pool_wait_seconds_bucket[15m])))`,
+				Legend: "{{ role }}",
+			})).
 		WithPanel(TimeSeries(ds, "pgx pool connections",
 			"otelpgx publishes the pgx-native pgxpool_* family rather than the "+
 				"db.client.connection.* semconv one, and keys it on "+
@@ -163,77 +238,41 @@ clamp_min(sum(rate(repo_guardian_store_query_seconds_count[10m])), 1)`})).
 			unitNanos, Query{
 				Expr:   `sum(rate(pgxpool_empty_acquire_wait_time_nanoseconds_total[5m]))`,
 				Legend: "wait",
-			})).
-		WithPanel(TimeSeries(ds, "State write-back outcomes",
-			"Every processed job writes its result back best-effort. Errors here never fail a "+
-				"job — the queue is the source of truth for 'did we do the work' — but a "+
-				"sustained error rate means posture is drifting from reality.",
-			unitShort, Query{
-				Expr:   `sum by (outcome) (rate(repo_guardian_store_writeback_total[15m]))`,
-				Legend: "{{ outcome }}",
-			})).
-		WithPanel(TimeSeries(ds, "Write-back latency p99",
-			"Should sit well under 50ms; it is on the job's critical path.",
-			unitSeconds, Query{
-				Expr: `histogram_quantile(0.99,
-  sum by (le) (rate(repo_guardian_store_writeback_duration_seconds_bucket[15m]))
-)`,
-				Legend: legendP99,
 			}))
 }
 
-// withRuntimeSection charts the process, the scheduler and the two
-// sweep-shaped histograms that had no panel until now.
+// withAPISection charts the read-only API.
+func withAPISection(b *Builder, ds Datasources) *Builder {
+	return b.
+		WithRow(Row("API")).
+		WithPanel(TimeSeries(ds, "API authentication failures",
+			"Refused requests by reason. A burst of one reason (issuer, audience, signature) "+
+				"after an IdP change is a configuration mismatch, not an attack.",
+			unitShort, Query{
+				Expr:   `sum by (reason) (rate(repo_guardian_api_auth_failures_total[15m]))`,
+				Legend: legendReason,
+			})).
+		WithPanel(TimeSeries(ds, "Status page refresh p99",
+			"The background read behind /status. The page itself never queries, so a slow "+
+				"refresh ages the page rather than slowing requests.",
+			unitSeconds, Query{
+				Expr:   `histogram_quantile(0.99, sum by (le, outcome) (rate(repo_guardian_api_status_refresh_seconds_bucket[15m])))`,
+				Legend: "{{ outcome }}",
+			}))
+}
+
+// withRuntimeSection charts the process.
 func withRuntimeSection(b *Builder, ds Datasources) *Builder {
 	return b.
-		WithRow(Row("Runtime and sweeps")).
+		WithRow(Row("Runtime")).
 		WithPanel(TimeSeries(ds, "Goroutines",
-			"A count that only grows is a leak. Worth watching after any change to the worker "+
-				"pool or the reaper.",
+			"A count that only grows is a leak. Worth watching after any change to worker "+
+				"concurrency.",
 			unitShort, Query{Expr: `max by (pod) (go_goroutines)`, Legend: "{{ pod }}"})).
 		WithPanel(TimeSeries(ds, "Resident memory",
-			"Process RSS per replica.",
+			"Process RSS per replica. The evaluator's grows with the sticky workflow cache.",
 			unitBytes, Query{
 				Expr:   `max by (pod) (process_resident_memory_bytes)`,
 				Legend: "{{ pod }}",
-			})).
-		WithPanel(TimeSeries(ds, "Scheduler leadership",
-			"1 where a replica holds a named lock. Aggregated with max by (name), never sum: "+
-				"during failover both replicas can briefly hold a series, and summing reports "+
-				"two leaders where there is one.",
-			unitShort, Query{
-				Expr:   `max by (name) (repo_guardian_scheduler_is_leader)`,
-				Legend: "{{ name }}",
-			})).
-		WithPanel(TimeSeries(ds, "Stale-sweep batch size",
-			"Repositories enqueued per sweep. A batch pinned at the configured cap means the "+
-				"sweep is truncating and the fleet is not converging within one interval.",
-			unitShort, Query{
-				Expr: `histogram_quantile(0.95,
-  sum by (le) (rate(repo_guardian_scheduler_sweep_batch_size_bucket[1h]))
-)`,
-				Legend: "p95",
-			})).
-		WithPanel(TimeSeries(ds, "Discovery duration p99",
-			"How long one discovery pass takes to enumerate installations and repositories.",
-			unitSeconds, Query{
-				Expr:   `histogram_quantile(0.99, sum by (le) (rate(repo_guardian_discovery_duration_seconds_bucket[1h])))`,
-				Legend: legendP99,
-			})).
-		WithPanel(TimeSeries(ds, "Posture export health",
-			"Successful and failed posture ticks. Zero successes means every gauge on E1 and E2 "+
-				"is frozen but still being served — the one failure those gauges cannot show "+
-				"about themselves.",
-			unitShort, Query{
-				Expr:   `sum by (outcome) (rate(repo_guardian_posture_export_total[1h]))`,
-				Legend: "{{ outcome }}",
-			})).
-		WithPanel(TimeSeries(ds, "Posture export duration p99",
-			"The store read behind the posture gauges. A slow read delays every number on E1.",
-			unitSeconds, Query{
-				Expr: `histogram_quantile(0.99,
-  sum by (le) (rate(repo_guardian_posture_export_duration_seconds_bucket[1h]))
-)`,
-				Legend: legendP99,
 			}))
 }

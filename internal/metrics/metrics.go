@@ -17,6 +17,10 @@ const (
 	labelOutcome        = "outcome"
 	labelInstallationID = "installation_id"
 	labelProperty       = "property"
+	labelApp            = "app"
+	labelControl        = "control"
+	labelResult         = "result"
+	labelAgeBucket      = "age_bucket"
 )
 
 // All repo-guardian Prometheus metrics.
@@ -74,6 +78,16 @@ var (
 		Buckets: prometheus.DefBuckets,
 	})
 
+	// ChecksTotal counts CheckRepo activity outcomes: checked (outcomes
+	// staged), deferred (throttled until the budget resets), parked
+	// (access denied, archived or fork) or error (retried by Temporal).
+	// Replaces the v1 queue counters as the one per-check throughput
+	// series (IMPL-0028 task 1.3).
+	ChecksTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_checks_total",
+		Help: "Repository check activity outcomes.",
+	}, []string{labelOutcome})
+
 	// WebhookReceivedTotal counts webhooks received, labeled by event type.
 	WebhookReceivedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "repo_guardian_webhook_received_total",
@@ -98,12 +112,6 @@ var (
 		Name: "repo_guardian_repos_parked_total",
 		Help: "Repositories parked (removed from the stale sweep), by reason.",
 	}, []string{labelOrg, "installation_id", "reason"})
-
-	// GitHubRateRemaining tracks the GitHub API rate limit remaining.
-	GitHubRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "repo_guardian_github_rate_remaining",
-		Help: "GitHub API rate limit remaining.",
-	})
 
 	// The four unlabelled properties_* counters that used to live here
 	// were removed in IMPL-0023 Phase 7 (DESIGN-0022 OQ4 → a). They
@@ -174,6 +182,129 @@ var (
 		Help: "Total custom-properties reconciles skipped because catalog-info.yaml failed to parse.",
 	}, []string{labelOrg})
 
+	// ResultsDiscardedTotal counts staged control results the record
+	// step dropped (DESIGN-0032 § Metrics). reason="stale_epoch" is a
+	// result whose assignment epoch moved, or whose assignment stopped
+	// being active, between evaluation and record (DESIGN-0030 D14).
+	ResultsDiscardedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_results_discarded_total",
+		Help: "Total staged control results discarded at record time, by reason.",
+	}, []string{labelOrg, "reason"})
+
+	// EvaluationsTotal counts controls evaluations by outcome
+	// (DESIGN-0032 § Metrics): evaluated, error, or skipped (not
+	// managed, nothing selected, empty, or parked). A rate-limit deferral
+	// is not an evaluation and is not counted.
+	EvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluations_total",
+		Help: "Total controls evaluations, by outcome (evaluated, error, skipped).",
+	}, []string{labelOrg, labelOutcome})
+
+	// EvaluationErrorsTotal counts control evaluations that returned an
+	// error status. A fleet-wide permission failure shows as every
+	// control of an org erroring, which EvaluationsTotal cannot tell
+	// apart from sporadic per-repository errors.
+	EvaluationErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluation_errors_total",
+		Help: "Total control evaluations with an error status, by control.",
+	}, []string{labelOrg, labelControl})
+
+	// EvaluationChangesTotal counts recorded control results whose
+	// generation moved: a fingerprint change, or the first result of an
+	// assignment epoch.
+	EvaluationChangesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_evaluation_changes_total",
+		Help: "Total recorded control results whose evaluation generation moved, by control.",
+	}, []string{labelOrg, labelControl})
+
+	// EvaluationFreshnessSeconds is the age of a control's previous
+	// evaluated_at when it is re-evaluated. Its p95 is the freshness SLO
+	// an operator sets per deployment (DESIGN-0029 AR-0029-05).
+	EvaluationFreshnessSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_evaluation_freshness_seconds",
+		Help:    "Age of the previous evaluated_at when a control is re-evaluated.",
+		Buckets: []float64{60, 300, 900, 3600, 4 * 3600, 12 * 3600, 24 * 3600, 36 * 3600, 48 * 3600, 7 * 24 * 3600},
+	}, []string{labelOrg})
+
+	// RemediationRunsTotal counts remediation outcomes (DESIGN-0032 §
+	// Metrics): reserved, opened, updated, noop, closed_compliant,
+	// withdrawn, superseded, applied, deferred or error. Lifecycle
+	// maintenance's closes count here too.
+	RemediationRunsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_runs_total",
+		Help: "Total remediation runs and lifecycle closes, by result.",
+	}, []string{labelOrg, labelControl, labelResult})
+
+	// RemediationPRsOpen is the open remediation pull requests per
+	// control and age bucket (<1d, 1-7d, 7-30d, 30d+), published from the
+	// store by every api replica; query with max by.
+	RemediationPRsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_remediation_prs_open",
+		Help: "Open remediation pull requests per control and age bucket (api-exported; query with max by).",
+	}, []string{labelOrg, labelControl, labelAgeBucket})
+
+	// RemediationHolds is the control results held from remediation per
+	// hold reason and how long they have been held (<1d, 1-7d, 7-30d,
+	// 30d+), published from the store by every api replica; query with
+	// max by. A conflict held past a week alerts (IMPL-0030 OQ11).
+	RemediationHolds = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_remediation_holds",
+		Help: "Control results held from remediation per hold reason and age bucket (api-exported; query with max by).",
+	}, []string{labelOrg, labelReason, labelAgeBucket})
+
+	// RemediationBlockedTotal counts remediations blocked, by reason:
+	// a hold (foreign_branch, stale_branch, conflict, pr_cap, permission)
+	// or an assignment resolution downgraded because the Remediation App
+	// cannot reach the repository (remediation_app_no_access,
+	// remediation_app_suspended).
+	RemediationBlockedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_blocked_total",
+		Help: "Total remediations blocked, by reason.",
+	}, []string{labelOrg, labelReason})
+
+	// RemediationReservationsExpiredTotal counts pull-request slot
+	// reservations lifecycle maintenance freed because their run never
+	// opened its PR (IMPL-0030 6.2).
+	RemediationReservationsExpiredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_remediation_reservations_expired_total",
+		Help: "Total remediation slot reservations expired by lifecycle maintenance.",
+	}, []string{labelOrg})
+
+	// RemediationCleanupLatencySeconds is the time from an observed
+	// withdrawal or compliance to the write that closed the remediation
+	// (IMPL-0030 6.3).
+	RemediationCleanupLatencySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_remediation_cleanup_latency_seconds",
+		Help:    "Time from an observed withdrawal or compliance to the closing write.",
+		Buckets: []float64{60, 300, 900, 3600, 2 * 3600, 6 * 3600, 12 * 3600, 24 * 3600, 48 * 3600, 7 * 24 * 3600},
+	}, []string{labelOrg})
+
+	// StorePoolWaitSeconds is how long a store call waited for a pool
+	// connection. Postgres is shared capacity, so pool wait is where
+	// evaluation and remediation load meet.
+	StorePoolWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_store_pool_wait_seconds",
+		Help:    "Time spent waiting for a Postgres pool connection, by role.",
+		Buckets: []float64{0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	}, []string{"role"})
+
+	// ControlsStatus is the leader-exported controls posture: the number
+	// of repositories in each bucket of each control (DESIGN-0030
+	// AR-0030-05). Query with max by (...): a demoted replica keeps its
+	// last values until restart, so sum double-counts through failover.
+	ControlsStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_controls_status",
+		Help: "Repositories per control and status bucket (leader-exported; query with max by).",
+	}, []string{labelOrg, labelControl, "bucket"})
+
+	// ControlsCoverage is the number of repositories each control is
+	// actively assigned to, the denominator ControlsStatus is read
+	// against (leader-exported; query with max by).
+	ControlsCoverage = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_controls_coverage",
+		Help: "Repositories each control is actively assigned to (leader-exported; query with max by).",
+	}, []string{labelOrg, labelControl})
+
 	// WebhookRejectedTotal counts webhook requests rejected before
 	// processing, labeled by reason. Post-IMPL-0024 the only producer
 	// is HMAC signature validation (reason="signature") — source-IP
@@ -182,6 +313,30 @@ var (
 		Name: "repo_guardian_webhook_rejected_total",
 		Help: "Webhook requests rejected (signature validation).",
 	}, []string{labelReason})
+
+	// WebhookTemporalErrorsTotal counts webhooks ingest could not hand to
+	// Temporal (IMPL-0025 Phase 12). Each one was answered 503, so GitHub
+	// records a failed delivery an operator can redeliver.
+	WebhookTemporalErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "repo_guardian_webhook_temporal_errors_total",
+		Help: "Webhooks answered 503 because the webhook workflow could not be started.",
+	})
+
+	// APIAuthFailuresTotal counts API requests refused authentication
+	// (IMPL-0025 14.7), by reason: missing, malformed, algorithm, issuer,
+	// audience, id_token, expired, not_yet_valid, signature, unavailable.
+	APIAuthFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_api_auth_failures_total",
+		Help: "API requests refused authentication, by reason.",
+	}, []string{labelReason})
+
+	// APIStatusRefreshSeconds times each status-page refresh (IMPL-0025
+	// 15.8), by outcome: ok or error. The page itself never queries.
+	APIStatusRefreshSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "repo_guardian_api_status_refresh_seconds",
+		Help:    "Duration of status-page refreshes, by outcome.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{labelOutcome})
 
 	// IgnoredTotal counts repos or rules skipped by ignore lists, by scope and org.
 	IgnoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -239,117 +394,22 @@ var (
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
 	}, []string{"operation", labelOutcome})
 
-	// QueueDepth tracks the current pending-job count of the work
-	// queue, labeled by queue (jobs or in-flight) for the Valkey
-	// backend.
-	QueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_queue_depth",
-		Help: "Pending jobs in the work queue.",
-	}, []string{"queue"})
-
-	// QueueDelayedDepth tracks jobs parked in the delayed set awaiting
-	// promotion (IMPL-0022). Published by EVERY pod's reaper tick via
-	// ZCARD, before the leader lock — a leader-only gauge would go
-	// stale on non-leader replicas and pin depth-based alerts firing
-	// across a leadership flap.
-	QueueDelayedDepth = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "repo_guardian_queue_delayed_depth",
-		Help: "Jobs parked in the delayed set awaiting promotion.",
-	})
-
-	// QueueEnqueuedTotal counts jobs enqueued by trigger
-	// (webhook, sweep, push).
-	QueueEnqueuedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_enqueued_total",
-		Help: "Total jobs enqueued.",
-	}, []string{"trigger"})
-
-	// QueueClaimedTotal counts jobs claimed (BRPOP + ZADD in-flight).
-	QueueClaimedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_claimed_total",
-		Help: "Total jobs claimed by a worker.",
-	})
-
-	// QueueAckedTotal counts handler returns by outcome (success,
-	// error, or deferred). A `success` ack means ZREM in-flight
-	// succeeded; an `error` ack means the handler returned an error
-	// and the entry was left in-flight for the reaper; a `deferred`
-	// ack means the handler returned RetryAfterError and the job
-	// moved to the delayed set (IMPL-0022).
-	QueueAckedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_acked_total",
-		Help: "Total jobs acknowledged by a worker, by outcome.",
-	}, []string{labelOutcome})
-
-	// QueueReapedTotal counts in-flight jobs requeued by the reaper.
-	QueueReapedTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_reaped_total",
-		Help: "Total in-flight jobs requeued by the reaper.",
-	})
-
-	// QueueAttemptsExhaustedTotal counts jobs dropped at the
-	// MAX_JOB_ATTEMPTS cap with a terminal StatusError written to
-	// repo_state (IMPL-0022). The next stale sweep re-enqueues the
-	// repo naturally if it is still due, so a sustained rate here
-	// means a persistently failing installation or repo.
-	QueueAttemptsExhaustedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_attempts_exhausted_total",
-		Help: "Total jobs dropped after exceeding the attempt cap.",
-	}, []string{labelInstallationID})
-
-	// queueRetrySecondsBuckets is the shared layout for the deferral
-	// and wait histograms (IMPL-0022 OQ4): 1s → 4h, matched to
-	// rate-limit reset windows (≤1h) and the 30m backoff cap. Expect
-	// top-bucket skew in queue_wait_seconds during fleet onboarding
-	// or a policy-version bump — see docs/operations/scaling.md.
-	queueRetrySecondsBuckets = []float64{1, 5, 15, 60, 300, 900, 3600, 14400}
-
-	// QueueDelayedTotal counts deferrals into the delayed set by
-	// reason and installation (IMPL-0022) — "how often is work
-	// deferred, and why". The single source for deferral counting;
-	// it replaced the github_rate_limit_waits pair (INV-0013 G).
-	QueueDelayedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_queue_delayed_total",
-		Help: "Total jobs deferred into the delayed set, by reason.",
-	}, []string{labelReason, labelInstallationID})
-
-	// QueueDelaySeconds records how far in the future deferred jobs
-	// are parked, by reason — "how long are the deferrals".
-	QueueDelaySeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "repo_guardian_queue_delay_seconds",
-		Help:    "Deferral horizon in seconds (due time minus now) at defer time.",
-		Buckets: queueRetrySecondsBuckets,
-	}, []string{labelReason})
-
-	// QueueWaitSeconds records enqueue→claim latency per installation
-	// — the DESIGN-0015 go/no-go datum for per-installation queue
-	// partitioning. Observed at claim time as now − EnqueuedAt; a
-	// deferred job's parked time counts, deliberately, because the
-	// tenant experienced it as queue wait.
-	QueueWaitSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "repo_guardian_queue_wait_seconds",
-		Help:    "Enqueue-to-claim latency in seconds, per installation.",
-		Buckets: queueRetrySecondsBuckets,
-	}, []string{labelInstallationID})
-
-	// SchedulerSweepBatchSize records the count of repos enqueued per
-	// sweep handler invocation. Useful for spotting partial-enumeration
-	// bugs (consistently 0 batches → upstream API error or
-	// listInstallations failure).
-	SchedulerSweepBatchSize = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_scheduler_sweep_batch_size",
-		Help:    "Repos enqueued per sweep invocation.",
-		Buckets: []float64{0, 1, 5, 10, 25, 50, 100, 250, 500, 1000},
-	})
-
 	// RateLimitRemaining tracks the GitHub API rate-limit remaining
 	// budget per installation, scraped from X-RateLimit-Remaining on
-	// every response. Replaces the singleton GitHubRateRemaining gauge
-	// for installation-scoped clients.
+	// every response.
 	RateLimitRemaining = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_rate_limit_remaining",
 		Help: "GitHub API rate limit remaining, per installation.",
 	}, []string{labelInstallationID})
+
+	// BudgetAcquireTotal counts InstallationWorkflow budget acquisitions
+	// by result (IMPL-0025 Phase 11): granted, optimistic (granted with
+	// no known budget) or wait. A rising wait share means installations
+	// are running at their reserve.
+	BudgetAcquireTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "repo_guardian_budget_acquire_total",
+		Help: "Total rate-budget acquisitions, by result.",
+	}, []string{"result"})
 
 	// InstallationInfo is a constant-1 info gauge pairing an
 	// installation ID with the org that installed the App. It carries no
@@ -362,18 +422,23 @@ var (
 	// differ by scrape target. Join against
 	// `max by (installation_id, org) (repo_guardian_installation_info)`,
 	// not the raw vector, or the group_left is many-to-many.
+	//
+	// app names the App the installation belongs to (IMPL-0028 task
+	// 3.6): eval, remediate, or AppSingle for the rc's one App. The
+	// recommended join's max by drops it.
 	InstallationInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "repo_guardian_installation_info",
-		Help: "Constant 1, labeled with the org that owns each installation. Join label only.",
-	}, []string{labelInstallationID, labelOrg})
+		Help: "Constant 1, labeled with the org that owns each installation and its App. Join label only.",
+	}, []string{labelApp, labelInstallationID, labelOrg})
 
-	// SchedulerIsLeader is a gauge labeled by pod that exports 1 when
-	// the named pod holds the scheduler leader lock and 0 otherwise.
-	// Registered in IMPL-0011 Phase 4; wiring deferred to Phase 5.
-	SchedulerIsLeader = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_scheduler_is_leader",
-		Help: "1 when this pod holds the scheduler leader lock for the named handler, 0 otherwise.",
-	}, []string{"name", "pod"})
+	// DeploymentInfo is a constant-1 info gauge naming the credential
+	// boundary this process runs under: topology="split" when it runs
+	// one half, "all" when one process holds both Apps' keys (combined
+	// trust, DESIGN-0029 D7 as amended), and the binary's version.
+	DeploymentInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "repo_guardian_deployment_info",
+		Help: "Constant 1, labeled with the deployment topology (split or all) and the binary version.",
+	}, []string{"topology", "version"})
 
 	// PROpenWithEmptyActionableTotal counts reconcile passes where
 	// an open repo-guardian PR exists but the actionable rule set is
@@ -397,79 +462,6 @@ var (
 		Help: "Open repo-guardian PRs by org, rule, and age bucket.",
 	}, []string{labelOrg, "rule", "age_bucket"})
 
-	// PostureExportTotal counts posture exporter ticks by outcome.
-	//
-	// This is the liveness signal for every posture gauge. Those gauges
-	// have no other heartbeat: a leader whose store reads all fail
-	// keeps serving the last successful values indefinitely, and a
-	// dashboard reading them cannot tell "the fleet is stable" from
-	// "nothing has updated in six hours". Alert on the absence of
-	// outcome="ok" increments, not on the gauges themselves
-	// (RepoGuardianPostureExportStalled).
-	PostureExportTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_posture_export_total",
-		Help: "Posture exporter ticks by outcome.",
-	}, []string{"outcome"})
-
-	// PostureExportDurationSeconds records the wall-clock duration of
-	// one posture export, dominated by the store aggregate.
-	//
-	// Buckets run to 60s because that is the default tick interval:
-	// once a tick takes longer than the gap to the next one, the
-	// exporter is permanently behind and the gauges are stale by an
-	// unbounded amount. Seeing the distribution approach the interval
-	// is the warning; the top bucket is where it has already happened.
-	PostureExportDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_posture_export_duration_seconds",
-		Help:    "Duration of a single posture export in seconds.",
-		Buckets: []float64{0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60},
-	})
-
-	// ReposActionable is fleet compliance posture: repositories
-	// currently failing each rule, per org (DESIGN-0022 §Leader-scoped
-	// posture exporter). Served by the elected leader only, so
-	// dashboards aggregate with `max by (rule_name, org)` — the same
-	// shape `scheduler_is_leader` panels already use.
-	//
-	// A gauge derived from rule_state, not a counter incremented at
-	// check time. That is the whole point of IMPL-0023: the legacy
-	// counters answered "how often did we act" when every compliance
-	// question asked is "how many are failing right now".
-	ReposActionable = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_repos_actionable",
-		Help: "Repositories currently failing each rule, by org.",
-	}, []string{"rule_name", labelOrg})
-
-	// ReposTracked is the compliance denominator: distinct repositories
-	// per org that have been checked at least once and are still
-	// active.
-	//
-	// Parked repositories are excluded — see ReposUnmeasurable.
-	// Repositories discovered but never checked are also absent,
-	// because "not yet measured" must not read as "compliant".
-	ReposTracked = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_repos_tracked",
-		Help: "Active repositories with posture, by org (compliance denominator).",
-	}, []string{labelOrg})
-
-	// ReposUnmeasurable is the population deliberately excluded from
-	// ReposActionable and ReposTracked: repositories parked out of the
-	// sweep (INV-0015), by why.
-	//
-	// It exists so the exclusion is visible rather than silent. A
-	// compliance ratio computed over a shrinking denominator looks
-	// identical to one that is genuinely improving; this series is what
-	// tells the two apart.
-	//
-	// Standing population, not events — compare with
-	// repos_parked_total, which counts park events. Persistent
-	// disagreement means parks that never un-parked, or un-parks
-	// nobody counted.
-	ReposUnmeasurable = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "repo_guardian_repos_unmeasurable",
-		Help: "Parked repositories excluded from posture, by org and reason.",
-	}, []string{labelOrg, "reason"})
-
 	// PRsClosedTotal counts pull requests closed by repo-guardian
 	// labeled by org and reason. IMPL-0013 Phase 3 introduces the
 	// reason="satisfied" path (auto-close when every file rule has
@@ -489,14 +481,6 @@ var (
 		Help: "Repositories discovered by the Discoverer (UpsertIfMissing → created=true).",
 	}, []string{labelInstallationID})
 
-	// DiscoveryDurationSeconds records the wall-clock duration of a
-	// single Discoverer.Discover invocation.
-	DiscoveryDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_discovery_duration_seconds",
-		Help:    "Duration of a single Discoverer.Discover invocation in seconds.",
-		Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120, 300},
-	})
-
 	// DiscoveryAPICallsTotal counts GitHub API calls the Discoverer
 	// made, labeled by installation_id and endpoint
 	// (list_installations / list_installation_repos). Lets operators
@@ -505,29 +489,6 @@ var (
 		Name: "repo_guardian_discovery_api_calls_total",
 		Help: "GitHub API calls made by the Discoverer, by installation and endpoint.",
 	}, []string{labelInstallationID, "endpoint"})
-
-	// StoreWritebackTotal counts persistent state write-back attempts
-	// from the worker pool, labeled by installation_id and outcome
-	// ("ok" or "error"). Introduced by IMPL-0015 Phase 0 — every
-	// processed job's final UpdateRepoState call increments this
-	// counter. A non-zero rate at outcome="error" indicates the worker
-	// completed work that the stale-sweeper will re-enqueue on the
-	// next tick because the persisted state never converged.
-	StoreWritebackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "repo_guardian_store_writeback_total",
-		Help: "Persistent-state write-back attempts from the worker pool, by installation and outcome.",
-	}, []string{labelInstallationID, labelOutcome})
-
-	// StoreWritebackDurationSeconds records the latency of worker-pool
-	// write-back attempts. Same call site as StoreWritebackTotal;
-	// observed on both success and error paths so percentile latency
-	// reflects the full distribution (failed writes that take 5s to
-	// time out are a real signal, not a censored sample).
-	StoreWritebackDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "repo_guardian_store_writeback_duration_seconds",
-		Help:    "Latency of worker-pool persistent-state write-backs in seconds.",
-		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
-	})
 
 	// PROrphanLeftTotal counts orphan files that repo-guardian
 	// attempted to delete from a reconcile branch but couldn't
@@ -539,6 +500,14 @@ var (
 		Name: "repo_guardian_pr_orphan_left_total",
 		Help: "Orphan files that could not be deleted from the reconcile branch.",
 	}, []string{labelOrg})
+)
+
+// ChecksTotal outcome label values.
+const (
+	CheckOutcomeChecked  = "checked"
+	CheckOutcomeDeferred = "deferred"
+	CheckOutcomeParked   = "parked"
+	CheckOutcomeError    = "error"
 )
 
 // Hard-coded age bucket labels for the OpenPRsByRule gauge.
@@ -569,20 +538,6 @@ func ResetOpenPRsByRule() {
 	OpenPRsByRule.Reset()
 }
 
-// ResetPosture clears every posture gauge. The exporter calls it at the
-// top of each tick, before Set — the ResetOpenPRsByRule precedent.
-//
-// Without it a rule that stops applying, or an org that leaves the
-// fleet, freezes at its last value forever and keeps counting against
-// compliance. The three gauges reset together so a tick can never
-// publish a numerator from this pass against a denominator from the
-// last one.
-func ResetPosture() {
-	ReposActionable.Reset()
-	ReposTracked.Reset()
-	ReposUnmeasurable.Reset()
-}
-
 // PRAgeBucket returns the hard-coded age bucket label for the given
 // number of days since the PR was opened.
 func PRAgeBucket(ageDays float64) string {
@@ -603,12 +558,28 @@ func PRAgeBucket(ageDays float64) string {
 // Callers pass the org they already have in hand; a blank org is
 // dropped rather than published, because a series labeled org="" joins
 // nothing and would only widen cardinality.
-func SetInstallationInfo(installationID int64, org string) {
+func SetInstallationInfo(app string, installationID int64, org string) {
 	if org == "" {
 		return
 	}
 
 	InstallationInfo.
-		WithLabelValues(strconv.FormatInt(installationID, 10), org).
+		WithLabelValues(app, strconv.FormatInt(installationID, 10), org).
 		Set(1)
+}
+
+// AppSingle is the installation_info app label of the rc's single App,
+// which both evaluates and remediates.
+const AppSingle = "single"
+
+// The deployment_info topology values.
+const (
+	TopologySplit = "split"
+	TopologyAll   = "all"
+)
+
+// SetDeploymentInfo publishes this process's topology and version, once
+// at startup.
+func SetDeploymentInfo(topology, version string) {
+	DeploymentInfo.WithLabelValues(topology, version).Set(1)
 }

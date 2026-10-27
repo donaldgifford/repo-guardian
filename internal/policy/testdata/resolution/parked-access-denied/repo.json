@@ -1,0 +1,12 @@
+{
+  "repository": {
+    "org": "acme",
+    "name": "api",
+    "active": false,
+    "park_reason": "access_denied"
+  },
+  "access": {
+    "evaluable": false,
+    "remediable": false
+  }
+}

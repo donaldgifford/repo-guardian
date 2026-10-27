@@ -25,6 +25,11 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
       alerts: ${{ steps.filter.outputs.alerts }}
       monitoring: ${{ steps.filter.outputs.monitoring }}
+      sql: ${{ steps.filter.outputs.sql }}
+      temporal: ${{ steps.filter.outputs.temporal }}
+      api: ${{ steps.filter.outputs.api }}
+      ui: ${{ steps.filter.outputs.ui }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
@@ -69,6 +74,35 @@ jobs:
               - 'internal/policy/**'
               - 'cmd/repo-guardian/monitoring.go'
               - 'Makefile'
+            # The store layer: schema migrations, sqlc queries and
+            # generated code. Gates the integration tests and the sqlc
+            # drift check alongside the go filter.
+            sql:
+              - 'internal/store/**'
+              - 'sqlc.yaml'
+            # Temporal workflow code and its captured histories. Gates the
+            # replay job; `workflows` above is the GitHub Actions directory.
+            temporal:
+              - 'internal/workflows/**'
+            # The OpenAPI contract and the server generated from it.
+            # Gates the spec lint and the codegen drift check.
+            api:
+              - 'api/**'
+              - 'internal/api/gen/**'
+              - 'go.mod'
+            # The UI and the contract its API types are generated from.
+            ui:
+              - 'ui/**'
+              - 'api/openapi.yaml'
+              # The changelog gate reads the chart appVersion (IMPL-0032 7.4),
+              # so a release-bump PR runs it.
+              - 'charts/repo-guardian/Chart.yaml'
+            # The Pages site: a dead nav entry or a broken INHERIT fails
+            # the pull request, not the deploy (IMPL-0034 2.4).
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'mkdocs-ghpages.yml'
 
   labeler:
     permissions:
@@ -161,6 +195,99 @@ jobs:
       - name: Check the committed monitoring tier is current
         run: make lint-monitoring
 
+  sql-drift:
+    name: SQL Drift
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.sql == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned sqlc and yq.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Check the committed sqlc output is current
+        run: make lint-sql
+
+  api-drift:
+    name: API Contract
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # mise supplies the pinned vacuum and yq; oapi-codegen is a go.mod tool.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Lint the spec and check the generated server is current
+        run: make lint-api
+
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned Bun.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Install dependencies
+        run: make ui-install
+
+      - name: Typecheck and check the generated API types are current
+        run: make lint-ui
+
+      - name: Test
+        run: make test-ui
+
+      - name: Build
+        run: cd ui && bun run build
+
+  # Playwright against a seeded Postgres, the mock issuer and the Go api
+  # role (IMPL-0025 22.4). The API is part of the stack, so Go changes
+  # run it too.
+  ui-e2e:
+    name: UI e2e
+    runs-on: ubuntu-latest
+    needs: changes
+    if: >-
+      needs.changes.outputs.ui == 'true' || needs.changes.outputs.go == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise supplies the pinned Go and Bun.
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Install dependencies
+        run: make ui-install
+
+      - name: Install Chromium
+        run: cd ui && bunx playwright install --with-deps chromium
+
+      - name: Playwright
+        run: make test-ui-e2e
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: ui/playwright-report
+          retention-days: 7
+
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
@@ -197,6 +324,44 @@ jobs:
           slug: donaldgifford/repo-guardian
         continue-on-error: true
 
+  # Replays captured RepoWorkflow histories against the current workflow
+  # code (IMPL-0025 OQ13). A non-deterministic edit breaks every running
+  # execution at its next workflow task; this fails the PR instead. It
+  # also runs inside test-go, but as its own job the failure is named.
+  replay:
+    name: Workflow Replay
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.temporal == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Replay captured histories
+        run: go test -race -count=1 -run TestReplay ./internal/workflows/...
+
+  # Testcontainers-backed tests (build tag `integration`). The runner's
+  # Docker daemon hosts the Postgres containers.
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.sql == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: make test-integration
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -213,8 +378,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6). mise installs go: tools with
+      # the pinned go, so it is installed alongside.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go go:golang.org/x/vuln/cmd/govulncheck"
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -301,7 +470,11 @@ jobs:
       - name: Install helm-unittest plugin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: helm plugin install --verify=false https://github.com/helm-unittest/helm-unittest
+          # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+          HELM_UNITTEST_VERSION: v1.2.1
+        # --verify=false: the plugin source has no provenance, and helm 3.20+
+        # verifies whenever --version is given (CLAUDE.md § Helm CLI semantics).
+        run: helm plugin install --verify=false --version "${HELM_UNITTEST_VERSION}" https://github.com/helm-unittest/helm-unittest
       - name: Run helm-unittest
         run: helm unittest charts/repo-guardian
 
@@ -335,3 +508,41 @@ jobs:
       - name: Install and test charts
         if: steps.list-changed.outputs.changed == 'true'
         run: ct install --config ct.yaml
+
+  # Strict build of the public Pages config, the same command as `make
+  # lint-docs` and the same pin as gh-pages.yml.
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      # renovate: datasource=pypi depName=mkdocs-material
+      - run: pip install mkdocs-material==9.8.0
+      - name: Build the Pages site strictly
+        run: mkdocs build --strict --config-file mkdocs-ghpages.yml
+
+  # The one required CI check (IMPL-0034 5.5, OQ3). It needs every job and
+  # always runs; a failed or cancelled job fails it, a skipped one (a
+  # paths filter said no) passes. Adding a job means adding it here, not
+  # editing the ruleset.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    needs: [changes, labeler, lint, lint-alerts, monitoring-drift, sql-drift, api-drift, ui, ui-e2e, test-go, replay, test-integration, security, build, docker-build, helm-unittest, helm-test, docs]
+    if: always()
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [ "${FAILED}" = "true" ]; then
+            echo "a required CI job failed or was cancelled"
+            exit 1
+          fi

@@ -92,7 +92,7 @@ func (ts *TemplateStore) Raw(name string) (string, error) {
 
 // AsMap returns a copy of the raw template bodies keyed by template
 // name (without the ".tmpl" suffix). The map is used as the
-// templates-half input to policy.Version so an edit to a ConfigMap
+// templates-half input to policy.VersionV2 so an edit to a ConfigMap
 // template entry produces a different policy hash and triggers
 // re-enqueue of every repo on the next sweep. The returned map is a
 // shallow copy; callers may mutate it without affecting the store.

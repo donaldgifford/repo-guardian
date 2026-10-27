@@ -1,0 +1,11 @@
+# vacuum ruleset for api/openapi.yaml (IMPL-0025 OQ27): the recommended
+# OpenAPI rules, less three that fight the design.
+extends: [[vacuum:oas, recommended]]
+rules:
+  # The API's JSON is snake_case throughout (DESIGN-0027).
+  camel-case-properties: off
+  # Examples are optional; the contract tests exercise real responses.
+  oas3-missing-example: off
+  # The shared enums and Cursor are declared ahead of the Phase 15
+  # endpoints that use them.
+  oas3-unused-component: off

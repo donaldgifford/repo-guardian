@@ -2,29 +2,32 @@
 
 Generated 2026-08-10 14:30:00 UTC by repo-guardian.
 
-21 of 24 rule evaluations pass across 3 rule(s).
+Compliance: 83.3% (10 of 12 measured assignments pass).
+Coverage: 100.0% of 12 assignments (0 pending, 0 stale, 0 unmeasurable, 0 unknown); 0 excluded.
 
-## Compliance by rule
+## Baseline controls
 
-| Rule | Kind | Failing | Applies to | Compliant | Trend |
-|---|---|---:|---:|---:|---|
-| codeowners | file | 2 | 10 | 80.0% | 3 fewer since 2026-08-03 |
-| dependabot |  | 0 | 10 | 100.0% | no change since 2026-08-03 |
-| renovate | file | 1 | 4 | 75.0% | new |
+| Control | Decision | Failing | Passing | Pending | Stale | Unmeasurable | N/A | Unknown | Excluded | Compliant | Coverage |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| codeowners | baseline | 2 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 83.3% | 100.0% |
 
+## Org-added controls
 
-## Findings
+No org-added control is assigned.
 
-| Repository | Rule | Failing since |
-|---|---|---|
-| api | codeowners | 2026-07-01 |
-| web | codeowners | — |
-| web | renovate | 2026-08-09 |
+## Exclusions
 
+Nothing is excluded.
 
 ---
 
-Parked repositories — archived, forked, or unreadable by the App — are
-excluded from every number above. A repository nobody can measure is
-neither compliant nor failing, and counting it either way would be a
-guess.
+Compliant is Passing / (Passing + Failing), floored to one decimal, and
+reads "no data" when nothing is measured. Coverage is measured
+(Passing + Failing + N/A) over assigned. Pending (assigned, not yet
+evaluated), Stale (evaluated under an older assignment or revision),
+Unmeasurable (access lost, installation suspended, or an ownership
+conflict) and Unknown are counted beside the percentage, never in it.
+
+A replaced control is the org's version of a baseline control and
+counts in the baseline lineage. Exclusions are never in either side of
+the percentage: they are listed above with their reasons.

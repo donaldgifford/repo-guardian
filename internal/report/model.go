@@ -1,20 +1,19 @@
-// Package report renders per-org compliance reports from persisted
-// posture state. See DESIGN-0022 §Compliance snapshots and the per-org
-// report, and IMPL-0023 Phase 4.
+// Package report renders per-org compliance reports from the controls
+// compliance query. See DESIGN-0030 § Compliance queries, D5 and D16,
+// and IMPL-0029 task 6.9.
 //
-// The report exists to answer the question no metric can: not "how many
-// repositories are failing" but WHICH ones, failing WHICH rules, since
-// WHEN. A gauge is a number; this is a list with dates on it, which is
-// what somebody chasing compliance actually has to work from.
+// The report answers what a gauge cannot: for each organisation, which
+// controls are assigned, how many assignments sit in each bucket, how
+// much of the org is actually measured, and which repositories and
+// controls are excluded and why.
 //
-// # Three stages
+// # Two stages
 //
-// Build projects one store read onto a per-org view model, Enrich
-// optionally decorates it with live GitHub links, and Render turns one
-// org into markdown. The split is deliberate: Build and Render are pure
-// and deterministic, so the golden-file tests exercise the real
-// rendering path without a GitHub client, a network, or credentials.
-// Only Enrich touches the outside world, and it is optional.
+// Build projects one store read (Data: the ControlCompliance rows and
+// the ControlExclusions rows) onto a per-org view model, and Render
+// turns one org into markdown. Both are pure and deterministic, so the
+// golden-file tests exercise the real rendering path without a
+// database, a GitHub client or credentials.
 package report
 
 import (
@@ -23,147 +22,138 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/store"
 )
 
-// TrendState classifies a rule's movement against its last snapshot.
-//
-// It is an enum rather than a bare delta because the interesting cases
-// are not arithmetic. A rule with no history is not "unchanged", and a
-// deployment that has never taken a snapshot has no trend at all —
-// rendering either as 0 would assert stability that was never measured.
-type TrendState int
+// Data is one store read: the compliance rows for every lineage and the
+// exclusions report, both scoped to the same orgs.
+type Data struct {
+	Posture    []store.ControlPosture
+	Exclusions []store.Exclusion
+}
 
+// The decisions a compliance row carries (DESIGN-0030 D17): the
+// baseline lineage is a baseline control, or the org's replacement for
+// one; org_added is a control the org assigned on its own.
 const (
-	// TrendUnknown means no snapshot exists for this rule, so there is
-	// nothing to compare against. Rendered as "new", never as 0.
-	TrendUnknown TrendState = iota
-
-	// TrendImproved means fewer repositories fail the rule than at the
-	// last snapshot.
-	TrendImproved
-
-	// TrendWorsened means more do.
-	TrendWorsened
-
-	// TrendFlat means the count is identical. Note this is a count, not
-	// a set: the same number of failures against a different set of
-	// repositories reads as flat, which is correct for a trend line and
-	// is why the findings table exists underneath it.
-	TrendFlat
+	DecisionBaseline = "baseline"
+	DecisionReplaced = "replaced"
+	DecisionOrgAdded = "org_added"
 )
 
-// RuleLine is one rule's compliance summary for one org.
-type RuleLine struct {
-	Name       string
-	Kind       string
-	Actionable int
-	Tracked    int
+// ControlLine is one (control, decision) row of the compliance query
+// for one org.
+type ControlLine struct {
+	Control  string
+	Decision string
 
-	// Delta is Actionable minus the previous snapshot's actionable
-	// count. Meaningless unless Trend is not TrendUnknown.
-	Delta int
+	Compliant     int
+	NonCompliant  int
+	Pending       int
+	Stale         int
+	Unmeasurable  int
+	NotApplicable int
+	Unknown       int
+	Excluded      int
+	Assigned      int
 
-	Trend TrendState
+	// Percent is compliant ÷ (compliant + non_compliant), floored to one
+	// decimal in SQL; nil, "no data", when nothing is measured. Taken as
+	// computed, never recomputed, so the report, snapshots, the API and
+	// the gauges print the same number.
+	Percent *float64
 
-	// ComparedAt dates the snapshot Delta was computed against. Rules
-	// can be compared against different dates — a rule that was
-	// disabled when the last run happened is compared against the last
-	// run that actually measured it — so the date is per rule and the
-	// renderer prints it. Zero when Trend is TrendUnknown.
-	ComparedAt time.Time
+	// Coverage is measured ÷ assigned from the same query; nil when
+	// nothing is assigned.
+	Coverage *float64
 }
 
-// CompliantPercent returns the share of tracked repositories satisfying
-// the rule, and whether it is defined at all.
-//
-// Undefined when nothing was tracked. A rule configured but evaluated
-// against no repository is not 100% compliant — it is unmeasured, and
-// reporting a perfect score for it is exactly the kind of comfortable
-// wrong number this whole design exists to remove.
-//
-// The result is FLOORED to one decimal, never rounded. 999 of 1000
-// repositories must read as 99.9%, not 100%: a report that says a fleet
-// is fully compliant when one repository is not has told a lie that
-// someone will act on.
-func (r RuleLine) CompliantPercent() (float64, bool) { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	if r.Tracked <= 0 {
-		return 0, false
-	}
-
-	compliant := float64(r.Tracked - r.Actionable)
-
-	return float64(int(compliant/float64(r.Tracked)*1000)) / 10, true
-}
-
-// Finding is one repository failing one rule.
-type Finding struct {
-	Repo     string
-	RuleName string
-	RuleKind string
-
-	// Since is when the repository started failing this rule. nil when
-	// unknown — rendered as an em dash rather than a zero date, which
-	// would claim the failure started in year 1.
-	Since *time.Time
-
-	// PRURL is the open repo-guardian PR for the repository, filled by
-	// Enrich. Empty when links were not requested or the lookup failed.
-	PRURL string
+// Exclusion is one excluded or conflicted assignment, or one excluded
+// repository (Control empty).
+type Exclusion struct {
+	Repository string
+	Control    string
+	State      string
+	Reason     string
+	ExcludedBy string
 }
 
 // Org is one org's whole report.
 type Org struct {
 	Name        string
 	GeneratedAt time.Time
-	Rules       []RuleLine
-	Findings    []Finding
 
-	// HasHistory reports whether any rule has a snapshot to trend
-	// against. False suppresses the trend column entirely rather than
-	// filling it with placeholders.
-	HasHistory bool
+	// Baseline holds the baseline lineage: baseline controls and the
+	// org's replacements for them.
+	Baseline []ControlLine
 
-	// ShowLinks reports whether PR links were requested. False omits
-	// the column; an empty column would be indistinguishable from "no
-	// repository has an open PR".
-	ShowLinks bool
+	// OrgAdded holds the controls the org assigned on its own.
+	OrgAdded []ControlLine
 
-	// LinkFailures counts repositories whose PR lookup failed, so a
-	// partially enriched report is not read as a complete one.
-	LinkFailures int
+	Exclusions []Exclusion
 }
 
-// Compliant returns the number of (repo, rule) pairs passing, across
-// every rule in the org.
-func (o Org) Compliant() int { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	total := 0
-	for _, r := range o.Rules {
-		total += r.Tracked - r.Actionable
+// Totals sums an org's buckets across every control.
+type Totals struct {
+	Compliant     int
+	NonCompliant  int
+	Pending       int
+	Stale         int
+	Unmeasurable  int
+	NotApplicable int
+	Unknown       int
+	Excluded      int
+	Assigned      int
+
+	// Percent is store.CompliantPercent over the summed counts: the Go
+	// mirror of the SQL percentage, so a total agrees with its rows.
+	Percent *float64
+
+	// Coverage is the summed measured ÷ assigned, floored the same way.
+	Coverage *float64
+}
+
+// Measured is the percentage's denominator.
+func (t Totals) Measured() int { //nolint:gocritic // value receiver: text/template cannot address a range variable
+	return t.Compliant + t.NonCompliant
+}
+
+// HasControls reports whether any control is assigned in the org.
+func (o Org) HasControls() bool { //nolint:gocritic // value receiver: text/template cannot address a range variable
+	return len(o.Baseline)+len(o.OrgAdded) > 0
+}
+
+// Totals sums the org's control lines.
+func (o Org) Totals() Totals { //nolint:gocritic // value receiver: text/template cannot address a range variable
+	var t Totals
+
+	for _, lines := range [][]ControlLine{o.Baseline, o.OrgAdded} {
+		for i := range lines {
+			l := &lines[i]
+			t.Compliant += l.Compliant
+			t.NonCompliant += l.NonCompliant
+			t.Pending += l.Pending
+			t.Stale += l.Stale
+			t.Unmeasurable += l.Unmeasurable
+			t.NotApplicable += l.NotApplicable
+			t.Unknown += l.Unknown
+			t.Excluded += l.Excluded
+			t.Assigned += l.Assigned
+		}
 	}
 
-	return total
+	t.Percent = store.CompliantPercent(store.StatusCounts{Compliant: t.Compliant, NonCompliant: t.NonCompliant})
+	t.Coverage = floorPercent(t.Compliant+t.NonCompliant+t.NotApplicable, t.Assigned)
+
+	return t
 }
 
-// Evaluated returns the total number of (repo, rule) evaluations.
-func (o Org) Evaluated() int { //nolint:gocritic // value receiver: text/template cannot address a range variable
-	total := 0
-	for _, r := range o.Rules {
-		total += r.Tracked
+// floorPercent is num ÷ den as a percentage floored to one decimal, nil
+// on an empty denominator: the SQL floor_percent function, for totals
+// summed in Go.
+func floorPercent(num, den int) *float64 {
+	if den == 0 {
+		return nil
 	}
 
-	return total
-}
+	p := float64(num*1000/den) / 10
 
-// snapshotKey identifies a (org, rule) pair in the history.
-type snapshotKey struct {
-	org  string
-	rule string
-}
-
-// indexSnapshots keys rows for lookup by (org, rule).
-func indexSnapshots(rows []store.SnapshotRow) map[snapshotKey]store.SnapshotRow {
-	out := make(map[snapshotKey]store.SnapshotRow, len(rows))
-	for _, r := range rows {
-		out[snapshotKey{org: r.Org, rule: r.RuleName}] = r
-	}
-
-	return out
+	return &p
 }

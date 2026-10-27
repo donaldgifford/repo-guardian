@@ -1,0 +1,112 @@
+package config
+
+import "errors"
+
+// Role is a v2 process role (DESIGN-0026 § Roles). A process runs one
+// or more; `all` runs every one.
+type Role uint8
+
+// Roles, combinable as a bit set.
+const (
+	RoleIngest Role = 1 << iota
+	RoleAPI
+
+	// RoleEvaluator and RoleRemediator are the controls worker roles
+	// (IMPL-0028); each acts as one App and runs its own task queue.
+	RoleEvaluator
+	RoleRemediator
+
+	// RoleAll runs every role. An all process runs a controls half only
+	// when its App is configured (see Config.AppConfigured).
+	RoleAll = RoleIngest | RoleAPI | RoleEvaluator | RoleRemediator
+)
+
+// Has reports whether r includes every role in other.
+func (r Role) Has(other Role) bool { return r&other == other }
+
+// ValidateRole checks the configuration role needs. A process running
+// several roles needs the union.
+//
+// ingest alone is the internet-facing role, so it refuses to start when
+// an App key or STORE_DSN is present: a compromised ingest pod must hold
+// neither. That refusal does not apply to all, which runs the controls
+// workers in the same process.
+func (c *Config) ValidateRole(role Role) error {
+	var errs []error
+
+	// The api role reads Temporal only for the optional status backlog.
+	if c.TemporalAddress == "" && role&(RoleIngest|RoleEvaluator|RoleRemediator) != 0 {
+		errs = append(errs, errors.New("TEMPORAL_ADDRESS is required"))
+	}
+
+	if role.Has(RoleIngest) {
+		errs = append(errs, c.validateIngest(role == RoleIngest)...)
+	}
+
+	if role.Has(RoleAPI) {
+		errs = append(errs, c.validateAPI(role)...)
+	}
+
+	if c.RunsControls(role, RoleEvaluator) {
+		errs = append(errs, c.validateEvaluator()...)
+	}
+
+	if c.RunsControls(role, RoleRemediator) {
+		errs = append(errs, c.validateRemediator()...)
+	}
+
+	return errors.Join(errs...)
+}
+
+// RunsControls reports whether a process running role starts the
+// controls half half (RoleEvaluator or RoleRemediator). A process
+// running that role alone always does; a combined process (all) does
+// only when the half's App is configured (IMPL-0028 task 4.1).
+func (c *Config) RunsControls(role, half Role) bool {
+	if !role.Has(half) {
+		return false
+	}
+
+	if role == half {
+		return true
+	}
+
+	app := AppEval
+	if half == RoleRemediator {
+		app = AppRemediate
+	}
+
+	return c.AppConfigured(app)
+}
+
+// validateIngest checks the webhook secrets and, when ingest runs alone,
+// that the process holds no App key and no database credentials. Each
+// controls App with a webhook secret gets a route; with neither, ingest
+// would serve nothing.
+func (c *Config) validateIngest(alone bool) []error {
+	var errs []error
+
+	if c.EvalApp.WebhookSecret == "" && c.RemediateApp.WebhookSecret == "" {
+		errs = append(errs, errors.New("EVAL_WEBHOOK_SECRET or REMEDIATE_WEBHOOK_SECRET is required for the ingest role"))
+	}
+
+	errs = append(errs, c.validateAppRoutes()...)
+
+	if !alone {
+		return errs
+	}
+
+	if c.EvalApp.PrivateKeyPath != "" || c.RemediateApp.PrivateKeyPath != "" {
+		errs = append(errs, errors.New(
+			"the ingest role must not hold an App key: unset EVAL_GITHUB_PRIVATE_KEY_PATH and REMEDIATE_GITHUB_PRIVATE_KEY_PATH"))
+	}
+
+	if c.StoreDSN != "" || c.StoreDSNEvaluator != "" || c.StoreDSNRemediator != "" {
+		errs = append(
+			errs,
+			errors.New("the ingest role must not hold database credentials: unset STORE_DSN, STORE_DSN_EVALUATOR and STORE_DSN_REMEDIATOR"),
+		)
+	}
+
+	return errs
+}

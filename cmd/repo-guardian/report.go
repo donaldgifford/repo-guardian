@@ -5,13 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
-	"strconv"
+	"strings"
 
-	"github.com/donaldgifford/repo-guardian/internal/checker"
-	"github.com/donaldgifford/repo-guardian/internal/config"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/donaldgifford/repo-guardian/internal/report"
+	"github.com/donaldgifford/repo-guardian/internal/store"
 	pgstore "github.com/donaldgifford/repo-guardian/internal/store/postgres"
 )
 
@@ -32,14 +32,15 @@ const reportPoolConns = 2
 // It also does NOT run migrations. The report is read-only, the DSN it
 // is handed may have no DDL rights, and a report generated from a newer
 // binary would otherwise migrate the schema forward underneath a
-// running older server.
+// running older server. It checks the controls schema version instead
+// and refuses an unmigrated database (run `repo-guardian migrate
+// --chain controls`).
 func runReport(args []string) error {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 
 	out := fs.String("out", "./reports", "directory to write one markdown report per org into")
 	dsn := fs.String("dsn", os.Getenv("STORE_DSN"), "Postgres DSN (defaults to $STORE_DSN)")
-	withPRLinks := fs.Bool("with-pr-links", false,
-		"resolve open repo-guardian PR links via the GitHub App (needs app credentials and network access)")
+	scope := fs.String("orgs", "", "comma-separated orgs to report on (default: every org)")
 
 	if err := fs.Parse(args); err != nil {
 		// -h is a request, not a failure. Without this the binary
@@ -63,38 +64,27 @@ func runReport(args []string) error {
 	// record as a filename.
 	logger := initLoggerTo(os.Stderr, os.Getenv("LOG_LEVEL"))
 
-	st, err := pgstore.New(ctx, *dsn, reportPoolConns, logger)
+	pool, err := newReportPool(ctx, *dsn)
 	if err != nil {
-		return fmt.Errorf("report: open store: %w", err)
+		return err
+	}
+	defer pool.Close()
+
+	if err := pgstore.RequireControlsSchema(ctx, pool, pgstore.ControlsSchemaVersion); err != nil {
+		return fmt.Errorf("report: %w", err)
 	}
 
-	defer func() {
-		if err := st.Close(); err != nil {
-			logger.Warn("report: store close failed", "error", err)
-		}
-	}()
-
-	data, err := st.ReportData(ctx)
+	data, err := readReport(ctx, pgstore.NewControlsStore(pool), parseOrgs(*scope))
 	if err != nil {
-		return fmt.Errorf("report: read state: %w", err)
+		return err
 	}
 
-	var linker report.PRLinker
-
-	if *withPRLinks {
-		linker, err = newPRLinker(logger)
-		if err != nil {
-			return err
-		}
-	}
-
-	renderer, err := report.New(report.Options{Links: linker, Logger: logger})
+	renderer, err := report.New(report.Options{Logger: logger})
 	if err != nil {
 		return err
 	}
 
 	orgs := renderer.Build(data)
-	renderer.Enrich(ctx, data, orgs)
 
 	paths, err := renderer.WriteAll(*out, orgs)
 	if err != nil {
@@ -114,33 +104,48 @@ func runReport(args []string) error {
 	return nil
 }
 
-// newPRLinker builds the GitHub-backed link resolver.
-//
-// Constructs a minimal config rather than calling config.Load, for the
-// reason given on runReport: the report needs App credentials and
-// nothing else Load insists on.
-func newPRLinker(logger *slog.Logger) (report.PRLinker, error) {
-	appID, err := strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
+// newReportPool opens a small read pool for a one-shot CLI run.
+func newReportPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("report: --with-pr-links needs a numeric GITHUB_APP_ID: %w", err)
+		return nil, fmt.Errorf("report: parse dsn: %w", err)
 	}
 
-	client, err := newGitHubClient(&config.Config{
-		GitHubAppID:          appID,
-		GitHubPrivateKey:     os.Getenv("GITHUB_PRIVATE_KEY"),
-		GitHubPrivateKeyPath: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
-	}, logger)
+	cfg.MaxConns = reportPoolConns
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("report: --with-pr-links: %w", err)
+		return nil, fmt.Errorf("report: open store: %w", err)
 	}
 
-	return report.NewGitHubLinker(report.GitHubLinkerOptions{
-		Client: client,
-		// Injected rather than imported inside internal/report: taking
-		// the const from internal/checker would drag the engine, the
-		// policy loader, the reconcilers and their metric registrations
-		// into a read-only CLI.
-		BranchName: checker.BranchName,
-		Logger:     logger,
-	}), nil
+	return pool, nil
+}
+
+// readReport reads the compliance rows for every lineage and the
+// exclusions report for orgs (empty: every org).
+func readReport(ctx context.Context, st *pgstore.ControlsStore, orgs []string) (*report.Data, error) {
+	posture, err := st.ControlCompliance(ctx, orgs, store.LineageAll)
+	if err != nil {
+		return nil, fmt.Errorf("report: read compliance: %w", err)
+	}
+
+	exclusions, err := st.ControlExclusions(ctx, orgs)
+	if err != nil {
+		return nil, fmt.Errorf("report: read exclusions: %w", err)
+	}
+
+	return &report.Data{Posture: posture, Exclusions: exclusions}, nil
+}
+
+// parseOrgs turns --orgs into an org list; empty means every org.
+func parseOrgs(orgs string) []string {
+	var out []string
+
+	for o := range strings.SplitSeq(orgs, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			out = append(out, o)
+		}
+	}
+
+	return out
 }

@@ -1,0 +1,284 @@
+import type { ReactNode } from "react";
+
+import type { Schemas } from "../api/client";
+import { useStatus, useUIConfig } from "../api/queries";
+import { StateBadge } from "../components/badges";
+import { Badge } from "../components/ui/badge";
+import { Sparkline } from "../components/charts";
+import { Icon } from "../components/icons";
+import { Time } from "../components/time";
+import { Card } from "../components/ui/card";
+import { Meter } from "../components/ui/meter";
+import changelog from "../generated/changelog.json";
+import { formatPercent, toneFor } from "../lib/format";
+import { cn } from "../lib/utils";
+
+export type StatusTone = "ok" | "warn" | "bad" | "mute";
+
+// statusHeadline maps the overall state onto the banner's fixed
+// headline and tone (DESIGN-0036 §Status page). These four strings and
+// the schema's own are the only text the page may show.
+export function statusHeadline(state: string): { headline: string; tone: StatusTone } {
+  switch (state) {
+    case "operational":
+      return { headline: "All systems operational", tone: "ok" };
+    case "degraded":
+      return { headline: "Degraded performance", tone: "warn" };
+    case "unknown":
+      return { headline: "Status not yet available", tone: "mute" };
+    default:
+      return { headline: "Service disruption", tone: "bad" };
+  }
+}
+
+const toneVar: Record<StatusTone, string> = {
+  ok: "var(--color-ok)",
+  warn: "var(--color-warn)",
+  bad: "var(--color-bad)",
+  mute: "var(--color-muted-foreground)",
+};
+
+const dotClass: Record<StatusTone, string> = {
+  ok: "bg-ok",
+  warn: "bg-warn",
+  bad: "bg-bad",
+  mute: "bg-muted-foreground",
+};
+
+// StatusView is the public status page: outside the shell, no session,
+// aggregate-only. Everything it prints comes from the Status schema or
+// the headline map above.
+export function StatusView() {
+  const status = useStatus();
+  const config = useUIConfig();
+  const s: Schemas["Status"] = status.data ?? { state: "unknown", updated_at: "", topology: "all", components: [], apps: [], compliance: { percent: null, coverage: null, measured: false, history: [] }, operations: { evaluated_24h: 0, overdue: 0, tracked: 0, remediation_backlog: 0, rollout_state: "none" } };
+  const { headline, tone } = statusHeadline(s.state);
+  return (
+    <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <Icon name="shield" className="size-5 text-accent" />
+          Repo Guardian status
+        </h1>
+        <p className="text-xs text-muted-foreground">
+          updated {s.updated_at ? <Time iso={s.updated_at} style="relative" /> : "—"} · refreshes every 30s
+        </p>
+      </header>
+
+      <Card aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
+        <div className="flex flex-wrap items-center gap-3">
+          <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "mute" && "animate-pulse")} />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[15px] font-semibold">{headline}</h2>
+            <p className="text-xs text-muted-foreground">Public, aggregate-only. No org, repository or rule names appear here.</p>
+          </div>
+          <StateBadge state={s.state} />
+        </div>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-5">
+        <Card title="Components" bodyClassName="p-0" className="md:col-span-3">
+          {s.components.length === 0 ? (
+            <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No components reported yet.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {s.components.map((c) => (
+                <ComponentRow key={c.name} component={c} />
+              ))}
+            </ul>
+          )}
+          {s.components.some((c) => c.name === "webhooks") ? (
+            <p className="border-t border-border px-3.5 py-2 text-xs text-muted-foreground">webhooks is informational: it reports deliveries but never moves the overall state.</p>
+          ) : null}
+        </Card>
+        <Card title="Fleet compliance" className="md:col-span-2">
+          <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
+            {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
+          </div>
+          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
+          <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+            measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="status-coverage">
+            coverage {formatPercent(s.compliance.coverage)}
+          </p>
+          <ComplianceTrend history={s.compliance.history} />
+        </Card>
+      </div>
+
+      <OperationsStrip ops={s.operations} remediation={s.apps.some((a) => a.app === "remediate")} />
+
+      <Deployment topology={s.topology} apps={s.apps} />
+
+      <Changelog />
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+        <code className="font-mono">GET /api/v1/status · served from an in-process cache</code>
+        <span className="flex items-center gap-3">
+          {config.data?.docs_url ? (
+            <a href={config.data.docs_url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+              Documentation ↗
+            </a>
+          ) : null}
+          <a href="/auth/login" className="hover:text-foreground">
+            Sign in →
+          </a>
+        </span>
+      </footer>
+    </main>
+  );
+}
+
+function ComponentRow({ component: c }: { component: Schemas["Component"] }) {
+  const { tone } = statusHeadline(c.state);
+  return (
+    <li className="flex items-center gap-3 px-3.5 py-2.5 text-[13px]" data-component={c.name}>
+      <span aria-hidden="true" className={cn("size-2 flex-none rounded-full", dotClass[tone])} />
+      <span className="font-mono font-medium">{c.name}</span>
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">{c.detail}</span>
+      <StateBadge state={c.state} />
+    </li>
+  );
+}
+
+// ComplianceTrend is the 30-day fleet line from compliance.history, one
+// point per day's last snapshot. The sparkline is aria-hidden; the
+// sentence beside it carries the first and last values.
+function ComplianceTrend({ history }: { history: Schemas["CompliancePoint"][] }) {
+  const values = history.map((p) => p.percent ?? null);
+  const measured = values.filter((v): v is number => v !== null);
+  const first = measured[0];
+  const last = measured[measured.length - 1];
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3" data-testid="status-trend">
+      <span className="text-xs text-muted-foreground">
+        last 30 days
+        {first !== undefined && last !== undefined && measured.length > 1 ? (
+          <span className="sr-only">
+            {`: from ${formatPercent(first)} to ${formatPercent(last)}`}
+          </span>
+        ) : null}
+      </span>
+      <Sparkline values={values} width={180} height={28} color="var(--color-ok)" />
+    </div>
+  );
+}
+
+// rolloutLabel maps the closed rollout_state enum onto fixed text.
+export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; at?: string } {
+  switch (ops.rollout_state) {
+    case "complete":
+      return ops.rollout_completed_at ? { text: "complete", at: ops.rollout_completed_at } : { text: "complete" };
+    case "in_progress":
+      return { text: "in progress" };
+    default:
+      return { text: "—" };
+  }
+}
+
+// OperationsStrip is four aggregate numbers: repositories evaluated in
+// the last 24h of those tracked, those overdue, the newest policy's
+// rollout and the last compliance snapshot.
+export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOperations"]; remediation: boolean }) {
+  const rollout = rolloutLabel(ops);
+  return (
+    <Card className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
+      <OperationsCell label="Repositories evaluated in the last 24h">
+        {ops.evaluated_24h.toLocaleString()}
+        <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
+      </OperationsCell>
+      <OperationsCell label="Overdue evaluations">{ops.overdue.toLocaleString()}</OperationsCell>
+      <OperationsCell label="Last policy rollout">{rollout.at ? <Time iso={rollout.at} style="relative" /> : rollout.text}</OperationsCell>
+      <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
+      {/* The backlog cell only with a Remediation App (IMPL-0032 6.7): an aggregate count, so the privacy guard holds. */}
+      {remediation ? <OperationsCell label="Remediation backlog">{ops.remediation_backlog.toLocaleString()}</OperationsCell> : null}
+    </Card>
+  );
+}
+
+function OperationsCell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="px-3.5 py-2.5">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-[22px] font-semibold tabular-nums">{children}</div>
+    </div>
+  );
+}
+
+const appLabels: Record<string, string> = { eval: "Evaluation App", remediate: "Remediation App" };
+
+// Deployment is the topology and each App's installations, by count.
+// The queues are components above (backlog_evaluation and
+// backlog_remediation).
+function Deployment({ topology, apps }: { topology: string; apps: Schemas["StatusApp"][] }) {
+  return (
+    <Card title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
+      {apps.length === 0 ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No App installation recorded yet.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {apps.map((a) => (
+            <li key={a.app} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5 text-[13px]" data-app={a.app}>
+              <span className="font-medium">{appLabels[a.app] ?? a.app}</span>
+              <span className="min-w-0 flex-1 text-muted-foreground">
+                {a.installations.toLocaleString()} installations · {a.repositories.toLocaleString()} repositories
+                {a.suspended > 0 ? ` · ${a.suspended.toLocaleString()} suspended` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+export const releasesURL = "https://github.com/donaldgifford/repo-guardian/releases";
+
+export const changelogShown = 5;
+
+// Changelog is the newest five releases from the bundled CHANGELOG.yaml
+// (DESIGN-0037 §Status page changelog): the bundle's own version wears
+// "running", since the build that ships this card is that release. No
+// API call, so TestStatus_PrivacyGuard is untouched.
+export function Changelog({ bundle = changelog }: { bundle?: { running: string; entries: { version: string; date: string; title: string; summary: string; tags: string[] }[] } }) {
+  const entries = bundle.entries.slice(0, changelogShown);
+  return (
+    <Card
+      title="Changelog"
+      right={
+        <a href={releasesURL} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
+          All releases ↗
+        </a>
+      }
+      bodyClassName="p-0"
+      aria-label="Changelog"
+    >
+      {entries.length === 0 ? (
+        <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No releases recorded.</p>
+      ) : (
+        <ol className="divide-y divide-border">
+          {entries.map((e) => (
+            <li key={e.version} className="space-y-1 px-3.5 py-2.5 text-[13px]" data-version={e.version} data-running={e.version === bundle.running}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-medium">{e.version}</span>
+                {e.version === bundle.running ? <Badge tone="ok">running</Badge> : null}
+                <time dateTime={e.date} className="text-xs text-muted-foreground">
+                  {e.date}
+                </time>
+                <span className="font-medium">{e.title}</span>
+              </div>
+              <p className="text-muted-foreground">{e.summary}</p>
+              <div className="flex flex-wrap gap-1">
+                {e.tags.map((t) => (
+                  <Badge key={t} tone={toneFor("tag", t)}>
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Card>
+  );
+}

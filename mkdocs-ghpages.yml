@@ -1,44 +1,12 @@
 ---
 # $schema=https://json.schemastore.org/mkdocs-1.6.json
-nav:
-  - Home: index.md
-  - Usage:
-      - Getting Started: usage/getting-started.md
-      - Policy Reference: usage/policy-reference.md
-  - ADRs:
-      - Overview: adr/README.md
-  - Adding a New Rule to Repo Guardian: ADDING_RULES.md
-  - Design:
-      - Overview: design/README.md
-      - 'DESIGN-0001: Custom Properties from Backstage': design/0001-custom-properties-from-backstage.md
-      - 'DESIGN-0002: GitHub API Rate Limit Handling': design/0002-github-api-rate-limit-handling.md
-      - 'DESIGN-0003: Tailscale Integration Research': design/0003-tailscale-integration-research.md
-      - 'DESIGN-0004: GitHub Webhook IP Allowlist Middleware': design/0004-github-webhook-ip-allowlist-middleware.md
-      - 'DESIGN-0005: Helm Chart for repo-guardian': design/0005-helm-chart-for-repo-guardian.md
-      - 'DESIGN-0006: HCL Policy Configuration and Rule Engine': design/0006-hcl-policy-configuration-and-rule-engine.md
-      - 'DESIGN-0007: Reconciler Interface and Push Event Handler': design/0007-reconciler-interface-and-push-event-handler.md
-      - 'DESIGN-0008: Additional Rule Types and Ignore Lists': design/0008-additional-rule-types-and-ignore-lists.md
-      - 'DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions': design/0009-distributed-renovate-via-per-repo-github-actions.md
-  - Implementation Plans:
-      - Overview: impl/README.md
-      - 'IMPL-0001: Repo Guardian Implementation Plan': impl/0001-repo-guardian-implementation-plan.md
-      - 'IMPL-0002: Custom Properties Implementation Plan': impl/0002-custom-properties-implementation-plan.md
-      - 'IMPL-0003: GitHub Webhook IP Allowlist Middleware': impl/0003-github-webhook-ip-allowlist-middleware.md
-      - 'IMPL-0004: Helm Chart for repo-guardian': impl/0004-helm-chart-for-repo-guardian.md
-      - 'IMPL-0005: HCL Policy Configuration and Rule Engine': impl/0005-hcl-policy-configuration-and-rule-engine.md
-      - 'IMPL-0006: Reconciler Interface and Push Event Handler': impl/0006-reconciler-interface-and-push-event-handler.md
-      - 'IMPL-0007: Additional Rule Types and Ignore Lists': impl/0007-additional-rule-types-and-ignore-lists.md
-      - 'IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions': impl/0008-distributed-renovate-via-per-repo-github-actions.md
-  - Investigations:
-      - Overview: investigation/README.md
-      - 'INV-0001: Tailscale Funnel for Webhook Testing': investigation/0001-tailscale-funnel-for-webhook-testing.md
-  - Plans:
-      - Overview: plan/README.md
-  - RFCs:
-      - Overview: rfc/README.md
-      - 'RFC-0001: Repo Compliance App (repo-guardian)': rfc/0001-repo-compliance-app-repo-guardian.md
-      - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
-site_description: Documentation for repo-guardian
-site_name: repo-guardian
+# The public GitHub Pages site (gh-pages.yml). It inherits mkdocs.yml, so
+# the nav has one source and cannot drift, and overrides only what Pages
+# needs: the material theme, and the search plugin in place of
+# techdocs-core, which is installed for TechDocs only. Mermaid blocks
+# render as code here until IMPL-0035's Starlight site.
+INHERIT: mkdocs.yml
 theme:
   name: material
+plugins:
+  - search

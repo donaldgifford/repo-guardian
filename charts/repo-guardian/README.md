@@ -2,6 +2,24 @@
 
 GitHub App that automates repository onboarding and compliance
 
+repo-guardian 2.x evaluates every repository in your GitHub
+organisations against a controls policy kept as a directory
+(`enterprise.hcl`, `catalogue/`, `orgs/`, `templates/`), records who
+is compliant with which control and why not, and, for assignments in
+`mode = "remediate"`, opens one pull request per control or makes the
+API change that fixes it. It runs as separate roles: `ingest` for the
+webhooks, an `evaluator` holding the read-only Evaluation App, a
+`remediator` holding the Remediation App, a read-only `api` and the
+business UI, all on a Temporal cluster you run and a Postgres database
+this chart can bake, manage through CloudNativePG or point at.
+
+Chart 2.x is a fresh install: it refuses every 1.x value at render
+time, naming the key and the migration section that replaces it. The
+walk-through is
+[Getting started](https://donaldgifford.github.io/repo-guardian/usage/getting-started/);
+how to verify the chart and images is in
+[Verifying releases](https://donaldgifford.github.io/repo-guardian/operations/verifying-releases/).
+
 ## Installation
 
 The chart is published as an OCI artifact to two registries — pick
@@ -13,7 +31,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +46,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 1.0.0 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -38,25 +56,40 @@ helm install repo-guardian \
 
 - Kubernetes 1.28+
 - Helm 3.14+ or 4.x (OCI support)
-- A registered [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with:
-  - **Permissions:** Contents (Read & Write), Pull Requests (Read & Write), Metadata (Read)
-  - **Events:** `repository`, `installation_repositories`, `installation`, and `push` (needed for `watch = true` reconcilers)
+- A Temporal cluster the pods can reach (`temporal.address`); see
+  `contrib/temporal/` for a pinned install
+- An Evaluation App (read-only) and, to remediate, a Remediation App;
+  the permission and event tables are in
+  `docs/operations/v2-onboarding.md`. The Remediation App always needs
+  Contents and Pull requests write. It needs **Workflows: write only
+  when the policy has a control that writes under `.github/workflows/`**
+  (an `apply = "workflow"` control, or a file control whose file lives
+  there): GitHub refuses those commits on Contents write alone, and the
+  remediator holds the control with `hold = permission`. The remediator
+  logs the set its policy needs at startup (`Remediation App
+  permissions required`).
 
 ## Quick Start
 
-1. Create a values file with your GitHub App credentials:
+1. Create a values file with the Evaluation App and a policy directory:
 
 ```yaml
-config:
-  appId: "YOUR_APP_ID"
-  dryRun: true  # Start in dry-run mode
+temporal:
+  address: temporal-frontend.temporal.svc.cluster.local:7233
 
-secrets:
-  webhookSecret: "YOUR_WEBHOOK_SECRET"
-  privateKey: |
-    -----BEGIN RSA PRIVATE KEY-----
-    YOUR_PRIVATE_KEY
-    -----END RSA PRIVATE KEY-----
+github:
+  eval:
+    appId: "YOUR_EVALUATION_APP_ID"
+    # Secret with keys `private-key` and `webhook-secret`.
+    existingSecret: repo-guardian-eval
+
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise {}
+    orgs:
+      acme.hcl: |
+        org "acme" {}
 ```
 
 2. Install the chart:
@@ -64,64 +97,176 @@ secrets:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 1.0.0 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
 ```
 
-3. Once verified, set `config.dryRun: false` to enable live mode.
+3. The evaluator only reads. Set `github.remediate.*` to run the
+   remediator when you want repo-guardian to open pull requests.
 
 ## Choosing a deployment shape
 
-Chart `1.0.0-rc.1`+ ships Postgres + Valkey as the only supported
-backends (IMPL-0016 removed the in-memory store/queue and the
-in-process ticker scheduler). Pick the row that matches your
-operator scenario; the baked shape is the default and brings up
-StatefulSets out-of-the-box.
+Chart 2.0.0 runs repo-guardian as roles on Temporal (DESIGN-0026).
+`topology` picks how the roles are packaged:
 
-| Shape | Values | Use when |
-|-------|--------|----------|
-| **Baked Postgres + Valkey** (default) | `store.postgres.mode=baked`, `queue.valkey.mode=baked` | You want multi-replica with no external operator dependencies. Chart renders single-pod Postgres + Valkey StatefulSets with auto-generated passwords. Suitable for homelab / small dev clusters. |
-| **CNPG-managed Postgres + baked Valkey** | `store.postgres.mode=cnpg`, `queue.valkey.mode=baked` | You already run [CloudNativePG](https://cloudnative-pg.io/) in the cluster and want the operator to handle Postgres lifecycle (HA replicas, backups, monitoring). The chart renders a `Cluster` CR and an optional `Pooler` (PgBouncer) CR. An optional `LoadBalancer` Service in front of the pooler (Cilium BGP-annotated by default) exposes the database to clients outside the cluster — enable via `store.postgres.cnpg.pooler.service.enabled`. |
-| **External Postgres + external Valkey** | `store.postgres.mode=external` + `existingSecret`; `queue.valkey.mode=external` + `existingSecret` | You're running a managed Postgres (RDS, Cloud SQL) and Redis-compatible service (ElastiCache for Valkey, etc.). Chart consumes the DSN from operator-supplied secrets and renders no backing resources. |
+| Topology | Renders | Use when |
+|----------|---------|----------|
+| `split` (default) | `ingest` (webhooks, 2 replicas + PDB), `evaluator` and `remediator` (each when its App's `appId` is set, optional KEDA per queue), and with `api.enabled` an `api` Deployment (ClusterIP + PDB) | Production: each role scales and fails on its own, and each holds only its own credentials. |
+| `all` | One Deployment running every role; the API listens on `api.port` | Homelab and small installs. |
+
+Each role holds only what it needs: the Evaluation App's key goes to
+`evaluator` and `all`, the Remediation App's to `remediator` and `all`,
+both webhook secrets to `ingest` and `all`, the
+Temporal credentials to every role that dials Temporal, and `api`
+gets a read-only database login and nothing else.
+
+Temporal authenticates one of two ways:
+
+- **mTLS:** `temporal.tls.existingSecret` holds `tls.crt`, `tls.key`
+  and optionally `ca.crt`.
+- **OIDC bearer token** (Keycloak and the like):
+  `temporal.auth.oidc.{tokenUrl, clientId, existingSecret}` runs an
+  OAuth2 client-credentials grant, with the client secret mounted from
+  the Secret's `client-secret` key. The token is cached and renewed a
+  minute before expiry. The frontend is verified over TLS, against
+  `temporal.tls.caSecret` (`ca.crt` only) or the system roots.
+  `temporal.tls.disabled: true` allows a plaintext frontend, but the
+  token is then readable on the wire. KEDA's temporal trigger cannot use
+  OIDC, so `keda.trigger: temporal` is refused alongside it; the default
+  `prometheus` trigger works with it.
+
+The store is still Postgres, in one of three modes:
+
+| Mode | Values | Use when |
+|------|--------|----------|
+| **Baked** (default) | `store.postgres.mode=baked` | No external operator dependencies. A single-pod Postgres StatefulSet with a generated password; homelab and dev clusters. |
+| **CNPG** | `store.postgres.mode=cnpg` | You run [CloudNativePG](https://cloudnative-pg.io/) and want it to own Postgres lifecycle. Renders a `Cluster` CR and an optional `Pooler`. |
+| **External** | `store.postgres.mode=external` + `existingSecret` | Managed Postgres (RDS, Cloud SQL). The chart renders no database. |
+
+### The API's read-only role
+
+The split `api` role reads through `repoguardian_ro` (DESIGN-0027):
+
+- **baked:** an init script creates it on new volumes, and a
+  `post-install,post-upgrade` hook Job creates it on existing ones,
+  resets its password and re-runs the grants. With
+  `store.postgres.baked.existingSecret`, put its password under
+  `existingSecretROKey` (default `RO_PASSWORD`).
+- **CNPG:** a managed role in `pg_read_all_data`. With one instance
+  the API connects through `-rw`, since `-ro` has no endpoints.
+- **external:** create the role yourself and set
+  `api.roDsn.existingSecret`; the render fails without it.
+
+In `all` the API reads with `STORE_DSN`.
+
+### The UI
+
+`ui.enabled` renders the business UI (DESIGN-0027): a Deployment,
+Service and PDB running `ghcr.io/donaldgifford/repo-guardian-ui` at
+the chart's `appVersion`. It proxies `/api` to the `api` Service and
+signs users in against `api.auth.issuer`.
+
+- **Requires** `api.enabled` and `api.auth.enabled`; the render fails
+  otherwise.
+- **Secret** `ui.existingSecret` with `oidc-client-secret` and
+  `session-keys` (comma-separated, each at least 32 bytes; the first
+  seals new sessions, any opens them, so rotate by prepending).
+- **Ingress.** `ui.ingress.enabled` renders the chart's only Ingress,
+  sending the whole `ui.ingress.host` to the UI. It fails render unless
+  `api.auth.enabled`. The webhook route stays yours
+  (`docs/operations/ingress.md`).
+- The UI holds no GitHub, Temporal or database credential.
+- **Identity providers.** Keycloak works on the defaults. For Okta,
+  Entra ID or Auth0 set `api.auth.clientClaim`, `api.auth.groupsClaim`,
+  `ui.oidc.tokenAuthMethod` and `ui.oidc.authorizationParams` as
+  `docs/operations/identity-provider.md` describes per provider.
+
+### Migrations
+
+`migrate.enabled` (default `true`) runs `repo-guardian migrate` as a
+hook Job: `post-install` (so a baked Postgres exists to connect to) and
+`pre-upgrade` (so the schema lands before new pods roll). It applies
+the controls chain to an empty database and never adopts an older
+schema; see `docs/operations/v2-migration.md` for the fresh-install
+cutover.
 
 ### Mode-scoped secret knobs
 
 Each `existingSecret` value is read by exactly one mode:
-`store.postgres.existingSecret` / `queue.valkey.existingSecret` only in
-`external` mode; `store.postgres.baked.existingSecret` /
-`queue.valkey.baked.existingSecret` only in `baked` mode. Setting one
-under any other mode fails `helm template` / `helm install` with an
-error naming the offending value and the correct alternative (chart
-`1.0.0-rc.5`+) instead of silently deploying on the chart-generated
-secret.
+`store.postgres.existingSecret` only in `external` mode and
+`store.postgres.baked.existingSecret` only in `baked` mode. Setting one
+under any other mode fails the render with an error naming the right
+knob.
 
 ### Schema validation
 
-`values.schema.json` (shipped with chart `1.0.0-rc.1`+) locks
-`store.backend` to `"postgres"`, `queue.backend` to `"valkey"`, and
-`scheduler.backend` to `"valkey"`. Operators upgrading from chart
-`0.7.x` who carry forward `store.backend=memory` (or any other
-removed value) will see a schema error at `helm install` /
-`helm upgrade` time, *before* pod startup:
+`values.schema.json` rejects removed values by name, before any pod
+starts. The render-time `validateRemovedValues` guard repeats the check
+for installs that skip schema validation.
 
-```
-Error: values don't meet the specifications of the schema(s) in
-the following chart(s):
-repo-guardian:
-- at '/store/backend': value must be 'postgres'
-```
-
-This is intentional: failing fast at chart-render time gives a
-cleaner diagnostic than a `CrashLoopBackoff` from the binary's
-startup validation (which also rejects the old values, with a
-migration URL — see [migrations.md](../../docs/operations/migrations.md#removing-memory-backend)).
-
-For sizing knobs (`replicaCount`, `workerCount`, `maxConns`,
-`staleSweep.*`), see [docs/operations/scaling.md](../../docs/operations/scaling.md).
+For sizing, see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+## Upgrade notes
+
+> [!WARNING]
+> **History.** Chart 2.0.0 is a fresh install, and the notes below
+> describe the 2.0.0 release candidates and the 1.x line as they
+> shipped: values they name as replacements may since have been
+> removed. The current removed-value tables are in
+> [Migrating from v1 to v2](../../docs/operations/v2-migration.md).
+
+### Upgrade notes (chart 2.0.0-rc.2) — worker versioning and Temporal alerts
+
+- **Workers promote their own build.** rc.1 workers never became the
+  worker deployment's current version, so Temporal dispatched them
+  nothing. From rc.2 each worker promotes its build at startup (newest
+  semver wins) and fails its `deployment` readiness check if it is still
+  not current after 2 minutes.
+- **`TEMPORAL_BUILD_ID` is chart-managed.** It is set from
+  `worker.buildId`, then `image.tag`, then appVersion. `extraEnv` or
+  `templating.vars` setting it now fails the render: move a pin to
+  `worker.buildId`.
+- **Temporal SDK latency histograms are usable.** They now use
+  second-scale buckets; with the OTel defaults every latency under 5s
+  fell in one bucket. Metric names are unchanged, and match Temporal's
+  own SDK dashboard.
+- **New `repo-guardian.temporal` alert group:**
+  `RepoGuardianTemporalWorkflowTaskLatency`,
+  `RepoGuardianTemporalActivityBacklog`,
+  `RepoGuardianTemporalWorkerSlotsExhausted` and
+  `RepoGuardianTemporalStickyCacheEvictions`, tunable under
+  `prometheusRule.alerts.<name without the RepoGuardian prefix>`.
+- **Temporal OIDC auth.** New `temporal.auth.oidc.*`,
+  `temporal.tls.caSecret` and `temporal.tls.disabled` values (see
+  *Choosing a deployment shape*). Nothing changes unless they are set.
+- **`prometheusRule.alerts.<name>.enabled: false` now works.** Earlier
+  charts ignored it for every alert (sprig's `default` turned `false`
+  into `true`).
+
+### Upgrade notes (chart 2.0.0) — Temporal runtime, breaking
+
+- **Temporal replaces Valkey.** `queue.*`, `scheduler.*`,
+  `staleSweep.*`, `posture.exportInterval` and
+  `config.{workerCount,queueSize,scheduleInterval,maxJobAttempts}` are
+  removed and fail the render. Use `worker.concurrency`,
+  `checkInterval` and `migrate.freshness`. The baked Valkey StatefulSet
+  is no longer rendered; delete its PVC once you have cut over.
+- **`temporal.address` and a policy are required.** The worker will not
+  start without `GUARDIAN_CONFIG`.
+- **Roles.** The default `topology: split` replaces the single
+  Deployment. The webhook Service keeps the release's full name, so
+  ingress routes survive.
+- **Pods roll on policy edits.** `checksum/policy` and
+  `checksum/templates` annotations roll every role that reads the
+  policy; the worker then spreads the re-check across
+  `policyRolloutWindow`.
+
+The full runbook is
+[docs/operations/v2-migration.md](../../docs/operations/v2-migration.md).
 
 ### Upgrade notes (chart 1.0.0 / appVersion 1.14.0) — operator-owned ingress, breaking
 
@@ -285,36 +430,12 @@ rollback), see
 
 ## Verifying the chart
 
-Every published version is signed with cosign (Sigstore keyless) via
-the workflow's OIDC identity, plus a SLSA Level 3 provenance
-attestation. Both can be verified offline against the public Sigstore
-transparency log.
-
-### Cosign signature
-
-```bash
-cosign verify \
-  --certificate-identity-regexp \
-    '^https://github.com/donaldgifford/repo-guardian/.+' \
-  --certificate-oidc-issuer \
-    'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0
-```
-
-### SLSA provenance
-
-```bash
-cosign verify-attestation --type slsaprovenance \
-  --certificate-identity-regexp \
-    '^https://github.com/slsa-framework/slsa-github-generator/.+' \
-  --certificate-oidc-issuer \
-    'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:1.0.0
-```
-
-The provenance attestation records the build workflow path, source
-commit SHA, and builder image — useful for downstream policy
-enforcement.
+Every published version is signed with cosign (Sigstore keyless),
+ships a SLSA Level 3 provenance attestation and an SPDX SBOM
+attestation. The commands for the chart, both images and the binaries
+are in
+[Verifying releases](https://donaldgifford.github.io/repo-guardian/operations/verifying-releases/)
+([source](../../docs/operations/verifying-releases.md)).
 
 ## Releasing
 
@@ -385,8 +506,8 @@ etc.) into PR titles and bodies.
 
 **The `env` helper is unrestricted by design.** Any env var
 visible to the binary's process — including chart-managed values
-like `GITHUB_APP_ID`, secret material like `GITHUB_PRIVATE_KEY` and
-`WEBHOOK_SECRET`, and anything attached via `extraEnv` — is
+like `EVAL_GITHUB_APP_ID`, secret material like
+`EVAL_WEBHOOK_SECRET`, and anything attached via `extraEnv` — is
 readable from policy templates. The threat model assumes the
 operator who writes the policy HCL is the same operator who
 provisions runtime secrets, so reading those secrets back from
@@ -394,176 +515,181 @@ templates is not privilege escalation. **However**, rendered PR
 text is visible to anyone with read access to the target
 repository. Never reference secret env vars from PR templates:
 
-```hcl
-# DON'T:
-defaults {
-  pr {
-    body = "deployed with key {{ env \"GITHUB_PRIVATE_KEY\" }}"
-  }
-}
+```gotemplate
+{{/* DON'T: */}}
+deployed with {{ env "EVAL_WEBHOOK_SECRET" }}
 
-# DO: keep secrets out of PR text entirely.
-defaults {
-  pr {
-    body = "Project: {{ env \"JIRA_PROJECT\" }}"   # non-secret
-  }
-}
+{{/* DO: keep secrets out of rendered text entirely. */}}
+Project: {{ env "JIRA_PROJECT" }}
 ```
 
 The chart's reserved-name list (`_helpers.tpl`) blocks
 `templating.vars` from re-declaring chart-managed env keys
-(`GITHUB_APP_ID`, `WEBHOOK_SECRET`, `STRICT_TEMPLATES`, etc.) at
+(`EVAL_GITHUB_APP_ID`, `EVAL_INTERVAL`, `GUARDIAN_CONFIG`, etc.) at
 helm-render time, but the `env` helper itself can read whatever
 the OS gives it.
 
-### Repository discovery and rate-limit budgeting (IMPL-0015)
+### Repository discovery and scheduling
 
-`repo-guardian` 1.0.0-rc.2+ ships two cooperating schedulers on the
-leader pod:
+Each repository has its own `EvaluationWorkflow` in Temporal: it
+evaluates the repository's assigned controls, schedules its next
+evaluation `evalInterval` later (jittered), and waits on a durable
+timer. Webhooks signal it to re-check at once.
+A per-installation `InstallationWorkflow` hands out the GitHub rate
+budget; a check that finds the budget exhausted waits on a timer until
+the reset rather than holding a worker. Discovery
+(`discovery.interval`) enumerates installations and starts workflows
+for repositories the webhooks missed.
 
-- **`Discoverer`** (`scheduler/discoverer.go`) enumerates installations
-  + repos via the GitHub API at `DISCOVERY_INTERVAL` and persists
-  discovery rows via `Store.UpsertIfMissing` — atomic
-  `INSERT ... ON CONFLICT DO NOTHING` so concurrent webhooks +
-  Discoverer never race. Newly-seeded rows enter `repo_state` with a
-  jittered `LastCheckedAt` so a fleet onboarding doesn't cluster every
-  repo's due-time at the same instant. Webhook-driven discovery
-  (`installation_repositories.added`, `repository.created`,
-  `installation.created`) is the primary on-ramp; the periodic
-  Discoverer is the safety net for missed deliveries.
-- **`StaleSweeper`** (`checker/sweep.go`) queries Postgres for rows
-  whose `last_checked_at` is older than `RECONCILE_FRESHNESS` or whose
-  `policy_version` differs from the current one, and enqueues each to
-  the Valkey work queue. There is no full-fleet enumeration on every
-  tick — the legacy `sweep` schedule was removed in 1.0.0-rc.2.
+### Editing the policy
 
-Both schedulers consult a shared **`BudgetTracker`** before each
-enqueue. The tracker caches GitHub's rate-limit window per
-installation and refuses to enqueue when `remaining < limit ×
-reserveFraction`. When it blocks an enqueue,
-`repo_guardian_enqueue_gated_by_budget_total{installation_id}` ticks
-up; the starter alert `RepoGuardianBudgetGated` fires after 30
-minutes of sustained gating so operators know the deployment is
-rate-limit-bound. Tuning levers: `discovery.reserveFraction`
-(default `0.20`), `discovery.estimatedCostPerRepo` (default `10`),
-`staleSweep.freshness` (default `24h`). See
-[`docs/operations/scaling.md`](../../docs/operations/scaling.md#discoverer--budgettracker-impl-0015-phase-1)
-for the full metrics catalogue + alert tuning notes.
+`policy.files` is the controls policy directory (DESIGN-0030) as a
+nested map: a string is a file, a map is a directory (`enterprise.hcl`,
+`catalogue: {...}`, `orgs: {...}`, `templates: {...}`). The chart
+renders one ConfigMap, its keys the paths joined with dots
+(`catalogue.codeowners.hcl`), and mounts it at `GUARDIAN_CONFIG` on
+ingest, the controls workers and the migrate Job, with each file back at
+its path.
+The policy version hashes the files and the templates they use. Editing
+`policy.files` changes the pod checksum, so the roles roll, the
+migrate Job activates the new version, and the evaluator re-evaluates
+every repository at a random point inside `policyRolloutWindow`
+(default `24h`). A ConfigMap you manage yourself
+(`policy.existingConfigMap`) is mounted whole and is not hashed: roll
+the pods after editing it.
 
-### Editing a template ConfigMap invalidates the policy version
+### Upgrade notes (controls switch-over) — breaking
 
-`policy.Version` (the hash that gates stale-sweep re-enqueue) is
-computed over BOTH the HCL policy AND the loaded template bodies.
-Editing an entry in `templates.files` or in a ConfigMap referenced
-via `templates.existingConfigMap` therefore changes the policy
-hash on the next pod restart, which in turn marks every persisted
-`repo_state` row as drifted (`policy_version <> current`) and
-triggers the stale-sweeper to re-enqueue all repos on the next
-sweep tick.
-
-This is intentional — operators should observe
-`repos_checked_total` climb across all in-scope repos within one
-`SCHEDULE_INTERVAL` window after a template edit + redeploy. If
-that does not happen, suspect either:
-
-- The pod did not pick up the new ConfigMap content (Helm
-  ConfigMap mounts are not auto-reloaded; the rollout must
-  recreate the pod), or
-- `STORE_BACKEND` is unset / not `postgres` (the hash is only
-  consumed on the Postgres-backed sweep path).
-
-### `STRICT_TEMPLATES` recommendation
-
-Enable `templating.strict: true` (or set `STRICT_TEMPLATES=true`
-on the Deployment env) in CI and production to validate compiled
-PR templates against a zero-value `PRVars` context at startup.
-This catches `.Catalog.X` references that work in the file-content
-template path but fail in the PR-text path, surface as
-location-prefixed errors at boot rather than at the first
-incoming webhook.
+The rule engine and the single-App worker are gone (IMPL-0029).
+`policy.config`, `templates.*`, `secrets.*`, `config.appId`,
+`config.dryRun`, `config.skipForks`, `config.skipArchived`,
+`policy.autoClosePR`, `policy.orphanCleanup`, `templating.strict`,
+`worker.replicas`/`concurrency`/`resources`, `checkInterval` (now
+`evalInterval`), `store.postgres.maxConns`, `migrate.freshness` and
+`api.prStaleAfter` fail the render, naming
+`docs/operations/v2-migration.md#controls-chart-values`.
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules |
-| config | object | `{"appId":"","dryRun":false,"logLevel":"info","maxJobAttempts":10,"metricsPort":9090,"port":8080,"queueSize":100,"scheduleInterval":"168h","skipArchived":true,"skipForks":true,"workerCount":5}` | repo-guardian application configuration (env vars) |
-| config.appId | string | `""` | GitHub App ID |
-| config.dryRun | bool | `false` | Dry run mode |
+| api | object | `{"auth":{"audience":"repo-guardian-api","clientClaim":"azp","enabled":true,"groupsClaim":"groups","issuer":"","nameClaim":"preferred_username"},"authz":{"clients":{},"defaultOrgs":[],"groups":{}},"enabled":false,"pdb":{"enabled":true,"minAvailable":1},"port":8081,"replicas":2,"resources":{},"roDsn":{"existingSecret":"","existingSecretKey":"STORE_RO_DSN"},"status":{"public":true},"temporal":false}` | The api role: the read-only JSON API (DESIGN-0027). It holds only a read-only database credential: no App key, no webhook secret. |
+| api.auth.audience | string | `"repo-guardian-api"` | Expected token audience. |
+| api.auth.clientClaim | string | `"azp"` | Top-level claim naming a machine client for `authz.clients`: `azp` (Keycloak, Auth0), `cid` (Okta), `appid` (Entra ID v1). See docs/operations/identity-provider.md. |
+| api.auth.enabled | bool | `true` | Require an OIDC bearer token on every data endpoint. |
+| api.auth.groupsClaim | string | `"groups"` | Claim listing the caller's groups. |
+| api.auth.issuer | string | `""` | OIDC issuer URL. Required when auth is enabled. |
+| api.auth.nameClaim | string | `"preferred_username"` | Claim naming the caller in logs. |
+| api.authz.clients | object | `{}` | Machine clients, by the claim `api.auth.clientClaim` names, → groups above, for IdPs that put no groups on client-credentials tokens. |
+| api.authz.defaultOrgs | list | `[]` | Orgs granted to every authenticated caller. |
+| api.authz.groups | object | `{}` | Group → org grants, rendered into the authz ConfigMap. Keys are group names; values list orgs (`["*"]` for every org). |
+| api.enabled | bool | `false` | Render the api role (split) and its Service. In `all` the API always runs on `api.port`; this gates its Service and auth. |
+| api.pdb.enabled | bool | `true` | Render a PodDisruptionBudget. |
+| api.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
+| api.port | int | `8081` | API port beside other roles (`all`). The api role alone serves on `config.port`. |
+| api.replicas | int | `2` | Replica count (split only). |
+| api.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| api.roDsn.existingSecret | string | `""` | Secret holding STORE_RO_DSN. Required for `store.postgres.mode: external`; baked and cnpg derive it from the chart-managed `repoguardian_ro` role when empty. |
+| api.roDsn.existingSecretKey | string | `"STORE_RO_DSN"` | Key inside existingSecret. |
+| api.status.public | bool | `true` | Serve /status without a token. |
+| api.temporal | bool | `false` | Give the api role (split) the `temporal.*` connection, so `POST /repositories/{id}/evaluate` can signal a re-evaluation and `/status` can probe both queues. Off, the POST answers 501 and the UI hides the button. The client only signals and describes queues; give it its own mTLS identity so its calls are attributable. `all` always dials. |
+| checksRetention | string | `"2160h"` | How long check history is kept before SnapshotWorkflow prunes it. |
+| config | object | `{"logLevel":"info","metricsPort":9090,"port":8080}` | repo-guardian application configuration (env vars) |
 | config.logLevel | string | `"info"` | Log level (debug, info, warn, error) |
-| config.maxJobAttempts | int | `10` | Deliveries a single job may accumulate (rate-limit deferrals plus reaper requeues) before it is dropped with a terminal error written to repo_state. The next stale sweep re-enqueues the repo, so this bounds retry cost without permanently abandoning work. Must be >= 1. |
 | config.metricsPort | int | `9090` | Metrics listen port |
 | config.port | int | `8080` | Webhook listen port |
-| config.queueSize | int | `100` | Queue size for check queue |
-| config.scheduleInterval | string | `"168h"` | Reconciliation schedule interval (Go duration) |
-| config.skipArchived | bool | `true` | Skip archived repositories |
-| config.skipForks | bool | `true` | Skip forked repositories |
-| config.workerCount | int | `5` | Worker count for check queue |
-| discovery | object | `{"enabled":true,"interval":"1h"}` | Repository discovery (IMPL-0015 Phase 1). The Discoverer runs on the leader pod, enumerates installations + repos via the GitHub API, and persists discovery rows via Store.UpsertIfMissing so the stale-sweeper picks them up on the next tick. Webhook-driven discovery (`installation_repositories.added` + `repository.created`) is the primary on-ramp; the periodic Discoverer is the safety net for missed deliveries. |
-| discovery.enabled | bool | `true` | Toggle the Discoverer schedule. When false the binary still responds to discovery via webhooks; only the periodic enumeration path is disabled. |
-| discovery.interval | string | `"1h"` | Cadence between Discoverer.Discover invocations. Lower values burn more API budget on list_installations + list_installation_repos; higher values delay discovery of repos the webhook path missed. |
+| discovery | object | `{"enabled":true,"interval":"1h"}` | Repository discovery. The discovery schedule enumerates every installation's repositories and starts a RepoWorkflow for each new one. Webhooks (`installation_repositories.added`, `repository.created`) are the primary on-ramp; this is the safety net for missed deliveries. |
+| discovery.enabled | bool | `true` | Toggle the discovery schedule. When false, webhooks still discover repositories; only the periodic enumeration stops. |
+| discovery.interval | string | `"1h"` | Cadence between discovery runs. Lower values spend more API budget on list_installation_repos; higher values delay discovery of repositories the webhook path missed. |
+| evalInterval | string | `"24h"` | Each repository's evaluation cadence (EVAL_INTERVAL, Go duration). |
+| evaluator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"query":"","targetQueueSize":"50"},"replicas":1,"resources":{}}` | The evaluator role: the controls evaluation worker on the `repo-guardian-eval` queue (IMPL-0028 Phase 4). Rendered in split when `github.eval.appId` is set; in `all` only when it is set. |
+| evaluator.concurrency | int | `10` | Concurrent activities per pod (EVALUATOR_CONCURRENCY). |
+| evaluator.dbPoolSize | int | `0` | Postgres pool size per pod (EVALUATOR_DB_POOL_SIZE). 0 keeps pgxpool's default. |
+| evaluator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":1,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
+| evaluator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
+| evaluator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `evaluator.replicas`. |
+| evaluator.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
+| evaluator.keda.minReplicas | int | `1` | Floor. |
+| evaluator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
+| evaluator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| evaluator.replicas | int | `1` | Replica count (split only). Ignored when `evaluator.keda.enabled`. |
+| evaluator.resources | object | `{}` | Resources; empty falls back to `resources`. |
 | extraEnv | list | `[]` | Additional environment variables |
 | extraVolumeMounts | list | `[]` | Additional volume mounts |
 | extraVolumes | list | `[]` | Additional volumes |
 | fullnameOverride | string | `""` | Override the full release name |
+| github | object | `{"eval":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""},"remediate":{"appId":"","existingSecret":"","privateKey":"","webhookSecret":""}}` | The two controls GitHub Apps (IMPL-0028 Phase 3, DESIGN-0032 § Two Apps). Each block is off until its appId is set. The private key is always mounted as a file. Keys go only to the roles that act as that App: the Evaluation App's to evaluator and `all` pods, the Remediation App's to remediator and `all` pods. Each webhook secret (and App id, for the app-mismatch check) goes to ingest and `all`. |
+| github.eval.appId | string | `""` | The Evaluation App's numeric id. Empty disables the block. |
+| github.eval.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-eval` from the two values below. |
+| github.eval.privateKey | string | `""` | The Evaluation App's private key (PEM), when the chart creates the Secret. |
+| github.eval.webhookSecret | string | `""` | The Evaluation App's webhook secret, when the chart creates the Secret. |
+| github.remediate.appId | string | `""` | The Remediation App's numeric id. Empty disables the block. |
+| github.remediate.existingSecret | string | `""` | Existing Secret with keys `private-key` and `webhook-secret`. Empty: the chart creates `<release>-remediate` from the two values below. |
+| github.remediate.privateKey | string | `""` | The Remediation App's private key (PEM), when the chart creates the Secret. |
+| github.remediate.webhookSecret | string | `""` | The Remediation App's webhook secret, when the chart creates the Secret. |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.repository | string | `"ghcr.io/donaldgifford/repo-guardian"` | Container image repository |
 | image.tag | string | `""` | Overrides the image tag (default: appVersion) |
 | imagePullSecrets | list | `[]` | Image pull secrets |
+| ingest | object | `{"pdb":{"enabled":true,"minAvailable":1},"replicas":2,"resources":{}}` | The ingest role: receives webhooks and signals workflows. Stateless. |
+| ingest.pdb.enabled | bool | `true` | Render a PodDisruptionBudget. |
+| ingest.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
+| ingest.replicas | int | `2` | Replica count (split only). |
+| ingest.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| keda | object | `{"prometheus":{"authenticationRef":"","namespaceLabel":"exported_namespace","serverAddress":""},"trigger":"prometheus"}` | Settings shared by the controls roles' ScaledObjects. |
+| keda.prometheus.authenticationRef | string | `""` | An operator-owned TriggerAuthentication for that Prometheus. |
+| keda.prometheus.namespaceLabel | string | `"exported_namespace"` | The label holding the Temporal namespace on `approximate_backlog_count`. A ServiceMonitor scrape (prometheus- operator) renames Temporal's `namespace` to `exported_namespace` because `namespace` is the pod's; use `namespace` with `honorLabels: true` or a scrape that keeps the original. |
+| keda.prometheus.serverAddress | string | `""` | The Prometheus that scrapes the Temporal server. Required with `trigger: prometheus` once a role enables KEDA. |
+| keda.trigger | string | `"prometheus"` | `prometheus` (default) scales on the Temporal server's `approximate_backlog_count` and works with `temporal.auth.oidc`; `temporal` asks the frontend directly and is refused with OIDC. |
 | livenessProbe.httpGet.path | string | `"/healthz"` |  |
 | livenessProbe.httpGet.port | string | `"http"` |  |
 | livenessProbe.initialDelaySeconds | int | `5` |  |
 | livenessProbe.periodSeconds | int | `15` |  |
+| migrate.activeDeadlineSeconds | int | `600` | Upper bound on the Job's run time, in seconds. The v1 backfill is one transaction; raise this for very large fleets. |
+| migrate.backoffLimit | int | `6` | Job retries before the release fails. |
+| migrate.enabled | bool | `true` | Run `repo-guardian migrate` as a hook Job (v2 schema migrations and the one-time v1 backfill): post-install, so a baked Postgres exists to connect to, and pre-upgrade, so the schema lands before new pods roll. |
+| migrate.resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Resources for the migrate container. |
+| migrate.waitSeconds | int | `300` | How long `repo-guardian migrate` waits for the database to accept connections, in seconds (MIGRATE_WAIT). Under Argo CD the Job can start before Postgres does, even after the CNPG Cluster reports healthy. Must stay under `activeDeadlineSeconds`, so a database that never comes up fails with its last error rather than a killed pod. |
 | nameOverride | string | `""` | Override the chart name |
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
-| podSecurityContext | object | `{}` | Pod security context |
-| policy | object | `{"autoClosePR":true,"config":"","existingConfigMap":"","orphanCleanup":true}` | HCL policy configuration |
-| policy.autoClosePR | bool | `true` | Auto-close repo-guardian PRs when every file rule is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), the PR is closed with a sticky comment and the reconcile branch is deleted. When `false`, the PR stays open until a human closes it. |
-| policy.config | string | `""` | Inline HCL policy config (creates a ConfigMap) |
-| policy.existingConfigMap | string | `""` | Use an existing ConfigMap for policy config |
-| policy.orphanCleanup | bool | `true` | Remove files from repo-guardian's own reconcile branch once the rule that added them is satisfied on the default branch (IMPL-0013 Phase 3). When `true` (default), a PR stops proposing files that are no longer needed. When `false`, no file is ever deleted from the reconcile branch and PR bodies may list rules already satisfied on the default branch.  This is a kill switch, not a tuning knob: orphan cleanup is the only path that deletes files, and INV-0014 is a fixed defect in it that produced PRs proposing to remove files repositories legitimately owned. Leave it enabled unless you have reason not to. |
-| posture | object | `{"exportInterval":"60s","snapshotInterval":"24h"}` | Compliance posture export (IMPL-0023 / DESIGN-0022). The elected leader projects the rule_state table onto the repos_actionable / repos_tracked / repos_unmeasurable gauges on this cadence. |
-| posture.exportInterval | string | `"60s"` | Cadence between posture exporter ticks. Unlike the sweep and discovery intervals this costs no GitHub API budget — it is a few aggregates over an indexed table — so it is tuned against how stale the compliance gauges may be, not against rate limit. Values above 60s leave the exporter behind its own duration histogram, whose buckets stop there. |
+| podSecurityContext | object | `{"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context for every role and the migrate Job: non-root (nobody), the runtime's default seccomp profile. |
+| policy | object | `{"existingConfigMap":"","files":{}}` | The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted at GUARDIAN_CONFIG on ingest (push routing reads its watched paths), the controls workers and the migrate Job (which activates its version). |
+| policy.existingConfigMap | string | `""` | An existing ConfigMap holding the policy root, mounted whole in place of `files` (flat keys only, unless the operator mounts it with its own items through extraVolumes). |
+| policy.files | object | `{}` | The policy root as a nested map by directory (OQ11): a string is a file, a map is a directory, e.g. `enterprise.hcl: ...`, `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`, `templates: {...}`. Rendered into one ConfigMap (keys joined with dots, `catalogue.codeowners.hcl`); the volume puts each file back at its path. |
+| policyRolloutWindow | string | `"24h"` | Span a policy change is spread across: every repository is re-checked at a random point inside it, not all at once. |
+| posture | object | `{"snapshotInterval":"24h"}` | Compliance history (IMPL-0023 / DESIGN-0022). SnapshotWorkflow writes one compliance_history row per org on this cadence. |
 | posture.snapshotInterval | string | `"24h"` | Cadence between compliance-history snapshots, the rows `repo-guardian report --since` reads. This is not the posture gauges: Prometheus already keeps those for its retention window, typically weeks, and this table exists for "how compliant were we last quarter", which no operational metrics store can answer. Daily is already finer than any question the report asks, and the rows are permanent — there is no retention machinery — so shortening it accrues storage forever for resolution nobody requested. |
 | prometheusRule | object | `{"alerts":{},"enabled":false,"labels":{}}` | Prometheus PrometheusRule with starter alerts (IMPL-0011 P6). |
 | prometheusRule.alerts | object | `{}` | Per-alert overrides: each key under `alerts.<name>` accepts `for`, `severity`, `threshold`, and `enabled`. See the rendered PrometheusRule template for the canonical alert names. |
 | prometheusRule.enabled | bool | `false` | Create PrometheusRule with starter alerts. |
 | prometheusRule.labels | object | `{}` | Additional labels (e.g., to match Prometheus operator `ruleSelector`). |
-| queue | object | `{"backend":"valkey","size":1000,"valkey":{"baked":{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}}` | Work queue for reconcile jobs. The in-memory backend was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. |
-| queue.backend | string | `"valkey"` | Backend implementation. Only "valkey" is supported. |
-| queue.size | deprecated | `1000` | Buffered channel size; ignored since the in-memory backend was removed in IMPL-0016. Retained for values-schema backwards compatibility; will be deleted in a future chart-major release. |
-| queue.valkey | object | `{"baked":{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"},"existingSecret":"","existingSecretKey":"QUEUE_VALKEY_DSN","jobAckTimeout":"5m","mode":"baked","reaperInterval":"60s"}` | Valkey-specific configuration. Ignored when backend != valkey. |
-| queue.valkey.baked | object | `{"authPasswordLength":32,"existingSecret":"","existingSecretKey":"VALKEY_PASSWORD","image":"valkey/valkey:9.1","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"storageClassName":"","storageSize":"1Gi"}` | Baked Valkey-only configuration. |
-| queue.valkey.baked.authPasswordLength | int | `32` | Generated AUTH password length (random alphanumeric). |
-| queue.valkey.baked.existingSecret | string | `""` | Operator-supplied Secret holding the Valkey password. Same GitOps rationale as store.postgres.baked.existingSecret. When set, the chart skips its generated password Secret; the baked Valkey reads the password from this Secret and the app assembles QUEUE_VALKEY_DSN at runtime via $(VALKEY_PASSWORD). URL-safe (alphanumeric) password required. |
-| queue.valkey.baked.existingSecretKey | string | `"VALKEY_PASSWORD"` | Key inside existingSecret holding the password. |
-| queue.valkey.baked.image | string | `"valkey/valkey:9.1"` | Pinned image. Bump intentionally. |
-| queue.valkey.baked.podSecurityContext | object | `{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999}` | Pod securityContext. Runs Valkey as the image's built-in non-root user (uid/gid 999) so the entrypoint skips its root-only chown of /data (which fails on clusters/storage that forbid chown); fsGroup makes kubelet set volume group ownership instead. Set to `{}` to restore the image default (root entrypoint + chown). |
-| queue.valkey.baked.storageClassName | string | `""` | StorageClass name. Empty → cluster default. |
-| queue.valkey.baked.storageSize | string | `"1Gi"` | Persistent volume size. |
-| queue.valkey.existingSecret | string | `""` | Operator-supplied secret holding QUEUE_VALKEY_DSN. |
-| queue.valkey.existingSecretKey | string | `"QUEUE_VALKEY_DSN"` | Key inside existingSecret holding the DSN. |
-| queue.valkey.jobAckTimeout | string | `"5m"` | How long an in-flight job may sit before the reaper requeues it. |
-| queue.valkey.mode | string | `"baked"` | Source of the Valkey deployment. One of: "baked"    — chart renders a single-pod Valkey Deployment; "external" — operator provides DSN via existingSecret. |
-| queue.valkey.reaperInterval | string | `"60s"` | Cadence between reaper iterations. |
 | readinessProbe.httpGet.path | string | `"/readyz"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |
 | readinessProbe.periodSeconds | int | `10` |  |
+| remediator | object | `{"concurrency":10,"dbPoolSize":0,"keda":{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"},"maintenanceBatch":200,"replicas":1,"reservationTTL":"1h","resources":{},"sweepBatch":500,"sweepSpacing":"30s"}` | The remediator role: the controls remediation worker on the `repo-guardian-remediate` queue. Rendered in split when `github.remediate.appId` is set. Zero replicas never blocks the evaluator's promotion: each role has its own worker deployment. |
+| remediator.concurrency | int | `10` | Concurrent activities per pod (REMEDIATOR_CONCURRENCY). |
+| remediator.dbPoolSize | int | `0` | Postgres pool size per pod (REMEDIATOR_DB_POOL_SIZE). 0 means concurrency + 4; the remediator refuses to start with fewer connections than `concurrency`, since every running remediation holds one for its row lock. |
+| remediator.keda | object | `{"enabled":false,"fallbackReplicas":null,"maxReplicas":4,"minReplicas":0,"query":"","targetQueueSize":"50"}` | KEDA autoscaling on this role's queue backlog (split only). Requires the KEDA CRDs. The trigger is the shared `keda.trigger`. |
+| remediator.keda.enabled | bool | `false` | Render a ScaledObject. KEDA then owns the replica count. |
+| remediator.keda.fallbackReplicas | string | `nil` | Replicas KEDA holds when the trigger fails three polls in a row. null uses `remediator.replicas`. |
+| remediator.keda.maxReplicas | int | `4` | Ceiling. Size it to the GitHub budget, not the backlog: checks are rate-limit bound, so pods past the budget only park more timers (INV-0018 Obs 7). |
+| remediator.keda.minReplicas | int | `0` | Floor. 0 is allowed: promotion does not depend on a running remediator (DESIGN-0032 D28). |
+| remediator.keda.query | string | `""` | Prometheus query (trigger `prometheus`). Empty builds the default from `temporal.namespace` and this role's queue. |
+| remediator.keda.targetQueueSize | string | `"50"` | Backlog per replica before KEDA scales out (either trigger). |
+| remediator.maintenanceBatch | int | `200` | Lifecycle candidates (expire, withdraw, supersede, close_compliant) one sweep handles (REMEDIATION_MAINTENANCE_BATCH). |
+| remediator.replicas | int | `1` | Replica count (split only). Ignored when `remediator.keda.enabled`. |
+| remediator.reservationTTL | string | `"1h"` | How long a reserved pull-request slot waits for its PR before the sweep's maintenance frees it (REMEDIATION_RESERVATION_TTL). |
+| remediator.resources | object | `{}` | Resources; empty falls back to `resources`. |
+| remediator.sweepBatch | int | `500` | Due remediations one hourly `remediation-sweep` starts (REMEDIATION_SWEEP_BATCH). |
+| remediator.sweepSpacing | string | `"30s"` | Gap between two remediations one sweep starts on the same installation (REMEDIATION_SWEEP_SPACING). A pull request costs about four of GitHub's 500 content-creating requests an hour, so 30s (about 120 runs an hour) keeps a first enablement under the secondary rate limit; starts past the hour wait for the next sweep. "0s" starts them all at once. |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
-| scheduler | object | `{"backend":"valkey"}` | Scheduler (sweep cadence) backend. The single-replica ticker scheduler was removed in IMPL-0016 (chart 1.0); valkey is the only supported value. Scheduler shares the queue's Valkey instance. |
-| scheduler.backend | string | `"valkey"` | Backend implementation. Only "valkey" is supported. |
-| secrets | object | `{"create":true,"existingSecret":"","privateKey":"","privateKeyAsFile":true,"webhookSecret":""}` | GitHub App secrets |
-| secrets.create | bool | `true` | Create secret resource (false = use existing secret) |
-| secrets.existingSecret | string | `""` | Name of existing secret (when create=false) |
-| secrets.privateKey | string | `""` | GitHub App private key (PEM format) |
-| secrets.privateKeyAsFile | bool | `true` | Mount private key as file (true) or env var (false) |
-| secrets.webhookSecret | string | `""` | GitHub webhook secret |
-| securityContext | object | `{"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":65534}` | Container security context |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Container security context for every role and the migrate Job |
 | service.httpPort | int | `80` | Webhook HTTP port |
 | service.metricsPort | int | `9090` | Metrics port |
 | service.type | string | `"ClusterIP"` | Service type |
@@ -573,15 +699,21 @@ incoming webhook.
 | serviceMonitor.enabled | bool | `false` | Create Prometheus ServiceMonitor |
 | serviceMonitor.interval | string | `"30s"` | Scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional labels for ServiceMonitor |
-| staleSweep | object | `{"batchSize":200,"freshness":"24h"}` | Stale-sweep tuning (IMPL-0011 Phase 5d). |
-| staleSweep.batchSize | int | `200` | Cap on rows returned per StaleRepos query. |
-| staleSweep.freshness | string | `"24h"` | Maximum age of a stored last_checked_at before the sweep requeues. Default 24h. Effective only with store.backend=postgres. |
-| store | object | `{"backend":"postgres","postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
+| store | object | `{"backend":"postgres","controls":{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}},"postgres":{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","mode":"baked"}}` | Persistent state store (per-repo reconcile state). See DESIGN-0012 §Backend modes. The in-memory backend was removed in IMPL-0016 (chart 1.0); postgres is the only supported value. |
 | store.backend | string | `"postgres"` | Backend implementation. Only "postgres" is supported. |
-| store.postgres | object | `{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","maxConns":16,"mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
-| store.postgres.baked | object | `{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
+| store.controls | object | `{"all":{"existingSecret":"","existingSecretKey":"STORE_DSN_ALL"},"enabled":false,"evaluator":{"existingSecret":"","existingSecretKey":"STORE_DSN_EVALUATOR"},"remediator":{"existingSecret":"","existingSecretKey":"STORE_DSN_REMEDIATOR"}}` | The controls line's database roles (IMPL-0028 Phase 6, DESIGN-0032 D31): rg_evaluator, rg_remediator and rg_all, and in baked mode a non-superuser owner, rg_owner, for the migrate Job. |
+| store.controls.all.existingSecret | string | `""` | External mode, `topology: all`: Secret holding rg_all's DSN. |
+| store.controls.all.existingSecretKey | string | `"STORE_DSN_ALL"` | Key inside existingSecret. |
+| store.controls.enabled | bool | `false` | Provision the roles, mount STORE_DSN_EVALUATOR / STORE_DSN_REMEDIATOR into the controls roles' pods (a split controls pod then gets no STORE_DSN), and point the migrate Job at the controls chain as the owner. Off until IMPL-0029's switch-over; enable it only against an empty database. |
+| store.controls.evaluator.existingSecret | string | `""` | External mode: Secret holding rg_evaluator's DSN. |
+| store.controls.evaluator.existingSecretKey | string | `"STORE_DSN_EVALUATOR"` | Key inside existingSecret. |
+| store.controls.remediator.existingSecret | string | `""` | External mode: Secret holding rg_remediator's DSN. |
+| store.controls.remediator.existingSecretKey | string | `"STORE_DSN_REMEDIATOR"` | Key inside existingSecret. |
+| store.postgres | object | `{"baked":{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"},"cnpg":{"imageName":"ghcr.io/cloudnative-pg/postgresql:18.4","instances":1,"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"service":{"annotations":{},"enabled":false,"labels":{"bgp.cilium.io/advertise-service":"default","bgp.cilium.io/ip-pool":"default"},"type":"LoadBalancer"},"type":"rw"},"storage":{"size":"10Gi","storageClass":""}},"existingSecret":"","existingSecretKey":"STORE_DSN","mode":"baked"}` | Postgres-specific configuration. Ignored when backend != postgres. |
+| store.postgres.baked | object | `{"existingSecret":"","existingSecretKey":"POSTGRES_PASSWORD","existingSecretROKey":"RO_PASSWORD","image":"postgres:18.4","podSecurityContext":{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storageClassName":"","storageSize":"10Gi"}` | Baked Postgres-only configuration. |
 | store.postgres.baked.existingSecret | string | `""` | Operator-supplied Secret holding the Postgres password. When set, the chart does NOT generate its own password Secret; the baked StatefulSet reads the password from this Secret and the app assembles STORE_DSN at runtime via $(POSTGRES_PASSWORD). Use this for GitOps/ArgoCD: the chart's default `lookup`-based password preservation returns nothing under `helm template`, so the generated password rotates on every sync and drifts from the already-initialised data directory (auth failures). Password must be URL-safe (alphanumeric) — it is interpolated into the DSN URL. |
 | store.postgres.baked.existingSecretKey | string | `"POSTGRES_PASSWORD"` | Key inside existingSecret holding the password. |
+| store.postgres.baked.existingSecretROKey | string | `"RO_PASSWORD"` | Key inside existingSecret holding the api role's read-only password (`repoguardian_ro`). Read only for a split API with no `api.roDsn.existingSecret`. URL-safe, like the admin password. |
 | store.postgres.baked.image | string | `"postgres:18.4"` | Pinned image. Bump intentionally. |
 | store.postgres.baked.podSecurityContext | object | `{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999}` | Pod securityContext. Runs Postgres as the image's built-in non-root user (uid/gid 999) so the entrypoint skips its root-only chown of PGDATA (which fails on clusters/storage that forbid chown, e.g. restrictive admission policies or NFS root_squash); fsGroup makes kubelet set volume group ownership instead. Set to `{}` to restore the image default (root entrypoint + chown). |
 | store.postgres.baked.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits for the Postgres container. |
@@ -605,13 +737,48 @@ incoming webhook.
 | store.postgres.cnpg.storage | object | `{"size":"10Gi","storageClass":""}` | Storage block. |
 | store.postgres.existingSecret | string | `""` | Operator-supplied secret holding STORE_DSN. Required when mode=external. |
 | store.postgres.existingSecretKey | string | `"STORE_DSN"` | Key inside existingSecret holding the DSN. Default: STORE_DSN. |
-| store.postgres.maxConns | int | `16` | Connection cap for the pgx pool. |
 | store.postgres.mode | string | `"baked"` | Source of the Postgres deployment. One of: "baked"    — chart renders a single-pod Postgres Deployment; "cnpg"     — chart renders a CloudNativePG `Cluster` CR; "external" — operator provides DSN via existingSecret. |
-| templates | object | `{"existingConfigMap":"","files":{}}` | File-template overrides for the binary's TemplateStore.  Breaking change in chart 0.4.0: the legacy `templates.codeowners`, `templates.dependabot`, and `templates.renovate` slots have been removed. Move existing values into `templates.files` keyed by filename (with `.tmpl` suffix), e.g.:    templates:     files:       codeowners.tmpl: |         * @platform-team       dependabot.tmpl: |         version: 2         updates: ...  When `templates.existingConfigMap` is non-empty the chart skips rendering its own ConfigMap and the Deployment mounts the named ConfigMap at TEMPLATE_DIR. This is the escape hatch for operators who manage templates out-of-band (GitOps, Argo ApplicationSet, etc). |
-| templates.existingConfigMap | string | `""` | Name of an existing ConfigMap to mount at TEMPLATE_DIR instead of rendering one from `templates.files`. |
-| templates.files | object | `{}` | Map of filename to template content. Each entry becomes a key in the rendered ConfigMap and is loaded by the binary at startup. Filenames must end in `.tmpl`. |
-| templating | object | `{"strict":false,"vars":{}}` | Templating configuration: env-var injection and strict-mode validation.  `templating.vars` exposes arbitrary environment variables to the binary's `env "VAR"` template helper. Values flow through to the Deployment's container env list; they are NOT secrets — use `secrets.*` or `extraEnv` (with valueFrom: secretKeyRef) for secret material. The chart rejects keys that collide with chart-managed env vars (GITHUB_APP_ID, WEBHOOK_SECRET, etc).  `templating.strict` toggles `STRICT_TEMPLATES=true` on the Deployment. When enabled the binary validates every compiled PR template against a zero-value PRVars context at startup and fails fast on missing-field references. |
-| templating.strict | bool | `false` | Enable startup-time strict validation of compiled PR templates (sets STRICT_TEMPLATES=true on the Deployment). |
-| templating.vars | object | `{}` | Map of env-var key to value. Keys must not collide with chart-managed env vars; the chart fails template rendering on collisions. |
+| templating | object | `{"vars":{}}` | Environment for the policy templates' `env "VAR"` helper, set on every role that loads the policy. Values are NOT secrets: use `extraEnv` with valueFrom for secret material. The chart rejects keys that collide with chart-managed env vars. |
+| templating.vars | object | `{}` | Map of env-var key to value. |
+| temporal | object | `{"address":"","auth":{"oidc":{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}},"namespace":"repo-guardian","taskQueue":"repo-guardian","tls":{"caSecret":"","disabled":false,"existingSecret":"","serverName":""}}` | Temporal connection. Every role that dials Temporal (ingest, worker, all) gets these; api never does. |
+| temporal.address | string | `""` | Frontend `host:port`. Required. |
+| temporal.auth.oidc | object | `{"audience":"","clientId":"","existingSecret":"","scopes":[],"tokenUrl":""}` | Authenticate with a bearer token from an OAuth2 client-credentials grant (Keycloak and the like) instead of mTLS. The token is cached and renewed a minute before it expires. KEDA's temporal trigger cannot mint these, so use `keda.trigger: prometheus` with OIDC. |
+| temporal.auth.oidc.audience | string | `""` | `audience` parameter, for IdPs that take one. Keycloak sets the audience with a client-scope mapper instead. |
+| temporal.auth.oidc.clientId | string | `""` | OAuth2 client ID. |
+| temporal.auth.oidc.existingSecret | string | `""` | Secret holding the client secret under `client-secret`. Mounted as a file, never an env var. |
+| temporal.auth.oidc.scopes | list | `[]` | Scopes to request. |
+| temporal.auth.oidc.tokenUrl | string | `""` | The IdP's token endpoint, e.g. `https://keycloak/realms/<realm>/protocol/openid-connect/token`. |
+| temporal.namespace | string | `"repo-guardian"` | Temporal namespace. |
+| temporal.taskQueue | string | `"repo-guardian"` | Task queue the worker polls and ingest signals through. |
+| temporal.tls.caSecret | string | `""` | Secret with only `ca.crt`: verify the frontend's certificate without presenting one, for `auth.oidc` against a private CA. Empty with OIDC uses the system roots. |
+| temporal.tls.disabled | bool | `false` | Plaintext to the frontend (TEMPORAL_TLS_DISABLED). Only for a cluster-internal frontend that serves no TLS; with `auth.oidc` the bearer token is then readable on the wire, and the worker logs a warning. |
+| temporal.tls.existingSecret | string | `""` | Secret with `tls.crt`, `tls.key` and (optionally) `ca.crt` for mTLS. Mounted only into roles that dial Temporal. |
+| temporal.tls.serverName | string | `""` | Server name to verify the frontend certificate against. |
 | tolerations | list | `[]` | Tolerations |
+| topology | string | `"split"` | Deployment shape (DESIGN-0026 § Chart 2.0.0). `split` renders one Deployment per role: `ingest` (webhooks), `evaluator` and `remediator` (each when its App is set) and, when `api.enabled`, `api`. `all` renders a single Deployment running every role, for small installs and the homelab. |
+| ui | object | `{"docsUrl":"","enabled":false,"existingSecret":"","githubHost":"github.com","image":{"repository":"ghcr.io/donaldgifford/repo-guardian-ui","tag":""},"ingress":{"annotations":{},"className":"","enabled":false,"host":"","tls":[]},"oidc":{"authorizationParams":{},"clientId":"repo-guardian-ui","scopes":["openid","profile","email","offline_access"],"tokenAuthMethod":"client_secret_post"},"pdb":{"enabled":true,"minAvailable":1},"port":3000,"publicUrl":"","replicas":2,"resources":{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}},"sessionTTL":"8h"}` | The business UI (DESIGN-0027): a Bun BFF serving the SPA, proxying /api to the api Service and holding the OIDC session. Requires api.enabled and api.auth.enabled. |
+| ui.docsUrl | string | `""` | https URL of the operator's documentation. When set the sidebar shows a Docs group linking to it; unset hides the group. |
+| ui.enabled | bool | `false` | Render the ui Deployment, Service and PDB. |
+| ui.existingSecret | string | `""` | Secret with keys `oidc-client-secret` and `session-keys` (comma-separated, at least 32 bytes each; the first seals). Required. |
+| ui.githubHost | string | `"github.com"` | GitHub host PR and repository links point at. |
+| ui.image.repository | string | `"ghcr.io/donaldgifford/repo-guardian-ui"` | UI image repository. |
+| ui.image.tag | string | `""` | UI image tag; defaults to the chart's appVersion, because both images are released together from one tag. |
+| ui.ingress.annotations | object | `{}` | Annotations for the Ingress. |
+| ui.ingress.className | string | `""` | IngressClass name. |
+| ui.ingress.enabled | bool | `false` | Render an Ingress sending the whole host to the ui Service. The only Ingress the chart renders; fails render unless api.auth.enabled. |
+| ui.ingress.host | string | `""` | The UI's host name. |
+| ui.ingress.tls | list | `[]` | TLS blocks, as in networking.k8s.io/v1 IngressTLS. |
+| ui.oidc.authorizationParams | object | `{}` | Extra authorize-request parameters (string values), e.g. `{audience: "https://repo-guardian-api"}` for Auth0. May not set redirect_uri, scope, state, nonce, code_challenge, code_challenge_method, response_type or client_id. |
+| ui.oidc.clientId | string | `"repo-guardian-ui"` | OIDC client ID (a confidential client). The issuer is api.auth.issuer: the UI and the API trust the same IdP. |
+| ui.oidc.scopes | list | `["openid","profile","email","offline_access"]` | Scopes requested at login. No `groups` scope by default: Keycloak's audience and group mappers need none, and Okta's custom authorization servers reject a scope they do not define. Add it where your provider issues groups only for that scope. |
+| ui.oidc.tokenAuthMethod | string | `"client_secret_post"` | How the client secret reaches the token endpoint: `client_secret_post` or `client_secret_basic`. |
+| ui.pdb.enabled | bool | `true` | Render a PodDisruptionBudget. |
+| ui.pdb.minAvailable | int | `1` | Pods kept through voluntary disruptions. |
+| ui.port | int | `3000` | Container port the BFF listens on. |
+| ui.publicUrl | string | `""` | Browser-facing origin (https://host). Defaults to https://<ui.ingress.host>; set it when the ingress is yours. |
+| ui.replicas | int | `2` | Replica count. |
+| ui.resources | object | `{"limits":{"memory":"256Mi"},"requests":{"cpu":"50m","memory":"96Mi"}}` | Resources for the ui container. |
+| ui.sessionTTL | string | `"8h"` | Absolute session length; token refresh never extends it. |
+| worker | object | `{"buildId":""}` | The controls workers' shared Temporal settings. |
+| worker.buildId | string | `""` | Temporal worker build ID (TEMPORAL_BUILD_ID). Empty uses `image.tag`, then the chart's appVersion. Each worker promotes its build to the deployment's current version at startup, and the newest semver build wins, so it must change whenever the image does. Set it only for images whose tag is not a version. |
 

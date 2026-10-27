@@ -25,20 +25,6 @@ func modelWith(ms ...monitoring.Mechanism) *monitoring.Model {
 	return &monitoring.Model{Mechanisms: set}
 }
 
-func specByName(t *testing.T, specs []alert.Spec, name string) alert.Spec {
-	t.Helper()
-
-	for i := range specs {
-		if specs[i].Name == name {
-			return specs[i]
-		}
-	}
-
-	t.Fatalf("no alert named %q; got %v", name, names(specs))
-
-	return alert.Spec{}
-}
-
 func names(specs []alert.Spec) []string {
 	out := make([]string, 0, len(specs))
 	for i := range specs {
@@ -163,150 +149,24 @@ func TestCatalogue_EveryAlertIsDescribed(t *testing.T) {
 	}
 }
 
-// TestGenerate_MechanismScoping is the core of task 5.3.
-func TestGenerate_MechanismScoping(t *testing.T) {
+// TestGenerate_NothingIsGatedYet pins the controls catalogue's shape: no
+// mechanism set drops an alert. The remediation alerts read series that
+// are absent on a deployment that never remediates, so they stay silent
+// there ungated; skip_test.go keeps the gating itself covered.
+func TestGenerate_NothingIsGatedYet(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
-		mechanisms []monitoring.Mechanism
-		wantKept   []string
-		wantGone   []string
-	}{
-		{
-			// Nothing configured: only the unconditional service-health
-			// and infrastructure alerts survive.
-			name:       "no mechanisms",
-			mechanisms: nil,
-			wantKept: []string{
-				"RepoGuardianNoRepoChecks",
-				"RepoGuardianPostureExportStalled",
-				"RepoGuardianNoSchedulerLeader",
-				// Unconditional on purpose: an installation can lose
-				// read access at any time regardless of config.
-				"RepoGuardianRepoAccessDenied",
-			},
-			wantGone: []string{
-				"RepoGuardianPropertySchemaMissing",
-				"RepoGuardianCatalogParseFailures",
-				"RepoGuardianRuleNeverApplies",
-				"RepoGuardianSettingRemediationChurn",
-				"RepoGuardianBranchProtectionChurn",
-				"RepoGuardianPRBurst",
-				"RepoGuardianPRDrift",
-			},
-		},
-		{
-			// The IMPL's own example: no PropertySchemaMissing without a
-			// custom_properties reconciler.
-			name:       "custom properties in api mode",
-			mechanisms: []monitoring.Mechanism{monitoring.MechanismCustomProperties},
-			wantKept: []string{
-				"RepoGuardianPropertySchemaMissing",
-				"RepoGuardianCatalogParseFailures",
-			},
-			// The preflight runs in BOTH modes, which is the thing that
-			// is easy to get backwards: gating it on the mode would
-			// silently drop the alert for every api-mode deployment.
-			wantGone: []string{"RepoGuardianPRBurst"},
-		},
-		{
-			// github-action mode gates no alert of its own since
-			// IMPL-0023 Phase 7 folded reconciler PRs into
-			// prs_created_total. It must not resurrect one, and it must
-			// not start suppressing the api-mode alerts either.
-			name: "custom properties in github-action mode",
-			mechanisms: []monitoring.Mechanism{
-				monitoring.MechanismCustomProperties,
-				monitoring.MechanismCustomPropertiesGHA,
-			},
-			wantKept: []string{
-				"RepoGuardianPropertySchemaMissing",
-				"RepoGuardianCatalogParseFailures",
-			},
-		},
-		{
-			// out_of_scope_total has no producer in legacy mode.
-			name:       "strict scope",
-			mechanisms: []monitoring.Mechanism{monitoring.MechanismStrictScope},
-			wantKept:   []string{"RepoGuardianRuleNeverApplies"},
-		},
-		{
-			name:       "setting remediation",
-			mechanisms: []monitoring.Mechanism{monitoring.MechanismSettingRemediation},
-			wantKept:   []string{"RepoGuardianSettingRemediationChurn"},
-			wantGone:   []string{"RepoGuardianBranchProtectionChurn"},
-		},
-		{
-			// With auto-close OFF, an open PR whose rules are satisfied
-			// is the DESIGNED behaviour, so PRDrift would fire
-			// permanently on a correctly-configured deployment.
-			name:       "file rules without auto-close",
-			mechanisms: []monitoring.Mechanism{monitoring.MechanismFileRules},
-			wantKept:   []string{"RepoGuardianPRBurst", "RepoGuardianStaleOpenPRs"},
-			wantGone:   []string{"RepoGuardianPRDrift"},
-		},
-		{
-			// dry_run suppresses prs_created_total, so every PR-shaped
-			// alert is empty by construction.
-			name: "dry run suppresses PR alerts",
-			mechanisms: []monitoring.Mechanism{
-				monitoring.MechanismFileRules,
-				monitoring.MechanismAutoClosePR,
-				monitoring.MechanismDryRun,
-			},
-			wantGone: []string{
-				"RepoGuardianPRBurst",
-				"RepoGuardianPRDrift",
-				"RepoGuardianStaleOpenPRs",
-			},
-			// Service health is unaffected by dry run.
-			wantKept: []string{"RepoGuardianNoRepoChecks", "RepoGuardianPostureExportStalled"},
-		},
-	}
+	all := names(alert.Catalogue())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	for _, ms := range [][]monitoring.Mechanism{
+		nil,
+		{monitoring.MechanismCustomProperties, monitoring.MechanismCustomPropertiesGHA, monitoring.MechanismFileRules},
+	} {
+		kept, skipped := alert.Generate(modelWith(ms...))
 
-			kept, skipped := alert.Generate(modelWith(tt.mechanisms...))
-			got := names(kept)
-
-			for _, want := range tt.wantKept {
-				if !slices.Contains(got, want) {
-					t.Errorf("%s was dropped; kept %v", want, got)
-				}
-			}
-
-			for _, gone := range tt.wantGone {
-				if slices.Contains(got, gone) {
-					t.Errorf("%s was emitted with no producer for its series", gone)
-				}
-
-				if !slices.ContainsFunc(skipped, func(s alert.Skip) bool { return s.Alert == gone }) {
-					t.Errorf("%s was dropped without a recorded reason", gone)
-				}
-			}
-		})
-	}
-}
-
-// TestGenerate_RepoAccessDeniedKeepsItsSelector pins the load-bearing
-// label matcher.
-//
-// repos_parked_total also counts routine archived and fork parks, which
-// happen on every normal onboarding sweep. The same expression without
-// {reason="access_denied"} pages on healthy behaviour, which is worse
-// than no alert: it trains the operator to ignore the one signal that
-// says the App lost access to a repository.
-func TestGenerate_RepoAccessDeniedKeepsItsSelector(t *testing.T) {
-	t.Parallel()
-
-	kept, _ := alert.Generate(modelWith())
-	spec := specByName(t, kept, "RepoGuardianRepoAccessDenied")
-
-	if !strings.Contains(spec.Expr, `reason="access_denied"`) {
-		t.Errorf("expression has no reason selector, so it fires on every archived and forked repo:\n%s", spec.Expr)
+		if got := names(kept); !slices.Equal(got, all) || len(skipped) != 0 {
+			t.Errorf("Generate(%v) kept %v and skipped %v, want the whole catalogue", ms, got, skipped)
+		}
 	}
 }
 
@@ -317,9 +177,9 @@ func TestGenerate_RepoAccessDeniedKeepsItsSelector(t *testing.T) {
 // child does not exist until something calls WithLabelValues, so its
 // first scrape lands at 1 and every scrape after it also reads 1, with
 // no earlier sample to subtract. For "> 0 of a rare event" that is
-// exactly the occurrence worth alerting on — a single repository losing
-// access, a single unparseable catalog — and it is the one occurrence
-// the bare expression structurally cannot catch.
+// exactly the occurrence worth alerting on — a control that errors from
+// the moment it is assigned — and it is the one occurrence the bare
+// expression structurally cannot catch.
 //
 // Three of these shipped without the guard until IMPL-0023 Phase 7. It
 // is the same class of defect as INV-0012 finding A: not an alert that
@@ -332,10 +192,9 @@ func TestCatalogue_RareEventAlertsCatchTheFirstIncrement(t *testing.T) {
 	// entry here is a deliberate act: adding one to the catalogue
 	// without the guard fails this test.
 	rare := []string{
-		"RepoGuardianRepoAccessDenied",
-		"RepoGuardianPropertySchemaMissing",
-		"RepoGuardianCatalogParseFailures",
-		"RepoGuardianJobsExhausted",
+		"RepoGuardianControlEvaluationErrors",
+		"RepoGuardianRemediationAppUnreachable",
+		"RepoGuardianRemediationBlocked",
 	}
 
 	byName := make(map[string]alert.Spec)
@@ -361,29 +220,18 @@ func TestCatalogue_RareEventAlertsCatchTheFirstIncrement(t *testing.T) {
 
 	// The other direction: a threshold alert must NOT carry the guard.
 	// A brand-new counter sitting at 1 is not a burst, and the disjunct
-	// would fire the moment the first PR of a deployment's life is
-	// opened.
-	for _, name := range []string{"RepoGuardianPRBurst", "RepoGuardianRateLimitThrottling"} {
-		if spec, ok := byName[name]; ok && strings.Contains(spec.Expr, "unless") {
+	// would fire on the first discard of a policy rollout.
+	for _, name := range []string{"RepoGuardianStaleEpochDiscards", "RepoGuardianEvaluationErrorRate"} {
+		spec, ok := byName[name]
+		if !ok {
+			t.Errorf("%s is not in the catalogue; if it was renamed, rename it here too", name)
+
+			continue
+		}
+
+		if strings.Contains(spec.Expr, "unless") {
 			t.Errorf("%s is a threshold alert carrying the first-increment guard; "+
 				"a new counter at 1 would fire it:\n%s", name, spec.Expr)
-		}
-	}
-}
-
-// TestGenerate_SkipsAreExplained pins that every omission is reportable.
-func TestGenerate_SkipsAreExplained(t *testing.T) {
-	t.Parallel()
-
-	_, skipped := alert.Generate(modelWith())
-
-	if len(skipped) == 0 {
-		t.Fatal("no alerts were skipped for an empty mechanism set")
-	}
-
-	for _, s := range skipped {
-		if s.Reason == "" {
-			t.Errorf("%s was skipped with no reason", s.Alert)
 		}
 	}
 }

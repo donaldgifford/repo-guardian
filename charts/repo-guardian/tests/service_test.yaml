@@ -1,14 +1,18 @@
 suite: service
+# Document 0 is the webhook Service (ingest in split, all in all). The
+# per-role Services are covered by topology_test.yaml.
 templates:
   - templates/service.yaml
 tests:
   - it: should create a ClusterIP service by default
+    documentIndex: 0
     asserts:
       - equal:
           path: spec.type
           value: ClusterIP
 
   - it: should expose http and metrics ports
+    documentIndex: 0
     asserts:
       - contains:
           path: spec.ports
@@ -30,6 +34,7 @@ tests:
       service:
         httpPort: 8080
         metricsPort: 9191
+    documentIndex: 0
     asserts:
       - contains:
           path: spec.ports
@@ -47,6 +52,7 @@ tests:
             name: metrics
 
   - it: should use selector labels
+    documentIndex: 0
     asserts:
       - isSubset:
           path: spec.selector

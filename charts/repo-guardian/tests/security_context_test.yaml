@@ -1,0 +1,131 @@
+suite: pod hardening (IMPL-0034 5.8)
+templates:
+  - templates/deployment.yaml
+  - templates/migrate-job.yaml
+  - templates/store-postgres-roles.yaml
+  - templates/store-postgres-ro.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  temporal:
+    address: temporal:7233
+  policy:
+    files:
+      enterprise.hcl: "enterprise {}"
+  github:
+    eval: {appId: "11", existingSecret: rg-eval}
+    remediate: {appId: "22", existingSecret: rg-remediate}
+  api:
+    enabled: true
+    auth:
+      issuer: https://idp.example.com
+  migrate:
+    enabled: true
+  store:
+    controls:
+      enabled: true
+tests:
+  # No documentIndex: every role's Deployment (ingest, evaluator,
+  # remediator, api) is asserted.
+  - it: every role runs non-root with the default seccomp profile
+    template: templates/deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+
+  - it: every role's container is read-only, unprivileged and capability-free
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+
+  - it: no role mounts a service-account token
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: the all topology is hardened the same way
+    template: templates/deployment.yaml
+    set:
+      topology: all
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: the migrate Job is hardened like the roles
+    template: templates/migrate-job.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: the controls-roles psql Job drops privileges and mounts no token
+    template: templates/store-postgres-roles.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+
+  - it: the read-only-role psql Job drops privileges and mounts no token
+    template: templates/store-postgres-ro.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault

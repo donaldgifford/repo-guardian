@@ -1,0 +1,25 @@
+# External visibility: a managed Elasticsearch 7/8 or OpenSearch 2.x
+# (Amazon OpenSearch Service: use 2.19 until 3.x is verified, DESIGN-0026
+# OQ9). Replace the host; credentials come from the Secret
+# temporal-visibility (key: password). For Amazon OpenSearch with IAM,
+# drop username/existingSecret and set aws-request-signing instead.
+server:
+  config:
+    persistence:
+      visibilityStore: visibility
+      datastores:
+        visibility:
+          elasticsearch:
+            version: v7
+            url:
+              scheme: https
+              host: "search-example.us-east-1.es.amazonaws.com:443"
+            username: temporal
+            existingSecret: temporal-visibility
+            secretKey: password
+            logLevel: error
+            indices:
+              visibility: temporal_visibility_v1
+            tls:
+              enabled: true
+              enableHostVerification: true

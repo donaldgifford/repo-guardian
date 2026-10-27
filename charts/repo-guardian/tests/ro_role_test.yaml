@@ -1,0 +1,95 @@
+suite: api read-only Postgres role (DESIGN-0027 § Chart, OQ24)
+templates:
+  - templates/store-postgres-ro.yaml
+  - templates/store-cnpg-cluster.yaml
+  - templates/store-postgres.yaml
+release:
+  name: rg
+set:
+  api:
+    enabled: true
+    auth:
+      issuer: https://idp.example.com
+tests:
+  - it: baked renders the Secret, init script and post-install/upgrade hook
+    template: templates/store-postgres-ro.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: type
+          value: kubernetes.io/basic-auth
+        documentIndex: 0
+      - matchRegex:
+          path: data["10-ro-role.sh"]
+          pattern: CREATE ROLE repoguardian_ro LOGIN
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+        documentIndex: 2
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: GRANT SELECT ON ALL TABLES IN SCHEMA public TO repoguardian_ro
+        documentIndex: 2
+
+  - it: baked mounts the init script into Postgres
+    template: templates/store-postgres.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+
+  - it: baked with an operator Secret reads the read-only password from it
+    template: templates/store-postgres-ro.yaml
+    set:
+      store.postgres.baked.existingSecret: pg
+    asserts:
+      - hasDocuments:
+          count: 2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RO_PASSWORD, valueFrom: {secretKeyRef: {name: pg, key: RO_PASSWORD}}}
+        documentIndex: 1
+
+  - it: CNPG declares a managed role and no hook
+    set:
+      store.postgres.mode: cnpg
+    asserts:
+      - contains:
+          path: spec.managed.roles
+          content:
+            name: repoguardian_ro
+            ensure: present
+            login: true
+            inRoles: [pg_read_all_data]
+            passwordSecret: {name: rg-repo-guardian-postgres-ro}
+        template: templates/store-cnpg-cluster.yaml
+      - hasDocuments:
+          count: 1
+        template: templates/store-postgres-ro.yaml
+
+  - it: renders nothing when the operator provides the read-only DSN
+    template: templates/store-postgres-ro.yaml
+    set:
+      api.roDsn.existingSecret: ro-dsn
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing in all, where the API reads with STORE_DSN
+    template: templates/store-postgres-ro.yaml
+    set:
+      topology: all
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing without the API
+    template: templates/store-postgres-ro.yaml
+    set:
+      api.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

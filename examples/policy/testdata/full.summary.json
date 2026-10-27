@@ -1,0 +1,99 @@
+{
+  "version": "controls:9bd5ba37444feaf22b440eec4fc7abbbe0249a48593e0e7ba8b74000e8201699",
+  "enterprise": {
+    "orgs": [
+      "myorg"
+    ],
+    "mode": "remediate",
+    "controls": [
+      "codeowners@1",
+      "renovate@1",
+      "renovate_workflow@1",
+      "catalog_info@1",
+      "custom_properties@1",
+      "labels@1",
+      "repo_settings@1",
+      "protect_main@1"
+    ]
+  },
+  "orgs": [
+    {
+      "org": "myorg",
+      "excluded": [
+        {
+          "control": "protect_main@1",
+          "reason": "legacy repositories predate the review policy",
+          "block": "legacy"
+        }
+      ],
+      "excluded_repos": [
+        {
+          "match": [
+            ".github",
+            "terraform-*",
+            "archive-*"
+          ],
+          "reason": "org config, infrastructure and archives are managed elsewhere"
+        }
+      ],
+      "repos": [
+        {
+          "label": "legacy",
+          "match": [
+            "legacy-*"
+          ]
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "control": "catalog_info@1",
+      "title": "Backstage catalog entry",
+      "type": "catalog_info",
+      "revision": "77d9472b14f1a1946d22df7692ee14371e3fc300617aef4597bf69f09cdd923b"
+    },
+    {
+      "control": "codeowners@1",
+      "title": "CODEOWNERS",
+      "type": "codeowners",
+      "revision": "c4d287e7406f96b5ef440605bb83fbe92ebe28034582f0cf3bec2e9222c2fd3e"
+    },
+    {
+      "control": "custom_properties@1",
+      "title": "Custom properties",
+      "type": "custom_properties",
+      "revision": "017fcfa3e932b955c2ec80043d0a863d802aa4eba899a46d5ca24ca50d0605f8"
+    },
+    {
+      "control": "labels@1",
+      "title": "Labels",
+      "type": "labels",
+      "revision": "26b23fa35c9c0465a7fadc6b5834587ccbddcc81b01759b2c2bba24ef91b3602"
+    },
+    {
+      "control": "protect_main@1",
+      "title": "Default branch ruleset",
+      "type": "branch_ruleset",
+      "revision": "58f5cdf9dd41689d5439cd2b4c075e9c183c98d73ec85ca64b382f77726bc659"
+    },
+    {
+      "control": "renovate@1",
+      "title": "Renovate",
+      "type": "dependency_updates",
+      "revision": "926fa6638ae8525af2f8c1259c26f031b2dc6baa207d10ba51b468d7e1c55d5d"
+    },
+    {
+      "control": "renovate_workflow@1",
+      "title": "Renovate workflow",
+      "type": "file",
+      "revision": "b470a252f4cb9522a4e4715bbf278f4147380784795d96253f9a630594847bd1"
+    },
+    {
+      "control": "repo_settings@1",
+      "title": "Repository settings",
+      "type": "repo_settings",
+      "revision": "61302f281ebf1c570dba1be5fd6ebccd6f9799ae85b762a3ca1e51585f11ab0e"
+    }
+  ]
+}

@@ -18,6 +18,43 @@ behind every documented proxy topology — see
 Observation 5 — so an edge layer is not a downgrade from it; it is
 the first time the source-IP layer has actually been fail-closed.
 
+## The UI host (chart 2.0)
+
+There is one exception, and it is not the webhook. From chart `2.0`
+the chart can render **one** Ingress: `ui.ingress.enabled` sends the
+whole `ui.ingress.host` to the business UI (DESIGN-0027). That UI is
+a login front door: it serves the SPA, proxies `/api/*` to the
+ClusterIP `api` Service with the signed-in user's token, and answers
+the public status page at `/status`.
+
+- **It is the only Ingress the chart renders.** The `api` Service is
+  ClusterIP only and is reached through the UI, never published on its
+  own.
+- **It fails render unless `api.auth.enabled`.** The chart never
+  publishes an unauthenticated API (INV-0009's hard gate).
+- **The webhook path stays yours.** `POST /webhooks/github` (and the
+  per-App `/webhooks/github/eval` and `/webhooks/github/remediate`, each
+  mounted when its App's webhook secret is set) is served
+  by the `ingest` Service (`<release>-repo-guardian`, or `all` in
+  topology `all`), and everything in this document still applies to
+  it. Do not route the webhook through the UI host: the UI proxies
+  `GET`/`HEAD` under `/api` only, so a delivery there gets a 404.
+
+```yaml
+ui:
+  enabled: true
+  existingSecret: repo-guardian-ui   # oidc-client-secret, session-keys
+  ingress:
+    enabled: true
+    className: nginx
+    host: guardian.example.com
+    tls:
+      - hosts: [guardian.example.com]
+        secretName: guardian-tls
+```
+
+Keep the webhook on its own host or path at your edge, as before.
+
 ## Migrating from the baked sidecar
 
 Upgrading to chart `1.0.0` from any `1.0.0-rc.*` release that used
@@ -299,5 +336,9 @@ app side:
   HMAC validation: a burst means a wrong or rotated webhook secret,
   **not** an unwanted-source problem; that signal lives at your
   edge layer now.
+- `webhook_rejected_total{reason="app_mismatch"}` — a correctly signed
+  installation payload naming the other App on a per-App route
+  (`/webhooks/github/eval`, `/webhooks/github/remediate`): the two
+  Apps' webhook URLs are swapped.
 - The E4 evidence dashboard answers "which repository", never
   "which caller".

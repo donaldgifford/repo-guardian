@@ -1,0 +1,3 @@
+org "acme" {
+  mode = "remediate"
+}

@@ -9,8 +9,8 @@ import (
 
 	promclient "github.com/prometheus/client_golang/prometheus"
 
+	"github.com/donaldgifford/repo-guardian/internal/ingest"
 	"github.com/donaldgifford/repo-guardian/internal/observability"
-	"github.com/donaldgifford/repo-guardian/internal/webhook"
 )
 
 // serveThrough routes one request through a ServeMux and returns the
@@ -62,7 +62,7 @@ func TestHandler_MeasuresRejectedWebhooks(t *testing.T) {
 	reg := promclient.NewRegistry()
 	newProvider(t, reg)
 
-	handler := webhook.NewHandler("the-real-secret", nil, slog.Default(), nil, nil, "", 0)
+	handler := ingest.New("the-real-secret", nil, "", nil, slog.Default())
 
 	req, err := http.NewRequestWithContext(
 		t.Context(), http.MethodPost, "/webhooks/github", strings.NewReader(`{"action":"created"}`))

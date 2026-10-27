@@ -9,29 +9,28 @@ import (
 	"github.com/donaldgifford/repo-guardian/internal/monitoring/dashboard"
 )
 
-// legacyModel is a policy with no top-level scope block, so no org is
-// declarable and the rows have to be discovered.
+// legacyModel is the unconfigured static tier: no org is declarable and
+// the rows have to be discovered.
 func legacyModel() *monitoring.Model {
 	return &monitoring.Model{
-		Rules: []monitoring.Rule{{Name: "codeowners", Kind: monitoring.RuleKindFile}},
+		Controls: []monitoring.Control{{ID: "codeowners@1", Type: "codeowners"}},
 	}
 }
 
-// strictModel is a policy with a top-level scope, including one glob
-// pattern that cannot become a declared row.
+// strictModel is a policy naming its orgs, including one glob pattern
+// that cannot become a declared row.
 func strictModel() *monitoring.Model {
 	return &monitoring.Model{
-		Strict: true,
 		Orgs: []monitoring.Org{
 			{Name: "acme"},
 			{Name: "acme-labs-*", Pattern: true},
 			{Name: "widgets"},
 		},
-		Rules: []monitoring.Rule{
-			{Name: "codeowners", Kind: monitoring.RuleKindFile, Orgs: []string{"acme"}},
-			{Name: "dependabot", Kind: monitoring.RuleKindFile, Orgs: []string{"acme", "widgets"}},
+		Controls: []monitoring.Control{
+			{ID: "codeowners@1", Type: "codeowners", Orgs: []string{"acme"}},
+			{ID: "dependabot@1", Type: "dependency_updates", Orgs: []string{"acme", "widgets"}},
 		},
-		Mechanisms: monitoring.Mechanisms{monitoring.MechanismStrictScope: struct{}{}},
+		Mechanisms: monitoring.Mechanisms{monitoring.MechanismFileRules: struct{}{}},
 	}
 }
 
@@ -39,7 +38,7 @@ func strictModel() *monitoring.Model {
 func findDashboard(t *testing.T, m *monitoring.Model) map[string]any {
 	t.Helper()
 
-	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults())
+	suite := dashboard.Suite(m, dashboard.Datasources{}.WithDefaults(), dashboard.Identity{})
 
 	const slug = "repo-guardian-detail"
 
@@ -103,7 +102,7 @@ func TestE2_GeneratesARowPerDeclaredOrg(t *testing.T) {
 
 	got := rowTitles(t, findDashboard(t, strictModel()))
 
-	want := []string{"Fleet", "Organisation: acme", "Organisation: widgets"}
+	want := []string{"Fleet", "Remediation", "Organisation: acme", "Organisation: widgets"}
 	if len(got) != len(want) {
 		t.Fatalf("rows = %v, want %v", got, want)
 	}
@@ -150,8 +149,8 @@ func TestE2_LegacyModeFallsBackToTheVariable(t *testing.T) {
 	d := findDashboard(t, legacyModel())
 
 	rows := rowTitles(t, d)
-	if len(rows) != 2 || rows[1] != "Organisation: $org" {
-		t.Errorf("rows = %v, want a fleet row and one variable-driven org row", rows)
+	if len(rows) != 3 || rows[2] != "Organisation: $org" {
+		t.Errorf("rows = %v, want the fleet and remediation rows and one variable-driven org row", rows)
 	}
 
 	templating, ok := d["templating"].(map[string]any)
@@ -186,7 +185,7 @@ func TestE2_DeclaredOrgsDeclareNoVariable(t *testing.T) {
 
 // TestE2_OmitsFleetScopedInfrastructure pins the E2/E3 split.
 //
-// Queue, store and scheduler series are fleet-scoped. Repeated under a
+// Store, Temporal and budget series are fleet-scoped. Repeated under a
 // per-org heading they would show the same number in every row and
 // invite someone to read it as that org's share.
 func TestE2_OmitsFleetScopedInfrastructure(t *testing.T) {
@@ -200,10 +199,10 @@ func TestE2_OmitsFleetScopedInfrastructure(t *testing.T) {
 	}
 
 	for _, series := range []string{
-		"repo_guardian_queue_depth",
-		"repo_guardian_queue_delayed_depth",
 		"repo_guardian_store_query_seconds",
-		"repo_guardian_scheduler_is_leader",
+		"repo_guardian_store_pool_wait_seconds",
+		"repo_guardian_budget_acquire_total",
+		"temporal_worker_task_slots_available",
 	} {
 		if strings.Contains(string(raw), series) {
 			t.Errorf("E2 charts %s, which is fleet-scoped and belongs on E3", series)

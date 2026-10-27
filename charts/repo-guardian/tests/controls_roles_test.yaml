@@ -1,0 +1,219 @@
+suite: controls roles (IMPL-0028 task 4.10)
+templates:
+  - templates/deployment.yaml
+  - templates/service.yaml
+  - templates/servicemonitor.yaml
+release:
+  name: rg
+  namespace: rg-ns
+set:
+  temporal:
+    address: temporal:7233
+  policy:
+    files:
+      enterprise.hcl: "enterprise {}"
+  github:
+    eval: {appId: "11", existingSecret: rg-eval}
+    remediate: {appId: "22", existingSecret: rg-remediate}
+tests:
+  - it: split renders an evaluator and a remediator Deployment
+    template: templates/deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [evaluator]
+        documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: [remediator]
+        documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+
+  - it: renders no controls role without its App
+    template: templates/deployment.yaml
+    set:
+      github:
+        remediate: {appId: ""}
+    asserts:
+      - hasDocuments:
+          count: 2
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: remediator
+        documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+
+  - it: sizes the evaluator from evaluator.* and selects it by component
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-evaluator}
+    set:
+      evaluator:
+        replicas: 3
+        concurrency: 20
+        dbPoolSize: 12
+        resources: {limits: {memory: 512Mi}}
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: evaluator
+      - equal:
+          path: metadata.namespace
+          value: rg-ns
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: EVALUATOR_CONCURRENCY, value: "20"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: EVALUATOR_DB_POOL_SIZE, value: "12"}
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 512Mi
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATOR_CONCURRENCY}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKER_ACTIVITY_CONCURRENCY}
+          any: true
+      # The evaluation schedule and the service workflows run on the
+      # evaluator (IMPL-0029 7.9): it carries their env, the remediator
+      # does not.
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: EVAL_INTERVAL, value: "24h"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: DISCOVERY_ENABLED, value: "true"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_SWEEP_BATCH}
+          any: true
+
+  # The remediator's sweep, maintenance and discovery schedules
+  # (IMPL-0030 6.6) take their knobs from remediator.*; the evaluation
+  # schedule's stay on the evaluator.
+  - it: gives the remediator its lifecycle knobs and discovery gate
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+    set:
+      remediator:
+        reservationTTL: 30m
+        sweepBatch: 50
+        maintenanceBatch: 20
+        sweepSpacing: 10s
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_RESERVATION_TTL, value: 30m}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_SWEEP_BATCH, value: "50"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_MAINTENANCE_BATCH, value: "20"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATION_SWEEP_SPACING, value: 10s}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: DISCOVERY_INTERVAL, value: 1h}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: EVAL_INTERVAL}
+          any: true
+
+  - it: refuses a non-positive remediation batch
+    template: templates/deployment.yaml
+    set:
+      remediator:
+        sweepBatch: 0
+    asserts:
+      - failedTemplate: {}
+
+  - it: refuses a sweep spacing that is not a duration
+    template: templates/deployment.yaml
+    set:
+      remediator:
+        sweepSpacing: 30
+    asserts:
+      - failedTemplate: {}
+
+  - it: lets the remediator run at zero replicas
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+    set:
+      remediator:
+        replicas: 0
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATOR_CONCURRENCY, value: "10"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATOR_DB_POOL_SIZE}
+          any: true
+
+  - it: gives each controls role Temporal, the store and the policy
+    template: templates/deployment.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: TEMPORAL_ADDRESS, value: temporal:7233}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STORE_DSN}
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GUARDIAN_CONFIG, value: /etc/repo-guardian/policy}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: TEMPORAL_BUILD_ID}
+          any: true
+
+  - it: sizes both halves inside all
+    template: templates/deployment.yaml
+    set:
+      topology: all
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: EVALUATOR_CONCURRENCY, value: "10"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: REMEDIATOR_CONCURRENCY, value: "10"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKER_ACTIVITY_CONCURRENCY}
+          any: true
+
+  - it: gives each controls role a metrics Service
+    template: templates/service.yaml
+    documentSelector: {path: metadata.name, value: rg-repo-guardian-remediator}
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: remediator
+      - equal:
+          path: spec.ports[0].name
+          value: metrics
+
+  - it: scrapes the controls roles
+    template: templates/servicemonitor.yaml
+    set:
+      serviceMonitor: {enabled: true}
+    asserts:
+      - contains:
+          path: spec.selector.matchExpressions[0].values
+          content: evaluator
+      - contains:
+          path: spec.selector.matchExpressions[0].values
+          content: remediator

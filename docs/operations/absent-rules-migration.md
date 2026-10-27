@@ -1,5 +1,8 @@
 # Absent rules and conditional gates migration (appVersion → next minor)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: file checks are `file` controls, listed in the [control-type reference](../usage/controls-reference.md).
+
 [IMPL-0019](../impl/0019-absent-check-mode-and-conditional-file-rules.md)
 adds a fourth file-rule check mode, `check = "absent"`, whose remediation
 is a **file-deletion PR**, plus a `when { rule_satisfied = "<rule>" }`

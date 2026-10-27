@@ -1,0 +1,37 @@
+# The frontend accepts gRPC only from Temporal's own pods and from
+# namespaces labelled as repo-guardian clients (DESIGN-0026 OQ11).
+# Open-source Temporal has no per-namespace authorization by default, so
+# network reachability plus mTLS is the boundary. Label each namespace
+# running repo-guardian:
+#
+#   kubectl label namespace repo-guardian repo-guardian.io/temporal-client=true
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: temporal-frontend
+  namespace: temporal
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/component: frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        # History, matching, worker, web, admintools and the namespace
+        # job all live in the temporal namespace.
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              repo-guardian.io/temporal-client: "true"
+      ports:
+        - protocol: TCP
+          port: 7233
+    # Membership (ringpop) between server services.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: temporal
+      ports:
+        - protocol: TCP
+          port: 6933

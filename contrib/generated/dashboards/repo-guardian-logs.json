@@ -167,12 +167,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (owner, repo) (\n  count_over_time({app=\"repo-guardian\"} |= \"catalog-info parse failed\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }}"
+          "expr": "sum by (repository_id, reason) (\n  count_over_time({app=\"repo-guardian\"} |= \"parking repository until discovery sees it again\" | json [1h])\n)",
+          "legendFormat": "{{ repository_id }} ({{ reason }})"
         }
       ],
-      "title": "Repositories with an unparseable catalog-info",
-      "description": "The named counterpart to catalog_parse_failed_total, which says how many but not which. A repository here has had its custom properties left alone rather than cleared — deliberately (INV-0011 A1), and invisibly until you look here.",
+      "title": "Parked repositories",
+      "description": "Repositories the Evaluation App can no longer read — archived, forked, transferred or un-installed. Parking is why assignments can fall without anything being wrong, and this is the only per-repository record of it.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -210,12 +210,12 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |= \"catalog-info parse failed\" | json",
+          "expr": "{app=\"repo-guardian\"} |= \"assignment awaits re-resolution\" | json",
           "maxLines": 200
         }
       ],
-      "title": "catalog-info parse failures",
-      "description": "The `err` field says what is wrong with the file. Note the sibling condition — a valid non-Component entity — logs at INFO under a different message and is not a fault; this panel deliberately does not match it.",
+      "title": "Assignments awaiting re-resolution",
+      "description": "Stored assignments whose control revision the running policy no longer carries. They are skipped, not failed, until the policy rollout re-resolves the repository; one that stays here past POLICY_ROLLOUT_WINDOW is stuck.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -241,15 +241,15 @@
       }
     },
     {
-      "type": "timeseries",
+      "type": "logs",
       "targets": [
         {
-          "expr": "sum by (owner, repo, reason) (\n  count_over_time({app=\"repo-guardian\"} |= \"parking repository until discovery sees it again\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }} ({{ reason }})"
+          "expr": "{app=\"repo-guardian\"} |= \"controls discovery: installation listing incomplete\" | json",
+          "maxLines": 200
         }
       ],
-      "title": "Parked repositories",
-      "description": "Repositories the installation can no longer read — archived, forked, transferred or un-installed. Parking is why repos_tracked can fall without anything being wrong, and this is the only per-repository record of it.",
+      "title": "Incomplete discovery listings",
+      "description": "An installation whose repository listing failed. Discovery parks nothing after an incomplete listing, so a removed repository stays assigned until a pass completes.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -263,30 +263,21 @@
       },
       "repeatDirection": "h",
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
+        "showLabels": false,
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLogContextToggle": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": ""
       }
     },
     {
       "type": "row",
       "collapsed": false,
-      "title": "Write-back and job loss",
+      "title": "Deferred and failed evaluations",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -300,16 +291,16 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"store write-back failed\" [15m]))",
-          "legendFormat": "repo state"
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"rate limit throttled; deferring evaluation\" [15m]))",
+          "legendFormat": "deferred"
         },
         {
-          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"rule-state write-back failed\" [15m]))",
-          "legendFormat": "rule state"
+          "expr": "sum(count_over_time({app=\"repo-guardian\"} |= \"evaluation failed after retries\" [15m]))",
+          "legendFormat": "failed"
         }
       ],
-      "title": "State write-back failures",
-      "description": "Write-back is best-effort by design — the queue is the source of truth for 'did we do the work' — so these never fail a job and never appear in errors_total. What they do is make every posture gauge on E1 and E2 stale, which is the one failure those gauges cannot report about themselves.",
+      "title": "Deferred and failed evaluations",
+      "description": "A deferral is not a failure: the evaluation never ran, so there is deliberately no error counted and no result recorded. A failed evaluation exhausted its activity retries and waits for the next interval.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -344,15 +335,15 @@
       }
     },
     {
-      "type": "timeseries",
+      "type": "logs",
       "targets": [
         {
-          "expr": "sum by (owner, repo) (\n  count_over_time({app=\"repo-guardian\"} |= \"job exceeded attempt cap\" | json [1h])\n)",
-          "legendFormat": "{{ owner }}/{{ repo }}"
+          "expr": "{app=\"repo-guardian\"} |~ \"rate limit throttled; deferring evaluation|evaluation failed after retries\" | json",
+          "maxLines": 200
         }
       ],
-      "title": "Jobs dropped at the attempt cap",
-      "description": "A job that hit MAX_JOB_ATTEMPTS and was acked away rather than retried forever. The repository is not lost — the stale sweep is its recovery path — but it will not converge until the sweep picks it up.",
+      "title": "Deferrals and failures",
+      "description": "Deferrals carry owner and repo; failures carry the `check_key`, whose first segment names the repository's EvaluationWorkflow. Repeated failures of one repository are a repository that will not converge.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -366,70 +357,27 @@
       },
       "repeatDirection": "h",
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
+        "showLabels": false,
+        "showCommonLabels": false,
+        "showTime": true,
+        "showLogContextToggle": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": ""
       }
     },
     {
-      "type": "logs",
-      "targets": [
-        {
-          "expr": "{app=\"repo-guardian\"} |~ \"rate limit throttled; deferring job|job exceeded attempt cap\" | json",
-          "maxLines": 200
-        }
-      ],
-      "title": "Deferrals and drops",
-      "description": "The rate-limit path end to end. A deferral is not a failure: the check never ran, so there is deliberately no error counted and no write-back recorded. Repeated deferrals of the same repository are how a job walks to the attempt cap.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
+      "type": "row",
+      "collapsed": false,
+      "title": "Remediation holds and adoptions",
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 1,
+        "w": 24,
         "x": 0,
         "y": 48
       },
-      "repeatDirection": "h",
-      "options": {
-        "showLabels": false,
-        "showCommonLabels": false,
-        "showTime": true,
-        "showLogContextToggle": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": false,
-        "sortOrder": "Descending",
-        "dedupStrategy": ""
-      }
-    },
-    {
-      "type": "row",
-      "collapsed": false,
-      "title": "Webhook",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 57
-      },
       "id": 0,
       "panels": []
     },
@@ -437,12 +385,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (msg) (\n  count_over_time({app=\"repo-guardian\"} |~ \"invalid webhook payload\" | json [15m])\n)",
-          "legendFormat": "{{ msg }}"
+          "expr": "sum by (hold) (\n  count_over_time({app=\"repo-guardian\"} |= \"remediation held\" | json [1h])\n)",
+          "legendFormat": "{{ hold }}"
         }
       ],
-      "title": "Rejected webhook deliveries",
-      "description": "Signature rejections only: a burst here means a wrong or rotated webhook secret. Source-IP rejections happen at the operator's edge layer, not in the app — see docs/operations/ingress.md for where each edge's evidence lives.",
+      "title": "Remediation holds by reason",
+      "description": "Runs that stopped on a hold. foreign_branch and permission need a human; pr_cap, stale_branch and conflict usually clear on their own.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -452,7 +400,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 58
+        "y": 49
       },
       "repeatDirection": "h",
       "options": {
@@ -480,12 +428,12 @@
       "type": "logs",
       "targets": [
         {
-          "expr": "{app=\"repo-guardian\"} |~ \"invalid webhook payload|failed to enqueue job\" | json",
+          "expr": "{app=\"repo-guardian\"} |~ \"remediation held|adopted the remediation app's own pull request\" | json",
           "maxLines": 200
         }
       ],
-      "title": "Webhook rejections and enqueue failures",
-      "description": "An enqueue failure means GitHub was told 202 and the work was then dropped — the delivery will not be retried, so the stale sweep is the only path back.",
+      "title": "Holds and adoptions",
+      "description": "Holds carry repository_id, control and hold; an adoption is the Remediation App finding its own open pull request with no tracked row and taking it back, which follows a lost database row or a restored branch.",
       "transparent": false,
       "datasource": {
         "type": "loki",
@@ -495,97 +443,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 58
-      },
-      "repeatDirection": "h",
-      "options": {
-        "showLabels": false,
-        "showCommonLabels": false,
-        "showTime": true,
-        "showLogContextToggle": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": false,
-        "sortOrder": "Descending",
-        "dedupStrategy": ""
-      }
-    },
-    {
-      "type": "row",
-      "collapsed": false,
-      "title": "Sweeps",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 67
-      },
-      "id": 0,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "max_over_time({app=\"repo-guardian\"} |= \"stale-sweep complete\" | json | unwrap enqueued [$__interval])",
-          "legendFormat": "enqueued"
-        }
-      ],
-      "title": "Repositories enqueued per sweep",
-      "description": "Unwrapped from the sweep's summary line rather than taken from the histogram on E3, because this one carries the policy version alongside it: a sudden full-fleet batch is almost always a policy edit, and that is only visible here.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 68
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "custom": {}
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "logs",
-      "targets": [
-        {
-          "expr": "{app=\"repo-guardian\"} |= \"stale-sweep complete\" | json",
-          "maxLines": 200
-        }
-      ],
-      "title": "Sweep summaries",
-      "description": "One line per sweep: how many rows were stale, how many were enqueued, and the policy version that decided. `stale` far exceeding `enqueued` means the batch cap is truncating and the fleet cannot converge in one interval.",
-      "transparent": false,
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 68
+        "y": 49
       },
       "repeatDirection": "h",
       "options": {

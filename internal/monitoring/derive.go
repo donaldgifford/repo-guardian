@@ -1,36 +1,29 @@
 package monitoring
 
 import (
-	"fmt"
-	"os"
 	"slices"
 	"strings"
 
+	"github.com/donaldgifford/repo-guardian/internal/control"
 	"github.com/donaldgifford/repo-guardian/internal/policy"
 )
-
-// envInfluencers are the environment variables that can change the
-// derived model behind the config file's back.
-//
-// policy.BuiltinDefaults reads CUSTOM_PROPERTIES_MODE and appends a
-// catalog_info rule with a custom_properties reconciler; applyEnvOverrides
-// runs last over the rest. Every one of them is either a mechanism or an
-// alert-window input, so a stray variable in somebody's shell produces a
-// generated artifact that differs from CI's for reasons the diff does not
-// show. Recording them is the cheapest way to make that self-identifying.
-var envInfluencers = []string{
-	"AUTO_CLOSE_PR",
-	"CUSTOM_PROPERTIES_MODE",
-	"DRY_RUN",
-	"ORPHAN_CLEANUP",
-	"SCHEDULE_INTERVAL",
-	"SKIP_ARCHIVED",
-	"SKIP_FORKS",
-}
 
 // globMeta are the path.Match metacharacters. An org name containing
 // one cannot be rendered as a fixed dashboard row.
 const globMeta = `*?[`
+
+// The control type names Derive keys mechanisms on. Redeclared, not
+// imported: internal/controls registers metrics, and only activities and
+// cmd/repo-guardian may import it (depguard controls-consumers).
+const (
+	typeCustomProperties = "custom_properties"
+	typeRepoSettings     = "repo_settings"
+	typeBranchRuleset    = "branch_ruleset"
+	applyWorkflow        = "workflow"
+)
+
+// fileTypes are the control types that remediate by pull request.
+var fileTypes = []string{"file", "codeowners", "catalog_info", "dependency_updates"}
 
 // Options are the non-policy inputs to Derive.
 type Options struct {
@@ -38,58 +31,48 @@ type Options struct {
 	// the caller has already loaded the policy.
 	ConfigPath string
 
-	// ExtraOrgs are orgs named on the command line.
-	//
-	// The escape hatch for legacy-mode configs, which carry no org list
-	// anywhere: without it a legacy operator cannot get the silent-org
-	// signal at all, and forcing them into strict mode to obtain it
-	// would mean adding a scope block to every rule.
+	// ExtraOrgs are orgs named on the command line, given a row even
+	// when the policy names them nowhere.
 	ExtraOrgs []string
 }
 
-// Derive projects a loaded policy onto the generation model.
+// Derive projects a loaded controls policy onto the generation model,
+// keyed on control id. A nil snapshot is the unconfigured static tier:
+// no orgs, no controls, no mechanisms.
 //
-// Everything derived from a map or from multiple slices is sorted here,
-// at construction, so no emit path can introduce non-determinism into
-// artifacts the CI drift gate compares byte for byte.
-func Derive(cfg *policy.PolicyConfig, opts Options) (*Model, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("monitoring: nil policy config")
+// Everything derived from a map is sorted here, at construction, so no
+// emit path can introduce non-determinism into artifacts the CI drift
+// gate compares byte for byte.
+func Derive(snap *policy.Snapshot, opts Options) *Model {
+	m := &Model{Mechanisms: make(Mechanisms), Source: Source{ConfigPath: opts.ConfigPath}}
+
+	var sum policy.Summary
+	if snap != nil {
+		sum = snap.Summarize()
+		m.Source.PolicyVersion = sum.Version
 	}
 
-	strict := policy.IsStrictScope(cfg)
+	m.Orgs = deriveOrgs(&sum, opts.ExtraOrgs)
+	m.Controls = deriveControls(snap, &sum)
 
-	m := &Model{
-		Strict:        strict,
-		Orgs:          deriveOrgs(cfg, opts.ExtraOrgs),
-		Mechanisms:    make(Mechanisms),
-		SweepInterval: cfg.Guardian.ParsedScheduleInterval,
-		Source: Source{
-			ConfigPath:   opts.ConfigPath,
-			EnvInfluence: presentEnvInfluencers(),
-		},
+	for i := range m.Controls {
+		addControlMechanisms(&m.Controls[i], m.Mechanisms)
 	}
 
-	m.Rules = deriveRules(cfg, m.OrgNames(), strict)
-
-	if err := rejectDuplicateNames(m.Rules); err != nil {
-		return nil, err
-	}
-
-	deriveMechanisms(cfg, m)
-
-	return m, nil
+	return m
 }
 
-// deriveOrgs merges the top-level scope orgs with any named on the
-// command line.
-func deriveOrgs(cfg *policy.PolicyConfig, extra []string) []Org {
+// deriveOrgs merges the enterprise orgs, the orgs/ files and any named
+// on the command line.
+func deriveOrgs(sum *policy.Summary, extra []string) []Org {
 	names := make(map[string]struct{})
 
-	if cfg.Scope != nil {
-		for _, o := range cfg.Scope.Orgs {
-			names[o] = struct{}{}
-		}
+	for _, o := range sum.Enterprise.Orgs {
+		names[o] = struct{}{}
+	}
+
+	for i := range sum.Orgs {
+		names[sum.Orgs[i].Org] = struct{}{}
 	}
 
 	for _, o := range extra {
@@ -108,262 +91,119 @@ func deriveOrgs(cfg *policy.PolicyConfig, extra []string) []Org {
 	return out
 }
 
-// deriveRules flattens the three policy rule slices into one sorted,
-// kind-tagged list, resolving each rule's org set through both scope
-// gates.
-func deriveRules(cfg *policy.PolicyConfig, orgs []string, strict bool) []Rule {
-	out := make([]Rule, 0, len(cfg.FileRules)+len(cfg.SettingRules)+len(cfg.BranchProtectionRules))
-
-	for i := range cfg.FileRules {
-		r := &cfg.FileRules[i]
-		if !r.IsEnabled() {
-			continue
-		}
-
-		out = append(out, Rule{
-			Name:        r.Name,
-			Kind:        RuleKindFile,
-			CheckMode:   string(r.CheckMode()),
-			Gated:       r.When != nil,
-			Reconcilers: reconcilerNames(r.Reconcilers),
-			Orgs:        rulesOrgs(r.Scope, orgs, strict),
-		})
+// deriveControls lists every catalogue control with the orgs it is
+// assigned in.
+func deriveControls(snap *policy.Snapshot, sum *policy.Summary) []Control {
+	if snap == nil {
+		return nil
 	}
 
-	for i := range cfg.SettingRules {
-		r := &cfg.SettingRules[i]
-		if !r.IsEnabled() {
-			continue
+	orgs := assignedOrgs(sum)
+	out := make([]Control, 0, len(sum.Controls))
+
+	for i := range sum.Controls {
+		id := sum.Controls[i].Control
+		def, _ := snap.Definition(id)
+
+		c := Control{ID: id.String(), Type: def.Type, Apply: def.Apply, Orgs: sortedKeys(orgs[id])}
+		for _, r := range def.Rules {
+			c.Remediates = c.Remediates || r.Remediate
 		}
 
-		out = append(out, Rule{
-			Name:       r.Name,
-			Kind:       RuleKindSetting,
-			Remediates: r.Remediate,
-			Orgs:       rulesOrgs(r.Scope, orgs, strict),
-		})
+		out = append(out, c)
 	}
 
-	for i := range cfg.BranchProtectionRules {
-		r := &cfg.BranchProtectionRules[i]
-		if !r.IsEnabled() {
-			continue
-		}
-
-		out = append(out, Rule{
-			Name:       r.Name,
-			Kind:       RuleKindBranchProtection,
-			Remediates: r.Remediate,
-			Orgs:       rulesOrgs(r.Scope, orgs, strict),
-		})
-	}
-
-	slices.SortFunc(out, func(a, b Rule) int {
-		if c := strings.Compare(string(a.Kind), string(b.Kind)); c != 0 {
-			return c
-		}
-
-		return strings.Compare(a.Name, b.Name)
-	})
+	slices.SortFunc(out, func(a, b Control) int { return strings.Compare(a.ID, b.ID) })
 
 	return out
 }
 
-// rulesOrgs resolves which of the configured orgs a rule applies to.
-//
-// Returns nil in legacy mode — "every org", including ones nobody has
-// named — which is a different statement from the empty slice a
-// strict-mode rule scoped to nothing produces. Collapsing the two would
-// turn a misconfigured rule into one that appears to apply everywhere.
-//
-// The gate itself is policy.RuleScopeAllowsOrg, the same predicate the
-// engine calls. A local reimplementation would not fail loudly; it
-// would render a plausible, wrong dashboard row.
-func rulesOrgs(scope *policy.ScopeConfig, orgs []string, strict bool) []string {
-	if !strict {
-		return nil
+// assignedOrgs is each control's org set: the enterprise baseline in
+// every enterprise org, minus an org-level replace or exclude, plus the
+// replacement and every addition. A repos-block exclude or replace
+// leaves the org assigned, since the rest of its repositories keep the
+// control.
+func assignedOrgs(sum *policy.Summary) map[control.ID]map[string]struct{} {
+	out := make(map[control.ID]map[string]struct{})
+	add := func(id control.ID, org string) {
+		if out[id] == nil {
+			out[id] = make(map[string]struct{})
+		}
+
+		out[id][org] = struct{}{}
 	}
 
-	out := make([]string, 0, len(orgs))
+	for _, id := range sum.Enterprise.Controls {
+		for _, org := range sum.Enterprise.Orgs {
+			add(id, org)
+		}
+	}
 
-	for _, org := range orgs {
-		if policy.RuleScopeAllowsOrg(scope, org, strict) {
-			out = append(out, org)
+	for i := range sum.Orgs {
+		o := &sum.Orgs[i]
+
+		for _, a := range o.Added {
+			add(a.Control, o.Org)
+		}
+
+		for _, r := range o.Replaced {
+			add(r.With, o.Org)
+
+			if r.Block == "" {
+				delete(out[r.Control], o.Org)
+			}
+		}
+
+		for _, e := range o.Excluded {
+			if e.Block == "" {
+				delete(out[e.Control], o.Org)
+			}
 		}
 	}
 
 	return out
 }
 
-// reconcilerNames returns the attached reconciler type names, sorted
-// and deduplicated.
-func reconcilerNames(rs []policy.ReconcilerConfig) []string {
-	if len(rs) == 0 {
-		return nil
-	}
-
-	out := make([]string, 0, len(rs))
-	for i := range rs {
-		out = append(out, rs[i].Type)
+func sortedKeys(set map[string]struct{}) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
 	}
 
 	slices.Sort(out)
 
-	return slices.Compact(out)
-}
-
-// rejectDuplicateNames refuses a config whose rule names collide across
-// kinds.
-//
-// Uniqueness is validated WITHIN each kind but not across them, so a
-// `rule "file" "x"` and a `rule "setting" "x"` are both legal and both
-// emit rule_name="x". Every posture series is keyed on rule_name with
-// no kind label, so a kind-scoped panel would silently merge the two
-// and chart a number that is the sum of two unrelated things. Refusing
-// at generation time is the honest response: the generator cannot emit
-// a correct artifact for this config, and emitting a wrong one quietly
-// is how a compliance dashboard starts lying.
-func rejectDuplicateNames(rules []Rule) error {
-	seen := make(map[string]RuleKind, len(rules))
-
-	for i := range rules {
-		if kind, dup := seen[rules[i].Name]; dup {
-			return fmt.Errorf(
-				"monitoring: rule name %q is used by both a %s rule and a %s rule; "+
-					"every posture series is keyed on rule_name with no kind label, "+
-					"so the two would merge into one misleading number — rename one",
-				rules[i].Name, kind, rules[i].Kind)
-		}
-
-		seen[rules[i].Name] = rules[i].Kind
-	}
-
-	return nil
-}
-
-// deriveMechanisms folds the config into the set of features that
-// produce series.
-func deriveMechanisms(cfg *policy.PolicyConfig, m *Model) {
-	for i := range cfg.FileRules {
-		r := &cfg.FileRules[i]
-		if !r.IsEnabled() {
-			continue
-		}
-
-		m.Mechanisms.add(MechanismFileRules)
-
-		if r.CheckMode() == policy.CheckAbsent {
-			m.Mechanisms.add(MechanismAbsentRules)
-		}
-
-		if r.When != nil {
-			m.Mechanisms.add(MechanismWhenGates)
-		}
-
-		addReconcilerMechanisms(r.Reconcilers, m)
-		addIgnoreMechanism(r.Ignore, m)
-	}
-
-	for i := range cfg.SettingRules {
-		r := &cfg.SettingRules[i]
-		if !r.IsEnabled() {
-			continue
-		}
-
-		m.Mechanisms.add(MechanismSettingRules)
-
-		if r.Remediate {
-			m.Mechanisms.add(MechanismSettingRemediation)
-		}
-
-		addIgnoreMechanism(r.Ignore, m)
-	}
-
-	for i := range cfg.BranchProtectionRules {
-		r := &cfg.BranchProtectionRules[i]
-		if !r.IsEnabled() {
-			continue
-		}
-
-		m.Mechanisms.add(MechanismBranchProtectionRules)
-
-		if r.Remediate {
-			m.Mechanisms.add(MechanismBranchProtectionRemediation)
-		}
-
-		addIgnoreMechanism(r.Ignore, m)
-	}
-
-	if cfg.Scope != nil {
-		m.Mechanisms.add(MechanismStrictScope)
-	}
-
-	// Value, not pointer, at the top level — the global ignore block is
-	// always present as a zero struct.
-	addIgnoreMechanism(&cfg.IgnoreList, m)
-	addGuardianMechanisms(&cfg.Guardian, m)
-}
-
-// addReconcilerMechanisms records the reconcilers that instrument
-// anything.
-//
-// label_sync, workflow_sync and the branch_protection reconciler are
-// deliberately absent: they emit no metrics today, so they gate nothing
-// and a panel for them would be empty by construction.
-func addReconcilerMechanisms(rs []policy.ReconcilerConfig, m *Model) {
-	for i := range rs {
-		if rs[i].Type != policy.ReconcilerCustomProperties {
-			continue
-		}
-
-		m.Mechanisms.add(MechanismCustomProperties)
-
-		// The schema preflight runs in both modes, so the mode never
-		// gates the preflight alert.
-		if rs[i].Mode == customPropertiesGHAMode {
-			m.Mechanisms.add(MechanismCustomPropertiesGHA)
-		}
-	}
-}
-
-// customPropertiesGHAMode is the mode string that opens workflow PRs
-// instead of writing properties through the API.
-const customPropertiesGHAMode = "github-action"
-
-func addIgnoreMechanism(ic *policy.IgnoreConfig, m *Model) {
-	if ic != nil && len(ic.Repos) > 0 {
-		m.Mechanisms.add(MechanismIgnoreLists)
-	}
-}
-
-func addGuardianMechanisms(g *policy.GuardianConfig, m *Model) {
-	if g.AutoClosePREnabled() {
-		m.Mechanisms.add(MechanismAutoClosePR)
-	}
-
-	if g.OrphanCleanupEnabled() {
-		m.Mechanisms.add(MechanismOrphanCleanup)
-	}
-
-	if g.SkipForks || g.SkipArchived {
-		m.Mechanisms.add(MechanismRepoParking)
-	}
-
-	if g.DryRun {
-		m.Mechanisms.add(MechanismDryRun)
-	}
-}
-
-// presentEnvInfluencers returns the influencing variables that are
-// actually set, sorted.
-func presentEnvInfluencers() []string {
-	var out []string
-
-	for _, name := range envInfluencers {
-		if _, ok := os.LookupEnv(name); ok {
-			out = append(out, name)
-		}
-	}
-
 	return out
+}
+
+// addControlMechanisms records the features a control turns on. Only an
+// assigned control produces series.
+func addControlMechanisms(c *Control, ms Mechanisms) {
+	if len(c.Orgs) == 0 {
+		return
+	}
+
+	switch c.Type {
+	case typeCustomProperties:
+		ms.add(MechanismCustomProperties)
+
+		if c.Apply == applyWorkflow {
+			ms.add(MechanismCustomPropertiesGHA)
+		}
+	case typeRepoSettings:
+		ms.add(MechanismSettingRules)
+
+		if c.Remediates {
+			ms.add(MechanismSettingRemediation)
+		}
+	case typeBranchRuleset:
+		ms.add(MechanismBranchProtectionRules)
+
+		if c.Remediates {
+			ms.add(MechanismBranchProtectionRemediation)
+		}
+	default:
+		if slices.Contains(fileTypes, c.Type) {
+			ms.add(MechanismFileRules)
+		}
+	}
 }

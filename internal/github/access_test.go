@@ -74,3 +74,22 @@ func TestIsAccessDenied(t *testing.T) {
 		})
 	}
 }
+
+func TestAsThrottled_SecondaryRateLimit(t *testing.T) {
+	t.Parallel()
+
+	retry := 90 * time.Second
+	err := fmt.Errorf("getting repository info: %w", &gh.AbuseRateLimitError{
+		Response:   &http.Response{StatusCode: http.StatusForbidden},
+		RetryAfter: &retry,
+	})
+
+	thr, ok := ghclient.AsThrottled(err)
+	if !ok || time.Until(thr.ResetAt) < time.Minute {
+		t.Errorf("AsThrottled = %+v, %v; want a throttle resetting after Retry-After", thr, ok)
+	}
+
+	if ghclient.IsAccessDenied(err) {
+		t.Error("IsAccessDenied = true for a secondary rate limit")
+	}
+}

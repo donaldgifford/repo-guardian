@@ -1,0 +1,45 @@
+package postgres
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// ErrSchemaTooOld is returned by RequireControlsSchema when the database is
+// behind the version the caller needs. Run `repo-guardian migrate`.
+var ErrSchemaTooOld = errors.New("database schema is older than this binary; run `repo-guardian migrate`")
+
+// RequireControlsSchema fails unless goose_controls_version records
+// minVersion or later as applied, so an rc database never satisfies it.
+// Roles call it for readiness (DESIGN-0025 OQ5): migrations run once per
+// release in a hook Job, never per pod.
+func RequireControlsSchema(ctx context.Context, pool *pgxpool.Pool, minVersion int64) error {
+	return requireVersion(ctx, pool, ControlsVersionTable, minVersion)
+}
+
+func requireVersion(ctx context.Context, pool *pgxpool.Pool, table string, minVersion int64) error {
+	var exists bool
+	if err := pool.QueryRow(ctx,
+		`SELECT to_regclass('public.`+table+`') IS NOT NULL`).Scan(&exists); err != nil {
+		return fmt.Errorf("postgres.RequireControlsSchema: probe version table: %w", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("postgres.RequireControlsSchema: no %s table: %w", table, ErrSchemaTooOld)
+	}
+
+	var current int64
+	if err := pool.QueryRow(ctx,
+		`SELECT coalesce(max(version_id), 0) FROM `+table+` WHERE is_applied`).Scan(&current); err != nil {
+		return fmt.Errorf("postgres.RequireControlsSchema: read version: %w", err)
+	}
+
+	if current < minVersion {
+		return fmt.Errorf("postgres.RequireControlsSchema: at version %d, need %d: %w", current, minVersion, ErrSchemaTooOld)
+	}
+
+	return nil
+}

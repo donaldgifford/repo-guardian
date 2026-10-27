@@ -7,6 +7,11 @@
 #
 # tags: one or more of new | improved | fixed | breaking, plus areas
 # from fleet | findings | policy | ui | api | chart.
+- version: 2.0.0
+  date: 2026-10-27
+  title: "v2: controls, remediation and the UI"
+  summary: repo-guardian 2.0 evaluates every repository against a policy directory of versioned controls through a read-only GitHub App, and fixes what the policy marks for remediation through a second App, one pull request per control or a direct API change. Temporal schedules every repository and Postgres keeps every result and its history. This UI and a read-only API read that history behind your identity provider. 2.0 is a fresh install; a 1.x policy file and 1.x chart values are refused.
+  tags: [new, breaking, fleet, findings, policy, ui, api, chart]
 - version: 2.0.0-rc.18
   date: 2026-10-25
   title: Clearer numbers on the fleet and orgs pages

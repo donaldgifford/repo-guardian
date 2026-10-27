@@ -5,7 +5,8 @@
 # script exits non-zero naming each one that failed.
 #
 # Usage: scripts/ga-preflight.sh [--pr NUMBER | --skip-label]
-#   --pr NUMBER   the M2 pull request, whose labels must be exactly `major`
+#   --pr NUMBER   the M2 pull request, whose only semver label must be `major`
+#                 (the labeler's path labels are fine)
 #   --skip-label  skip the label check (before the M2 pull request exists)
 
 set -uo pipefail
@@ -94,7 +95,10 @@ docs_sweep_clean() {
 }
 
 pr_label_is_major() {
-  [[ "$(gh pr view "${pr}" --json labels --jq '[.labels[].name] | sort | join(",")')" == "major" ]]
+  local semver
+  semver="$(gh pr view "${pr}" --json labels --jq \
+    '[.labels[].name | select(. == "major" or . == "minor" or . == "patch" or . == "dont-release")] | join(",")')"
+  [[ "${semver}" == "major" ]]
 }
 
 check "origin/main is an ancestor of HEAD" main_is_ancestor
@@ -108,7 +112,7 @@ check "docs sweep (IMPL-0034 3.10) is clean" docs_sweep_clean
 if [[ "${skip_label}" == true ]]; then
   echo "skip  pull request label (--skip-label)"
 else
-  check "PR #${pr} carries exactly the major label" pr_label_is_major
+  check "PR #${pr}'s only semver label is major" pr_label_is_major
 fi
 
 if ((${#failed[@]} > 0)); then

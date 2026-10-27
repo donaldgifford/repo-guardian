@@ -4,6 +4,72 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-10-27
+
+### Features
+
+- V2.0.0-rc.2 — worker promotion, build IDs, Temporal metrics/alerts, OIDC auth ([#189](https://github.com/donaldgifford/repo-guardian/issues/189))
+- IMPL-0028 controls foundations — v1 runtime removal, client split, two Apps ([#205](https://github.com/donaldgifford/repo-guardian/issues/205))
+- *(ui)* V2 frontend design refresh and API additions (IMPL-0031) ([#214](https://github.com/donaldgifford/repo-guardian/issues/214))
+- IMPL-0029 controls evaluation (policy model, control framework, evaluator, API and UI) ([#219](https://github.com/donaldgifford/repo-guardian/issues/219))
+- Controls remediation — per-control PRs, RemediationWorkflow and API writes (IMPL-0030) ([#224](https://github.com/donaldgifford/repo-guardian/issues/224))
+- *(ui)* IMPL-0032 controls UI — findings, orgs tree, fleet panels, remediations, changelog (Phases 2–8) ([#238](https://github.com/donaldgifford/repo-guardian/issues/238))
+- IMPL-0033 identity-provider portability (Okta, Entra ID, Auth0) and rc.17 ([#241](https://github.com/donaldgifford/repo-guardian/issues/241))
+- *(security)* SBOMs, ci-ok, pins and pod hardening (IMPL-0034 Phase 5)
+
+### Bug Fixes
+
+- V2.0.0-rc.3 — server version check without a cluster-scoped call ([#191](https://github.com/donaldgifford/repo-guardian/issues/191))
+- V2.0.0-rc.4 — scope generated monitoring to one install ([#192](https://github.com/donaldgifford/repo-guardian/issues/192)) ([#193](https://github.com/donaldgifford/repo-guardian/issues/193))
+- First install through Argo CD — chart hooks, sync waves, migrate waits (IMPL-0028 Phase 8, rc.6) ([#206](https://github.com/donaldgifford/repo-guardian/issues/206))
+- Drop Evaluation App deliveries until the switch-over; rc.6 dev results (IMPL-0028 Phase 9, rc.7) ([#208](https://github.com/donaldgifford/repo-guardian/issues/208))
+- *(ui)* Stop the fleet view refetching compliance history every render (#207, rc.8) ([#209](https://github.com/donaldgifford/repo-guardian/issues/209))
+- *(ui)* Space the stale badge from the PR link on the repository page ([#216](https://github.com/donaldgifford/repo-guardian/issues/216))
+- *(ui)* INV-0023 repository page fixes (IMPL-0032 Phase 1) ([#222](https://github.com/donaldgifford/repo-guardian/issues/222))
+- *(deps)* Go 1.26.10 (GO-2026-6809) ([#230](https://github.com/donaldgifford/repo-guardian/issues/230))
+- Controls role grants ([#232](https://github.com/donaldgifford/repo-guardian/issues/232)), Tabler icons, rc schedule cleanup ([#234](https://github.com/donaldgifford/repo-guardian/issues/234))
+- *(remediation)* Resume reserved runs, keep journaled reservations, back off holds, pace the sweep ([#235](https://github.com/donaldgifford/repo-guardian/issues/235)) ([#236](https://github.com/donaldgifford/repo-guardian/issues/236))
+- *(ui)* Rc.17 cleanup: drawer footer, timeline, orgs shares, fleet chart, duplicate login callback ([#242](https://github.com/donaldgifford/repo-guardian/issues/242))
+- *(ci)* Install the pinned go beside mise go: tools (IMPL-0034 5.6)
+
+### Documentation
+
+- V2 designs (Approved) + IMPL-0025 — findings model, Temporal control plane, read-only API/UI ([#187](https://github.com/donaldgifford/repo-guardian/issues/187))
+- V2 overview and onboarding runbook ([#195](https://github.com/donaldgifford/repo-guardian/issues/195))
+- INV-0020, DESIGN-0028, IMPL-0026 — Temporal client auth and KEDA scaling ([#196](https://github.com/donaldgifford/repo-guardian/issues/196))
+- Controls and policies designs, INV-0022 and IMPL-0028 to IMPL-0030 ([#202](https://github.com/donaldgifford/repo-guardian/issues/202))
+- DESIGN-0036 frontend design refresh, IMPL-0031 and the UI mockup ([#210](https://github.com/donaldgifford/repo-guardian/issues/210))
+- *(impl)* IMPL-0031 8.1 and 8.2 done on rc.9/rc.10 ([#218](https://github.com/donaldgifford/repo-guardian/issues/218))
+- *(impl)* IMPL-0031 after IMPL-0029 ([#220](https://github.com/donaldgifford/repo-guardian/issues/220))
+- INV-0023 rc.11 follow-ups and DESIGN-0037 controls UI pages ([#221](https://github.com/donaldgifford/repo-guardian/issues/221))
+- *(inv)* INV-0024 icon set for the UI — Tabler Icons (MIT) ([#233](https://github.com/donaldgifford/repo-guardian/issues/233))
+- DESIGN-0038 v2.0.0 GA cutover and identity-provider portability, with IMPL-0033–0036 ([#240](https://github.com/donaldgifford/repo-guardian/issues/240))
+- *(impl)* Tick IMPL-0033 5.3, rc.17 published
+- *(site)* Pages inherits mkdocs.yml, strict build in CI (IMPL-0034 Phase 2)
+- *(release)* Changelog prepend, rc dispatch, release line (IMPL-0034 Phase 4)
+- Rewrite the landing and operations docs for v2 (IMPL-0034 Phase 3)
+- *(ui)* 2.0.0 changelog entry (IMPL-0034 6.2)
+- *(release)* 2.0.0 release notes (IMPL-0034 6.4)
+- *(impl)* IMPL-0034 progress, Phases 7-9 deferred to the maintainer
+- *(impl)* IMPL-0034 testing plan status, 1.4 deferred
+
+### Miscellaneous Tasks
+
+- V2.0.0-rc.1 — chart bump + pre-release binaries workflow ([#188](https://github.com/donaldgifford/repo-guardian/issues/188))
+- *(chart)* V2.0.0-rc.2 — chart 2.0.0-rc.2, appVersion 2.0.0-rc.2 ([#190](https://github.com/donaldgifford/repo-guardian/issues/190))
+- *(chart)* Bump to 2.0.0-rc.9 ([#215](https://github.com/donaldgifford/repo-guardian/issues/215))
+- *(chart)* Bump to 2.0.0-rc.10 ([#217](https://github.com/donaldgifford/repo-guardian/issues/217))
+- *(chart)* Bump to 2.0.0-rc.12 ([#223](https://github.com/donaldgifford/repo-guardian/issues/223))
+- *(chart)* Bump to 2.0.0-rc.13, the remediation rc (IMPL-0030 task 9.1) ([#226](https://github.com/donaldgifford/repo-guardian/issues/226))
+- *(chart)* Bump to 2.0.0-rc.14 ([#231](https://github.com/donaldgifford/repo-guardian/issues/231))
+- *(chart)* Bump to 2.0.0-rc.15 ([#237](https://github.com/donaldgifford/repo-guardian/issues/237))
+- *(chart)* Bump to 2.0.0-rc.16, the IMPL-0032 UI rc ([#239](https://github.com/donaldgifford/repo-guardian/issues/239))
+- *(chart)* Bump to 2.0.0-rc.18, the rc.17 UI cleanup rc ([#243](https://github.com/donaldgifford/repo-guardian/issues/243))
+- Sync main into v2 (IMPL-0034 Phase 1)
+- *(chart)* 2.0.0 (IMPL-0034 6.1)
+- *(release)* GA preflight script (IMPL-0034 6.3)
+- Run CI on main only (IMPL-0034 4.2)
+
 ## [2.0.0-rc.11] - 2026-10-16
 
 ### Features

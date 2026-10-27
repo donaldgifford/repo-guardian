@@ -495,14 +495,19 @@ tasks carry the exact command and are run per OQ4.
   The verify regexp is the workflow file (`ghcr\.yml@`/`ecr\.yml@`),
   matching both the `release.yml` call (`@refs/heads/main`) and an rc
   dispatch (`@refs/tags/...`).*
-- [ ] 5.3 (`deferred - human required`, OQ4 (a)) **CodeQL.** Default setup for `go`, `javascript-typescript`,
+- [x] 5.3 **CodeQL.** Default setup for `go`, `javascript-typescript`,
   `actions` (OQ18): `gh api -X PATCH
   repos/donaldgifford/repo-guardian/code-scanning/default-setup -f
   state=configured -f query_suite=default -f
   'languages[]=go' -f 'languages[]=javascript-typescript' -f
   'languages[]=actions'`; confirm the first analysis lands under tool
   `CodeQL` and that `security.yml`'s govulncheck upload still appears
-  beside it.
+  beside it. *(Enabled by the maintainer 2026-10-27 through Settings, Default
+  suite; GitHub also picked up `python`. The first run passed, with
+  analyses for go, javascript-typescript, actions and python beside
+  govulncheck. One alert, #17: highlight.js from cdnjs without SRI in
+  `docs/design/controls-redesign.html`. It is fixed by hashing all three
+  CDN loads and pinning mermaid to 11.17.2.)*
 - [ ] 5.4 (`deferred - human required`, OQ4 (a)) **Rulesets.** (a) `main`: add `required_status_checks` with the
   set OQ3 chooses (the aggregate `ci-ok` job added in 5.5, `Check
   Required Labels`, `govulncheck`, `Check Dependency Licenses`), strict
@@ -838,7 +843,7 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - [ ] 9.1 IMPL-0030 10.3 (`deferred - human required`): upgrade the
   homelab from rc.17 to 2.0.0 in place; OQ8's 14-day database window
   starts.
-- [ ] 9.2 (`deferred - human required`: after GA) **docz statuses.** DESIGN-0029, 0030, 0031, 0032, 0036 →
+- [x] 9.2 **docz statuses.** DESIGN-0029, 0030, 0031, 0032, 0036 →
   Implemented; IMPL-0028, 0029, 0030, 0031, 0032 → Completed (fix
   IMPL-0025's body status line); DESIGN-0034, IMPL-0026 stay Draft;
   `docz update design`, `docz update impl`; revert TOC churn.
@@ -849,9 +854,10 @@ DESIGN-0038 A8; IMPL-0030 10.3–10.5.
 - [ ] 9.4 (`deferred - human required`: after GA) **`v2` branch.** Delete `origin/v2` and its ruleset (24046649)
   once 9.2 is merged; update the memory files that name the branch
   ([[project-v2-branch-docz-ids]] becomes history).
-- [ ] 9.5 (`deferred - human required`: after GA) **CLAUDE.md and memory.** Record the ship date in CLAUDE.md
+- [x] 9.5 **CLAUDE.md and memory.** Record the ship date in CLAUDE.md
   § Release line and in memory; note anything the fresh install taught
-  (IMPL-0030 10.5).
+  (IMPL-0030 10.5). *(Ship date 2026-10-27 recorded. No fresh-install
+  notes, because Phase 7 was skipped.)*
 - [ ] 9.6 (`deferred - human required`: after GA) **The `file.go` `FIX:`.** `internal/controls/file/file.go`:
   replace the yaml.v3 struct `Decode` duplicate-key compare with the
   linear node walk `internal/catalog` already uses; benchmark against

@@ -113,12 +113,13 @@ cosign verify-attestation --type spdxjson \
   ghcr.io/donaldgifford/repo-guardian:2.0.0 > /dev/null
 ```
 
-To read it:
+To read it (cosign v3 writes a sigstore bundle, so the in-toto
+statement is the bundle's DSSE payload):
 
 ```bash
 cosign download attestation --predicate-type https://spdx.dev/Document \
   ghcr.io/donaldgifford/repo-guardian:2.0.0 \
-  | jq -r '.payload' | base64 -d | jq '.predicate'
+  | jq -r '.dsseEnvelope.payload' | base64 -d | jq '.predicate'
 ```
 
 The images' buildkit attestations (`docker buildx imagetools inspect

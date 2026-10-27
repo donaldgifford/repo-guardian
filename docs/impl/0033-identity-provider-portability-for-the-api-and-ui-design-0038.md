@@ -431,15 +431,19 @@ and the v2-branch bullet describe (rc.16 was PR #239).
 - [x] 5.2 **PR.** `dont-release` against `v2`; CI green (the `ui` and
   `helm` filters run on `Chart.yaml`). #241: every check green, UI,
   UI e2e, Helm Unit Tests and Helm Chart Test included.
-- [ ] 5.3 **Tag and publish** (`deferred - human required`: waits on
+- [x] 5.3 **Tag and publish** (`deferred - human required`: waits on
   the maintainer merging #241). After merge: signed annotated tag
   `v2.0.0-rc.17` on the merge commit, `gh workflow run ghcr.yml --ref
   v2.0.0-rc.17 -f tag=v2.0.0-rc.17`; all twelve jobs green; `cosign
   verify` on the image; `helm pull --version 2.0.0-rc.17` reports the
-  appVersion; `latest` unchanged.
+  appVersion; `latest` unchanged. *Done 2026-10-25: `v2.0.0-rc.17` on
+  78e3eec, twelve jobs green, image/UI/chart cosign-verified, `latest`
+  unchanged. Followed by rc.18 (UI cleanup, #242/#243).*
 - [ ] 5.4 **Homelab** (`deferred - human required`): upgrade in place,
   confirm Keycloak sign-in and `/me` unchanged with no values change;
   tick IMPL-0029 8.9 / IMPL-0032 9.3 using the Phase 4.7 procedure.
+  *Keycloak sign-in confirmed on rc.17 and rc.18; the group-split
+  check is IMPL-0034 7.5.*
 
 <!--docz:tasks:end-->
 

@@ -27,6 +27,12 @@ on:
 permissions:
   contents: write
 
+
+# One publish at a time per ref; a publish is never cancelled midway.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   goreleaser:
     name: GoReleaser (pre-release)
@@ -41,6 +47,10 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      # goreleaser's sboms step runs syft (IMPL-0034 5.1).
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v7

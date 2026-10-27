@@ -378,8 +378,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6); only this tool is installed.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go:golang.org/x/vuln/cmd/govulncheck"
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -466,7 +469,11 @@ jobs:
       - name: Install helm-unittest plugin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: helm plugin install --verify=false https://github.com/helm-unittest/helm-unittest
+          # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+          HELM_UNITTEST_VERSION: v1.2.1
+        # --verify=false: the plugin source has no provenance, and helm 3.20+
+        # verifies whenever --version is given (CLAUDE.md § Helm CLI semantics).
+        run: helm plugin install --verify=false --version "${HELM_UNITTEST_VERSION}" https://github.com/helm-unittest/helm-unittest
       - name: Run helm-unittest
         run: helm unittest charts/repo-guardian
 
@@ -510,6 +517,8 @@ jobs:
     if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.workflows == 'true'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
@@ -517,3 +526,22 @@ jobs:
       - run: pip install mkdocs-material==9.8.0
       - name: Build the Pages site strictly
         run: mkdocs build --strict --config-file mkdocs-ghpages.yml
+
+  # The one required CI check (IMPL-0034 5.5, OQ3). It needs every job and
+  # always runs; a failed or cancelled job fails it, a skipped one (a
+  # paths filter said no) passes. Adding a job means adding it here, not
+  # editing the ruleset.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    needs: [changes, labeler, lint, lint-alerts, monitoring-drift, sql-drift, api-drift, ui, ui-e2e, test-go, replay, test-integration, security, build, docker-build, helm-unittest, helm-test, docs]
+    if: always()
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [ "${FAILED}" = "true" ]; then
+            echo "a required CI job failed or was cancelled"
+            exit 1
+          fi

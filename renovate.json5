@@ -7,5 +7,14 @@
     "github>donaldgifford/renovate-config:mise",
     "github>donaldgifford/renovate-config:helm",
     "github>donaldgifford/renovate-config:ci"
+  ],
+  "packageRules": [
+    {
+      // The SLSA generator verifies its own ref at runtime, so it must be
+      // referenced by a semver tag; a digest pin fails the provenance job
+      // (closed PR #106). See CLAUDE.md § Release.
+      "matchPackageNames": ["slsa-framework/slsa-github-generator"],
+      "pinDigests": false
+    }
   ]
 }

@@ -102,48 +102,85 @@ The production Docker image uses Google's `distroless` base image, which
 contains no shell, package manager, or unnecessary binaries. This minimizes
 the attack surface if the container is compromised.
 
-### Read-Only Filesystem
+### Pod Hardening
 
-The deployment is configured with `readOnlyRootFilesystem: true` and runs as
-a non-root user (`runAsNonRoot: true`), following the principle of least
-privilege.
+Every role and the migrate Job run non-root (uid 65534) with the
+runtime's default seccomp profile, a read-only root filesystem, no
+privilege escalation and every capability dropped, and mount no
+service-account token: nothing in repo-guardian calls the Kubernetes
+API. The UI pod is hardened the same way.
 
-### GitHub App Private Key
+### GitHub App Private Keys
 
-The GitHub App private key (used to authenticate as the App and generate
-installation tokens) is mounted as a read-only file from a Kubernetes Secret,
-or injected via environment variable. The key is never logged or exposed in
-API responses.
+repo-guardian uses two GitHub Apps. The Evaluation App is read-only and
+its key is mounted only into the evaluator; the Remediation App writes,
+and its key is mounted only into the remediator. Keys are mounted as
+read-only files from Kubernetes Secrets, never passed as values, and
+never logged. Ingest holds neither key and no database credential; the
+API holds read-only database access only. Inside the binary, the GitHub
+writer package is unreachable from evaluator-side code (enforced by
+depguard), and each role's database user can write only its own
+columns.
 
 ### Rate Limiting
 
-repo-guardian monitors the GitHub API rate limit and implements pre-emptive
-throttling when the remaining budget drops below a configurable threshold
-(default: 10%). This prevents the app from exhausting its rate limit and
-ensures graceful degradation.
+Each installation has its own rate budget per App, held by a Temporal
+workflow: an evaluation acquires a lease before calling GitHub and is
+deferred, never blocked, when the budget is below its reserve
+(default 10%).
 
-### Scope-Constrained Rule Evaluation
+### Scoped Policy
 
-In multi-installation deployments where a single repo-guardian instance is
-authorized against multiple GitHub organizations, the optional top-level
-`scope { orgs = [...] }` HCL block engages strict mode where every rule
-must declare its own `scope { }` sub-block.
-
-This is not a substitute for GitHub's permission model -- the App's
-installations still control which repos the service can see -- but it
-narrows the rule blast radius: a misconfigured rule cannot accidentally
-fire against an org the operator did not list. Strict-mode validation
-runs at config load time, so missing or empty scope blocks fail loudly
-rather than silently applying everywhere.
-
-Out-of-scope evaluations are observable via the
-`repo_guardian_out_of_scope_total{level, org}` counter, providing a
-canary for misconfigured policies. See
-[the 1.x rule guide](docs/historical/adding-rules-1x.md#multi-org-configuration)
-for the full strict-mode error taxonomy.
+The policy names the organisations it applies to (`enterprise.hcl`)
+and adds per-org controls, exclusions and overrides in `orgs/*.hcl`;
+nothing is written to a repository unless its assignment is in
+`mode = "remediate"` and the Remediation App is installed there. This
+does not replace GitHub's permission model: the Apps' installations
+still decide which repositories repo-guardian can see. Adding a control
+type is described in [docs/ADDING_RULES.md](docs/ADDING_RULES.md).
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability, please report it by opening a
-private issue or contacting the maintainer directly. Do not open a public
-issue for security vulnerabilities.
+Report a vulnerability through GitHub's
+[private vulnerability reporting](https://github.com/donaldgifford/repo-guardian/security/advisories/new).
+Do not open a public issue, pull request or discussion for it.
+
+- We acknowledge a report within **3 business days**.
+- For a high or critical issue we send a fix or a mitigation plan within
+  **30 days**, and publish a GitHub security advisory with the fixed
+  version.
+
+### Supported Versions
+
+| Version | Supported |
+| --- | --- |
+| 2.x | Yes |
+| 1.14.x | Security fixes for 90 days after 2.0.0 |
+| older | No |
+
+### Verifying What You Run
+
+Every image, UI image and chart is signed with cosign (keyless) and
+carries SLSA Level 3 provenance and an SPDX SBOM attestation; release
+binaries ship SPDX SBOMs and a GPG-signed `checksums.txt`. The commands
+are in [Verifying releases](docs/operations/verifying-releases.md).
+
+### Supply-Chain Controls
+
+The code is scanned on every pull request and weekly by govulncheck
+(SARIF in code scanning) and CodeQL (Go, TypeScript and the workflows),
+linted with golangci-lint's `gosec` and friends, and held to a
+licence allowlist by go-licenses. Architectural least privilege is a
+lint failure: depguard keeps the GitHub writer out of evaluator and API
+code. The UI bans every HTML sink in ESLint and serves a strict CSP.
+Dependabot raises security updates for Go modules, the UI and the
+workflows; Renovate proposes every other update. Tools are pinned in
+`mise.toml`, and the release branch requires CI to pass.
+
+Images build from distroless bases with CGO off and `-trimpath`. The
+publish workflows authenticate to registries with GitHub OIDC (no
+static cloud keys), sign by digest, attest provenance with the SLSA
+GitHub generator and SBOMs with cosign, and verify the attestation
+before finishing. Pods run non-root, read-only, capability-free and
+with no service-account token. Secret scanning with push protection is
+on for the repository.

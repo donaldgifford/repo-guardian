@@ -466,12 +466,16 @@ tasks carry the exact command and are run per OQ4.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 **SBOMs for binaries.** `.goreleaser.yml` `sboms: [{artifacts:
+- [x] 5.1 **SBOMs for binaries.** `.goreleaser.yml` `sboms: [{artifacts:
   archive}]` (syft, SPDX JSON, `*.sbom.json` beside each archive;
   `checksums.txt` covers them). `make release-snapshot` (goreleaser
   `--snapshot`) locally shows the SBOM files; syft pinned in
-  `mise.toml` (5.6).
-- [ ] 5.2 **SBOMs for images.** `docker-bake.hcl` `_common`: `attest =
+  `mise.toml` (5.6). *`make release-local` (goreleaser `--snapshot`)
+  wrote four `*.tar.gz.sbom.json` files, all four in `checksums.txt`.
+  `release.yml` and `prerelease.yml` install syft
+  (`anchore/sbom-action/download-syft`) before goreleaser, which needs
+  it on the runner.*
+- [x] 5.2 **SBOMs for images.** `docker-bake.hcl` `_common`: `attest =
   ["type=provenance,mode=max", "type=sbom"]` (provenance made explicit,
   SBOM added; `BUILDX_METADATA_PROVENANCE` untouched, the digest still
   comes from the expression layer). In `ghcr.yml` and `ecr.yml`, after
@@ -482,8 +486,14 @@ tasks carry the exact command and are run per OQ4.
   --type spdxjson --certificate-identity-regexp ... <ref@digest>` as the
   in-workflow verify (the SBOM-presence check from the design's testing
   strategy). Digests from `steps.digest.outputs.digest`, never a shell
-  blob.
-- [ ] 5.3 **CodeQL.** Default setup for `go`, `javascript-typescript`,
+  blob. *`dev`/`ui-dev` (local `type=docker` loads) override `attest`
+  with both types `disabled=true`, since an empty list does not
+  override an inherited one and the docker exporter cannot carry
+  attestations. syft over the chart `.tgz` gives an SPDX-2.3 document.
+  The verify regexp is the workflow file (`ghcr\.yml@`/`ecr\.yml@`),
+  matching both the `release.yml` call (`@refs/heads/main`) and an rc
+  dispatch (`@refs/tags/...`).*
+- [ ] 5.3 (`deferred - human required`, OQ4 (a)) **CodeQL.** Default setup for `go`, `javascript-typescript`,
   `actions` (OQ18): `gh api -X PATCH
   repos/donaldgifford/repo-guardian/code-scanning/default-setup -f
   state=configured -f query_suite=default -f
@@ -491,27 +501,56 @@ tasks carry the exact command and are run per OQ4.
   'languages[]=actions'`; confirm the first analysis lands under tool
   `CodeQL` and that `security.yml`'s govulncheck upload still appears
   beside it.
-- [ ] 5.4 **Rulesets.** (a) `main`: add `required_status_checks` with the
+- [ ] 5.4 (`deferred - human required`, OQ4 (a)) **Rulesets.** (a) `main`: add `required_status_checks` with the
   set OQ3 chooses (the aggregate `ci-ok` job added in 5.5, `Check
   Required Labels`, `govulncheck`, `Check Dependency Licenses`), strict
   off (merge commits), `pull_request` with 0 approvals as today. (b) A
   tag ruleset on `refs/tags/v*` with `deletion` and `non_fast_forward`
   rules only (OQ5) so `release.yml`'s bump can still create tags. Both
   via `gh api` with the JSON written in the task note first; `gh api
-  repos/.../rulesets/<id>` output pasted after.
-- [ ] 5.5 **`ci-ok` aggregate.** `ci.yml`: a final job `ci-ok` with
+  repos/.../rulesets/<id>` output pasted after. *Commands, for after
+  M2 (the checks must exist on `main` first):*
+
+  ```bash
+  # (a) main: add the required checks to ruleset 12545694, keeping its rules.
+  gh api repos/donaldgifford/repo-guardian/rulesets/12545694 \
+    | jq '{name, target, enforcement, conditions, bypass_actors,
+           rules: (.rules + [{type: "required_status_checks", parameters: {
+             strict_required_status_checks_policy: false,
+             required_status_checks: [
+               {context: "CI OK"},
+               {context: "Check Required Labels"},
+               {context: "Check for vulnerabilities using `govulncheck`"},
+               {context: "Check Dependency Licenses"}]}}])}' \
+    > /tmp/main-ruleset.json
+  gh api -X PUT repos/donaldgifford/repo-guardian/rulesets/12545694 \
+    --input /tmp/main-ruleset.json
+
+  # (b) v* tags: no deletion, no move; creation stays open for release.yml.
+  gh api -X POST repos/donaldgifford/repo-guardian/rulesets --input - <<'JSON'
+  {"name": "release tags", "target": "tag", "enforcement": "active",
+   "conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
+   "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}]}
+  JSON
+  ```
+- [x] 5.5 **`ci-ok` aggregate.** `ci.yml`: a final job `ci-ok` with
   `needs:` every job, `if: always()`, failing when any needed job's
   `result` is `failure` or `cancelled` (skipped counts as pass, which is
   what the paths filters need). It is the one required check for CI.
-- [ ] 5.6 **Pins.** `mise.toml`: exact versions for `trivy`, `syft`,
+  *Job name `CI OK`, needs all 18 jobs.*
+- [x] 5.6 **Pins.** `mise.toml`: exact versions for `trivy`, `syft`,
   `cosign`, `goreleaser`, `git-cliff`, `govulncheck`, `go-licenses`,
   `golines`, `jq`, `checkmake`, `promtool`, helm plugins, each with its
   `# renovate:` comment. `ci.yml` Security Scan, `security.yml` and
   `license-check.yml` install through `jdx/mise-action` instead of
   `go install ...@latest`. `ci.yml` `helm plugin install` pinned to a
   version (keep `--verify=false`, documented in CLAUDE.md § Helm CLI
-  semantics; a verified install is IMPL-0036's).
-- [ ] 5.7 **Dependabot and Renovate.** `.github/dependabot.yml`: remove
+  semantics; a verified install is IMPL-0036's). *Every `latest` in
+  `mise.toml` is pinned to the installed version (plus `actionlint`,
+  for 5.12); govulncheck and go-licenses install through
+  `jdx/mise-action` with `install_args` naming only that tool;
+  helm-unittest is `v1.2.1` with a renovate comment.*
+- [x] 5.7 **Dependabot and Renovate.** `.github/dependabot.yml`: remove
   the `github-actions` and `docker` version-update entries (the docker
   one points at a nonexistent `cicd/`); keep `gomod` security-only and
   add `npm` (`directory: /ui`) and `github-actions` security-only
@@ -519,8 +558,10 @@ tasks carry the exact command and are run per OQ4.
   `packageRules` entry `matchPackageNames: ["slsa-framework/slsa-github-generator"],
   pinDigests: false` with a comment pointing at CLAUDE.md's reason.
   Renovate's dashboard (#213) shows no duplicate of a Dependabot PR
-  after one cycle (verified in Phase 9).
-- [ ] 5.8 **Pod hardening.** `values.yaml`: `podSecurityContext:
+  after one cycle (verified in Phase 9). *The UI entry is
+  `package-ecosystem: "bun"`, not `npm`: the lockfile is `bun.lock`,
+  and Dependabot's npm ecosystem needs a `package-lock.json`.*
+- [x] 5.8 **Pod hardening.** `values.yaml`: `podSecurityContext:
   {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile:
   {type: RuntimeDefault}}`, `securityContext: {readOnlyRootFilesystem:
   true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}`
@@ -531,8 +572,14 @@ tasks carry the exact command and are run per OQ4.
   and `psql`). `templates/deployment.yaml`, `migrate-job.yaml` and the
   two controls-roles/read-only Jobs render them; helm-unittest asserts
   each field per role in `tests/security_context_test.yaml`; `ci-values.yaml`
-  (busybox) still renders.
-- [ ] 5.9 **Verifying releases.** `docs/operations/verifying-releases.md`:
+  (busybox) still renders. *The two psql Jobs keep the baked Postgres
+  pod context (uid 999) and get a container context with no privilege
+  escalation, `drop: [ALL]` and RuntimeDefault seccomp, but not a
+  read-only root (the image's shell may spool the heredoc to `/tmp`).
+  `make helm-unittest` 257/257; default values render every Deployment
+  and the migrate Job with `automountServiceAccountToken: false`,
+  RuntimeDefault and no privilege escalation.*
+- [x] 5.9 **Verifying releases.** `docs/operations/verifying-releases.md`:
   for `repo-guardian`, `repo-guardian-ui` and the chart, the `cosign
   verify` and `cosign verify-attestation --type slsaprovenance` and
   `--type spdxjson` commands with the certificate identity
@@ -542,26 +589,45 @@ tasks carry the exact command and are run per OQ4.
   asset, OQ20 says cosign replaces it in IMPL-0036) and
   `slsa-verifier verify-image` for the images; retrieving an SBOM with
   `cosign download attestation`. The chart README's verification
-  section becomes a link.
-- [ ] 5.10 **`SECURITY.md`.** § Reporting Vulnerabilities: GitHub private
+  section becomes a link. *Written with Phase 3 (the landing pages
+  link it). Certificate identity is given as a regexp over
+  `ghcr|ecr.yml@refs/(heads/main|tags/v.+)`, because a GA publish runs
+  `ghcr.yml` as `release.yml`'s reusable workflow, whose identity is
+  `@refs/heads/main`, not the tag. The release key's fingerprint
+  (C47D…8D59, from `checksums.txt.sig`) is on the page; **publishing
+  the public key as a release asset is `deferred - human required`**.*
+- [x] 5.10 **`SECURITY.md`.** § Reporting Vulnerabilities: GitHub private
   vulnerability reporting (enabled) as the channel, acknowledgement
   within 3 business days and a fix or mitigation plan within 30 for
   high/critical, supported versions (2.x; 1.14.x for 90 days after GA),
   the verifying-releases link, and the supply-chain controls list from
   DESIGN-0038 D1 in two paragraphs. The three remaining
-  `docs/ADDING_RULES.md` links move to the new page from 3.4.
-- [ ] 5.11 **Workflow hygiene.** `concurrency: {group: release-${{
+  `docs/ADDING_RULES.md` links move to the new page from 3.4. *The v1
+  "Scope-constrained rule evaluation" and key/filesystem sections were
+  rewritten for v2 (two Apps, pod hardening, scoped policy), which is
+  where the one remaining link now points at the new page.*
+- [x] 5.11 **Workflow hygiene.** `concurrency: {group: release-${{
   github.ref }}, cancel-in-progress: false}` on `release.yml`,
   `ghcr.yml`, `ecr.yml` and `prerelease.yml`; `release.yml` job-level
   permissions (`bump-version`: `contents: write, pull-requests: read,
   issues: read`; `release`: `contents: write`; the publish callers keep
   their documented ceilings) and the workflow-level block reduced to
   `contents: read`. Re-run the June post-mortem check: the first
-  push-triggered run after this change **creates jobs**.
-- [ ] 5.12 **Lint the workflows once.** Run `actionlint` (mise) and
+  push-triggered run after this change **creates jobs**. *`ghcr.yml`
+  and `ecr.yml` use `release-ghcr-`/`release-ecr-${{ github.ref }}`,
+  not `release-${{ github.ref }}`: called from `release.yml`, a
+  reusable workflow sees the caller's `github.ref`, and one waiting on
+  its caller's group is cancelled as a deadlock. The post-merge
+  "creates jobs" check is `deferred - human required` (8.3).*
+- [x] 5.12 **Lint the workflows once.** Run `actionlint` (mise) and
   `zizmor` locally on the edited workflows before the PR; the CI job
   for them is IMPL-0036's, but the edits here should not introduce
-  findings.
+  findings. *actionlint 1.7.12 clean on every workflow (one
+  pre-existing SC2086 in `gh-pages.yml` fixed). zizmor 1.31.1
+  (`--offline`) against the base commit, `unpinned-uses` aside (that is
+  IMPL-0036's SHA pinning): `excessive-permissions` 6 → 3, everything
+  else unchanged after giving the new `docs` checkout
+  `persist-credentials: false`.*
 
 <!--docz:tasks:end-->
 

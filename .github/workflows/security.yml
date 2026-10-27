@@ -28,8 +28,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6); only this tool is installed.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go:golang.org/x/vuln/cmd/govulncheck"
 
       # NOTE that we want to produce the SARIF-formatted report, which can then be consumed by other tools ...
       - name: Run govulncheck

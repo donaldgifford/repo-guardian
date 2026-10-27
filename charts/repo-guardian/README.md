@@ -31,7 +31,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -46,7 +46,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -97,7 +97,7 @@ policy:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -655,7 +655,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
-| podSecurityContext | object | `{}` | Pod security context |
+| podSecurityContext | object | `{"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context for every role and the migrate Job: non-root (nobody), the runtime's default seccomp profile. |
 | policy | object | `{"existingConfigMap":"","files":{}}` | The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted at GUARDIAN_CONFIG on ingest (push routing reads its watched paths), the controls workers and the migrate Job (which activates its version). |
 | policy.existingConfigMap | string | `""` | An existing ConfigMap holding the policy root, mounted whole in place of `files` (flat keys only, unless the operator mounts it with its own items through extraVolumes). |
 | policy.files | object | `{}` | The policy root as a nested map by directory (OQ11): a string is a file, a map is a directory, e.g. `enterprise.hcl: ...`, `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`, `templates: {...}`. Rendered into one ConfigMap (keys joined with dots, `catalogue.codeowners.hcl`); the volume puts each file back at its path. |
@@ -689,7 +689,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
-| securityContext | object | `{"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":65534}` | Container security context |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Container security context for every role and the migrate Job |
 | service.httpPort | int | `80` | Webhook HTTP port |
 | service.metricsPort | int | `9090` | Metrics port |
 | service.type | string | `"ClusterIP"` | Service type |

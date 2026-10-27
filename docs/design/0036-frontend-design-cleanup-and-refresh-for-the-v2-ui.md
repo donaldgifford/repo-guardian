@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0036
 title: "Frontend design cleanup and refresh for the v2 UI"
-status: Approved
+status: Implemented
 author: Donald Gifford
 created: 2026-10-15
 ---

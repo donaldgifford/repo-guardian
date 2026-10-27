@@ -1,7 +1,7 @@
 ---
 id: IMPL-0031
 title: "Frontend design refresh for the v2 UI"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-10-16
 ---

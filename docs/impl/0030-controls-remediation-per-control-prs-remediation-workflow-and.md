@@ -1,7 +1,7 @@
 ---
 id: IMPL-0030
 title: "Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-10-07
 ---

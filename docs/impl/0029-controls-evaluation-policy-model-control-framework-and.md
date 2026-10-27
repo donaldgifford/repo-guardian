@@ -1,7 +1,7 @@
 ---
 id: IMPL-0029
 title: "Controls evaluation: policy model, control framework and evaluation workflow"
-status: In Progress
+status: Completed
 author: Donald Gifford
 created: 2026-10-07
 ---

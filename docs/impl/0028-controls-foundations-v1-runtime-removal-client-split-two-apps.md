@@ -1,7 +1,7 @@
 ---
 id: IMPL-0028
 title: "Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-10-07
 ---
@@ -10,7 +10,7 @@ created: 2026-10-07
 
 # IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-10-07
 

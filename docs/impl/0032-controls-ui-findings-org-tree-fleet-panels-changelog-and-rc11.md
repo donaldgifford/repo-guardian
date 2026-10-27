@@ -1,7 +1,7 @@
 ---
 id: IMPL-0032
 title: "Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes"
-status: In Progress
+status: Completed
 author: Donald Gifford
 created: 2026-10-18
 ---

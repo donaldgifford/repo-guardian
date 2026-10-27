@@ -1,5 +1,8 @@
 # Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: remediation pull requests are described in [How it fixes things](v2-overview.md#how-it-fixes-things).
+
 **Implements:** [IMPL-0013](../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied.md)
 **Resolves:** [INV-0005](../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main.md)
 

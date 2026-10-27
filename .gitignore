@@ -40,10 +40,8 @@ dist/
 # to build/bin/, but `go build ./cmd/...` drops it here).
 /repo-guardian
 
-# mkdocs build output (`mkdocs build` / `mkdocs build --strict`).
-# The published site is built by CI from source, never from a
-# committed tree.
-site/
+# mkdocs build output lands in build/mkdocs (mkdocs.yml site_dir);
+# site/ is IMPL-0035's Astro source and is tracked.
 
 # Helm chart packages (output of `helm package`)
 *.tgz
@@ -57,3 +55,6 @@ site/
 
 # Personal working notes, never committed
 notes/
+
+# DS STORE
+.DS_Store

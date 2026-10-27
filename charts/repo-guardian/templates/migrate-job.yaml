@@ -45,6 +45,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "repo-guardian.serviceAccountName" . }}
+      # No role or Job calls the Kubernetes API (no client-go in go.mod).
+      automountServiceAccountToken: false
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

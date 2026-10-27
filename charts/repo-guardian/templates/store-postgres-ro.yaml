@@ -77,6 +77,8 @@ spec:
         app.kubernetes.io/component: postgres-ro-role
     spec:
       restartPolicy: Never
+      # psql only; no Kubernetes API access.
+      automountServiceAccountToken: false
       {{- with .Values.store.postgres.baked.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -84,6 +86,15 @@ spec:
       containers:
         - name: ro-role
           image: {{ .Values.store.postgres.baked.image | quote }}
+          # Not a read-only root: the image's shell may spool the SQL
+          # heredoc to /tmp.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           command: ["/bin/sh", "-c"]
           args:
             - |

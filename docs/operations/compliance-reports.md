@@ -1,5 +1,8 @@
 # Compliance reports
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent of this page: compliance is read from the controls schema by the [business UI](../usage/ui.md), the [read-only API](../usage/api.md) and `repo-guardian report`.
+
 `repo-guardian report` writes one markdown compliance report per
 organisation from the controls compliance query: for each assigned
 control, how many assignments pass, fail, wait for a first evaluation,

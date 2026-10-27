@@ -1,0 +1,455 @@
+{
+  "path": "testdata/guardian-full.hcl",
+  "orgs": null,
+  "legacy_mode": true,
+  "guardian": [
+    {
+      "name": "log_level",
+      "source": "\"info\"",
+      "line": 20
+    },
+    {
+      "name": "dry_run",
+      "source": "false",
+      "line": 21
+    },
+    {
+      "name": "worker_count",
+      "source": "5",
+      "line": 22
+    },
+    {
+      "name": "queue_size",
+      "source": "1000",
+      "line": 23
+    },
+    {
+      "name": "schedule_interval",
+      "source": "\"168h\"",
+      "line": 24
+    },
+    {
+      "name": "skip_forks",
+      "source": "true",
+      "line": 25
+    },
+    {
+      "name": "skip_archived",
+      "source": "true",
+      "line": 26
+    }
+  ],
+  "locals": null,
+  "ignore": [
+    "myorg/.github",
+    "myorg/terraform-*",
+    "myorg/archive-*"
+  ],
+  "defaults_pr": {
+    "line": 51,
+    "attrs": [
+      {
+        "name": "title",
+        "source": "\"[{{ env \\\"JIRA_PROJECT\\\" | default \\\"GUARDIAN\\\" }}] guardian: {{ .Owner }}/{{ .Repo }}\"",
+        "line": 52
+      },
+      {
+        "name": "body",
+        "source": "\u003c\u003cEOT\n## Repo Guardian\n\nThis PR was opened automatically by **repo-guardian**.\n\n### Files changed\n{{ range .Files }}- `{{ . }}`\n{{ end }}\n\n### What to do\n1. Review each file for your team's needs.\n2. Merge when ready — these are sensible defaults, not one-size-fits-all.\n\n---\n*Need help? Reach out in #platform-engineering.*\nEOT",
+        "line": 53
+      },
+      {
+        "name": "labels",
+        "source": "[\"automated\", \"guardian\"]",
+        "line": 69
+      }
+    ]
+  },
+  "rules": [
+    {
+      "type": "file",
+      "name": "codeowners",
+      "line": 86,
+      "paths": [
+        "CODEOWNERS",
+        ".github/CODEOWNERS",
+        "docs/CODEOWNERS"
+      ],
+      "check": "exists",
+      "template": "codeowners",
+      "target": ".github/CODEOWNERS",
+      "pr": {
+        "line": 94,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"codeowners\", \"CODEOWNERS\"]",
+            "line": 95
+          },
+          {
+            "name": "title",
+            "source": "\"chore({{ .Repo }}): adopt CODEOWNERS\"",
+            "line": 96
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "dependabot",
+      "line": 100,
+      "paths": [
+        ".github/dependabot.yml",
+        ".github/dependabot.yaml"
+      ],
+      "check": "exists",
+      "template": "dependabot",
+      "target": ".github/dependabot.yml",
+      "pr": {
+        "line": 106,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"dependabot\"]",
+            "line": 107
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "renovate_workflow",
+      "line": 121,
+      "enabled": true,
+      "paths": [
+        ".github/workflows/renovate.yml"
+      ],
+      "check": "exact",
+      "template": "renovate-workflow",
+      "target": ".github/workflows/renovate.yml",
+      "reconcilers": [
+        {
+          "type": "workflow_sync",
+          "line": 128,
+          "attrs": [
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 129
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "renovate_config",
+      "line": 133,
+      "enabled": true,
+      "paths": [
+        "renovate.json",
+        "renovate.json5",
+        ".renovaterc",
+        ".renovaterc.json",
+        ".github/renovate.json",
+        ".github/renovate.json5"
+      ],
+      "check": "contains",
+      "template": "renovate",
+      "target": "renovate.json",
+      "assertions": [
+        {
+          "name": "assertion",
+          "source": "pattern = \"github\u003emyorg/renovate-config\", message = \"renovate.json must extend the org preset\"",
+          "line": 151
+        }
+      ],
+      "pr": {
+        "line": 147,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"renovate\"]",
+            "line": 148
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "no_dependabot",
+      "line": 163,
+      "paths": [
+        ".github/dependabot.yml",
+        ".github/dependabot.yaml"
+      ],
+      "check": "absent",
+      "when": {
+        "name": "rule_satisfied",
+        "source": "\"renovate_config\"",
+        "line": 168
+      },
+      "pr": {
+        "line": 171,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"remove dependabot\"]",
+            "line": 175
+          },
+          {
+            "name": "title",
+            "source": "\"chore({{ .Repo }}): remove Dependabot config (repo uses Renovate)\"",
+            "line": 176
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "catalog_info",
+      "line": 181,
+      "paths": [
+        "catalog-info.yaml",
+        "catalog-info.yml"
+      ],
+      "check": "contains",
+      "template": "catalog-info",
+      "target": "catalog-info.yaml",
+      "assertions": [
+        {
+          "name": "assertion",
+          "source": "pattern = \"owner:\", message = \"catalog-info.yaml must have an owner field\"",
+          "line": 192
+        },
+        {
+          "name": "assertion",
+          "source": "yaml_path = \"spec.owner\", contains = \"team\", message = \"spec.owner must reference a team (e.g., team-platform)\"",
+          "line": 198
+        },
+        {
+          "name": "assertion",
+          "source": "yaml_path = \"spec.system\", non_empty = true, message = \"spec.system must be set\"",
+          "line": 207
+        },
+        {
+          "name": "assertion",
+          "source": "not_pattern = \"TODO\", message = \"catalog-info.yaml must not contain TODO placeholders\"",
+          "line": 214
+        }
+      ],
+      "reconcilers": [
+        {
+          "type": "custom_properties",
+          "line": 226,
+          "attrs": [
+            {
+              "name": "mode",
+              "source": "\"api\"",
+              "line": 227
+            },
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 228
+            },
+            {
+              "name": "annotation_properties",
+              "source": "{\n      \"jira/project-key\" = \"JiraProject\"\n      \"jira/label\"        = \"JiraLabel\"\n    }",
+              "line": 230
+            }
+          ],
+          "pr": {
+            "line": 239,
+            "attrs": [
+              {
+                "name": "title",
+                "source": "\"chore({{ .Repo }}): sync custom properties from catalog-info\"",
+                "line": 240
+              },
+              {
+                "name": "labels",
+                "source": "[\"automated\", \"catalog-sync\"]",
+                "line": 241
+              },
+              {
+                "name": "inherits",
+                "source": "false",
+                "line": 242
+              }
+            ]
+          }
+        }
+      ],
+      "pr": {
+        "line": 187,
+        "attrs": [
+          {
+            "name": "search_terms",
+            "source": "[\"catalog-info\"]",
+            "line": 188
+          }
+        ]
+      }
+    },
+    {
+      "type": "file",
+      "name": "labels",
+      "line": 248,
+      "paths": [
+        ".github/labels.yml",
+        ".github/labels.yaml"
+      ],
+      "check": "exists",
+      "template": "codeowners",
+      "target": ".github/labels.yml",
+      "reconcilers": [
+        {
+          "type": "label_sync",
+          "line": 254,
+          "attrs": [
+            {
+              "name": "watch",
+              "source": "true",
+              "line": 255
+            },
+            {
+              "name": "delete_extra",
+              "source": "false",
+              "line": 256
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "enable_vuln_alerts",
+      "line": 264,
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"vulnerability_alerts_enabled\"",
+          "line": 265
+        },
+        {
+          "name": "expected",
+          "source": "true",
+          "line": 266
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 267
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "delete_branch_on_merge",
+      "line": 270,
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"delete_branch_on_merge\"",
+          "line": 271
+        },
+        {
+          "name": "expected",
+          "source": "true",
+          "line": 272
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 273
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "disable_wiki",
+      "line": 276,
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"has_wiki\"",
+          "line": 277
+        },
+        {
+          "name": "expected",
+          "source": "false",
+          "line": 278
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 279
+        }
+      ]
+    },
+    {
+      "type": "setting",
+      "name": "squash_merge_only",
+      "line": 282,
+      "attrs": [
+        {
+          "name": "property",
+          "source": "\"allow_squash_merge\"",
+          "line": 283
+        },
+        {
+          "name": "expected",
+          "source": "true",
+          "line": 284
+        },
+        {
+          "name": "remediate",
+          "source": "false",
+          "line": 285
+        }
+      ]
+    },
+    {
+      "type": "branch_protection",
+      "name": "main_protection",
+      "line": 292,
+      "ignore": [
+        "myorg/legacy-*"
+      ],
+      "attrs": [
+        {
+          "name": "branch",
+          "source": "\"main\"",
+          "line": 293
+        },
+        {
+          "name": "require_pr",
+          "source": "true",
+          "line": 294
+        },
+        {
+          "name": "required_approvals",
+          "source": "1",
+          "line": 295
+        },
+        {
+          "name": "dismiss_stale_reviews",
+          "source": "true",
+          "line": 296
+        },
+        {
+          "name": "require_linear_history",
+          "source": "true",
+          "line": 297
+        },
+        {
+          "name": "remediate",
+          "source": "true",
+          "line": 298
+        }
+      ]
+    }
+  ],
+  "unrecognised": null
+}

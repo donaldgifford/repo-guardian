@@ -2,6 +2,24 @@
 
 GitHub App that automates repository onboarding and compliance
 
+repo-guardian 2.x evaluates every repository in your GitHub
+organisations against a controls policy kept as a directory
+(`enterprise.hcl`, `catalogue/`, `orgs/`, `templates/`), records who
+is compliant with which control and why not, and, for assignments in
+`mode = "remediate"`, opens one pull request per control or makes the
+API change that fixes it. It runs as separate roles: `ingest` for the
+webhooks, an `evaluator` holding the read-only Evaluation App, a
+`remediator` holding the Remediation App, a read-only `api` and the
+business UI, all on a Temporal cluster you run and a Postgres database
+this chart can bake, manage through CloudNativePG or point at.
+
+Chart 2.x is a fresh install: it refuses every 1.x value at render
+time, naming the key and the migration section that replaces it. The
+walk-through is
+[Getting started](https://donaldgifford.github.io/repo-guardian/usage/getting-started/);
+how to verify the chart and images is in
+[Verifying releases](https://donaldgifford.github.io/repo-guardian/operations/verifying-releases/).
+
 ## Installation
 
 The chart is published as an OCI artifact to two registries — pick
@@ -13,7 +31,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -28,7 +46,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -79,7 +97,7 @@ policy:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0-rc.18 \
+  --version 2.0.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -191,6 +209,15 @@ for installs that skip schema validation.
 For sizing, see [docs/operations/scaling.md](../../docs/operations/scaling.md).
 For Postgres schema operations, see
 [docs/operations/migrations.md](../../docs/operations/migrations.md).
+
+## Upgrade notes
+
+> [!WARNING]
+> **History.** Chart 2.0.0 is a fresh install, and the notes below
+> describe the 2.0.0 release candidates and the 1.x line as they
+> shipped: values they name as replacements may since have been
+> removed. The current removed-value tables are in
+> [Migrating from v1 to v2](../../docs/operations/v2-migration.md).
 
 ### Upgrade notes (chart 2.0.0-rc.2) — worker versioning and Temporal alerts
 
@@ -403,43 +430,12 @@ rollback), see
 
 ## Verifying the chart
 
-Every published version is signed with cosign (Sigstore keyless) via
-the workflow's OIDC identity, plus a SLSA Level 3 provenance
-attestation. Both can be verified offline against the public Sigstore
-transparency log.
-
-### Cosign signature
-
-```bash
-cosign verify \
-  --certificate-identity-regexp \
-    '^https://github.com/donaldgifford/repo-guardian/.+' \
-  --certificate-oidc-issuer \
-    'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.18
-```
-
-### SLSA provenance
-
-```bash
-cosign verify-attestation --type slsaprovenance \
-  --new-bundle-format=false \
-  --certificate-identity-regexp \
-    '^https://github.com/slsa-framework/slsa-github-generator/.+' \
-  --certificate-oidc-issuer \
-    'https://token.actions.githubusercontent.com' \
-  ghcr.io/donaldgifford/charts/repo-guardian:2.0.0-rc.18
-```
-
-`--new-bundle-format=false` is needed on cosign v3: it reads only the
-new-bundle referrers by default, and the SLSA generator writes the
-provenance to the legacy `.att` tag. Without the flag cosign reports a
-misleading certificate-identity mismatch against our own signature
-(INV-0023 F5).
-
-The provenance attestation records the build workflow path, source
-commit SHA, and builder image — useful for downstream policy
-enforcement.
+Every published version is signed with cosign (Sigstore keyless),
+ships a SLSA Level 3 provenance attestation and an SPDX SBOM
+attestation. The commands for the chart, both images and the binaries
+are in
+[Verifying releases](https://donaldgifford.github.io/repo-guardian/operations/verifying-releases/)
+([source](../../docs/operations/verifying-releases.md)).
 
 ## Releasing
 
@@ -659,7 +655,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
-| podSecurityContext | object | `{}` | Pod security context |
+| podSecurityContext | object | `{"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context for every role and the migrate Job: non-root (nobody), the runtime's default seccomp profile. |
 | policy | object | `{"existingConfigMap":"","files":{}}` | The controls policy directory (DESIGN-0030, IMPL-0029 7.9), mounted at GUARDIAN_CONFIG on ingest (push routing reads its watched paths), the controls workers and the migrate Job (which activates its version). |
 | policy.existingConfigMap | string | `""` | An existing ConfigMap holding the policy root, mounted whole in place of `files` (flat keys only, unless the operator mounts it with its own items through extraVolumes). |
 | policy.files | object | `{}` | The policy root as a nested map by directory (OQ11): a string is a file, a map is a directory, e.g. `enterprise.hcl: ...`, `catalogue: {codeowners.hcl: ...}`, `orgs: {acme.hcl: ...}`, `templates: {...}`. Rendered into one ConfigMap (keys joined with dots, `catalogue.codeowners.hcl`); the volume puts each file back at its path. |
@@ -693,7 +689,7 @@ The rule engine and the single-App worker are gone (IMPL-0029).
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{"limits":{"cpu":"500m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | Container resource requests and limits |
 | revisionHistoryLimit | int | `3` | Number of old ReplicaSets retained for rollback. Defaults to 3 to keep the kubectl `get rs` view tidy; bump if you need more rollback headroom. Kubernetes default is 10. |
-| securityContext | object | `{"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":65534}` | Container security context |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Container security context for every role and the migrate Job |
 | service.httpPort | int | `80` | Webhook HTTP port |
 | service.metricsPort | int | `9090` | Metrics port |
 | service.type | string | `"ClusterIP"` | Service type |

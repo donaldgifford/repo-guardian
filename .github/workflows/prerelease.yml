@@ -3,14 +3,13 @@
 name: Pre-release
 
 # Signed goreleaser binaries for a hand-cut pre-release tag
-# (v2.0.0-rc.N). release.yml's semver bump cannot cut pre-releases
-# (CLAUDE.md rule 6), so the tag is pushed by hand and this builds the
-# GitHub release from it; goreleaser's `prerelease: auto` marks it a
-# pre-release. Tags without a "-" suffix belong to release.yml and never
-# match the filter.
+# (vX.Y.Z-rc.N) on main. release.yml's semver bump cannot cut
+# pre-releases (CLAUDE.md rule 6), so the tag is pushed by hand and this
+# builds the GitHub release from it; goreleaser's `prerelease: auto`
+# marks it a pre-release. Tags without a "-" suffix belong to
+# release.yml and never match the filter.
 #
-# A tag push, not workflow_dispatch: dispatch only works for workflows
-# on the default branch, and this one lives on v2 until v2.0.0.
+# The tag push runs it; workflow_dispatch with the same tag re-runs it.
 #
 # Images and the chart are published separately by dispatching ghcr.yml
 # with the same tag.
@@ -19,9 +18,20 @@ on:
   push:
     tags:
       - 'v*-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Pre-release tag to rebuild (vX.Y.Z-rc.N)
+        required: true
 
 permissions:
   contents: write
+
+
+# One publish at a time per ref; a publish is never cancelled midway.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   goreleaser:
@@ -31,11 +41,16 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      # goreleaser's sboms step runs syft (IMPL-0034 5.1).
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v7

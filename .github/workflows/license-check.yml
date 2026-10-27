@@ -4,9 +4,9 @@ name: License Check
 
 on:
   push:
-    branches: [main, v2]
+    branches: [main]
   pull_request:
-    branches: [main, v2]
+    branches: [main]
 
 permissions:
   contents: read
@@ -23,8 +23,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6). mise installs go: tools with
+      # the pinned go, so it is installed alongside.
       - name: Install go-licenses
-        run: go install github.com/google/go-licenses@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go go:github.com/google/go-licenses"
 
       - name: Check licenses
         # nexus-proto-annotations (a Temporal SDK dependency) ships no license

@@ -6,9 +6,10 @@ nav:
         - Control-type reference: usage/controls-reference.md
         - The business UI: usage/ui.md
         - The read-only API: usage/api.md
+        - Identity providers: operations/identity-provider.md
     - ADRs:
         - Overview: adr/README.md
-    - Adding a New Rule to Repo Guardian: ADDING_RULES.md
+    - Adding a control type: ADDING_RULES.md
     - Design:
         - Overview: design/README.md
         - 'DESIGN-0001: Custom Properties from Backstage': design/0001-custom-properties-from-backstage.md
@@ -44,6 +45,7 @@ nav:
         - 'DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs': design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md
         - 'DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it': design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse.md
         - 'DESIGN-0034: CODEOWNERS ownership control': design/0034-codeowners-ownership-control.md
+        - 'DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests': design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close.md
         - 'DESIGN-0036: Frontend design cleanup and refresh for the v2 UI': design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui.md
         - 'DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog': design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog.md
         - 'DESIGN-0038: v2.0.0 GA cutover and identity-provider portability': design/0038-v200-ga-cutover-and-identity-provider-portability.md
@@ -75,6 +77,7 @@ nav:
         - 'IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware': impl/0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip.md
         - 'IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI': impl/0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui.md
         - 'IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates': impl/0026-temporal-client-auth-credential-reload-keda-prometheus-trigger.md
+        - 'IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs': impl/0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and.md
         - 'IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema': impl/0028-controls-foundations-v1-runtime-removal-client-split-two-apps.md
         - 'IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow': impl/0029-controls-evaluation-policy-model-control-framework-and.md
         - 'IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install': impl/0030-controls-remediation-per-control-prs-remediation-workflow-and.md
@@ -114,29 +117,34 @@ nav:
         - Overview: rfc/README.md
         - 'RFC-0001: Repo Compliance App (repo-guardian)': rfc/0001-repo-compliance-app-repo-guardian.md
         - 'RFC-0002: HCL-driven Policy Engine for repo-guardian': rfc/0002-hcl-driven-policy-engine-for-repo-guardian.md
+    - Release notes:
+        - repo-guardian 2.0.0: releases/2.0.0.md
     - Operations:
-        - Absent rules and conditional gates migration (appVersion → next minor): operations/absent-rules-migration.md
-        - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
-        - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
-        - Compliance reports: operations/compliance-reports.md
-        - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
-        - Custom-property annotation migration (appVersion 1.9.1 → next minor): operations/annotation-properties-migration.md
-        - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
-        - Delayed requeue — operator runbook: operations/delayed-requeue-runbook.md
+        - repo-guardian and v2 at a glance: operations/v2-overview.md
+        - Turning on repo-guardian v2: operations/v2-onboarding.md
+        - Migrating from v1 to v2: operations/v2-migration.md
+        - "rgctl: find and close repo-guardian pull requests": operations/rgctl.md
+        - Verifying releases: operations/verifying-releases.md
         - ECR publish setup (maintainer-side): operations/ecr-publish-setup.md
         - External Postgres on RDS — Terraform variable reference: operations/rds-terraform-variables.md
         - Generating dashboards and alerts: operations/monitoring-generation.md
         - Homelab CNPG cutover runbook: operations/cnpg-homelab-cutover.md
-        - Identity providers: operations/identity-provider.md
-        - Migrating from v1 to v2: operations/v2-migration.md
         - Postgres schema operations: operations/migrations.md
         - Running repo-guardian on AWS: operations/aws.md
         - Scaling repo-guardian: operations/scaling.md
-        - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
-        - Turning on repo-guardian v2: operations/v2-onboarding.md
         - Webhook ingress: operations/ingress.md
-        - repo-guardian GitHub App — Enterprise Setup Guide: operations/ent-setup.md
-        - repo-guardian and v2 at a glance: operations/v2-overview.md
+        - repo-guardian GitHub Apps — Enterprise Setup Guide: operations/ent-setup.md
+    - Historical (1.x):
+        - Adding a rule (1.x): historical/adding-rules-1x.md
+        - Absent rules and conditional gates migration: operations/absent-rules-migration.md
+        - Chart 0.5.0 migration runbook (IMPL-0011): operations/chart-0.5.0-migration.md
+        - Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration: operations/pr-convergence-migration.md
+        - Compliance reports: operations/compliance-reports.md
+        - Custom-properties security fix (IMPL-0020): operations/custom-properties-security-fix.md
+        - Custom-property annotation migration: operations/annotation-properties-migration.md
+        - Custom-property name charset correction (appVersion 1.10.1): operations/property-name-charset.md
+        - Delayed requeue — operator runbook: operations/delayed-requeue-runbook.md
+        - Template migration guide (chart 0.3.x → 0.4.0): operations/template-migration.md
 # docs/README.md is the GitHub landing page; index.md is the site's.
 exclude_docs: |
   /README.md
@@ -145,3 +153,5 @@ plugins:
     - techdocs-core
 site_description: Documentation for repo-guardian
 site_name: repo-guardian
+# MkDocs's default site/ is IMPL-0035's Astro source; builds go under build/.
+site_dir: build/mkdocs

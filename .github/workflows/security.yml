@@ -5,11 +5,9 @@ on:
   push:
     branches:
       - main
-      - v2
   pull_request:
     branches:
       - main
-      - v2
   schedule:
     # Mondays at 0000
     - cron: "0 0 * * 1"
@@ -28,8 +26,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6). mise installs go: tools with
+      # the pinned go, so it is installed alongside.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go go:golang.org/x/vuln/cmd/govulncheck"
 
       # NOTE that we want to produce the SARIF-formatted report, which can then be consumed by other tools ...
       - name: Run govulncheck

@@ -1,5 +1,8 @@
 # Delayed requeue — operator runbook
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: there is no Valkey queue, Temporal schedules and retries the work, see [Scaling repo-guardian](scaling.md).
+
 repo-guardian defers work it cannot do right now instead of blocking on
 it. When a job's GitHub calls run into the rate limit, the worker parks
 the whole job in a Valkey delayed set with a due-time and frees its

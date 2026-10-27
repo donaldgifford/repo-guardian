@@ -1,5 +1,8 @@
 # Custom-property annotation migration (appVersion 1.9.1 → next minor)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: custom properties are the `custom_properties` control type, in the [control-type reference](../usage/controls-reference.md).
+
 [IMPL-0017](../impl/0017-configurable-annotation-sourced-custom-properties.md)
 replaces the `custom_properties` reconciler's hardcoded Jira annotation
 extraction with an operator-defined `annotation_properties` map

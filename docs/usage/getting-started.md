@@ -1,336 +1,435 @@
-# Getting Started with repo-guardian
+# Getting started with repo-guardian
 
-A walkthrough for onboarding new users and teams. Read it top to bottom, or
-present it section by section — each heading is a self-contained "slide."
-For the exhaustive policy schema, see the [Policy Reference](policy-reference.md).
+A fresh install of repo-guardian 2.0.0, from nothing to a first
+evaluation, then remediation on one organisation. Each step is short and
+links to the page that has the full detail. For what repo-guardian
+enforces and why, read
+[repo-guardian and v2 at a glance](../operations/v2-overview.md). For the
+complete install runbook, read
+[Turning on repo-guardian v2](../operations/v2-onboarding.md).
 
-## What is repo-guardian?
+> [!NOTE]
+> A new install writes nothing to GitHub. It reads every repository,
+> records each control's result and reports compliance. Pull requests
+> start only when an assignment is in `mode = "remediate"` on a
+> repository the Remediation App can reach.
 
-**repo-guardian is a GitHub App that keeps every repository in your
-organization compliant with your baseline — automatically, continuously, and
-via pull requests your teams review like any other change.**
+<!--toc:start-->
+- [1. What you need](#1-what-you-need)
+- [2. Create the two GitHub Apps](#2-create-the-two-github-apps)
+- [3. Write a minimal policy](#3-write-a-minimal-policy)
+- [4. Write the values file and install](#4-write-the-values-file-and-install)
+- [5. The first evaluation](#5-the-first-evaluation)
+- [6. Reading the UI](#6-reading-the-ui)
+- [7. Turning on remediation for one organisation](#7-turning-on-remediation-for-one-organisation)
+- [8. Next steps](#8-next-steps)
+<!--toc:end-->
 
-You declare *what a healthy repository looks like* in a single HCL policy
-file. repo-guardian watches every repository the App is installed on and:
+## 1. What you need
 
-- **opens PRs** to add missing or drifted configuration files (CODEOWNERS,
-  Dependabot, Renovate, `catalog-info.yaml`, …) rendered from templates,
-- **checks and optionally remediates** repository settings (wikis, merge
-  strategies, vulnerability alerts, …) and branch protection rulesets,
-- **syncs metadata** — e.g. Backstage `catalog-info.yaml` ownership into
-  GitHub custom properties so downstream tools (Wiz, dashboards, CODEOWNERS
-  tooling) can attribute repos to teams,
-- **converges**: when a rule becomes satisfied (someone adds the file by
-  hand), repo-guardian cleans up after itself — refreshes or auto-closes its
-  own PR instead of leaving stale noise.
+- **A Kubernetes cluster** and a namespace for repo-guardian
+  (`repo-guardian` below).
+- **Helm**, able to pull OCI charts from `ghcr.io`.
+- **A Temporal cluster you run.** Every evaluation is a Temporal
+  workflow, so Temporal is required. repo-guardian does not ship it.
+  You need server 1.31 or newer, a namespace (default `repo-guardian`),
+  network access to the frontend on port 7233, and mTLS or OIDC
+  credentials. See
+  [A Temporal cluster](../operations/v2-onboarding.md#2-a-temporal-cluster).
+- **Postgres.** Pick one with `store.postgres.mode`:
+  - `baked` (the default): the chart runs a single Postgres pod. Good
+    for a trial.
+  - `cnpg`: the chart renders a CloudNativePG cluster. Needs the CNPG
+    operator.
+  - `external`: you provide an empty database and a DSN Secret, for
+    example on RDS.
 
-## The problem it solves
+  See [Postgres](../operations/v2-onboarding.md#3-postgres).
+- **A public HTTPS route** to the ingest Service, so GitHub can deliver
+  webhooks. The chart ships no webhook Ingress; pick an option from
+  [webhook ingress](../operations/ingress.md).
 
-In an org with hundreds or thousands of repositories, configuration drift is
-not a possibility — it's a guarantee:
+## 2. Create the two GitHub Apps
 
-- New repos get created without CODEOWNERS, so review routing and audit
-  attribution silently break.
-- Dependabot/Renovate configs are copy-pasted once and never updated; half
-  the fleet runs a two-year-old workflow.
-- "Please enable vulnerability alerts on your repos" emails get sent
-  quarterly and actioned never.
-- Ownership metadata lives in a spreadsheet (or nowhere), so security
-  findings can't be routed to a team.
+repo-guardian runs as two GitHub Apps. The private key is the security
+boundary: the process that only reads holds a key that cannot write.
 
-The usual fixes don't scale: wiki checklists rely on humans remembering,
-one-shot scripts fix today's fleet but not next week's new repos, and
-org-level GitHub settings can't create *files* in repositories.
+| | Evaluation App | Remediation App |
+| --- | --- | --- |
+| Access | read-only | writes |
+| Key held by | the evaluator | the remediator |
+| Install on | every organisation the policy manages | only organisations you remediate |
+| Webhook URL | `https://<your host>/webhooks/github/eval` | `https://<your host>/webhooks/github/remediate` |
+| Needed for | everything | remediation only |
 
-repo-guardian's answer: **policy as code, enforcement as pull requests.**
-The policy is reviewed and versioned like any other code. The enforcement is
-a PR the owning team sees, understands, and merges — not a silent overwrite.
+Create the **Evaluation App** now. The Remediation App can wait until
+[step 7](#7-turning-on-remediation-for-one-organisation).
 
-## How it works
+For each App:
 
-```
-                          ┌───────────────────────────────┐
-  GitHub webhooks ───────▶│                               │
-  (repo created,          │   Work queue (Valkey)         │      GitHub API
-   App installed,         │      │                        │   ┌─────────────────┐
-   push to default        │      ▼                        │   │ open/update PRs │
-   branch)                │   Worker pool ──▶ Checker ────┼──▶│ repo settings   │
-                          │   (policy engine)             │   │ rulesets        │
-  Discovery (hourly) ────▶│      │                        │   │ custom props    │
-  Stale sweep ───────────▶│      ▼                        │   │ labels          │
-  (re-check repos older   │   Reconcilers                 │   └─────────────────┘
-   than freshness window) │   (post-check actions)        │
-                          └───────────────────────────────┘
-                           State: Postgres (per-repo check state)
-```
+1. Register it with its webhook active, pointing at its URL above.
+   Generate a strong webhook secret.
+2. Grant its permissions and subscribe to its events:
+   - **Evaluation App:** a fixed read-only set (Metadata, Contents, Pull
+     requests, Administration, and organisation Custom properties, all
+     read), subscribed to Push, Repository, Installation repositories
+     and Pull request. The evaluator logs the set at startup as
+     `Evaluation App permissions required`. The full table is in
+     [Evaluation App permissions](../operations/v2-onboarding.md#evaluation-app-permissions).
+   - **Remediation App:** derived from your policy. The base set is
+     Metadata read, Contents write and Pull requests write. A control
+     that writes through the API with `apply = "direct"` adds write on
+     its resource, and a control that writes under
+     `.github/workflows/` adds Workflows write. The remediator logs the
+     set it needs at startup as `Remediation App permissions required`,
+     with the list in the `permissions` field. Subscribe it to
+     Installation repositories only. See
+     [Remediation App permissions](../operations/v2-onboarding.md#remediation-app-permissions).
+3. Generate a private key.
+4. Install it. The Evaluation App goes into every organisation the
+   policy lists.
 
-Four things put a repository on the queue:
+Put each App's key and webhook secret in a Secret with the keys
+`private-key` and `webhook-secret`:
 
-1. **Webhooks** — the App is installed, a repo is created, or a repo is added
-   to the installation. New repos are checked within seconds.
-2. **Push events** — a push to the default branch that touches a *watched*
-   file (e.g. the Renovate workflow) triggers an immediate re-check.
-3. **Stale sweep** — a leader-elected scheduler periodically re-enqueues any
-   repo whose last check is older than the freshness window (default 24h),
-   or whose last check ran under an older policy version. Change the policy →
-   the whole fleet converges on the next sweep.
-4. **Discovery** — an hourly enumeration of installations catches anything
-   webhooks missed (e.g. repos that existed before the App was installed).
-
-For each repo, the checker evaluates every rule in the policy, bundles all
-actionable file rules into **one PR on one deterministic branch**
-(`repo-guardian/add-missing-files`), and runs any attached reconcilers.
-Everything is idempotent: re-checking a repo with an open PR updates that PR
-in place rather than opening a second one.
-
-## What it can do
-
-**Files** — three check modes, escalating in strictness:
-
-| Mode | Meaning | Example |
-|------|---------|---------|
-| `exists` | File must be present at one of the listed paths | CODEOWNERS anywhere GitHub honors it |
-| `contains` | File must exist **and** pass content assertions (regex, YAML-path) | `renovate.json` must extend the org preset |
-| `exact` | File must match the rendered template exactly | The org-standard Renovate workflow, byte-for-byte (YAML compared semantically) |
-
-Missing or non-compliant files produce a PR with the templated default
-content. Templates are Go `text/template` with per-repo variables and
-helpers — see [Templates in two minutes](#templates-in-two-minutes).
-
-**Repository settings** — 8 properties checked and optionally remediated
-directly via the API (no PR — settings aren't files): vulnerability alerts,
-default branch, issues, wiki, delete-branch-on-merge, and the three merge
-strategies. Each rule chooses `remediate = true` (fix it) or `false` (report
-only, visible in logs and metrics).
-
-**Branch protection** — declarative rules (require PR, approval count,
-dismiss stale reviews, status checks, linear history) checked and optionally
-remediated via the GitHub rulesets API.
-
-**Metadata and post-check reconcilers** — four built-ins that run after a
-rule's file checks pass:
-
-- `custom_properties` — parse Backstage `catalog-info.yaml`, sync ownership
-  (always) plus any operator-mapped annotations (opt-in via
-  `annotation_properties`, e.g. a Jira project key) to GitHub custom
-  properties (direct API mode, or a PR-delivered GitHub Action for orgs
-  that want changes reviewed). Removed annotations clear the property
-  value — a full state sync, not just adds.
-- `label_sync` — manage the repo's label set from a YAML file (create,
-  recolor, rename, optionally delete extras).
-- `branch_protection` — manage rulesets from a YAML file in the repo.
-- `workflow_sync` — lightweight observability for watched workflow files;
-  pairs with push events for instant drift detection.
-
-**PR experience** — fully templatable titles, bodies, and labels with
-three-level inheritance (process defaults → per-rule → per-reconciler).
-A sticky, edit-in-place "reconcile log" comment on every guardian PR shows
-per-rule status. When every rule a PR addresses becomes satisfied on the
-default branch, the PR is auto-closed and its branch deleted (opt-out
-available for compliance workflows that require human close-out).
-
-**Targeting** — glob-based ignore lists (global and per-rule), skip-forks and
-skip-archived toggles, and per-org scoping: one policy file can serve 20
-orgs, with shared rules scoped to `["*"]` and org-specific rules scoped to
-subsets.
-
-**Operations** — dry-run mode (log everything, change nothing), 40+
-Prometheus metrics with per-org labels, starter alert rules, rate-limit
-budgeting per installation (the sweep backs off before you hit GitHub's
-limits), and multi-replica HA via Postgres state + Valkey queue and leader
-election.
-
-## What it doesn't do
-
-Setting these expectations up front avoids the most common misunderstandings:
-
-- **GitHub only (today).** GitLab and Forgejo backends have been
-  investigated (INV-0002/0004/0007) but not built. One binary serves one
-  GitHub App; that App can span many orgs.
-- **It proposes, humans dispose — for files.** File compliance always
-  arrives as a PR. repo-guardian never commits to the default branch and
-  never merges its own PRs. (Settings and branch-protection remediation are
-  the exception — those are direct API writes, and each rule opts in via
-  `remediate = true`.)
-- **Central policy only.** There is one policy per deployment, owned by the
-  platform team. Repos cannot override rules with an in-repo dotfile — by
-  design; exemptions are ignore-list entries in the reviewed, versioned
-  policy, not per-repo opt-outs.
-- **Not a scanner.** It checks the configuration files and settings you
-  declare rules for. It does not scan code, secrets, or dependencies — it's
-  the thing that makes sure your *scanners' config files* exist everywhere.
-- **Not a blocking gate.** It won't stop a merge or fail a check on
-  non-compliance. It nags via PRs and reports via metrics. Pair it with
-  branch protection (which it can configure!) if you need hard gates.
-- **Templates are content defaults, not per-repo intelligence.** A generated
-  CODEOWNERS is a sensible starting point with per-repo variables filled in —
-  the owning team still reviews and adjusts it in the PR.
-- **One App credential.** All orgs are served by the same GitHub App key
-  (per-org credentials investigated in INV-0006, deferred).
-
-## The policy: a five-minute tour
-
-Everything repo-guardian does is driven by one HCL file (or a directory of
-them), pointed to by `GUARDIAN_CONFIG`. A representative policy:
-
-```hcl
-guardian {
-  dry_run       = false
-  skip_forks    = true
-  skip_archived = true
-}
-
-# Repos no rule should ever touch (glob patterns).
-ignore {
-  repos = ["myorg/terraform-*", "myorg/archive-*"]
-}
-
-# Process-wide PR text. Every rule inherits this unless it overrides.
-defaults {
-  pr {
-    title  = "chore: repo-guardian baseline for {{ .Repo }}"
-    labels = ["automated", "guardian"]
-  }
-}
-
-# Simplest rule: the file just has to exist somewhere GitHub honors it.
-rule "file" "codeowners" {
-  check    = "exists"
-  paths    = ["CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"]
-  target   = ".github/CODEOWNERS"   # where the PR creates it if missing
-  template = "codeowners"           # which template renders the content
-}
-
-# Content-checked rule: exists AND extends the org preset.
-rule "file" "renovate_config" {
-  check    = "contains"
-  paths    = ["renovate.json", ".github/renovate.json"]
-  target   = "renovate.json"
-  template = "renovate"
-
-  assertion {
-    pattern = "github>myorg/renovate-config"
-    message = "renovate.json must extend the org preset"
-  }
-}
-
-# File rule + reconciler: after catalog-info checks pass, sync its
-# ownership metadata to GitHub custom properties.
-rule "file" "catalog_info" {
-  check    = "contains"
-  paths    = ["catalog-info.yaml", "catalog-info.yml"]
-  target   = "catalog-info.yaml"
-  template = "catalog-info"
-
-  assertion {
-    yaml_path = "spec.owner"
-    non_empty = true
-    message   = "spec.owner must be set"
-  }
-
-  reconcile "custom_properties" {
-    mode  = "api"
-    watch = true   # pushes touching this file trigger instant re-checks
-
-    # Optional: map additional catalog-info annotations to GitHub custom
-    # properties. Owner/Component sync unconditionally; this map is how
-    # you opt more annotations into the same sync + clear-on-removal
-    # behavior.
-    annotation_properties = {
-      "jira/project-key" = "JiraProject"
-    }
-  }
-}
-
-# Settings are checked and (here) fixed directly — no PR.
-rule "setting" "vuln_alerts" {
-  property  = "vulnerability_alerts_enabled"
-  expected  = true
-  remediate = true
-}
-
-# Branch protection via the rulesets API.
-rule "branch_protection" "main" {
-  branch             = "main"
-  require_pr         = true
-  required_approvals = 1
-  remediate          = true
-}
+```bash
+kubectl -n repo-guardian create secret generic rg-eval-app \
+  --from-file=private-key=./eval.pem \
+  --from-literal=webhook-secret="$EVAL_WEBHOOK_SECRET"
 ```
 
-The mental model:
+Installing across many organisations is covered in
+[the enterprise setup guide](../operations/ent-setup.md). Use the
+permission tables in the onboarding runbook in place of its single-App
+table.
 
-- **`rule` blocks are the policy.** Three types: `file`, `setting`,
-  `branch_protection`. Each is independently enabled, ignorable, and
-  scopeable.
-- **`assertion` blocks make `contains` rules precise** — regex over the raw
-  file, or structural checks against a YAML path.
-- **`reconcile` blocks attach behaviors** that run after a file rule's
-  checks pass.
-- **`pr` blocks control what humans see**, with inheritance so you write the
-  boilerplate once.
-- **If you provide an HCL file, it replaces the built-in defaults
-  entirely** — you declare everything you want. No file at all gives you the
-  built-in starter policy (CODEOWNERS + Dependabot enabled; Renovate rules
-  present but disabled).
+## 3. Write a minimal policy
 
-Ready-to-adapt policies live in [`examples/`](https://github.com/donaldgifford/repo-guardian/tree/main/examples),
-from `guardian-minimal.hcl` to a multi-org enterprise layout.
-
-## Templates in two minutes
-
-The file content that lands in PRs comes from templates: five embedded
-defaults (CODEOWNERS, Dependabot, Renovate config + workflow, catalog-info)
-that operators can override or extend by mounting files into `TEMPLATE_DIR`
-(the Helm chart exposes this as a simple `templates.files` values map).
-
-Templates are Go `text/template` over per-repo variables:
+The policy is a directory:
 
 ```text
-# {{ .Repo }} is owned by the platform team
-* @{{ .Owner }}/platform-team
+policy/
+├── enterprise.hcl     # the organisations, the baseline controls, the default mode
+├── catalogue/*.hcl    # one control definition per file
+├── orgs/*.hcl         # optional per-organisation layers
+└── templates/         # optional template overrides
 ```
 
-PR titles and bodies are templates too, with extras like `{{ .Files }}` (the
-list of paths in the PR) and Backstage catalog fields for catalog-aware
-rules. A curated helper set (`env`, `default`, `join`, `lower`, `upper`,
-`title`) covers common needs — e.g. Jira-prefixed PR titles via
-`{{ env "JIRA_PROJECT" | default "PLAT" }}`. Full details in the
-[Policy Reference](policy-reference.md#template-reference).
+Start small and in `evaluate`. This is
+[`examples/policy/minimal`](https://github.com/donaldgifford/repo-guardian/tree/main/examples/policy/minimal)
+with the mode set to `evaluate`:
 
-## Rolling it out (demo script)
+```hcl
+# enterprise.hcl
+enterprise {
+  orgs     = ["myorg"]
+  mode     = "evaluate"
+  controls = ["codeowners@1", "dependabot@1"]
+}
+```
 
-The safe on-ramp, and a natural live-demo sequence:
+```hcl
+# catalogue/codeowners.hcl
+control "codeowners" {
+  version     = 1
+  type        = "codeowners"
+  title       = "CODEOWNERS"
+  description = "A CODEOWNERS file exists in one of GitHub's locations"
+  template    = "codeowners"
 
-1. **Install the GitHub App** on one org, scoped to a couple of test repos.
-   The App needs a public HTTPS webhook endpoint.
-2. **Deploy the Helm chart** (`oci://ghcr.io/donaldgifford/charts/repo-guardian`)
-   with `DRY_RUN=true`. Out of the box the chart brings its own Postgres and
-   Valkey. Note: the `DRY_RUN` env var wins over the policy file — handy as
-   an operator safety catch.
-3. **Watch the logs** — dry-run logs every PR it *would* open and every
-   setting it *would* change. This is where the policy gets tuned: add
-   ignore patterns, adjust paths, fix assertions.
-4. **Flip dry-run off.** Delete a CODEOWNERS from a test repo, push to a
-   watched file, or wait for the sweep — then walk through the PR it opens:
-   templated content, labels, the sticky reconcile-log comment.
-5. **Show convergence**: hand-add the missing file on the default branch and
-   re-check — repo-guardian auto-closes its own PR and deletes its branch.
-6. **Scale out**: widen the App installation, add orgs to the policy `scope`,
-   and let discovery + the stale sweep bring the fleet in gradually — the
-   rate-limit budget gate paces enqueues so a 2,000-repo onboarding doesn't
-   burn the API budget in one tick.
+  rule "exists" {
+    title     = "A CODEOWNERS file exists"
+    remediate = true
+  }
+}
+```
 
-## Where to go next
+```hcl
+# catalogue/dependabot.hcl
+control "dependabot" {
+  version     = 1
+  type        = "dependency_updates"
+  title       = "Dependabot"
+  description = "Dependabot version updates are configured"
+  template    = "dependabot"
+  tool        = "dependabot"
 
-- **[Policy Reference](policy-reference.md)** — every block, attribute,
-  default, and validation rule in the HCL policy.
-- **[`examples/`](https://github.com/donaldgifford/repo-guardian/tree/main/examples)** — runnable policies from
-  minimal to multi-org enterprise.
-- **[Adding a New Rule](../ADDING_RULES.md)** — extend repo-guardian itself
-  with new rule types or reconcilers.
-- **[Helm chart README](https://github.com/donaldgifford/repo-guardian/tree/main/charts/repo-guardian)**
-  — deployment shapes (baked/CNPG/external Postgres, Valkey modes),
-  values, and security posture.
-- **[Operations docs](../operations/scaling.md)** — scaling, metrics,
-  alerts, and migration runbooks.
+  rule "configured" {
+    title     = "A Dependabot config exists"
+    remediate = true
+  }
+}
+```
+
+- `enterprise.orgs` is the onboarding list. A repository in any other
+  organisation is discovered but unmanaged, so nothing is evaluated on
+  it.
+- `enterprise.controls` is the baseline: every listed organisation gets
+  these controls, as `slug@version`.
+- `mode` is `evaluate` (record results, change nothing) or `remediate`.
+  Unset means `evaluate`.
+- `remediate = true` on a rule means remediation may fix it. It does
+  nothing while the mode is `evaluate`.
+- The `codeowners` and `dependabot` templates are built in. Put a file
+  under `templates/` only to override one.
+
+To leave some repositories out, add an org layer. Every exclusion
+carries a reason, which the report, the API and the UI show:
+
+```hcl
+# orgs/myorg.hcl
+org "myorg" {
+  exclude_repos {
+    match  = [".github", "archive-*"]
+    reason = "org config and archives are managed elsewhere"
+  }
+}
+```
+
+Check the policy before you deploy it. `monitoring generate` runs the
+same loader and validation as the server and fails on any error:
+
+```bash
+repo-guardian monitoring generate --config ./policy --out /tmp/check
+```
+
+The [policy reference](policy-reference.md) has every attribute and
+block, and the [control-type reference](controls-reference.md) has every
+built-in control type.
+
+## 4. Write the values file and install
+
+A minimal values file for a split install with the baked Postgres:
+
+```yaml
+# values.yaml
+topology: split                      # one Deployment per role (the default)
+
+temporal:
+  address: temporal-frontend.temporal.svc:7233
+  namespace: repo-guardian
+  tls:
+    existingSecret: repo-guardian-temporal-tls   # tls.crt, tls.key, ca.crt
+
+github:
+  eval:
+    appId: "123456"
+    existingSecret: rg-eval-app      # private-key, webhook-secret
+
+store:
+  postgres:
+    mode: baked
+
+evalInterval: "24h"                  # how often each repository is re-evaluated
+
+policy:
+  files:
+    enterprise.hcl: |
+      enterprise {
+        orgs     = ["myorg"]
+        mode     = "evaluate"
+        controls = ["codeowners@1", "dependabot@1"]
+      }
+    catalogue:
+      codeowners.hcl: |
+        control "codeowners" {
+          version     = 1
+          type        = "codeowners"
+          title       = "CODEOWNERS"
+          description = "A CODEOWNERS file exists in one of GitHub's locations"
+          template    = "codeowners"
+
+          rule "exists" {
+            title     = "A CODEOWNERS file exists"
+            remediate = true
+          }
+        }
+      dependabot.hcl: |
+        control "dependabot" {
+          version     = 1
+          type        = "dependency_updates"
+          title       = "Dependabot"
+          description = "Dependabot version updates are configured"
+          template    = "dependabot"
+          tool        = "dependabot"
+
+          rule "configured" {
+            title     = "A Dependabot config exists"
+            remediate = true
+          }
+        }
+```
+
+Notes on the values:
+
+- **`temporal`**: with OIDC instead of mTLS, set
+  `temporal.auth.oidc.tokenUrl`, `clientId` and `existingSecret` in
+  place of `temporal.tls.existingSecret`.
+- **`github.eval`**: the evaluator renders only when `appId` is set.
+  Without `existingSecret` the chart creates the Secret from
+  `privateKey` and `webhookSecret`, which is fine for a trial.
+- **`store.postgres.mode`**: with `baked` under GitOps, set
+  `store.postgres.baked.existingSecret`, or the generated password
+  changes on every `helm template`. With `external`, set
+  `store.postgres.existingSecret` to a Secret holding `STORE_DSN`. For
+  separate evaluator and remediator database roles, see
+  [Controls database roles](../operations/v2-onboarding.md#controls-database-roles).
+- **`policy.files`**: the policy directory as a nested map. A string is
+  a file, a map is a directory. The chart mounts it at
+  `/etc/repo-guardian/policy` and points `GUARDIAN_CONFIG` at it. To
+  manage the ConfigMap yourself, set `policy.existingConfigMap`
+  instead. [`examples/values-with-policy.yaml`](https://github.com/donaldgifford/repo-guardian/blob/main/examples/values-with-policy.yaml)
+  is a larger example.
+
+Install:
+
+```bash
+helm upgrade --install repo-guardian \
+  oci://ghcr.io/donaldgifford/charts/repo-guardian \
+  --version 2.0.0 -n repo-guardian -f values.yaml
+```
+
+The migrate Job runs first. It creates the schema and activates the
+policy's version. Then the ingest and evaluator pods start. With Argo
+CD, read
+[Installing with Argo CD](../operations/v2-onboarding.md#installing-with-argo-cd)
+first.
+
+## 5. The first evaluation
+
+Once the evaluator is up:
+
+1. It creates the `controls-discovery` schedule and runs it. Discovery
+   lists every installation of the Evaluation App and every repository
+   in it.
+2. Each managed repository gets one `evaluation/<repository id>`
+   workflow. It evaluates the repository's controls, records the
+   results, and sleeps until the next evaluation.
+3. First evaluations are spread across `evalInterval` (24h by default),
+   so a large fleet does not drain the GitHub rate limit at once. A
+   repository that is created, or pushed to on a path a control reads,
+   is evaluated straight away.
+
+Check it:
+
+- **Pods.** `kubectl -n repo-guardian get pods` shows ingest and the
+  evaluator Ready, and the migrate Job completed.
+- **Permissions.** The evaluator's startup log has
+  `Evaluation App permissions required`. Compare it with what the
+  installation granted.
+- **Webhooks.** Push to a repository, then open the Evaluation App's
+  **Advanced → Recent Deliveries**. 202 means started, 204 means
+  nothing to do, 401 means the webhook secret does not match, and 503
+  means Temporal is unreachable.
+- **Temporal.** In the Temporal UI, a `controls-discovery` run has
+  completed and there is one `evaluation/<id>` workflow per managed
+  repository.
+- **One repository, from your machine.** `repo-guardian evaluate` runs
+  the policy against one repository as the Evaluation App, with no
+  database and no Temporal:
+
+  ```bash
+  EVAL_GITHUB_APP_ID=123456 EVAL_GITHUB_PRIVATE_KEY_PATH=./eval.pem \
+    repo-guardian evaluate --repo myorg/service-a --policy ./policy
+  ```
+
+  `--policy` defaults to `$GUARDIAN_CONFIG`, and `--format json` prints
+  the full result. It exits 0 when compliant (or when nothing was
+  measured), 1 when non-compliant, 2 on a usage error and 3 on an
+  operational one.
+- **Status.** `/status` on the API (`/api/v1/status`), or the UI's
+  status page, shows overall health with no login and no names.
+
+## 6. Reading the UI
+
+The UI is optional. It needs the API (`api.enabled`), an OIDC identity
+provider and a few Secrets; [the business UI](ui.md) covers enabling it
+and [identity providers](../operations/identity-provider.md) covers the
+provider setup.
+
+Once it is up:
+
+- **Fleet** (`/`) is the overview: compliance, the worst controls, and
+  parked repositories.
+- **Findings** lists every non-compliant result, oldest first.
+- **Controls**, **Orgs** and **Repositories** drill into one control,
+  one organisation or one repository, with each rule's result and
+  evidence.
+- **Policy** shows the active policy version and its rollout.
+
+Compliance reads "no data" when nothing is measured, never 100%.
+Remediation panels read "Remediation is not enabled on this deployment"
+until you add the Remediation App.
+
+## 7. Turning on remediation for one organisation
+
+Do this for one organisation, watch it, then widen it.
+
+1. **Create and install the Remediation App** on that organisation only,
+   with its webhook at `/webhooks/github/remediate`
+   ([step 2](#2-create-the-two-github-apps)). Store its key and webhook
+   secret in a Secret, `rg-remediate-app` below.
+2. **Add it to the values** and upgrade:
+
+   ```yaml
+   github:
+     remediate:
+       appId: "234567"
+       existingSecret: rg-remediate-app   # private-key, webhook-secret
+   ```
+
+   The chart now renders the `remediator` Deployment and mounts the
+   Remediation App's key into it alone. Compare its
+   `Remediation App permissions required` log line with what the
+   installation granted.
+3. **Wait for access.** The remediator's `controls-discovery-remediate`
+   schedule records which repositories the App can reach. Until then,
+   that organisation's assignments stay in `evaluate`, with the reason
+   `remediation_app_no_access`.
+4. **Set the mode** in that organisation's layer, and deploy the policy:
+
+   ```hcl
+   # orgs/myorg.hcl
+   org "myorg" {
+     mode = "remediate"
+   }
+   ```
+
+   The most specific mode wins, so you can go narrower: a `repos` block
+   or a single `control "<slug@N>" { mode = "remediate" }` override. See
+   [Resolution](policy-reference.md#resolution).
+
+What the pull requests look like:
+
+- **One pull request per control**, on the branch
+  `repo-guardian/<control slug>`, updated in place as results change.
+- **A cap per repository.** `remediation { max_open_prs }` (default 3)
+  limits how many are open at once. The rest wait, held as `pr_cap`.
+- **Humans win.** You can push to a repo-guardian pull request. The
+  remediator merges the default branch into it and keeps your edits. It
+  never force-pushes; a branch it cannot update cleanly is held as
+  `conflict`.
+- **It closes what it opened**, when the control passes on the default
+  branch or is no longer assigned, with a comment.
+- **It never deletes a branch.** Not after a merge, not after a close.
+  Use the repository's `delete_branch_on_merge` setting for cleanup.
+
+When nothing happens, the UI's Remediations page says why, as a hold.
+[How it fixes things](../operations/v2-overview.md#how-it-fixes-things)
+explains each hold and how it clears.
+
+To pause, set `mode = "evaluate"` again and deploy the policy.
+Evaluation continues, and no new pull requests open.
+
+## 8. Next steps
+
+- [Policy reference](policy-reference.md): every attribute and block in
+  the policy directory, and how a repository's assignments resolve.
+- [Control-type reference](controls-reference.md): every built-in
+  control type and its parameters.
+- [repo-guardian and v2 at a glance](../operations/v2-overview.md): the
+  model behind controls, modes and remediation.
+- [Identity providers](../operations/identity-provider.md): OIDC setup
+  for the API and the UI.
+- [Scaling](../operations/scaling.md): sizing, rate limits and the
+  compliance metrics.

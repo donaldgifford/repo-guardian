@@ -19,7 +19,7 @@
 // NOT reference secret env vars (such as GITHUB_PRIVATE_KEY or
 // WEBHOOK_SECRET) inside template bodies that get rendered into PR text,
 // because the rendered output is visible to PR reviewers. See
-// docs/ADDING_RULES.md "Customizing PR text" for guidance.
+// docs/usage/policy-reference.md "Templates" for guidance.
 //
 // # Concurrency
 //

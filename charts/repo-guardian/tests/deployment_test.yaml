@@ -130,10 +130,10 @@ tests:
   - it: should set security context
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          path: spec.template.spec.securityContext.runAsNonRoot
           value: true
       - equal:
-          path: spec.template.spec.containers[0].securityContext.runAsUser
+          path: spec.template.spec.securityContext.runAsUser
           value: 65534
 
   - it: should set resource limits

@@ -1,5 +1,8 @@
 # Custom-properties security fix (IMPL-0020)
 
+> [!WARNING]
+> **1.x only.** This page describes repo-guardian 1.x. v2 has no equivalent: custom properties are the `custom_properties` control type, in the [control-type reference](../usage/controls-reference.md).
+
 [IMPL-0020](../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high.md)
 ships two High-severity fixes to the `custom_properties` reconciler
 surface introduced by IMPL-0017. Both were found in

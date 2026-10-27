@@ -45,6 +45,9 @@ function "tags" {
 target "_common" {
   dockerfile = "Dockerfile"
   context    = "."
+  // Provenance made explicit and an SBOM added (IMPL-0034 5.2). CI still
+  // reads the digest from the bake metadata in the expression layer.
+  attest = ["type=provenance,mode=max", "type=sbom"]
   labels = {
     "org.opencontainers.image.source"   = "https://github.com/donaldgifford/repo-guardian"
     "org.opencontainers.image.revision" = "${COMMIT_SHA}"
@@ -56,6 +59,8 @@ target "_common" {
 // Local development build — single-arch, loads into Docker daemon.
 target "dev" {
   inherits  = ["_common"]
+  // A local load into the docker image store carries no attestations.
+  attest = ["type=provenance,disabled=true", "type=sbom,disabled=true"]
   tags      = tags(IMAGE_NAME, "dev")
   output    = ["type=docker"]
 }
@@ -96,6 +101,8 @@ target "_ui" {
 
 target "ui-dev" {
   inherits = ["_ui"]
+  // A local load into the docker image store carries no attestations.
+  attest = ["type=provenance,disabled=true", "type=sbom,disabled=true"]
   tags     = tags(UI_IMAGE_NAME, "dev")
   output   = ["type=docker"]
 }

@@ -4,9 +4,9 @@ name: CI
 
 on:
   push:
-    branches: [main, v2]
+    branches: [main]
   pull_request:
-    branches: [main, v2]
+    branches: [main]
 
 permissions:
   contents: read
@@ -29,16 +29,20 @@ jobs:
       temporal: ${{ steps.filter.outputs.temporal }}
       api: ${{ steps.filter.outputs.api }}
       ui: ${{ steps.filter.outputs.ui }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
+            # `**/go.mod` and `**/go.sum` cover the nested tools/rgctl
+            # module, so a renovate bump that touches only its go.mod/go.sum
+            # still runs the Go jobs.
             go:
               - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
+              - '**/go.mod'
+              - '**/go.sum'
             docker:
               - 'Dockerfile'
               - 'docker-bake.hcl'
@@ -93,6 +97,12 @@ jobs:
               # The changelog gate reads the chart appVersion (IMPL-0032 7.4),
               # so a release-bump PR runs it.
               - 'charts/repo-guardian/Chart.yaml'
+            # The Pages site: a dead nav entry or a broken INHERIT fails
+            # the pull request, not the deploy (IMPL-0034 2.4).
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'mkdocs-ghpages.yml'
 
   labeler:
     permissions:
@@ -120,6 +130,24 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
+
+      # tools/rgctl is its own Go module (DESIGN-0035), so the step above
+      # never descends into it. Same linter set, via the root config.
+      - name: Run golangci-lint (rgctl)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          working-directory: tools/rgctl
+          args: --config ../../.golangci.yml
+
+      # The module-boundary half of `make lint-rgctl`: rgctl's go.mod must
+      # never require or replace the product module (DESIGN-0035 D4).
+      - name: Check rgctl never requires the product module
+        run: |
+          if grep -En '^[[:space:]]*((require|replace)[[:space:]]+)?github\.com/donaldgifford/repo-guardian([[:space:]]|$)' tools/rgctl/go.mod; then
+            echo "::error file=tools/rgctl/go.mod::rgctl must not depend on the product module (DESIGN-0035 D4)"
+            exit 1
+          fi
 
       - name: Set up Helm
         uses: azure/setup-helm@v5
@@ -284,6 +312,18 @@ jobs:
           slug: donaldgifford/repo-guardian
         continue-on-error: true
 
+      # `make test-coverage` also ran rgctl's tests (test-coverage-rgctl).
+      # Its profile goes up under its own flag so the tool never moves the
+      # product's coverage number or threshold.
+      - name: Upload rgctl coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          files: coverage-rgctl.out
+          flags: rgctl
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: donaldgifford/repo-guardian
+        continue-on-error: true
+
   # Replays captured RepoWorkflow histories against the current workflow
   # code (IMPL-0025 OQ13). A non-deterministic edit breaks every running
   # execution at its next workflow task; this fails the PR instead. It
@@ -338,8 +378,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned in mise.toml (IMPL-0034 5.6). mise installs go: tools with
+      # the pinned go, so it is installed alongside.
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        uses: jdx/mise-action@v3
+        with:
+          install_args: "go go:golang.org/x/vuln/cmd/govulncheck"
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -426,7 +470,11 @@ jobs:
       - name: Install helm-unittest plugin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: helm plugin install --verify=false https://github.com/helm-unittest/helm-unittest
+          # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+          HELM_UNITTEST_VERSION: v1.2.1
+        # --verify=false: the plugin source has no provenance, and helm 3.20+
+        # verifies whenever --version is given (CLAUDE.md § Helm CLI semantics).
+        run: helm plugin install --verify=false --version "${HELM_UNITTEST_VERSION}" https://github.com/helm-unittest/helm-unittest
       - name: Run helm-unittest
         run: helm unittest charts/repo-guardian
 
@@ -460,3 +508,41 @@ jobs:
       - name: Install and test charts
         if: steps.list-changed.outputs.changed == 'true'
         run: ct install --config ct.yaml
+
+  # Strict build of the public Pages config, the same command as `make
+  # lint-docs` and the same pin as gh-pages.yml.
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.workflows == 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      # renovate: datasource=pypi depName=mkdocs-material
+      - run: pip install mkdocs-material==9.8.0
+      - name: Build the Pages site strictly
+        run: mkdocs build --strict --config-file mkdocs-ghpages.yml
+
+  # The one required CI check (IMPL-0034 5.5, OQ3). It needs every job and
+  # always runs; a failed or cancelled job fails it, a skipped one (a
+  # paths filter said no) passes. Adding a job means adding it here, not
+  # editing the ruleset.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    needs: [changes, labeler, lint, lint-alerts, monitoring-drift, sql-drift, api-drift, ui, ui-e2e, test-go, replay, test-integration, security, build, docker-build, helm-unittest, helm-test, docs]
+    if: always()
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [ "${FAILED}" = "true" ]; then
+            echo "a required CI job failed or was cancelled"
+            exit 1
+          fi

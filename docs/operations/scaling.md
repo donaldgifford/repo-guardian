@@ -1,540 +1,381 @@
 # Scaling repo-guardian
 
-This is the operator-facing sizing guide for the IMPL-0011 multi-replica
-deployment shapes. The single-replica `memory + memory + ticker` mode
-needs none of this — keep `replicaCount: 1` and run.
+The operator's sizing guide for repo-guardian v2. It covers what each
+role costs, how the evaluator and the remediator scale on their queues,
+how to size their Postgres pools, and why the GitHub rate limit, not
+CPU, is the constraint at enterprise scale. The roles and values are
+introduced in [Turning on repo-guardian v2](v2-onboarding.md);
+[Running repo-guardian on AWS](aws.md) covers the infrastructure.
+
+> [!NOTE]
+> v2 has no job queue, stale sweep or leader election.
+> `staleSweep.*` and `queue.valkey.*` were removed in v2, as were
+> `config.workerCount` and `store.postgres.maxConns`; all fail render
+> (see [removed chart values](v2-migration.md#removed-chart-values) and
+> [controls chart values](v2-migration.md#controls-chart-values)).
+> Each repository's evaluation is a Temporal workflow on its own timer,
+> and Temporal hands the work to whichever worker pod polls next.
+
+## The roles
+
+| Role | Scales on | State |
+| --- | --- | --- |
+| `ingest` | webhook rate; it validates the HMAC and starts a workflow | stateless, no database, no App key |
+| `evaluator` | the `repo-guardian-eval` queue's backlog | one Postgres pool per pod |
+| `remediator` | the `repo-guardian-remediate` queue's backlog | one Postgres pool per pod, one connection per running remediation |
+| `api` | read traffic from the UI and API clients | an 8-connection read-only pool per pod |
+
+Any number of replicas of any role can run at once. There is no leader:
+Temporal dispatches each workflow and activity task to one poller, and
+the Schedules (`controls-discovery`, `controls-snapshot`,
+`remediation-sweep`, `controls-discovery-remediate`) are server-side.
 
 ## Sizing knobs
 
-| Knob | Default | When to tune |
-|------|---------|--------------|
-| `replicaCount` | `1` | Bump when one replica is saturated handling webhooks (target: <50% CPU on the webhook handler container). |
-| `config.workerCount` | `5` | Number of concurrent reconcile workers per replica. Each worker holds one GitHub installation client. Increase when queue depth stays > 100 for sustained periods. |
-| `store.postgres.maxConns` | `16` | Postgres pool cap per replica. Should be ≥ `workerCount + 4` (workers + sweep + scheduler + reaper); below that the pool starves. |
-| `staleSweep.batchSize` | `200` | Max repos returned per `StaleRepos` query. Higher batches = bigger spike per sweep tick. |
-| `staleSweep.freshness` | `24h` | Max age of `last_checked_at` before re-queue. Lower = more frequent reconciles, higher = less GitHub API consumption. |
-| `config.maxJobAttempts` | `10` | Deliveries a job may accumulate (defers + reaper requeues) before it is dropped with a terminal `repo_state` error. The next stale sweep re-enqueues it. |
-| `queue.valkey.jobAckTimeout` | `5m` | Max time a job may stay in-flight before reaper requeues. Should be > worst-case `engine.CheckRepo` runtime. |
-| `queue.valkey.reaperInterval` | `60s` | Cadence between reaper iterations. Lower = faster recovery on worker death; higher = less Valkey load. |
+| Value | Env var | Default | When to tune |
+| --- | --- | --- | --- |
+| `ingest.replicas` | | `2` | Rarely. Ingest does no I/O beyond starting a workflow. |
+| `evaluator.replicas` | | `1` | Fixed replica count. Ignored when `evaluator.keda.enabled`. |
+| `evaluator.concurrency` | `EVALUATOR_CONCURRENCY` | `10` | Concurrent activities per evaluator pod. Raise only while the GitHub budget has room (see below). |
+| `evaluator.dbPoolSize` | `EVALUATOR_DB_POOL_SIZE` | `0` (pgxpool's default) | Set it to about `evaluator.concurrency` when `store_pool_wait_seconds{role="evaluator"}` shows waits. |
+| `evaluator.resources` | | `{}` (falls back to `resources`) | Per-pod requests and limits. |
+| `remediator.replicas` | | `1` | Fixed replica count. Ignored when `remediator.keda.enabled`. |
+| `remediator.concurrency` | `REMEDIATOR_CONCURRENCY` | `10` | Concurrent remediation activities per pod. |
+| `remediator.dbPoolSize` | `REMEDIATOR_DB_POOL_SIZE` | `0` (concurrency + 4) | Must be at least `remediator.concurrency`, or the remediator refuses to start. |
+| `remediator.resources` | | `{}` (falls back to `resources`) | Per-pod requests and limits. |
+| `api.replicas` | | `2` | Read traffic. Each replica holds up to 8 database connections. |
+| `evalInterval` | `EVAL_INTERVAL` | `24h` | Each repository's evaluation cadence. The main lever on steady-state API cost. |
+| `policyRolloutWindow` | `POLICY_ROLLOUT_WINDOW` | `24h` | How long a policy change is spread over. Shorter = a bigger burst on every policy change. |
+| `discovery.interval` | `DISCOVERY_INTERVAL` | `1h` | Discovery is the safety net behind the webhooks; it costs one repository listing per installation per run. |
+| `remediator.sweepBatch` | `REMEDIATION_SWEEP_BATCH` | `500` | Due remediations one hourly sweep starts. |
+| `remediator.sweepSpacing` | `REMEDIATION_SWEEP_SPACING` | `30s` | Gap between remediations the sweep starts on one installation; keeps a first enablement under GitHub's secondary rate limit. |
+| (via `extraEnv`) | `RATE_LIMIT_THRESHOLD` | `0.10` | Fraction of each installation's limit held back as a reserve. |
 
-## Scaling for repo count
+## Autoscaling with KEDA
 
-Rough rule of thumb: each replica reconciles ~`workerCount × (3600 / avg_check_duration_seconds)` repos per hour. If the average check is 2s and `workerCount=5`, one replica handles ~9000 reconciles per hour.
+`templates/worker-scaledobject.yaml` renders one ScaledObject per
+controls role, each on its own queue's backlog, so the evaluator and the
+remediator scale independently. It needs the KEDA CRDs,
+`topology: split` (in `all` one pod runs every role, so there is
+nothing per-role to scale), and that role's App id.
 
-For a 200-repo organisation reconciling daily, one replica with the defaults is comfortably oversized. You only need horizontal scale when:
+| Value | Default | Meaning |
+| --- | --- | --- |
+| `keda.trigger` | `prometheus` | `prometheus` reads the Temporal server's `approximate_backlog_count`; `temporal` asks the frontend directly and is refused with `temporal.auth.oidc` |
+| `keda.prometheus.serverAddress` | `""` | the Prometheus that scrapes the Temporal server; required with `prometheus` once a role enables KEDA |
+| `keda.prometheus.authenticationRef` | `""` | an operator-owned TriggerAuthentication for that Prometheus |
+| `keda.prometheus.namespaceLabel` | `exported_namespace` | the label holding the Temporal namespace; `namespace` with `honorLabels: true` |
+| `<role>.keda.enabled` | `false` | render the role's ScaledObject; KEDA then owns its replica count |
+| `<role>.keda.minReplicas` | `1` evaluator, `0` remediator | floor; the remediator may scale to zero, since promotion does not need a running remediator |
+| `<role>.keda.maxReplicas` | `4` | ceiling |
+| `<role>.keda.targetQueueSize` | `"50"` | backlog per replica before KEDA scales out |
+| `<role>.keda.fallbackReplicas` | `null` (the role's `replicas`) | replicas held when the trigger fails three polls in a row |
+| `<role>.keda.query` | `""` | override the default query |
 
-- The `repo_guardian_queue_depth{queue="jobs"}` Prometheus metric stays above ~100 for sustained windows.
-- `repo_guardian_check_duration_seconds` p99 climbs past your tick interval × workerCount.
-- Webhook ACK latency starts breaching the 2s SLA (visible as `repo_guardian_errors_total{operation="enqueue"}`).
-
-Scale up: bump `replicaCount` first, `workerCount` second. Splitting work across replicas reduces the blast radius of a single GitHub installation token going stale.
-
-## Scaling for GitHub Enterprise (multi-org, multi-thousand-repo)
-
-The single-org rule of thumb above breaks down once you cross ~10 orgs or ~1000 repos. The binding constraint stops being CPU or queue depth and starts being **GitHub's per-installation API rate limit**. Sizing for this scale is a different exercise.
-
-### What changes at this scale
-
-| Concern | Single-org / small | GHEC multi-org / large |
-|---|---|---|
-| Bottleneck | Worker throughput | Per-installation rate-limit budget |
-| Sweep duration | Seconds to a few minutes | Tens of minutes, intentionally paced |
-| Database load | Negligible either way | Still negligible (state table is tiny) |
-| Connection pooling | Direct Postgres connection fine | Need PgBouncer between binary and Postgres |
-| Replica count | 1 is correct | 2-3 for HA + webhook ingress |
-
-### The rate-limit math
-
-GitHub App installations get **5000 requests/hour** on non-enterprise organisations and **12500 requests/hour** on GitHub Enterprise Cloud organisations. At 25 GHEC orgs × 12500 = 312500 req/hr theoretical aggregate, but sweeps run all installations in parallel and the limit is per-install, not aggregate.
-
-| Math | Value |
-|---|---|
-| Repos in scope | 3000 |
-| Average API calls per repo check | ~10 (4 file checks + branch/PR ops if actionable) |
-| Full sweep API cost | 30000 calls |
-| Per-install per sweep | 30000 / 25 = 1200 calls per installation |
-| Fraction of 12500/hr GHEC budget | ~10% |
-| Fraction of 5000/hr non-GHEC budget | ~24% |
-
-A full cold-start sweep is the worst case. Steady-state is much lighter because the `staleSweep.freshness` gate skips repos checked within the freshness window — most sweep ticks enqueue a small fraction of the inventory.
-
-### Recommended chart values for 3000 repos × 25 GHEC orgs
-
-```yaml
-replicaCount: 3                      # HA + webhook ingress distribution
-
-config:
-  workerCount: 15                    # 15 × 3 = 45 concurrent reconciles
-  scheduleInterval: "12h"            # freshness gate carries the day; sweep can run often
-
-staleSweep:
-  freshness: "24h"
-  batchSize: 500                     # higher = fewer Store round-trips per tick
-
-store:
-  backend: postgres
-  postgres:
-    mode: cnpg
-    maxConns: 10                     # per-replica → 30 total client connections to pooler
-    cnpg:
-      cluster:
-        instances: 3                 # primary + 2 standbys for failover
-      pooler:
-        enabled: true
-        pgbouncer:
-          poolMode: transaction
-          defaultPoolSize: 30        # 30 server connections from pooler to Postgres
-          maxClientConnections: 100  # 30→100 multiplexing ratio
-
-queue:
-  backend: valkey
-  valkey:
-    mode: baked
-    jobAckTimeout: "5m"
-    reaperInterval: "30s"
-
-scheduler:
-  backend: valkey                    # MANDATORY for multi-replica
-```
-
-### Connection-pool math
-
-With the values above:
-
-```
-replicas × maxConns       = 3 × 10  = 30 client connections into PgBouncer
-PgBouncer defaultPoolSize = 30           server connections to Postgres
-Postgres max_connections  = 100          (CNPG default; absorbs pool + admin headroom)
-```
-
-PgBouncer in `transaction` mode multiplexes 30 long-lived client conns onto 30 short-lived server conns. The 100 `max_client_conn` headroom is for transient connection storms during pod restarts; with steady-state 30 clients it's never approached.
-
-If you bump replica count further, the formula is `replicas × maxConns ≤ defaultPoolSize`. Either lower `maxConns` per replica or raise `defaultPoolSize` and Postgres `max_connections` in lockstep.
-
-### Cold-start validation
-
-Before turning on multi-replica for a fleet this size, run a full cold-start sweep on a single replica and watch:
-
-| Metric | Healthy | Action if breached |
-|---|---|---|
-| `repo_guardian_rate_limit_remaining{installation_id="..."}` | Stays above `RATE_LIMIT_THRESHOLD × limit` for every install (sampled once per installation per sweep) | Raise `staleSweep.freshness`, or lower `staleSweep.batchSize` to spread work over more ticks |
-| `repo_guardian_queue_delayed_depth` | Brief blips during cold start, drains to 0 | Sustained depth = the fleet exceeds its API budget; see §Delayed requeue |
-| `repo_guardian_queue_depth` | Drains within a sweep cycle | Raise `config.workerCount` per replica |
-| `repo_guardian_store_query_seconds` p99 | < 100ms | Bump CNPG `instances`, add SSD storage class |
-
-Only once those metrics behave on a single replica should you raise `replicaCount`. Multi-replica adds coordination overhead (Valkey leader election, work distribution) — it doesn't fix a misconfigured single replica.
-
-### When the API rate limit is genuinely the bottleneck
-
-If after tuning you still see `queue_delayed_total{reason="rate_limit"}` climbing on a steady-state sweep, the only real levers are:
-
-1. **Increase `staleSweep.freshness`** — re-check repos less often. 24h → 48h halves steady-state load.
-2. **Disable rules you don't actually need.** Each rule = ~1 API call per repo. Trimming `dependabot` (if you use Renovate exclusively) saves 3000 calls per sweep.
-3. **Go to per-org App credentials.** Each App has its own rate-limit budget. 25 separate Apps = 25 × budget. This is the INV-0006 path — currently Deferred; consider promoting if rate limit is the actual scaling wall.
-4. **Request a rate-limit increase from GitHub.** Possible on Enterprise contracts, less so otherwise.
-
-Infrastructure scaling does not help once the API rate limit is binding. More replicas, more workers, more Postgres — all of them sit idle waiting for the rate-limit window to refresh.
-
-## Sizing for Postgres
-
-Each Store query is a single round-trip; tracked via `repo_guardian_store_query_seconds`. Watch the p95 — anything above 100ms means the database is the bottleneck and you should look at:
-
-- Storage class (use SSD for the baked StatefulSet).
-- `maxConns` (should be ≥ `workerCount + 4`).
-- Index health (`pg_stat_user_indexes` on `repo_state`).
-- CNPG instance count if running in `mode=cnpg` (default 1; bump to 3 for HA).
-
-### Write-back observability (IMPL-0015 Phase 0)
-
-Worker write-backs are tracked separately from generic Store queries:
-
-| Metric | Meaning | Healthy signal |
-|---|---|---|
-| `repo_guardian_store_writeback_total{outcome="ok"}` | Worker finished a job and persisted its outcome. Rises 1:1 with `repo_guardian_repos_checked_total` modulo write-back errors. | Lock-step with `repos_checked_total`. |
-| `repo_guardian_store_writeback_total{outcome="error"}` | Worker finished a job but `UpdateRepoState` failed. The work was real (PR opened/updated, files committed) but persistent state did not converge; the stale-sweeper will re-enqueue. | Zero in steady state; transient spikes during DB rolls. |
-| `repo_guardian_store_writeback_duration_seconds` | Latency of `UpdateRepoState` from the worker pool. | p99 < 50ms. Bumps in this metric — but flat `store_query_seconds` — point at write-contention or a missing index, not a generic DB problem. |
-
-## Discoverer (IMPL-0015 Phase 1)
-
-The Discoverer runs on the leader pod at `DISCOVERY_INTERVAL` (default 1h), enumerates installations + repos via the GitHub API, and persists discovery rows via `Store.UpsertIfMissing`. Newly-discovered rows enter `repo_state` with `LastCheckStatus=pending` and a jittered `LastCheckedAt` so the stale-sweeper picks them up on its next tick without synchronizing every repo's due-time.
-
-Discovery is not throttle-gated. It costs one `list_installation_repos` call per installation per interval, and any real rate-limit pressure surfaces on the *check* jobs, which defer themselves (see §Delayed requeue). The IMPL-0015 BudgetTracker that used to gate it was removed in IMPL-0022 Phase 6 — it never gated anything in production (INV-0012 finding A: nothing called `RefreshFromAPI` outside tests, so every lookup fell open).
-
-### Discovery metrics
-
-| Metric | Meaning | Healthy signal |
-|---|---|---|
-| `repo_guardian_repo_discovered_total{installation_id}` | New repos surfaced by the Discoverer per installation. | Bumps on first discovery; flat thereafter (idempotent UpsertIfMissing). |
-| `repo_guardian_discovery_duration_seconds` | Wall-clock per `Discoverer.Discover` invocation. | Scales with installations × repos; p99 should fit comfortably inside `DISCOVERY_INTERVAL`. |
-| `repo_guardian_discovery_api_calls_total{installation_id, endpoint}` | GitHub API calls the Discoverer made. | Steady rate; `endpoint="list_installation_repos"` is the dominant contributor. |
-
-### Tuning
-
-- `discovery.interval` (default 1h) — primary discovery channel is webhooks (`installation_repositories.added` / `repository.created`); the Discoverer is the safety net for missed deliveries. Operators confident in webhook fidelity can stretch this to 6h+.
-
-## Repository parking (INV-0015)
-
-A repository whose check can never succeed is *parked*: its `repo_state` row gets `active = false` and the stale sweep stops offering it. The row is kept, never deleted, so the history stays queryable. Three reasons park:
-
-| `reason` | Trigger | Expected volume |
-|---|---|---|
-| `access_denied` | Check failed 403/404 — the App was uninstalled from the repository, lost a permission, or the repository was deleted. | A trickle in a large org; a step change means access changed. |
-| `archived` | `skip_archived` is on and the repository is archived. | Grows slowly and monotonically in any long-lived org. |
-| `fork` | `skip_forks` is on and the repository is a fork. | Same. |
-
-Parking is the reason a large org's sweep cost tracks *active* repositories rather than total ones. Before it, each of the three burned budget forever, in two different shapes:
-
-- an **unreadable** repository took the generic error path — nack, requeue, `Attempts++` to `MAX_JOB_ATTEMPTS` — and the next sweep handed it straight back, burning the full attempt budget every cycle with failures indistinguishable from a transient 500;
-- an **archived or forked** repository was cheaper but equally endless: enqueue, installation client, `GetRepository`, skip, write-back, and round again every freshness cycle for as long as the repository existed.
-
-### Only discovery un-parks
-
-Discovery is the one component that observes the installation's real repository set, so restored access or an un-archived repository rejoins the sweep on the next discovery pass with **no operator action**. Reactivation deliberately leaves `last_checked_at` and `policy_version` alone; overwriting them would reset the freshness gate and re-check the whole fleet on every discovery pass.
-
-This means parking is self-healing but lags by up to one `discovery.interval` (default 1h). It also means the alert below is informational: it tells you access changed, not that you must do something.
-
-### Metric
-
-| Metric | Meaning | Healthy signal |
-|---|---|---|
-| `repo_guardian_repos_parked_total{org, installation_id, reason}` | Repositories removed from the stale sweep, by reason. | `archived`/`fork` climb slowly and plateau. `access_denied` is flat or a slow trickle. |
+The default query, for the evaluator in the Temporal namespace
+`repo-guardian`:
 
 ```promql
-# Which reason is moving — archived/fork are routine, access_denied is not
-sum by (reason) (increase(repo_guardian_repos_parked_total[24h]))
+sum(max by (partition, task_type, task_priority, worker_build_id) (
+  approximate_backlog_count{exported_namespace="repo_guardian", taskqueue="repo_guardian_eval"}
+))
 ```
 
-Only `reason="access_denied"` is alerted (`RepoGuardianRepoAccessDenied`). Archived and fork parks are routine bookkeeping and would page on every normal onboarding sweep.
+Temporal sanitises label values, so `-` becomes `_` in both the
+namespace and the queue (`repo_guardian_remediate` for the
+remediator). The `max by` is required: there is no aggregate series, and
+each partition, task type, priority and build id is its own.
 
-To see what is currently parked and why:
+**Size `maxReplicas` to the GitHub budget, not the backlog.**
+Evaluations are rate-limit bound. Once the installations' budgets are
+spent, an extra pod only parks more timers. A policy rollout makes a
+large backlog by design and drains it across `policyRolloutWindow`.
+
+## Postgres pool sizing
+
+Each controls pod opens one pool with its own role's DSN
+(`STORE_DSN_EVALUATOR` or `STORE_DSN_REMEDIATOR`, falling back to
+`STORE_DSN`).
+
+- **Evaluator.** `evaluator.dbPoolSize: 0` keeps pgxpool's default,
+  the larger of 4 and the pod's CPU count. With `concurrency: 10` on a
+  small pod that can be fewer connections than activities. Watch
+  `store_pool_wait_seconds{role="evaluator"}` and set `dbPoolSize` to
+  about `concurrency` if it shows waits.
+- **Remediator.** Every running remediation holds one connection for
+  its row lock for the life of the run, and its journal writes take a
+  second, short one. So the pool must be at least the concurrency:
+  `remediator.dbPoolSize: 0` means `concurrency + 4`, and a smaller
+  explicit value fails at startup with
+  `REMEDIATOR_DB_POOL_SIZE (N) is smaller than REMEDIATOR_CONCURRENCY (M): every running remediation holds a connection`.
+- **API.** A fixed 8-connection read-only pool per replica.
+
+### Connection math
+
+The ceiling the database (or RDS Proxy) must absorb:
+
+```text
+  evaluator pods  × evaluator pool
++ remediator pods × remediator pool
++ api replicas    × 8
++ 1               (the migrate Job, during a release)
+```
+
+Use KEDA's `maxReplicas` for the pod counts, not the current ones. For
+example, 4 evaluators × 12 + 2 remediators × 14 + 2 api × 8 + 1 = 93
+connections. Behind PgBouncer (`store.postgres.cnpg.pooler`) or RDS
+Proxy, size the pooler's client limit to that and its server pool to
+what Postgres's `max_connections` leaves after admin headroom.
+
+## The GitHub rate budget
+
+At more than a handful of organisations the binding constraint is
+GitHub's per-installation rate limit. A GitHub App installation gets
+5,000 requests an hour, more with repository and user count up to
+12,500, and 15,000 on GitHub Enterprise Cloud organisations. Each
+installation's limit is its own; there is no aggregate.
+
+repo-guardian keeps one budget workflow per App per installation,
+`installation/eval/<installation id>` and
+`installation/remediate/<installation id>`, so the Evaluation App and
+the Remediation App never spend each other's budget. Before every
+evaluation or remediation the activity asks that workflow for a lease:
+
+- The cost of a lease is a moving average of what recent runs actually
+  spent, seeded at 20 calls.
+- A lease is granted when `remaining − reserved − reserve ≥ cost`. The
+  reserve is `limit × RATE_LIMIT_THRESHOLD` (10% by default), **halved**
+  for webhook-triggered and human-requested work (priority 1 and 2), so
+  when the budget is scarce the checks someone is waiting on go first.
+- Before the first report of a window, the budget is unknown and the
+  lease is granted optimistically.
+- A refused lease returns a time: the installation's reset plus up to
+  60 seconds of spread. The evaluation waits on a durable Temporal
+  timer and retries under the same check key. It holds no worker slot
+  while it waits, and nothing is recorded.
+- A suspended installation is held, rechecked hourly, until it is
+  unsuspended.
+
+### The math
+
+Steady-state cost per installation per hour is roughly:
+
+```text
+(repositories in the installation ÷ evalInterval in hours) × calls per evaluation
+```
+
+Calls per evaluation depend on the controls assigned; the budget
+workflow learns it per installation, and
+`http_client_request_duration_seconds_count` shows it. As an example
+only, at 20 calls per evaluation and `evalInterval: 24h`, a 1,200-repo
+installation spends about 1,000 calls an hour, under 7% of a 15,000/hour
+GitHub Enterprise Cloud budget. Pushes and pull-request events add
+targeted evaluations on top. A policy rollout re-evaluates every
+managed repository across `policyRolloutWindow`, so a 24h window costs
+about one extra day of steady state.
+
+### Signals
+
+| Metric | Meaning | Healthy |
+| --- | --- | --- |
+| `repo_guardian_rate_limit_remaining{installation_id}` | GitHub's remaining budget, set from the response headers by every evaluation | stays above the reserve; `RepoGuardianRateLimitNearExhaustion` fires below 200 |
+| `repo_guardian_budget_acquire_total{result}` | lease requests: `granted`, `optimistic`, `wait` | `wait` is occasional; a steady `wait` rate means the fleet asks for more than the budget gives |
+| `repo_guardian_evaluation_freshness_seconds{org}` | age of the previous result when a control is re-evaluated | close to `evalInterval`; `RepoGuardianEvaluationFreshness` watches it |
+| `temporal_activity_schedule_to_start_latency_seconds` | how long activities wait for a worker slot | `RepoGuardianTemporalActivityBacklog` fires at a p99 over a minute |
+
+### When the budget is the bottleneck
+
+If evaluations fall behind `evalInterval` while `budget_acquire_total`
+shows steady `wait`s, infrastructure does not help: more replicas or
+more concurrency only wait for the same reset. The levers are:
+
+1. **Lengthen `evalInterval`.** 24h to 48h halves steady-state cost.
+   Webhooks still evaluate a repository when a push touches a path a
+   control owns or reads.
+2. **Assign fewer controls.** Each assigned control adds its reads to
+   every evaluation of the repositories it applies to.
+3. **Lengthen `policyRolloutWindow`** if the burst after a policy change
+   is what runs the budget out.
+4. **Ask GitHub for a higher limit,** possible on some Enterprise
+   contracts.
+
+Separate App registrations per organisation would give each its own
+budget; that was investigated and deferred
+([INV-0006](../investigation/0006-per-org-github-app-credentials.md)).
+
+<a id="delayed-requeue-impl-0022"></a>
+
+> [!NOTE]
+> The 1.x delayed-requeue queue was removed in v2. A throttled
+> evaluation or remediation now waits on the budget workflow's reset
+> time as a Temporal timer, as described above.
+
+## Remediation throughput
+
+Remediation is limited by GitHub's **secondary** rate limit on
+content-creating requests (about 500 an hour), not only the primary
+one. A pull request costs about four (branch, commit, pull request,
+labels). The hourly `remediation-sweep` starts up to
+`remediator.sweepBatch` due remediations, `remediator.sweepSpacing`
+apart per installation: at the default 30s, about 120 per installation
+per hour. The rest stay due for the next sweep. Raise `sweepSpacing` if
+other tools share the Remediation App's limit; do not lower it on a
+first enablement, when every non-compliant repository becomes due at
+once.
+
+| Metric | Meaning |
+| --- | --- |
+| `repo_guardian_remediation_runs_total{org,control,result}` | remediation runs and lifecycle closes |
+| `repo_guardian_remediation_prs_open{org,control,age_bucket}` | open remediation pull requests (exported by the api; query with `max by`) |
+| `repo_guardian_remediation_holds{org,reason,age_bucket}` | results held from remediation (exported by the api; query with `max by`) |
+| `repo_guardian_remediation_blocked_total{org,reason}` | remediations blocked; `RepoGuardianRemediationBlocked` |
+| `repo_guardian_remediation_reservations_expired_total{org}` | pull-request reservations freed by maintenance |
+| `repo_guardian_remediation_cleanup_latency_seconds{org}` | withdrawal or compliance to the closing write |
+
+## Repository parking
+
+A repository whose evaluation can never succeed, or that no control can
+apply to, is *parked*: its `repositories` row gets `active = false` and
+a `park_reason`, and its evaluation workflow ends. The row and its
+history are kept. Parking is why fleet cost tracks managed repositories
+rather than every repository the App can see.
+
+| `park_reason` | Trigger | Results |
+| --- | --- | --- |
+| `archived`, `fork` | the repository is archived or a fork | cleared: nothing applies |
+| `removed` | the repository was deleted or removed from the installation | cleared |
+| `installation_removed` | the Evaluation App was uninstalled | cleared |
+| `access_denied` | the App could not read it | kept: nothing was learned |
+
+Only discovery un-parks, because only discovery sees the installation's
+real repository set. A push to a parked repository leaves it parked.
+Un-parking therefore lags by up to one `discovery.interval`.
+
+To see what is parked and why:
 
 ```sql
-SELECT owner, repo, last_check_status, last_error
-FROM repo_state
+SELECT org, name, park_reason, parked_at, last_error
+FROM repositories
 WHERE NOT active
-ORDER BY owner, repo;
+ORDER BY org, name;
 ```
 
-`last_check_status` separates the kinds — `error` with the API failure in `last_error` for access-denied, `skipped` with the bare reason for archived and fork.
+## Compliance posture
 
-### Why empty repositories are not parked
+<a id="compliance-posture-impl-0023-phases-12"></a>
 
-Parking is stable only when the check path's skip conditions are a **subset** of discovery's filters. Discovery filters archived and fork repositories, so a repository parked for either reason is not offered back and it settles.
+Compliance is **state** read back from Postgres, not counters
+incremented at check time. A counter cannot answer "how many
+repositories fail CODEOWNERS right now": it only grows, counts a
+repository checked twice twice, and resets on restart.
 
-An *empty* repository (no default branch yet) is skipped by the engine too, but discovery does **not** filter it. Parking it would have discovery re-upsert the row on its very next pass, flipping `active` back to `true`, and the two would churn against each other at the discovery interval forever — turning a cheap no-op into an hourly write. So empty repositories are skipped the old way and freshness governs the next check, which is also right on the merits: a repository stops being empty on its first push, and that push is a webhook away.
+```text
+evaluator records a result
+  └─> control_results  (Postgres, one row per repository × control)
+        └─> PostureExporter.Export  (every api replica, every 60s)
+              └─> controls_status{org,control,bucket} / controls_coverage{org,control}
+                  remediation_prs_open{org,control,age_bucket} / remediation_holds{org,reason,age_bucket}
+                    └─> the E1 and E2 dashboards
+```
 
-If you add a skip condition to the engine, check `Discoverer.discoverInstallation` before marking it durable. The invariant is restated on `checker.SkippedError`.
+| Metric | Meaning |
+| --- | --- |
+| `repo_guardian_controls_status{org,control,bucket}` | repositories per control in each bucket: `compliant`, `non_compliant`, `pending`, `stale`, `unmeasurable`, `not_applicable`, `unknown` |
+| `repo_guardian_controls_coverage{org,control}` | repositories the control is actively assigned to |
+| `repo_guardian_remediation_prs_open{org,control,age_bucket}` | open remediation pull requests by age |
+| `repo_guardian_remediation_holds{org,reason,age_bucket}` | held results by hold reason and age |
 
-## Delayed requeue (IMPL-0022)
+The exporter runs in the api role, so the posture gauges exist only
+where an api runs: `api.enabled` in `split`, always in `all`.
+`posture.snapshotInterval` (`COMPLIANCE_SNAPSHOT_INTERVAL`, `24h`) is a
+different thing: the cadence of the `compliance_history` rows that
+`repo-guardian report --since` reads, kept permanently.
 
-When a job's GitHub calls run into the rate-limit reserve (pre-emptive threshold) or a hard 403, the worker no longer sleeps in the transport — it defers the whole job into a Valkey delayed set with a due-time at the rate-limit reset (plus jitter), freeing the worker slot immediately. The reaper leader promotes due jobs back onto the pending list each `REAPER_INTERVAL` tick, so delivery lags due-time by up to one interval (default 60s). A job that keeps failing re-defers with exponential backoff and is dropped with a terminal `repo_state` error at `MAX_JOB_ATTEMPTS` (default 10); the stale sweep re-enqueues it naturally on its next pass.
+### Every api replica publishes
 
-### Metrics
+Every api replica reads the same rows and publishes the same gauges. Two
+consequences bite if you do not know them:
 
-| Metric | Type | Meaning | Healthy | Backpressured |
-|---|---|---|---|---|
-| `queue_delayed_depth` | Gauge | Jobs parked in the delayed set, published by **every** pod's reaper tick. | 0, with brief single-digit blips after a sweep lands near the reserve. | Sustained > 100 — deferrals outpace promotion; the fleet's check volume exceeds the API budget. Drives `RepoGuardianQueueBackpressure`. |
-| `queue_delayed_total{reason, installation_id}` | Counter | Deferral events per job. The single source for throttle counting (replaced the `github_rate_limit_waits` pair). | Flat, or isolated small bursts. | Recurring hourly batches from one `installation_id` — that tenant is rate-limit-bound. Drives the re-pointed `RepoGuardianRateLimitThrottling`. |
-| `queue_delay_seconds{reason}` | Histogram | Deferral horizon (due-time minus now) at defer time. | Mass in the ≤ 3600s buckets (a reset window is at most an hour). | p99 pinned at the 1800s backoff cap means resets are stale/absent and jobs are backing off blind — check `AsThrottled` reset propagation. |
-| `queue_wait_seconds{installation_id}` | Histogram | Enqueue-to-claim latency — the DESIGN-0015 go/no-go datum for per-installation queue partitioning. Parked time counts deliberately: the tenant experienced it as wait. | p99 under a few seconds in steady state. | One installation's p99 in the 3600s+ buckets while others stay low = noisy-neighbor starvation, the DESIGN-0015 partition trigger. |
-| `queue_attempts_exhausted_total{installation_id}` | Counter | Jobs dropped at `MAX_JOB_ATTEMPTS` with a terminal `StatusError` write-back. | Zero. | Any sustained rate = a persistently failing installation (dead credentials, suspended App). Drives `RepoGuardianJobsExhausted`. |
-| `queue_acked_total{outcome="deferred"}` | Counter | Third ack outcome: the job was parked, not completed or failed. | Matches `queue_delayed_total` 1:1. | — |
+1. **Aggregate with `max by (...)`, never `sum`.** `sum` over replicas
+   multiplies the fleet by the replica count. A replica that stopped
+   exporting keeps serving its last values until it restarts, and `max`
+   is still correct then. The generated dashboards do this, and
+   `TestSuite_PostureQueriesDedupeAcrossReplicas` requires every posture
+   series to sit directly inside a `max by`. Hand-written panels are on
+   their own.
 
-**Expect `queue_wait_seconds` top-bucket skew during fleet onboarding and policy-version bumps.** Both events mark the whole fleet due at once; the queue drains over hours by design (that is the backpressure working), so every job claimed late in the drain reports a large wait. Don't read a fat 4h bucket during a rollout as noisy-neighbor starvation — compare installations *against each other* in steady state instead.
-
-### Reading the go/no-go datum
-
-DESIGN-0015 asks whether per-installation queue partitioning is needed. The measurement:
+2. **`sum(max by (org, control) (...))` for a fleet total, in that
+   order.** The inner aggregation collapses replicas; the outer adds
+   orgs and controls. Reversed, it reports the largest org rather than
+   the fleet, and the number looks plausible.
 
 ```promql
-# Per-installation p99 wait — divergence between tenants, not absolute value, is the signal
-histogram_quantile(0.99,
-  sum by (installation_id, le) (rate(repo_guardian_queue_wait_seconds_bucket[6h])))
+# Non-compliant repositories across the fleet.
+sum(max by (org, control, bucket) (repo_guardian_controls_status{bucket="non_compliant"}))
+
+# Results held on a conflict for more than a week.
+sum(max by (org, reason, age_bucket) (
+  repo_guardian_remediation_holds{reason="conflict", age_bucket=~"7-30d|30d\\+"}
+))
 ```
 
-If one installation's p99 sits orders above the rest in steady state (not during onboarding), partitioning has its evidence.
+The export reads the whole aggregate **before** resetting the gauges.
+Reset-then-read would blank every series for the length of the query,
+and a scrape in that window reads as a vanished fleet. On a read
+failure the previous values stay, and the api logs
+`controls posture export failed; keeping the previous values`.
 
-## Custom-property schema preflight (IMPL-0017 Phase 3)
+### Compliance is "no data" when nothing is measured
 
-The `custom_properties` reconciler (API mode) checks every managed property
-name — `{Owner, Component}` ∪ the operator's `annotation_properties` targets
-— against the org's actual custom-property schema before PATCHing. A
-property the schema doesn't define is dropped from the payload (the rest
-still syncs in the same PATCH), warned about, and counted. The schema lookup
-is cached per org for 30 minutes and de-duplicated across concurrent
-worker-pool calls for the same org, so a fleet sweep costs at most one
-`GetOrgPropertySchema` API call per org per window regardless of how many
-repos in that org are processed concurrently.
+The dashboards, the API and `repo-guardian report` refuse to divide by
+zero and refuse to call the result 100%. The dashboard compliance query
+filters its denominator (`compliant + non_compliant`) to `> 0` and adds
+`and on (...) (controls_coverage > 0)`, so a control with nothing
+measured or nothing assigned renders "no data". The API and report
+return a null percentage for the same case (`store.CompliantPercent`).
 
-### Metric
+<a id="custom-property-schema-preflight-impl-0017-phase-3"></a>
 
-| Metric | Meaning | Healthy signal |
-|---|---|---|
-| `repo_guardian_custom_property_missing_schema_total{org, property}` | Sync attempts for a managed property absent from the org's custom-property schema. | Zero in steady state. Non-zero means either the org schema is missing a property definition the policy expects, or `annotation_properties` maps to a stale/renamed property. |
+> [!NOTE]
+> The 1.x custom-property schema preflight, its log line and its
+> counter were removed in v2. The `custom_properties` control reads the
+> organisation's property schema itself: a property the schema does not
+> define is withheld from the write and reported in the control's
+> result, with "define the property in the org's custom property
+> schema" as the fix. See
+> [`custom_properties`](../usage/controls-reference.md#custom_properties).
 
-Cardinality is bounded by the operator's `annotation_properties` config
-(single digits per org), so this is safe to alert on directly without a
-`sum()` — see below.
+## OpenTelemetry series
 
-### Loki matching contract
-
-When the schema fetch succeeds but one or more managed properties are
-undefined, the reconciler emits exactly this log line (locked by
-`TestAPIMode_FiltersUndefinedMappedProperty` in
-`internal/reconciler/custom_properties_test.go` — a Go test asserts the
-literal text and keys so this contract can't drift silently):
-
-```
-level=WARN msg="custom properties missing from org schema" org=<org> repo=<repo> missing_properties=[<Name1> <Name2> ...]
-```
-
-- **Message text** (match on this, not just the level): `custom properties missing from org schema`
-- **Structured keys:** `org` (string), `repo` (string), `missing_properties` (list of property names present in the sync attempt but absent from the org schema)
-
-Sample LogQL alerting rule (Loki ruler), grouped by org so each org's
-missing-schema streak pages independently. Note the lookback window is
-longer than `for`, for the same reason as the metric alert below — a
-window shorter than the pending period resets it before it can elapse,
-so the alert never fires (INV-0011 A7):
-
-```yaml
-groups:
-  - name: repo-guardian-schema-preflight
-    rules:
-      - alert: RepoGuardianPropertySchemaMissingLogs
-        expr: |
-          sum by (org) (
-            count_over_time({app="repo-guardian"} |= "custom properties missing from org schema" [1h])
-          ) > 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "repo-guardian: org {{ $labels.org }} has custom properties missing from its schema"
-```
-
-**Window sizing vs. reconcile freshness.** A schema mismatch is observed
-once per repo per *reconcile*, and `RECONCILE_FRESHNESS` defaults to
-`24h` — so an affected repo contributes roughly one sample per day, not a
-continuous stream. Two consequences:
-
-- The window has to be much longer than the sampling gap for the alert to
-  be reachable at all. The pre-IMPL-0021 pairing
-  (`rate(...[15m])` with `for: 30m`) could never fire under any freshness
-  setting, because a 15-minute window drops back to zero long before a
-  30-minute pending period elapses.
-- With the corrected `[1h]` window the alert fires within `for: 5m` of a
-  mismatch and then **resolves about an hour later**, re-firing on the
-  next sweep that sees it. That sawtooth is expected. If you would rather
-  it stay firing continuously until fixed, widen the window past your
-  freshness setting (e.g. `increase(...[25h])` for the default `24h`)
-  via `prometheusRule.alerts.PropertySchemaMissing`.
-
-The fail-open path (schema fetch itself errors — 403, 5xx, timeout) is a
-separate, distinct log line and is intentionally rarer (once per org per
-30-minute TTL window, not once per repo):
-
-```
-level=WARN msg="fetching org custom property schema failed; sending unfiltered properties" org=<org> error="<err>"
-```
-
-If the App is missing the org-level **Custom properties: read** permission,
-every affected org will show exactly this line, once per TTL window, with
-the unfiltered payload still syncing (no properties silently dropped due to
-a permissions gap — see `docs/usage/policy-reference.md` §Custom Property
-Schema Preflight).
-
-The Prometheus-side starter alert for the metric (`RepoGuardianPropertySchemaMissing`)
-lives in `charts/repo-guardian/templates/prometheusrule.yaml`; both signals
-key off the same `org` value, so a Loki log line and a Prometheus alert for
-the same incident always agree on which org to investigate.
-
-## Compliance posture (IMPL-0023 Phases 1–2)
-
-"How many repositories are missing CODEOWNERS right now" used to be
-answered by a counter, and a counter cannot answer it. It only grows: a
-repository fixed yesterday still shows in `increase(...[7d])` today, a
-repository checked twice counts twice, and one the sweep has not
-reached counts zero. Restarts made that obviously wrong instead of
-subtly wrong, which is why the complaint arrived as "the counts clear
-on restart" rather than "the counts are meaningless" (INV-0013 Finding
-B).
-
-Posture is now **state**, and it flows one way:
-
-```
-worker checks a repo
-  └─> UpsertRuleStates  (Postgres: rule_state, one row per repo × rule)
-        └─> PostureExporter.Export  (leader only, every POSTURE_EXPORT_INTERVAL)
-              └─> repos_actionable{rule_name,org} / repos_tracked{org} / repos_unmeasurable{org,reason}
-                    └─> E1 and E2 panels, and the compliance % in `repo-guardian report`
-```
-
-| Knob | Default | What it changes |
-|---|---|---|
-| `POSTURE_EXPORT_INTERVAL` | `60s` | How stale the gauges may be. This is *publication* cadence, not measurement — the underlying rows change only when a repository is re-checked, so shortening it below the sweep interval buys nothing. |
-| `COMPLIANCE_SNAPSHOT_INTERVAL` | `24h` | How finely compliance history is recorded for `repo-guardian report`. Roughly 120 rows/day at target scale, kept forever; there is no retention machinery, so shortening it accrues storage indefinitely for resolution no report asks for. |
-
-### The exporter runs on the leader only
-
-`Export` is registered under the same SETNX leader election as
-stale-sweep. Not because it writes anything — it only reads — but
-because a gauge is a claim about the fleet, and the fleet has one
-answer. Every replica publishing its own copy would make the number
-depend on how many replicas you happen to run.
-
-**Two consequences that bite if you do not know them:**
-
-1. **Aggregate with `max by (...)`, never `sum`.** A demoted replica
-   keeps serving whatever it last published until its process restarts,
-   and during a failover both the outgoing and incoming leaders can
-   hold series at once. `max` is correct in both states; `sum`
-   double-counts through every leader change — silently, and in the
-   direction that makes compliance look worse than it is. The generated
-   dashboards do this correctly and
-   `TestSuite_PostureQueriesDedupeAcrossReplicas` keeps them that way;
-   hand-written panels are on their own.
-
-2. **`sum(max by (org) (...))` for a fleet total, in that order.** The
-   inner aggregation collapses replicas, the outer adds up orgs.
-   Reversing them gives you the largest org rather than the fleet, and
-   the number looks entirely plausible.
-
-The export reads the whole aggregate BEFORE resetting the gauges. A
-reset-then-read would blank every series for the duration of the query,
-so a scrape landing in that window sees zero repositories tracked —
-indistinguishable from a fleet that vanished, and on a 60s tick against
-a slow query that is not a rare interleaving. On a read failure the
-previous values persist rather than going to zero: for a gauge, last
-known truth beats a confident zero.
-
-### Watch the exporter itself
-
-The posture gauges cannot report the one failure that matters most
-about them — that they have stopped being updated. A frozen exporter
-serves last week's compliance with total confidence.
-
-```promql
-# Should be non-zero whenever a leader exists.
-sum(rate(repo_guardian_posture_export_total{outcome="success"}[15m]))
-
-# The store read behind every number on E1.
-histogram_quantile(0.99,
-  sum by (le) (rate(repo_guardian_posture_export_duration_seconds_bucket[1h])))
-```
-
-`RepoGuardianPostureExportStalled` is the shipped alert for the first
-one. If it fires, treat every compliance number as unknown rather than
-as its last value.
-
-### Compliance is "no data" when nothing is tracked
-
-Both the report and the dashboards refuse to divide by zero and refuse
-to call the result 100%. A fleet with no tracked repositories has no
-compliance percentage — it has an absent measurement, and rendering
-that as full marks is how a dead exporter reports a perfect fleet. The
-dashboard expresses it as `and on() (tracked > 0)`, mirroring
-`report.CompliantPercent` returning `(0, false)`.
-
-## OpenTelemetry series (IMPL-0023 Phase 3)
-
-Four transport boundaries carry off-the-shelf OTel instrumentation, and
-all of it exports through the Prometheus bridge into the **same registry
-`/metrics` already serves**. There is no collector, no second scrape
-target, and no scrape-config change. `OTEL_SDK_DISABLED=true` turns it
-all off; an unparseable value warns and leaves telemetry on.
+Off-the-shelf OTel instrumentation on the transport boundaries exports
+through the Prometheus bridge into the **same registry `/metrics`
+already serves**. There is no collector and no second scrape target.
+`OTEL_SDK_DISABLED=true` turns it all off.
 
 | Boundary | Package | Series |
 |---|---|---|
-| Inbound HTTP (webhook route only) | `otelhttp` | `http_server_request_duration_seconds`, `http_server_request_body_size_bytes`, `http_server_response_body_size_bytes` |
-| GitHub client | `otelhttp` | `http_client_request_duration_seconds`, `http_client_request_body_size_bytes` |
-| Valkey (queue + scheduler, one shared client) | `redisotel` | `db_client_connections_*`, `redis_dial_*` |
+| Inbound HTTP (ingest's webhook routes, the api) | `otelhttp` | `http_server_request_duration_seconds`, `http_server_request_body_size_bytes`, `http_server_response_body_size_bytes` |
+| GitHub client (REST and GraphQL) | `otelhttp` | `http_client_request_duration_seconds`, `http_client_request_body_size_bytes` |
 | Postgres | `otelpgx` | `db_client_operation_duration_seconds`, `db_client_operation_errors_total`, `pgxpool_*` |
+| Temporal SDK | `go.temporal.io/sdk/contrib/opentelemetry` | `temporal_*` (activity and workflow-task latency, slots, pollers) |
 
-Three things about this table are counter-intuitive enough to be worth
-stating outright.
+Things worth knowing:
 
-**Pool stats are `pgxpool_*`, not `db_client_connection_*`.** otelpgx
-publishes the pgx-native names for pool statistics, so a panel written
-against the semconv connection family matches nothing. It is the only
-pool-stats source that ships — otelpgx's `RecordStats` reads
-`pgxpool.Stat()` directly, so no hand-rolled collector was added.
-
-**Only the webhook route is instrumented inbound.** `/healthz`,
-`/readyz` and `/metrics` are not. Instrumenting kubelet probes and
-Prometheus scraping themselves would produce constant traffic answering
-no question anyone asks, and bury the webhook signal beside it.
-
-**The client histogram under-counts GitHub calls under rate-limit
-pressure.** go-github v68 has its own client-side pre-check that
-short-circuits inside `BareDo`, above the `http.Client` entirely, once
-its response-header cache has seen `remaining=0`. Those calls never
-reach any transport and so are never measured, at any wrapping
-position. Reading `http_client_request_duration_seconds_count` as
-"GitHub API calls attempted" is therefore wrong exactly when the system
-is throttled. Use `queue_delayed_total{reason="rate_limit"}` for
-throttle volume — it is the deliberate source for that question.
-
-### The dedup rule
-
-Domain metrics and semconv metrics overlap on purpose, and they are not
-interchangeable. **Every panel picks exactly one source. No panel mixes
-a `repo_guardian_*` series with a semconv series for the same signal.**
-
-The split is by what each can see:
-
-- `store_query_seconds{op}` knows the difference between `StaleRepos`
-  and `UpsertIfMissing`. The semconv database metrics see only SQL
-  verbs. So the domain metric stays authoritative for *which* store
-  operation is slow.
-- The semconv metrics separate pool-acquire wait from execution time,
-  which the domain metric — timed around the whole store method —
-  cannot. So semconv is authoritative for *why* it is slow.
-
-The same applies to HTTP: `webhook_received_total{event_type}` knows
-what kind of event arrived; `http_server_request_duration_seconds` knows
-the status and the latency. Neither can answer the other's question.
-
-### Cardinality
-
-Two label sources were closed deliberately, and both would have been
-remotely triggerable or self-inflicted rather than merely noisy.
-
-- **`server.address` / `server.port` are pinned** via
-  `otelhttp.WithServerName`. Left at their defaults they derive from the
-  request `Host` header, which is client-controlled on an endpoint
-  reachable from the internet — a caller sending a distinct spoofed Host
-  per request would mint a series per value across three histograms.
-- **Scope labels are dropped** via `WithoutScopeInfo`.
-  `otel_scope_version` carries the *instrumentation library's* version,
-  so every dependency bump of otelhttp/redisotel/otelpgx would change a
-  label value on every series that library emits: the old series goes
-  stale, the new one starts at zero, and `rate()` across the deploy sees
-  a counter reset. Safe to drop because the four instrumentations emit
-  disjoint metric names, so the name already identifies the producer.
-
-`url.path` is absent by default — server metrics key on `http.route`,
-taken from the ServeMux pattern — and the name-translation strategy is
-pinned explicitly rather than inherited, because the exporter documents
-its default as subject to change and a flip would strip the
-`_total`/`_seconds` suffixes from every series at once.
-
-A registry note that matters more than it looks: the bridge registers
-as an **unchecked collector**, so a metric-name collision between a
-semconv series and a `repo_guardian_*` one raises no error and no panic
-at registration. It surfaces at scrape time, where a single bad series
-returns HTTP 500 for the **entire endpoint** — every metric, not just
-the offender. The `repo_guardian_` prefix makes a collision unlikely;
-the coexistence test asserts `Gather()` is clean so it stays that way.
-
-## Sizing for Valkey
-
-Valkey is small. The queue + in-flight ZSET + reaper lock fit in single-digit MB even for tens of thousands of jobs. The `queue.valkey.baked` 1Gi PVC is conservative; you'll never fill it.
-
-The bottleneck is BRPOP throughput, not memory. Run `redis-cli -a $VALKEY_PASSWORD INFO commandstats | grep brpop` to inspect; usually p99 is < 1ms.
-
-## Multi-replica gotchas
-
-- **One sweeper, not two (IMPL-0015 Phase 0).** The legacy `sweep` schedule (full-fleet enumeration via the GitHub API) was deleted in `1.0.0-rc.2`. Only the `stale-sweep` schedule runs — it queries the persistent `repo_state` table for rows whose `last_checked_at` is older than `freshness` (or whose `policy_version` differs from the current one) and enqueues those. Behavioural consequence: a brand-new install with no `repo_state` rows produces an empty first sweep. Newly-discovered repos enter `repo_state` via webhook handlers (`installation_repositories.added`, `repository.created`) calling `UpsertIfMissing` with a jittered `LastCheckedAt`; the next sweep tick picks them up once the jitter window elapses.
-- **Backends are Postgres + Valkey only (IMPL-0016).** The in-memory store/queue and the in-process ticker scheduler were removed in chart 1.0. There's no single-replica fallback — every deployment needs Postgres + Valkey backing services. The chart's baked modes (`store.postgres.mode=baked`, `queue.valkey.mode=baked`) cover trivial deployments without external infra.
-- **Pod restarts cost a `JOB_ACK_TIMEOUT + REAPER_INTERVAL` window.** A worker that crashes mid-`engine.CheckRepo` leaves the job in-flight; the reaper requeues it after the timeout. Lower `JOB_ACK_TIMEOUT` for faster recovery, higher for tolerance to legitimately slow checks.
+- **Pool stats are `pgxpool_*`,** not the semconv
+  `db_client_connection_*` family. `repo_guardian_store_pool_wait_seconds{role}`
+  is the domain metric for pool waits per controls role.
+- **Only the application routes are instrumented inbound.** `/healthz`,
+  `/readyz` and `/metrics` are not.
+- **The client histogram under-counts GitHub calls under rate-limit
+  pressure.** go-github's own pre-check short-circuits above the
+  transport once it has seen `remaining=0`, so those calls are never
+  measured. Use `budget_acquire_total{result="wait"}` for throttle
+  volume.
+- **Every panel picks one source.** `repo_guardian_store_query_seconds{operation}`
+  knows which API read is slow; the semconv database metrics know
+  whether the time went to the pool or the query. Neither answers the
+  other's question, so no panel mixes them.
+- **Cardinality is closed deliberately.** `server.address` and
+  `server.port` are pinned (left to default they derive from the
+  client-controlled `Host` header), and scope labels are dropped, so a
+  dependency bump does not reset every series.

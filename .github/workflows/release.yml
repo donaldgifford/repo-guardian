@@ -7,17 +7,24 @@ on:
     branches:
       - main
 
+# Every job grants what it needs; the publish callers keep their
+# documented ceilings for the nested SLSA generator.
 permissions:
-  contents: write
-  packages: write
-  issues: read
-  pull-requests: read
-  id-token: write
+  contents: read
+
+# One release at a time per ref; a release is never cancelled midway.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   bump-version:
     name: Bump Version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
     outputs:
       tag: ${{ steps.bump.outputs.version }}
       skipped: ${{ steps.bump.outputs.skipped }}
@@ -39,11 +46,17 @@ jobs:
           noop-labels: "dont-release"
           release-notes-prefix: "### RELEASE NOTES"
           with-v: true
+          # Only tags reachable from main. Before GA the v2.0.0-rc.* tags
+          # lived on a separate branch and the bump read them as the newest
+          # version, cutting v2.0.0 from v1 code (PR #227).
+          base-branch: true
 
   release:
     name: Release
     runs-on: ubuntu-latest
     needs: bump-version
+    permissions:
+      contents: write
     if: needs.bump-version.outputs.skipped != 'true'
     steps:
       - uses: actions/checkout@v7
@@ -55,6 +68,10 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      # goreleaser's sboms step runs syft (IMPL-0034 5.1).
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
 
       - name: Import GPG key
         id: import_gpg

@@ -35,14 +35,22 @@ podAnnotations: {}
 # -- Pod labels
 podLabels: {}
 
-# -- Pod security context
-podSecurityContext: {}
-
-# -- Container security context
-securityContext:
-  readOnlyRootFilesystem: true
+# -- Pod security context for every role and the migrate Job: non-root
+# (nobody), the runtime's default seccomp profile.
+podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65534
+  runAsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context for every role and the migrate Job
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   # -- Service type

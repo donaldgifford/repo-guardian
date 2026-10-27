@@ -1,36 +1,32 @@
 ---
 # $schema=https://www.schemastore.org/dependabot-2.0.json
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+# Dependabot opens SECURITY updates only: open-pull-requests-limit: 0
+# turns version updates off for every ecosystem. Version updates are
+# Renovate's (renovate.json5), so the two never propose the same bump.
+# https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
 
 version: 2
 updates:
-  # version updates: enabled
-  # security updates: enabled
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-  - package-ecosystem: "docker"
-    directory: "cicd"
-    schedule:
-      interval: "daily"
-    ignore:
-      - dependency-name: "golang"
-        update-types: ["version-update:semver-major"]
-    cooldown:
-      default-days: 7
-  # version updates: disabled
-  # security updates: enabled
-  # https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  # The UI's dependencies; the lockfile is bun.lock, which the bun
+  # ecosystem reads (the npm one needs a package-lock.json).
+  - package-ecosystem: "bun"
+    directory: "/ui"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
     open-pull-requests-limit: 0
     cooldown:
       default-days: 7

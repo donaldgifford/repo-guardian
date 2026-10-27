@@ -71,12 +71,17 @@ workflow and packaged inside the `.tgz`. Do not edit it by hand.
 
 ### Root CHANGELOG
 
-Updated automatically when a GA release tag (`v*` without a `-`) is
-pushed. The `changelog-update` workflow runs `git-cliff --latest
---prepend CHANGELOG.md` against `cliff.toml`, which adds the new
-release's section above the existing ones and leaves them untouched,
-and opens a `dont-release` PR titled
-`docs(changelog): update root CHANGELOG for <tag>`.
+After each GA release, dispatch the `changelog-update` workflow with
+the tag (`gh workflow run changelog-update.yml -f tag=vX.Y.Z`). The tag
+`release.yml` pushes uses `GITHUB_TOKEN`, so it starts no workflow by
+itself. The workflow runs `git-cliff --ignore-tags '.*-.*' --prepend
+CHANGELOG.md <previous GA tag>..<tag>` against `cliff.toml`: the new
+section covers the whole release line including its rcs, sits above
+the existing sections and leaves them untouched. It opens a
+`dont-release` PR titled `docs(changelog): update root CHANGELOG for
+<tag>`. If the repository does not allow Actions to create pull
+requests, it pushes the `chore/changelog-<tag>` branch and you open
+the PR from it.
 
 ## Local development
 

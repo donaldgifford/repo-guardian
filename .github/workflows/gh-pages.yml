@@ -26,5 +26,6 @@ jobs:
           path: ~/.cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material
+      # renovate: datasource=pypi depName=mkdocs-material
+      - run: pip install mkdocs-material==9.8.0
       - run: mkdocs gh-deploy --config-file mkdocs-ghpages.yml --force

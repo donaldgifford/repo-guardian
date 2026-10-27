@@ -49,7 +49,7 @@ RGCTL_COVERAGE_OUT := coverage-rgctl.out
 .PHONY: build
 .PHONY: test test-all test-coverage
 .PHONY: lint lint-fix lint-alerts lint-alerts-generated lint-alerts-chart fmt clean
-.PHONY: controls-docs lint-controls-docs monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
+.PHONY: lint-docs controls-docs lint-controls-docs monitoring-generate lint-monitoring generate-sql lint-sql generate-api lint-api lint-temporal-contrib
 .PHONY: run run-local test-api ci check dev-services dev-stop
 .PHONY: ui-install generate-ui-api test-ui test-ui-e2e test-ui-e2e-visual test-ui-e2e-update-snapshots lint-ui
 .PHONY: release-check release-local
@@ -212,6 +212,15 @@ CONTROLS_REFERENCE = docs/usage/controls-reference.md
 controls-docs: ## Regenerate docs/usage/controls-reference.md
 	@ $(MAKE) --no-print-directory log-$@
 	@$(GO) run ./cmd/$(PROJECT_NAME) controls docs --out $(CONTROLS_REFERENCE)
+
+# The public Pages build, strict, the same command and pin as the CI
+# `docs` job and gh-pages.yml. Writes under build/mkdocs (site_dir).
+# renovate: datasource=pypi depName=mkdocs-material
+MKDOCS_MATERIAL_VERSION := 9.8.0
+
+lint-docs: ## Strict build of the Pages docs site into build/mkdocs
+	@ $(MAKE) --no-print-directory log-$@
+	@NO_MKDOCS_2_WARNING=1 uvx --with mkdocs-material==$(MKDOCS_MATERIAL_VERSION) --from mkdocs mkdocs build --strict --config-file mkdocs-ghpages.yml
 
 lint-controls-docs: ## Fail if docs/usage/controls-reference.md is stale
 	@ $(MAKE) --no-print-directory log-$@

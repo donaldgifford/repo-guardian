@@ -243,32 +243,38 @@ DESIGN-0038 A3, D2, OQ3 (decided (a)); IMPL-0034 OQ1, OQ2.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 **Inherit.** `mkdocs-ghpages.yml` becomes `INHERIT: mkdocs.yml`
+- [x] 2.1 **Inherit.** `mkdocs-ghpages.yml` becomes `INHERIT: mkdocs.yml`
   plus `theme: {name: material}`; `plugins` is overridden to `[search]`
   because `techdocs-core` is not installed on Pages. Per OQ1 (b) no
   mermaid extension is added: the 39 diagrams keep rendering as code
   on the interim site until IMPL-0035 (which renders them client-side).
-- [ ] 2.2 **Pin.** `gh-pages.yml` installs `mkdocs-material==<current>`
+- [x] 2.2 **Pin.** `gh-pages.yml` installs `mkdocs-material==<current>`
   with a `# renovate: datasource=pypi depName=mkdocs-material` comment
   so Renovate's mise/pypi managers bump it.
-- [ ] 2.3 **Nav.** `mkdocs.yml`: Usage order (Getting Started, Policy
+- [x] 2.3 **Nav.** `mkdocs.yml`: Usage order (Getting Started, Policy
   reference, Control-type reference, The business UI, The read-only
   API, Identity providers); Operations gains v2 overview, onboarding,
   migration, rgctl, verifying releases (Phase 5) at the top; a
   "Historical (1.x)" group holds the pages Phase 3 marks historical.
-  docz keeps appending new documents to their sections.
-- [ ] 2.4 **Strict build in CI.** `ci.yml`: a `docs` paths filter
+  docz keeps appending new documents to their sections. *The
+  verifying-releases entry lands with its page in 5.9 (strict mode
+  refuses a nav entry with no file).*
+- [x] 2.4 **Strict build in CI.** `ci.yml`: a `docs` paths filter
   (`docs/**`, `mkdocs.yml`, `mkdocs-ghpages.yml`) and a `docs` job (OQ2)
   that installs the pinned `mkdocs-material` and runs `mkdocs build
   --strict --config-file mkdocs-ghpages.yml`; `make lint-docs` wraps the
   same command for local use. A dead nav entry or a broken inherit now
   fails the pull request, not the deploy.
-- [ ] 2.5 **Verify locally.** `make lint-docs` renders into a throwaway
+- [x] 2.5 **Verify locally.** `make lint-docs` renders into a throwaway
   directory (`mkdocs build -d build/mkdocs`; MkDocs's default `site_dir`
   is `site/`, which IMPL-0035 claims for the Astro source, so set
   `site_dir: build/mkdocs` in `mkdocs.yml` now and narrow `.gitignore`'s
   `site/` entry to `build/`); open one Usage page and confirm the nav;
-  note the result on the task.
+  note the result on the task. *2026-10-27: `make lint-docs` exits 0
+  with no warnings (mkdocs-material 9.8.0, via `uvx`), output in
+  `build/mkdocs`, no `site/`; `usage/api/index.html` carries the Usage
+  group with Identity providers, the v2 Operations entries and
+  Historical (1.x).*
 
 <!--docz:tasks:end-->
 

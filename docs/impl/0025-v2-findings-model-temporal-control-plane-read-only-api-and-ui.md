@@ -9,7 +9,7 @@ created: 2026-09-25
 
 # IMPL 0025: v2: findings model, Temporal control plane, read-only API and UI
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-09-25
 

@@ -327,7 +327,7 @@ The SLSA reusable workflow must stay referenced by a semver **tag** (`@v2.1.0`);
 
 ## Release line
 
-`main` is the only long-lived branch; the `v2` branch merged into it at v2.0.0 (IMPL-0034) and was deleted.
+`main` is the only long-lived branch. **v2.0.0 shipped 2026-10-27** (IMPL-0034): `v2` merged into `main` by merge commit (#245, `8350f11`), `bump-version` tagged `v2.0.0`, and every artefact was verified against `docs/operations/verifying-releases.md`; post-release fixes in #246. The `v2` branch is retired (deleted with its ruleset after GA); nothing targets it.
 
 - **GA releases are cut by their semver label, never by a hand tag.** A PR into `main` labelled `major`, `minor` or `patch` runs `release.yml`: `bump-version` (`base-branch: true`, so only tags reachable from `main` count) tags the merge, goreleaser builds the signed binaries, and `ghcr.yml`/`ecr.yml` publish the images and chart. Name the tag a label will produce before applying it.
 - **Pre-releases are hand-cut.** An rc (`vX.Y.Z-rc.N`) goes in behind a `dont-release` PR (rule 6); the maintainer pushes the signed tag on the merge commit, `prerelease.yml` builds the GitHub pre-release from it, and a `workflow_dispatch` of `ghcr.yml` (and `ecr.yml` when enabled) with the tag publishes images and chart. A tag with a `-` suffix never moves `latest` — `docker-bake.hcl`'s `tags()` and both metadata steps gate it.

@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0032
 title: "Evaluation and remediation workflows: change-driven remediation with per-control PRs"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-02
 ---

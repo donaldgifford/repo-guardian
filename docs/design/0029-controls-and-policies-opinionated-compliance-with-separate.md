@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0029
 title: "Controls and policies: opinionated compliance with separate evaluation and remediation"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-10-02
 ---

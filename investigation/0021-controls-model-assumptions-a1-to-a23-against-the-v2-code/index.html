@@ -1,0 +1,6701 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/">
+      
+      
+        <link rel="next" href="../0022-controls-designs-against-the-v2-code-github-and-temporal/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Controls model assumptions A1 to A23 against the v2 code - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0021-controls-model-assumptions-a1-to-a23-against-the-v2-code" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Controls model assumptions A1 to A23 against the v2 code
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0030-policy-model-enterprise-and-org-policies-and-control-assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0026-temporal-client-auth-credential-reload-keda-prometheus-trigger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-repoworkflow-hosts-the-evaluation-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A1 — RepoWorkflow hosts the evaluation loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-budget-keyed-by-installation-id-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2 — Budget keyed by installation id alone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a3-discovery-the-un-parker-and-the-subset-invariant-carry-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A3 — Discovery, the un-parker and the subset invariant carry over
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a4-the-repositories-table-and-identity-matching-are-reusable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A4 — The repositories table and identity matching are reusable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a5-findings-tables-are-rule-keyed-and-are-replaced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A5 — Findings tables are rule-keyed and are replaced
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a6-the-checks-table-becomes-the-evaluation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A6 — The checks table becomes the evaluation log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a7-policy-versions-versionv2-and-rollout-re-pointed-at-the-catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A7 — Policy versions, VersionV2 and rollout re-pointed at the catalogue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a8-the-checker-engine-is-removed-not-adapted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A8 — The checker engine is removed, not adapted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a9-the-hcl-loader-is-replaced-small-pieces-survive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A9 — The HCL loader is replaced; small pieces survive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a10-the-template-package-is-reused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A10 — The template package is reused
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a11-the-catalog-parser-is-the-core-of-the-catalog_info-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A11 — The catalog parser is the core of the catalog_info type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a12-the-client-layer-survives-the-interface-splits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A12 — The client layer survives; the interface splits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a13-ingest-and-webhookworkflow-survive-pull_request-is-added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A13 — Ingest and WebhookWorkflow survive; pull_request is added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a14-api-structure-and-ui-shell-survive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A14 — API structure and UI shell survive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a15-roles-and-chart-secret-scoping-extend-to-evaluator-and-remediator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A15 — Roles and chart secret scoping extend to evaluator and remediator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a16-no-production-histories-new-workflow-type-names-need-no-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A16 — No production histories; new workflow type names need no gates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a17-frozen-pr-identity-ends-cutover-closes-v1s-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A17 — Frozen PR identity ends; cutover closes v1's PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a18-taskpriority-applies-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A18 — TaskPriority applies unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a19-posture-export-and-dashboards-regenerate-from-control-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A19 — Posture export and dashboards regenerate from control results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a20-shadow-verification-and-the-v1-backfill-are-not-carried-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A20 — Shadow verification and the v1 backfill are not carried over
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a21-github-reads-codeowners-from-github-then-root-then-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A21 — GitHub reads CODEOWNERS from .github/, then root, then docs/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a22-the-codeowners-errors-endpoint-is-readable-with-read-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A22 — The CODEOWNERS errors endpoint is readable with read permissions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a23-the-evaluation-apps-read-set-covers-every-built-in-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A23 — The Evaluation App's read set covers every built-in read
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#keep-adapt-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep, adapt, remove
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-how-is-installation-suspension-modelled-under-the-controls-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: How is installation suspension modelled under the controls model?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-does-repositoriesinstallation_id-stay-once-app_repository_access-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Does repositories.installation_id stay once app_repository_access exists?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-how-are-live-repoworkflow-executions-retired-when-the-build-stops-registering-the-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: How are live RepoWorkflow executions retired when the build stops registering the type?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-repoworkflow-hosts-the-evaluation-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A1 — RepoWorkflow hosts the evaluation loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-budget-keyed-by-installation-id-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2 — Budget keyed by installation id alone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a3-discovery-the-un-parker-and-the-subset-invariant-carry-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A3 — Discovery, the un-parker and the subset invariant carry over
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a4-the-repositories-table-and-identity-matching-are-reusable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A4 — The repositories table and identity matching are reusable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a5-findings-tables-are-rule-keyed-and-are-replaced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A5 — Findings tables are rule-keyed and are replaced
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a6-the-checks-table-becomes-the-evaluation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A6 — The checks table becomes the evaluation log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a7-policy-versions-versionv2-and-rollout-re-pointed-at-the-catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A7 — Policy versions, VersionV2 and rollout re-pointed at the catalogue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a8-the-checker-engine-is-removed-not-adapted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A8 — The checker engine is removed, not adapted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a9-the-hcl-loader-is-replaced-small-pieces-survive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A9 — The HCL loader is replaced; small pieces survive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a10-the-template-package-is-reused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A10 — The template package is reused
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a11-the-catalog-parser-is-the-core-of-the-catalog_info-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A11 — The catalog parser is the core of the catalog_info type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a12-the-client-layer-survives-the-interface-splits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A12 — The client layer survives; the interface splits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a13-ingest-and-webhookworkflow-survive-pull_request-is-added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A13 — Ingest and WebhookWorkflow survive; pull_request is added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a14-api-structure-and-ui-shell-survive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A14 — API structure and UI shell survive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a15-roles-and-chart-secret-scoping-extend-to-evaluator-and-remediator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A15 — Roles and chart secret scoping extend to evaluator and remediator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a16-no-production-histories-new-workflow-type-names-need-no-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A16 — No production histories; new workflow type names need no gates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a17-frozen-pr-identity-ends-cutover-closes-v1s-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A17 — Frozen PR identity ends; cutover closes v1's PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a18-taskpriority-applies-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A18 — TaskPriority applies unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a19-posture-export-and-dashboards-regenerate-from-control-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A19 — Posture export and dashboards regenerate from control results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a20-shadow-verification-and-the-v1-backfill-are-not-carried-over" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A20 — Shadow verification and the v1 backfill are not carried over
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a21-github-reads-codeowners-from-github-then-root-then-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A21 — GitHub reads CODEOWNERS from .github/, then root, then docs/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a22-the-codeowners-errors-endpoint-is-readable-with-read-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A22 — The CODEOWNERS errors endpoint is readable with read permissions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a23-the-evaluation-apps-read-set-covers-every-built-in-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A23 — The Evaluation App's read set covers every built-in read
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#keep-adapt-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep, adapt, remove
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-how-is-installation-suspension-modelled-under-the-controls-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: How is installation suspension modelled under the controls model?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-does-repositoriesinstallation_id-stay-once-app_repository_access-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Does repositories.installation_id stay once app_repository_access exists?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-how-are-live-repoworkflow-executions-retired-when-the-build-stops-registering-the-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: How are live RepoWorkflow executions retired when the build stops registering the type?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0021-controls-model-assumptions-a1-to-a23-against-the-v2-code">INV-0021: Controls model assumptions A1 to A23 against the v2 code</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#a1--repoworkflow-hosts-the-evaluation-loop">A1 — RepoWorkflow hosts the evaluation loop</a></li>
+<li><a href="#a2--budget-keyed-by-installation-id-alone">A2 — Budget keyed by installation id alone</a></li>
+<li><a href="#a3--discovery-the-un-parker-and-the-subset-invariant-carry-over">A3 — Discovery, the un-parker and the subset invariant carry over</a></li>
+<li><a href="#a4--the-repositories-table-and-identity-matching-are-reusable">A4 — The repositories table and identity matching are reusable</a></li>
+<li><a href="#a5--findings-tables-are-rule-keyed-and-are-replaced">A5 — Findings tables are rule-keyed and are replaced</a></li>
+<li><a href="#a6--the-checks-table-becomes-the-evaluation-log">A6 — The checks table becomes the evaluation log</a></li>
+<li><a href="#a7--policy-versions-versionv2-and-rollout-re-pointed-at-the-catalogue">A7 — Policy versions, VersionV2 and rollout re-pointed at the catalogue</a></li>
+<li><a href="#a8--the-checker-engine-is-removed-not-adapted">A8 — The checker engine is removed, not adapted</a></li>
+<li><a href="#a9--the-hcl-loader-is-replaced-small-pieces-survive">A9 — The HCL loader is replaced; small pieces survive</a></li>
+<li><a href="#a10--the-template-package-is-reused">A10 — The template package is reused</a></li>
+<li><a href="#a11--the-catalog-parser-is-the-core-of-the-cataloginfo-type">A11 — The catalog parser is the core of the catalog_info type</a></li>
+<li><a href="#a12--the-client-layer-survives-the-interface-splits">A12 — The client layer survives; the interface splits</a></li>
+<li><a href="#a13--ingest-and-webhookworkflow-survive-pullrequest-is-added">A13 — Ingest and WebhookWorkflow survive; pull_request is added</a></li>
+<li><a href="#a14--api-structure-and-ui-shell-survive">A14 — API structure and UI shell survive</a></li>
+<li><a href="#a15--roles-and-chart-secret-scoping-extend-to-evaluator-and-remediator">A15 — Roles and chart secret scoping extend to evaluator and remediator</a></li>
+<li><a href="#a16--no-production-histories-new-workflow-type-names-need-no-gates">A16 — No production histories; new workflow type names need no gates</a></li>
+<li><a href="#a17--frozen-pr-identity-ends-cutover-closes-v1s-prs">A17 — Frozen PR identity ends; cutover closes v1's PRs</a></li>
+<li><a href="#a18--taskpriority-applies-unchanged">A18 — TaskPriority applies unchanged</a></li>
+<li><a href="#a19--posture-export-and-dashboards-regenerate-from-control-results">A19 — Posture export and dashboards regenerate from control results</a></li>
+<li><a href="#a20--shadow-verification-and-the-v1-backfill-are-not-carried-over">A20 — Shadow verification and the v1 backfill are not carried over</a></li>
+<li><a href="#a21--github-reads-codeowners-from-github-then-root-then-docs">A21 — GitHub reads CODEOWNERS from .github/, then root, then docs/</a></li>
+<li><a href="#a22--the-codeowners-errors-endpoint-is-readable-with-read-permissions">A22 — The CODEOWNERS errors endpoint is readable with read permissions</a></li>
+<li><a href="#a23--the-evaluation-apps-read-set-covers-every-built-in-read">A23 — The Evaluation App's read set covers every built-in read</a></li>
+<li><a href="#keep-adapt-remove">Keep, adapt, remove</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#oq1-how-is-installation-suspension-modelled-under-the-controls-model">OQ1: How is installation suspension modelled under the controls model?</a></li>
+<li><a href="#oq2-does-repositoriesinstallationid-stay-once-apprepositoryaccess-exists">OQ2: Does repositories.installationid stay once apprepository_access exists?</a></li>
+<li><a href="#oq3-how-are-live-repoworkflow-executions-retired-when-the-build-stops-registering-the-type">OQ3: How are live RepoWorkflow executions retired when the build stops registering the type?</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Do the twenty-three assumptions that DESIGN-0029 makes about the v2 code (A1 to A23, section "Assumptions about the current v2 code") hold against the code on this branch? Each assumption decides whether a v2 package is kept, adapted or removed under the controls model, so a wrong one changes the implementation plan. This investigation checks every assumption against the actual files, names the test that pins each behaviour where one exists, and records the correction DESIGN-0029 to DESIGN-0032 need where the code disagrees.</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>Most assumptions hold, because DESIGN-0029 was written against the IMPL-0025 summary in <code>CLAUDE.md</code>, which the code follows closely. The ones most likely to need a caveat are the cross-cutting ones: the single <code>github.Client</code> interface (A12), the single-App shape of discovery, ingest and the chart (A3, A13, A15), and the posture export (A19), which on the v2 line may not run at all. The three GitHub-behaviour assumptions (A21 to A23) cannot be settled from code and will need a homelab probe.</p>
+<h2 id="context">Context</h2>
+<p>DESIGN-0029 replaces v1's rule model with controls and splits evaluation from remediation across two GitHub Apps. Its register of assumptions is marked unverified, and the design says a follow-up investigation checks each one before the implementation plan is written. The keep-versus-replace split in DESIGN-0029 ("What happens to v1 concepts") and the overview's keep-versus-replace material rest on the same register. The code under test is the <code>v2</code> line at chart <code>2.0.0-rc.4</code>, which still runs v1's rule engine inside the <code>CheckRepo</code> activity (IMPL-0025 Phase 4).</p>
+<p><strong>Triggered by:</strong> DESIGN-0029, DESIGN-0030, DESIGN-0031, DESIGN-0032</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Read the current assumptions table in DESIGN-0029 and, where an assumption's purpose was unclear, the section of DESIGN-0030, DESIGN-0031 or DESIGN-0032 that depends on it.</li>
+<li>For each assumption, locate the code it describes with <code>grep</code> and read the relevant functions, schema and tests. Record file paths with line numbers and the name of the test that pins the behaviour.</li>
+<li>Give a verdict per assumption: holds, holds with caveat, does not hold, or not verifiable from code. Where the code disagrees with the design text, quote the assumption's own "If wrong" column and state the correction.</li>
+<li>Derive a keep, adapt, remove table for every package under <code>internal/</code>, <code>cmd/</code>, <code>ui/</code> and <code>charts/</code> from the verdicts.</li>
+<li>Raise the decisions that are the maintainer's, not the investigation's, as open questions.</li>
+</ol>
+<p>The design documents were being edited while this investigation ran. Verdicts are against the code; corrections are against the design text as it read on 2026-10-04 and are phrased so that a correction already applied reads as confirmed.</p>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>docs/controls-and-policies</code> on the <code>v2</code> line, commit <code>660e8ea</code></td>
+</tr>
+<tr>
+<td>Chart / appVersion</td>
+<td><code>2.0.0-rc.4</code> (<code>charts/repo-guardian/Chart.yaml:7-8</code>)</td>
+</tr>
+<tr>
+<td>Go</td>
+<td><code>1.26.6</code> (<code>go.mod:3</code>)</td>
+</tr>
+<tr>
+<td>go-github</td>
+<td><code>v68.0.0</code> (<code>go.mod:16</code>)</td>
+</tr>
+<tr>
+<td>Temporal SDK</td>
+<td><code>go.temporal.io/sdk v1.49.0</code> (<code>go.mod:39</code>)</td>
+</tr>
+<tr>
+<td>goose</td>
+<td><code>v3.28.0</code> (<code>go.mod:21</code>), v2 <code>SchemaVersion = 3</code> (<code>internal/store/postgres/schema.go:13</code>)</td>
+</tr>
+<tr>
+<td>HCL</td>
+<td><code>hashicorp/hcl/v2 v2.24.0</code> (<code>go.mod:18</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<p>Verdict counts: 10 hold, 10 hold with caveat, 0 do not hold, 3 are not verifiable from code (A21, A22, A23). No assumption is wrong in a way that changes the model. Six caveats change the implementation plan: discovery and ingest are single-App today (A3, A13), the client split adds methods rather than partitioning existing ones (A12), the chart and config model one App (A15), the posture exporter does not run on v2 at all (A19), and the replay suite fails closed when its fixtures go (A16).</p>
+<h3 id="a1-repoworkflow-hosts-the-evaluation-loop">A1 — RepoWorkflow hosts the evaluation loop</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>internal/workflows/repo.go:25-54</code> is the loop: <code>wait</code> (timer plus signals, <code>repo.go:91-118</code>), <code>drain</code> for coalescing (<code>repo.go:140-151</code>), <code>onRecheck</code> keeps the lowest priority key (<code>repo.go:155-159</code>), <code>onPolicyChanged</code> spreads the next due time across the window (<code>repo.go:163-176</code>), ContinueAsNew at <code>maxIterationsPerRun = 100</code> or on suggestion (<code>repo.go:15</code>, <code>repo.go:29-37</code>).</li>
+<li>The check activity is reached by name only: <code>CheckRepoActivity</code> (<code>internal/workflows/names.go:27</code>) executed at <code>repo.go:214</code>. Swapping in an <code>Evaluate</code> activity is a constant and a payload change. The depguard rule that keeps <code>internal/workflows</code> free of engine imports (<code>.golangci.yml</code>, the <code>internal/checker</code> deny entry) still holds for the new activity.</li>
+<li>Pinned by <code>TestRepoWorkflow_TwentySignalsAtMostTwoChecks</code>, <code>TestRepoWorkflow_HighestPriorityWins</code>, <code>TestRepoWorkflow_PolicyChangedPullsNextDueIn</code>, <code>TestRepoWorkflow_ContinueAsNewCarriesState</code> and <code>TestRepoWorkflow_DeferredConsumesNoRetryAttempt</code> (<code>internal/workflows/repo_test.go:52-200</code>).</li>
+<li>Caveat: the loop body is more than a timer and signals. One iteration also acquires and reports a budget lease (<code>repo.go:207</code>, <code>repo.go:225-230</code>), sleeps on a durable timer for a <code>CheckDeferred</code> result (<code>repo.go:233-240</code>) and parks (<code>repo.go:241-242</code>). <code>ContinueAsNew</code> names <code>RepoWorkflowName</code> literally (<code>repo.go:36</code>), so a workflow under a new type name (A16) must pass its own name.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the <code>repoLoop</code> pattern and its tests; register it under the new <code>EvaluationWorkflow</code> name with an <code>Evaluate</code> activity and a parametrised ContinueAsNew target. The remediation workflow in DESIGN-0032 needs the budget, defer and park steps too, so the loop should become a shared helper rather than being copied twice. The "If wrong" column (copied rather than reused) does not apply.</p>
+<h3 id="a2-budget-keyed-by-installation-id-alone">A2 — Budget keyed by installation id alone</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>InstallationWorkflowID(installationID)</code> returns <code>installation/&lt;id&gt;</code> (<code>internal/workflows/names.go:80-82</code>). <code>InstallationWorkflowInput</code> carries <code>InstallationID</code>, <code>Threshold</code>, <code>LeaseTTL</code>, <code>MaxHandled</code> (<code>internal/workflows/installation.go:65-77</code>); <code>BudgetState</code> has no App field (<code>installation.go:43-56</code>).</li>
+<li>Every producer and consumer keys by id alone: the report signal (<code>repo.go:302</code>), the <code>AcquireBudget</code> activity (<code>internal/activities/budget.go</code>), the suspend signal from webhook routing (<code>internal/activities/route.go:224</code>), and the load tester (<code>cmd/rg-burst</code>, <code>InstallationWorkflowID(*installation)</code> at line 76).</li>
+<li>The <code>installations</code> table is keyed by <code>installation_id</code> with no App column (<code>internal/store/postgres/migrations_v2/00002_v2_schema.sql:8-20</code>) and carries the persisted rate snapshot (<code>rate_limit</code>, <code>rate_remaining</code>, <code>rate_reset_at</code>, <code>rate_observed_at</code>).</li>
+</ul>
+<p><strong>Consequence:</strong> the design's change is the one it expects: the id gains an App segment, the state records the App, and five call sites change (<code>names.go</code>, <code>repo.go:302</code>, <code>activities/budget.go</code>, <code>route.go:224</code>, <code>cmd/rg-burst</code>). GitHub installation ids are unique across Apps, so the App segment is for routing and readability, not collision avoidance. The <code>installations</code> table is superseded by <code>app_installations</code> per DESIGN-0030 AR-0030-04; DESIGN-0032's migration list still described <code>00004_controls_policy</code> as adding <code>installations.app</code> when read, and should name <code>app_installations</code> and <code>app_repository_access</code> instead.</p>
+<h3 id="a3-discovery-the-un-parker-and-the-subset-invariant-carry-over">A3 — Discovery, the un-parker and the subset invariant carry over</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>DiscoveryWorkflow</code> lists installations, then per installation lists, upserts in batches of 100 and parks the unseen (<code>internal/workflows/service.go:59-137</code>). A failed listing parks nothing (<code>service.go:109-114</code>, <code>TestDiscoveryWorkflow_FailedListingParksNothing</code>).</li>
+<li><code>UpsertDiscovered</code> is the only un-parker: <code>ReactivateRepository</code> is "the only statement that sets active = true" (<code>internal/store/postgres/queries/repositories.sql:29-33</code>), called from <code>internal/store/postgres/v2store_ops.go:176-180</code> with an <code>unparked</code> event.</li>
+<li>The subset invariant is explicit: <code>Services.skip</code> filters on the same <code>SkipArchived</code> / <code>SkipForks</code> fields the check path parks on (<code>internal/activities/services.go:39-44</code>, <code>services.go:126-129</code>), and <code>TestListRepositories_SubsetInvariant</code> drives the real engine to prove it (<code>internal/activities/services_test.go:93</code>).</li>
+<li>The nil-versus-empty parking rule survives as a boolean: <code>classify</code> sets <code>ClearFindings = true</code> only for durable skips and leaves access-denied findings in place (<code>internal/activities/check.go:140-157</code>); <code>Park(reason, clearFindings)</code> (<code>v2store_ops.go:78</code>); pinned by <code>TestPark_AccessDeniedKeepsFindings</code> and <code>TestPark_ArchivedClearsFindingsWithEvents</code> (<code>internal/store/postgres/v2store_contract_integration_test.go:63-123</code>).</li>
+<li>Caveat 1, resolution placement: <code>UpsertRepositories</code> both upserts and starts the <code>RepoWorkflow</code> with <code>policy_changed{By: due}</code> for every new or reactivated row, inside the same activity (<code>services.go:135-170</code>). A resolution step "after upsert" must sit between the upsert and the start inside that activity, or the first evaluation runs with no assignments.</li>
+<li>Caveat 2, one App: <code>ListInstallations</code> lists the installations of the one <code>GitHub</code> client the <code>Services</code> hold (<code>services.go:80-103</code>), and <code>DiscoveryInput</code> has only <code>InstallationID</code> (<code>internal/workflows/service_types.go:15-18</code>). The Remediation App's listing-only discovery from DESIGN-0030 AR-0030-04 needs an <code>App</code> field on the input, a second client, and a worker on the remediate queue.</li>
+<li>Caveat 3, <code>suspended</code> parks: DESIGN-0029 A3 names a <code>suspended</code> park that keeps results. Today suspension is a budget signal, not a park: <code>installation.suspend</code> upserts <code>SuspendedAt</code> and signals the <code>InstallationWorkflow</code> (<code>route.go:71</code>, <code>route.go:224-247</code>), and <code>park_reason</code> has no <code>suspended</code> value (<code>00002_v2_schema.sql:31-32</code>).</li>
+</ul>
+<p><strong>Consequence:</strong> keep the workflow, the un-parker and the invariant test. Adapt <code>UpsertRepositories</code> to resolve before starting, add the App dimension to <code>DiscoveryInput</code> and <code>Services</code>, and decide how suspension is modelled (OQ1). The "If wrong" column (resolution may need its own workflow) does not apply; it fits inside the existing activity.</p>
+<h3 id="a4-the-repositories-table-and-identity-matching-are-reusable">A4 — The repositories table and identity matching are reusable</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>matchRepository</code> locks by provider id first, then by name among rows without a conflicting id, and returns <code>ErrIdentityConflict</code> on a reused name (<code>internal/store/postgres/identity.go:29-65</code>). <code>applyIdentity</code> writes <code>transferred</code> on an org change, <code>renamed</code> on a name change, nothing on a case-only change, and never touches <code>active</code> (<code>identity.go:72-118</code>).</li>
+<li>Pinned by <code>TestIdentity_NullIDFilledOnFirstMatch</code>, <code>TestIdentity_RenameKeepsIDAndHistory</code>, <code>TestIdentity_TransferUpdatesOrgAndInstallation</code>, <code>TestIdentity_CaseOnlyRenameWritesNoEvent</code>, <code>TestIdentity_NameHeldByAnotherIDConflicts</code>, <code>TestRecordCheck_NeverSetsActive</code> (<code>internal/store/postgres/v2store_identity_integration_test.go:52-214</code>).</li>
+<li>Caveat 1: <code>repositories.installation_id</code> is <code>NOT NULL REFERENCES installations</code> (<code>00002_v2_schema.sql:29</code>) and <code>applyIdentity</code> rewrites it on transfer (<code>identity.go:98-99</code>). Under per-App <code>app_repository_access</code> the column is either the Evaluation App's installation or redundant; the designs do not say which (OQ2).</li>
+<li>Caveat 2: three columns are rule-engine posture that DESIGN-0032 drops at cutover (<code>last_check_outcome</code>, <code>policy_version</code>, <code>catalog_parse_ok</code>, DESIGN-0032 "Data Model"). They are written today by <code>updateRepositoryAfterCheck</code> and threaded through <code>internal/activities/check.go:83</code>, <code>check.go:101</code>, <code>internal/activities/record.go:27</code>, so those writes go with the engine.</li>
+<li>Caveat 3: the <code>repository_events.kind</code> CHECK (<code>00002_v2_schema.sql:118-119</code>) lacks <code>assignment_changed</code>; DESIGN-0030 already notes this.</li>
+</ul>
+<p><strong>Consequence:</strong> keep <code>identity.go</code> and its tests unchanged. The "If wrong" column (identity redone) does not apply. Settle the <code>installation_id</code> column in DESIGN-0030 or DESIGN-0032 before migration <code>00004</code> is written.</p>
+<h3 id="a5-findings-tables-are-rule-keyed-and-are-replaced">A5 — Findings tables are rule-keyed and are replaced</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>findings</code> is keyed <code>(repository_id, rule_kind, rule_name)</code> with <code>rule_kind IN ('file', 'setting', 'branch_protection')</code> (<code>00002_v2_schema.sql:52-67</code>). <code>finding_events</code> (<code>00002_v2_schema.sql:94-109</code>) and <code>compliance_snapshots</code> (<code>00002_v2_schema.sql:146-156</code>) carry <code>rule_kind</code> / <code>rule_name</code> too.</li>
+<li>Caveat: the <code>rule_kind</code> CHECK is on <code>findings</code> only. <code>finding_events.rule_kind</code> and <code>compliance_snapshots.rule_kind</code> are unconstrained <code>TEXT</code>. The Go side mirrors the key: <code>findings.RuleKind</code> (<code>internal/findings/findings.go:11-19</code>) and <code>store.ComplianceCount.Kind</code> (<code>internal/store/findings.go:234-236</code>).</li>
+<li>The replacement must carry two properties the current tables have: the append-only grant on <code>finding_events</code> (<code>00002_v2_schema.sql:163-168</code>, pinned by <code>TestFindingEvents_AppendOnlyUnderApplicationRole</code>, <code>v2store_contract_integration_test.go:124</code>) and the "evidence-only change writes no event" rule (<code>TestRecordCheck_EvidenceOnlyChangeWritesNoEvent</code>, <code>v2store_integration_test.go:220</code>). DESIGN-0032's <code>00005_controls_results</code> already names the revokes.</li>
+<li>Everything above the tables is rule-shaped and goes with them: the <code>/rules</code>, <code>/rules/{kind}/{name}</code> and <code>/findings</code> endpoints (<code>api/openapi.yaml:75-225</code>), <code>queries/api_rules.sql</code>, <code>queries/api_findings.sql</code>, the UI views <code>rules.tsx</code> and <code>findings.tsx</code>, and the per-reason evidence renderer <code>ui/web/src/lib/evidence.ts</code>.</li>
+</ul>
+<p><strong>Consequence:</strong> replace, as assumed. The "If wrong" column (a migration keeping findings rows) does not apply because A20 starts from a fresh evaluation. State in DESIGN-0032 that the new tables constrain their kind or control-id columns at every level, not only on the current-state table.</p>
+<h3 id="a6-the-checks-table-becomes-the-evaluation-log">A6 — The checks table becomes the evaluation log</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>checks</code> has <code>check_key TEXT NOT NULL UNIQUE</code>, <code>pending_result JSONB</code> for the staged outcome set and <code>finished_at</code> (<code>00002_v2_schema.sql:72-91</code>). <code>StageCheck</code> upserts the staged payload on conflict; <code>FinalizeCheck</code> clears it (<code>internal/store/postgres/queries/checks.sql:6-25</code>).</li>
+<li><code>V2Store.StageCheck</code> and <code>RecordCheck</code> implement the handoff; a retry with a final key returns the stored transitions with <code>AlreadyFinal</code> (<code>internal/store/postgres/v2store.go:109-215</code>, <code>resolveOutcomes</code>).</li>
+<li>Pinned by <code>TestRecordCheck_SameKeyTwiceIsIdempotent</code>, <code>TestRecordCheck_StagedPayloadIsClearedOnCommit</code>, <code>TestRecordCheck_IdenticalOutcomesWriteNoEvents</code> (<code>v2store_integration_test.go:143-285</code>) and <code>TestCheckRepo_StageThenRecordHandoff</code> (<code>internal/activities/activities_test.go:259</code>).</li>
+<li>Two engine-shaped details to carry: the <code>trigger</code> CHECK list (<code>00002_v2_schema.sql:78-79</code>, mirrored by <code>workflows.Trigger*</code> at <code>internal/workflows/types.go:21-28</code>) gains remediation triggers, and the <code>pending_result</code> payload is <code>[]outcomeRow</code> keyed by rule kind and name (<code>v2store.go</code>, <code>toOutcomeRows</code>), which becomes control results. DESIGN-0032 already lists the CHECK extension under <code>00005</code>.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the table, the staging contract and the <code>/repositories/{id}/checks</code> endpoint (<code>api/openapi.yaml:321</code>). The "If wrong" column does not apply.</p>
+<h3 id="a7-policy-versions-versionv2-and-rollout-re-pointed-at-the-catalogue">A7 — Policy versions, VersionV2 and rollout re-pointed at the catalogue</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>policy_versions(version, first_seen_at, rollout_completed_at, summary)</code> (<code>00002_v2_schema.sql:126-133</code>). <code>RecordPolicyVersion</code> returns <code>firstSeen</code> (<code>v2store_ops.go:273</code>), and the worker starts <code>policy-rollout/&lt;v&gt;</code> only on first sight (<code>cmd/repo-guardian/services.go:72-86</code>).</li>
+<li><code>PolicyRolloutWorkflow</code> signals every active repository with <code>policy_changed{By: start + window}</code>, sleeps the window, re-signals <code>DriftedOnly</code> stragglers once, then completes (<code>internal/workflows/service.go:174-200</code>, <code>TestPolicyRolloutWorkflow_SignalsEveryPageThenStragglersAtWindowEnd</code>).</li>
+<li>Caveat 1, the hash input is wholly v1-shaped: <code>VersionV2</code> hashes <code>versionInput</code>, an explicit copy of guardian knobs, ignore, scope, defaults PR, file rules, setting rules, branch-protection rules and template bodies (<code>internal/policy/version_v2.go:26</code>, <code>version_v2.go:43-133</code>). Nothing in it can be "pointed" at controls; it is rewritten. The classification guard <code>TestVersionV2_EveryFieldClassified</code> (<code>internal/policy/version_v2_test.go:131</code>) and the golden (<code>testdata/version_v2/</code>) are the pattern to keep, with the catalogue's control revisions (D9) as the hashed fields.</li>
+<li>Caveat 2, stragglers read a column that goes: <code>SignalRepositories</code> with <code>DriftedOnly</code> compares <code>repositories.policy_version</code> (<code>internal/activities/services.go:196</code>), which DESIGN-0032 drops at cutover. Stragglers must come from <code>repository_policy_state.policy_version</code>.</li>
+<li>Caveat 3, rollout does not re-resolve: <code>SignalRepositories</code> only signals (<code>services.go:196-233</code>). DESIGN-0030 "When resolution runs" expects a policy change to re-resolve every repository before re-evaluating where assignments changed. That is a new step in the rollout workflow or the signal handler.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the table, the first-seen gate, the window spread and the straggler pass. Rewrite the hash input and <code>policy.Summarize</code> for the catalogue and policies. Add re-resolution to the rollout. The "If wrong" column (rollout rebuilt, window kept) half applies: the window mechanics stay, the hash is new.</p>
+<h3 id="a8-the-checker-engine-is-removed-not-adapted">A8 — The checker engine is removed, not adapted</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>internal/checker</code> is 11,983 lines including tests (<code>wc</code>), with 100 parity goldens under <code>internal/checker/testdata/parity/</code> and the recorder in <code>internal/checker/parity_test.go:59-100</code>. <code>internal/reconciler</code> adds the four reconcilers. The only runtime consumer on the v2 path is <code>a.engine.CheckRepo</code> in <code>internal/activities/check.go:60</code>; the v1 role in <code>cmd/repo-guardian/main.go</code> is the other.</li>
+<li>Caveat: five pieces are not rule-engine logic and must be re-homed rather than deleted. (1) <code>SkippedError</code>, <code>AsSkipped</code> and the durable-skip table in <code>internal/checker/skip.go:19-62</code>, consumed by <code>classify</code> (<code>check.go:150</code>). (2) <code>CheckResult.Repository</code> identity capture (<code>internal/checker/result.go:85-93</code>), which feeds the <code>RecordCheck</code> identity refresh with zero extra API calls. (3) The typed comparators the control types need: <code>settingMatches</code> and <code>getSettingValue</code> (<code>internal/checker/engine_settings.go:130-165</code>), <code>compareBranchProtection</code> and <code>buildDesiredRuleset</code> (<code>internal/checker/engine_branch_protection.go:189-236</code>), <code>labelsEqual</code> and <code>normalizeColor</code> (<code>internal/reconciler/label_sync.go:217-226</code>), <code>rulesetMatches</code> (<code>internal/reconciler/branch_protection.go:186</code>). (4) <code>foreignPRForRule</code>'s loose third-party PR match (<code>internal/checker/engine_pr.go:47-85</code>) if DESIGN-0032 keeps a "yield to a human PR" rule. (5) Two log lines are locked by tests outside the package: <code>TestLogLines_AreStillEmittedByTheBinary</code> (<code>internal/monitoring/dashboard/logline_test.go:29</code>) walks <code>internal/</code> for the E4 matchers in <code>dashboard/e4.go:17-23</code>, and <code>internal/reconciler/log_contract_test.go</code> locks the catalog-parse line verbatim.</li>
+</ul>
+<p><strong>Consequence:</strong> remove the engine, PR assembly, drift, orphan and reconcile-log code and the parity suite per scenario (D8). Lift the five pieces above into the evaluate activity and the control types, and re-point the E4 matchers in the same change. The "If wrong" column (engine code constrains the control interface) does not apply: none of the surviving pieces constrains <code>control.Control</code>.</p>
+<h3 id="a9-the-hcl-loader-is-replaced-small-pieces-survive">A9 — The HCL loader is replaced; small pieces survive</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>hclparse.NewParser()</code> is the entry point for files and directories (<code>internal/policy/loader.go:17</code>, <code>loader.go:174</code>, <code>loader.go:219</code>).</li>
+<li>Strict decode through <code>Content()</code> with a <code>BodySchema</code> covers the top level (<code>loader.go:263</code>), <code>guardian</code> (<code>loader.go:398-416</code>), <code>rule</code> (<code>loader.go:511</code>), <code>when</code> (<code>loader.go:538</code>), <code>reconcile</code> (<code>loader.go:690</code>), <code>defaults</code> (<code>loader.go:894</code>), <code>setting</code> (<code>loader.go:953</code>) and <code>branch_protection</code> (<code>loader.go:1020</code>). Five blocks still decode loosely with <code>JustAttributes()</code>: <code>locals</code> (<code>loader.go:296</code>), <code>ignore</code> (<code>loader.go:468</code>), <code>scope</code> (<code>loader.go:491</code>), <code>pr</code> (<code>loader.go:826</code>) and <code>assertion</code> (<code>loader.go:919</code>).</li>
+<li>Glob matching is stdlib <code>path.Match</code>, lower-cased (<code>internal/policy/ignore.go:32</code>); <code>ScopeConfig.Matches</code> (<code>internal/policy/scope.go:21</code>).</li>
+<li>PR template compilation and inheritance: <code>compilePolicyTemplates</code>, <code>compilePR</code>, <code>asTemplate</code>, <code>ResolveRulePR</code>, <code>mergePR</code> (<code>internal/policy/pr.go:27-187</code>); strict validation <code>ValidatePRTemplates</code> (<code>internal/policy/strict.go:26</code>).</li>
+<li>Also present and relevant: <code>ExtractWatchedPaths</code> (<code>internal/policy/watch.go:13</code>), which feeds ingest and dies with the watched-path set; <code>applyEnvOverrides</code> (<code>loader.go:1189</code>), which gives env the last word over <code>guardian {}</code>.</li>
+</ul>
+<p><strong>Consequence:</strong> replace the loader. Carry hclparse, the <code>Content()</code> pattern (and apply it to every block this time), <code>path.Match</code> for <code>exclude_repos</code>, and the PR compile and merge code, which moves to <code>internal/template</code> with <code>PRConfig</code> / <code>PRTemplate</code> per DESIGN-0031 AR-0031-08. Decide deliberately whether env-overrides-last survives for the new operational knobs. The "If wrong" column (more reusable than expected) is mildly true: the inheritance resolver is reusable as-is.</p>
+<h3 id="a10-the-template-package-is-reused">A10 — The template package is reused</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>Renderer.Parse</code> compiles with the curated <code>FuncMap</code> and <code>missingkey=error</code>; <code>Compiled.Render</code> wraps errors with the template name and refuses a nil receiver (<code>internal/template/template.go:49-110</code>). <code>ValidateZero[T]</code> is generic over the context type (<code>internal/template/strict.go:17</code>).</li>
+<li>Helpers: <code>env</code>, <code>default</code>, <code>join</code>, <code>lower</code>, <code>upper</code>, <code>title</code>, <code>propenv</code>, <code>yamlq</code> (<code>internal/template/helpers.go:16-25</code>). <code>propenv</code> and <code>yamlq</code> are the IMPL-0020 injection guards for the generated workflow and must stay for the <code>workflow</code> apply mode of <code>custom_properties</code>.</li>
+<li>The embedded templates and the operator template store live in <code>internal/rules/registry.go</code> (<code>TemplateStore.Load</code>, <code>Get</code>, <code>Raw</code>, <code>AsMap</code>, lines 35-150) over <code>internal/rules/templates/*.tmpl</code> (codeowners, dependabot, renovate, renovate-workflow, catalog-info, set-custom-properties).</li>
+<li>Contexts are v1-shaped: <code>FileVars</code>, <code>PRVars</code>, <code>Rule</code>, <code>CatalogInfo</code> (<code>internal/template/contexts.go:6-80</code>). DESIGN-0031 introduces <code>template.Vars</code>; <code>ValidateZero</code> works unchanged with any new context type.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the package and <code>rules.TemplateStore</code> (renamed or moved as the control template store; <code>AsMap</code> keeps feeding the version hash). Add <code>Vars</code>, retire <code>FileVars</code> and <code>Rule</code> with the engine. The "If wrong" column does not apply.</p>
+<h3 id="a11-the-catalog-parser-is-the-core-of-the-catalog_info-type">A11 — The catalog parser is the core of the catalog_info type</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li><code>Entity</code>, <code>Metadata</code>, <code>Spec</code> model the Backstage shape (<code>internal/catalog/catalog.go:27-46</code>); <code>Parse</code> enforces <code>apiVersion</code> and <code>kind == Component</code> and returns <code>ErrNotComponent</code> otherwise (<code>catalog.go:75-83</code>, <code>catalog.go:23</code>). The three-outcome contract from IMPL-0020 (parse error, not a Component, Properties) is pinned by <code>TestParse</code> (<code>internal/catalog/catalog_test.go:8</code>).</li>
+<li>Caveat: <code>Parse</code> projects the entity into <code>Properties{Owner, Component, Extra}</code> (<code>catalog.go:50-57</code>, <code>catalog.go:85-113</code>) and discards the rest. A <code>catalog_info</code> control with rules on <code>spec.lifecycle</code>, <code>spec.type</code> or <code>spec.system</code>, and the "keep the YAML node tree for minimal edits" requirement in DESIGN-0031, both need the entity or the node, not the projection. The only importer today is <code>internal/reconciler/custom_properties.go</code>.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the package and the entity structs. Split <code>Parse</code> into an entity (or node) parse plus a separate properties projection for the <code>custom_properties</code> type. The "If wrong" column (parser rewritten) does not apply; this is an added return shape.</p>
+<h3 id="a12-the-client-layer-survives-the-interface-splits">A12 — The client layer survives; the interface splits</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li>Transport chain: every constructor funnels through <code>instrumentedClient</code> with otelhttp outermost over <code>newRateLimitTransport</code> over ghinstallation (<code>internal/github/client.go:71-120</code>, <code>client.go:1090-1096</code>); <code>countingTransport</code> sits under the rate-limit transport (<code>internal/github/usage.go:119</code>). Pinned by <code>TestTransportOrder_ThrottledRequestIsStillMeasured</code> (<code>internal/github/transport_order_test.go:43</code>).</li>
+<li><code>AsThrottled</code> normalises the transport's <code>*ThrottledError</code>, go-github's <code>*RateLimitError</code> pre-check and <code>*AbuseRateLimitError</code> (<code>internal/github/ratelimit.go:54-95</code>; <code>TestAsThrottled_SecondaryRateLimit</code>, <code>internal/github/access_test.go:78</code>; <code>TestCheckRepo_ThrottledErrorSurvivesWrapChain</code>, <code>internal/checker/ratelimit_chain_test.go:43</code>). <code>WithUsage</code> (<code>usage.go:36</code>) and <code>IsAccessDenied</code> (<code>internal/github/access.go:22</code>) are consumed by <code>classify</code> and <code>CheckRepo</code> (<code>check.go:57-60</code>, <code>check.go:139-150</code>).</li>
+<li>Caveat, the split is not a partition: <code>Client</code> is one 40-method interface (<code>internal/github/github.go:136-288</code>) mixing App-level methods (<code>ListInstallations</code>, <code>CreateInstallationClient</code>, <code>RateLimitRemaining</code>), 17 reads and 19 writes. The mock is generated by mockery (<code>.mockery.yaml</code>), so partitioning is mechanical, but the <code>Reader</code> DESIGN-0031 specifies needs methods that do not exist: content reads pinned to a ref (<code>GetContents</code> and <code>GetFileContent</code> are default-branch only, <code>client.go:130-142</code>, <code>client.go:473-494</code>; <code>GetContentsOnBranch</code> takes a ref but returns only sha and existence, <code>client.go:884</code>), directory or tree listing, <code>CodeownersErrors</code>, and commit authors for <code>PRObserver</code>. <code>Writer.Commit</code> through the git-data API (blobs, trees, commits) does not exist either; the only <code>Git.*</code> calls are <code>CreateRef</code> and <code>DeleteRef</code> (<code>client.go:234</code>, <code>client.go:244</code>), and files go through the Contents API (<code>CreateOrUpdateFile</code>, <code>client.go:258</code>).</li>
+</ul>
+<p><strong>Consequence:</strong> keep the transport chain, <code>AsThrottled</code>, <code>WithUsage</code>, <code>IsAccessDenied</code> and deferral unchanged. Implement <code>control.Reader</code>, <code>control.PRObserver</code> and <code>control.Writer</code> on <code>GitHubClient</code> as new methods; then delete the 40-method <code>Client</code> with the engine. The "If wrong" column (a wrapper rather than an interface change) does not apply, but the design should say "new interfaces with mostly new methods", not "splits".</p>
+<h3 id="a13-ingest-and-webhookworkflow-survive-pull_request-is-added">A13 — Ingest and WebhookWorkflow survive; pull_request is added</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li>Ingest validates the HMAC with <code>gh.ValidatePayload</code>, drops unhandled events with 204, starts <code>WebhookWorkflow</code> with <code>REJECT_DUPLICATE</code> and treats already-started as success (<code>internal/ingest/ingest.go:59-118</code>). The event table is <code>repository{created,deleted,archived,unarchived,renamed,transferred}</code>, <code>installation{created,deleted,suspend,unsuspend}</code>, <code>installation_repositories{added,removed}</code> plus default-branch pushes touching a watched path (<code>ingest.go:125-131</code>, <code>ingest.go:183-213</code>). Routing lives in <code>RouteWebhook</code> (<code>internal/activities/route.go:49-82</code>). There is no <code>pull_request</code> case anywhere.</li>
+<li>Caveat 1, one secret: <code>New(secret string, ...)</code> holds a single secret (<code>ingest.go:51-53</code>). DESIGN-0032 now has both Apps deliver lifecycle events to one endpoint, each signed with its own secret, chosen by the target App id header. <code>ValidatePayload</code> consumes the body once, so the header must be read before it and the handler must hold a map of App id to secret.</li>
+<li>Caveat 2, the push filter: <code>touchesWatched</code> consults <code>policy.ExtractWatchedPaths</code> (<code>ingest.go:201-213</code>). Under controls the set is every assigned control's <code>Owns() and Reads()</code>. Ingest already loads the policy (<code>roleReadsPolicy</code> includes <code>ingest</code>, <code>charts/repo-guardian/templates/_helpers.tpl:304</code>), so it can load the catalogue, but the resource paths must be computable without the store, which the <code>ingest</code> role refuses to hold (<code>internal/config/role.go:40-47</code>).</li>
+<li>Caveat 3: <code>pull_request</code> is a new case in three places: <code>ingest.route</code>, <code>RouteWebhook</code>, and <code>workflows/webhook.go</code>.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the role and the workflow; the "If wrong" column (ingest reshaped) partly applies through the two-secret validation and the resources-based push filter. State both in DESIGN-0032's ingest paragraph.</p>
+<h3 id="a14-api-structure-and-ui-shell-survive">A14 — API structure and UI shell survive</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>api.New</code> layers otelhttp, request id and access log, recover, authn outside the generated wrapper, then authz; public routes are derived from the spec's <code>security: []</code> (<code>internal/api/server.go:80-130</code>, <code>publicRoutes</code> at <code>server.go:134</code>); <code>requireVisibleOrgs</code> is keyed on operation id (<code>server.go:181</code>).</li>
+<li><code>apitest.New</code> validates every response against <code>api/openapi.yaml</code> with kin-openapi and <code>IncludeResponseStatus</code> (<code>internal/api/apitest/apitest.go:33</code>, <code>apitest.go:105-119</code>); depguard forbids <code>net/http/httptest</code> in API tests and <code>internal/github</code> or <code>store/postgres</code> in the API (<code>.golangci.yml</code>, the <code>internal/api</code> entries).</li>
+<li><code>TestAPIQueries_AreScoped</code> enforces the scope predicate over every <code>queries/api_*.sql</code> (<code>internal/store/postgres/apiscope_test.go:14-45</code>). <code>NewReadOnlyPool</code> (<code>internal/store/postgres/ropool.go:22</code>) and <code>APIReader</code> (<code>internal/store/postgres/apireader.go:23</code>) are the read path. <code>TestStatus_PrivacyGuard</code> (<code>internal/api/status_http_test.go:117</code>) and <code>TestCompliance_ParityAcrossReportAPIAndSnapshot</code> (<code>internal/store/postgres/parity_integration_test.go:22</code>) pin the status and percent contracts.</li>
+<li>UI: the BFF (<code>ui/server/</code>), the router with <code>/</code>, <code>/rules</code>, <code>/rules/$kind/$name</code>, <code>/orgs</code>, <code>/orgs/$org</code>, <code>/findings</code>, <code>/repos/$id</code>, <code>/history</code>, <code>/policy</code>, <code>/status</code> (<code>ui/web/src/router.tsx:43-150</code>) and the views under <code>ui/web/src/views/</code>. <code>schema.gen.ts</code> is generated from the spec and drift-gated by <code>lint-ui</code>.</li>
+<li>Rule-shaped surfaces to replace: <code>/rules</code>, <code>/rules/{kind}/{name}</code>, <code>/findings</code> (<code>api/openapi.yaml:75-225</code>), <code>rules.tsx</code>, <code>findings.tsx</code>, <code>lib/evidence.ts</code>, <code>lib/viewmodel.ts</code>. One invariant changes by design: the api role holds no Temporal client today (<code>dialTemporal</code> returns early for <code>api</code>, pinned by <code>TestDialTemporal_APIRoleNeedsNoTemporal</code>), and <code>POST /repositories/{id}/evaluate</code> (DESIGN-0032 D9) adds a signal-only client, so that test is retired on purpose.</li>
+</ul>
+<p><strong>Consequence:</strong> keep the framework and the guards; replace the rule-shaped resources and views. The "If wrong" column (API and UI work is larger) does not apply beyond the known replacements.</p>
+<h3 id="a15-roles-and-chart-secret-scoping-extend-to-evaluator-and-remediator">A15 — Roles and chart secret scoping extend to evaluator and remediator</h3>
+<p><strong>Verdict:</strong> holds with caveat.</p>
+<ul>
+<li>Roles render from one list (<code>repo-guardian.roles</code>: <code>all</code>, or <code>ingest worker [api]</code>, <code>charts/repo-guardian/templates/_helpers.tpl:264-270</code>); <code>deployment.yaml</code> ranges over it (<code>templates/deployment.yaml:8</code>). Secret scoping is by one-line list-membership helpers: <code>roleHasAppKey</code>, <code>roleHasWebhookSecret</code>, <code>roleDialsTemporal</code>, <code>roleHasStore</code>, <code>roleServesAPI</code>, <code>roleReadsPolicy</code> (<code>_helpers.tpl:299-304</code>), consumed at <code>deployment.yaml:100-110</code>, <code>deployment.yaml:175</code>, <code>deployment.yaml:230</code>. <code>tests/secret_scoping_test.yaml</code> asserts each absence by env name. <code>validateRoles</code> (<code>_helpers.tpl:489-501</code>) and <code>validateRemovedValues</code> (<code>_helpers.tpl:195</code>) are the guard pattern.</li>
+<li>The binary mirrors it: <code>Role</code> is a bitmask of <code>RoleIngest | RoleWorker | RoleAPI</code> (<code>internal/config/role.go:11-15</code>); <code>ValidateRole</code> refuses the App key and <code>STORE_DSN</code> on <code>ingest</code> alone and requires them on <code>worker</code> (<code>role.go:28-76</code>).</li>
+<li>Caveat: every layer models one App and one queue. Values: <code>config.appId</code>, <code>secrets.privateKey</code>, <code>secrets.existingSecret</code>, <code>secrets.webhookSecret</code> (<code>charts/repo-guardian/values.yaml:83</code>, <code>values.yaml:309-315</code>). Env: <code>GITHUB_APP_ID</code>, <code>GITHUB_PRIVATE_KEY_PATH</code>, <code>GITHUB_WEBHOOK_SECRET</code>, one <code>TEMPORAL_TASK_QUEUE</code>, one <code>STORE_DSN</code> via <code>storeDSNEnv</code> (<code>_helpers.tpl:229</code>). DESIGN-0032 wants two keys, two webhook secrets, two task queues and two DSNs (<code>rg_evaluator</code>, <code>rg_remediator</code>).</li>
+</ul>
+<p><strong>Consequence:</strong> the helper pattern extends (add <code>evaluator</code> and <code>remediator</code> to the lists, add per-App key helpers), so the "If wrong" column (roles redesigned) does not apply. The values schema and env names are new, which is a values-breaking change on the rc line; use the existing <code>const</code> plus <code>validateRemovedValues</code> pattern for the single-App keys.</p>
+<h3 id="a16-no-production-histories-new-workflow-type-names-need-no-gates">A16 — No production histories; new workflow type names need no gates</h3>
+<p><strong>Verdict:</strong> holds with caveat; the operational half is not verifiable from code.</p>
+<ul>
+<li>The only version gate is <code>budget-v1</code> (<code>internal/workflows/repo.go:19</code>, <code>repo.go:253</code>). The worker uses deployment versioning with <code>AutoUpgrade</code> (<code>internal/temporal/worker.go:83-89</code>).</li>
+<li>The replay suite replays every file under <code>internal/workflows/testdata/histories/</code> and fails when the directory is empty (<code>internal/workflows/replay_test.go:23-33</code>). Two fixtures exist, <code>check_then_park.json</code> (a <code>RepoWorkflow</code>) and <code>installation_grant_report.json</code> (an <code>InstallationWorkflow</code>), captured with <code>-update-histories</code> (<code>internal/activities/integration_test.go:50</code>).</li>
+<li>Whether any namespace other than the homelab holds histories is an operational fact the code cannot settle.</li>
+<li>Caveat 1: the fixtures are coupled to the type names. Removing <code>RepoWorkflow</code> from <code>Register</code> makes <code>check_then_park.json</code> fail to replay, and deleting the file alone trips the emptiness guard. The change that introduces <code>EvaluationWorkflow</code> must capture its history in the same PR.</li>
+<li>Caveat 2: <code>AutoUpgrade</code> moves in-flight executions to the newest build. A deployed build that no longer registers <code>RepoWorkflow</code> makes every live <code>repo/&lt;id&gt;</code> execution fail its next workflow task with an unregistered type. The terminate step in the cutover runbook (D8) must run before the deploy, or the build must keep a registration that completes immediately.</li>
+</ul>
+<p><strong>Consequence:</strong> no <code>GetVersion</code> gates, as assumed. Add the two caveats to DESIGN-0032's cutover section. The "If wrong" column (gates or a migration workflow) does not apply.</p>
+<h3 id="a17-frozen-pr-identity-ends-cutover-closes-v1s-prs">A17 — Frozen PR identity ends; cutover closes v1's PRs</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>TestPRIdentity_IsFrozen</code> pins <code>repo-guardian/add-missing-files</code>, the title, the reconcile-log marker and the hash tag (<code>internal/checker/identity_test.go:13-38</code>), and the reconciler branches <code>repo-guardian/set-custom-properties</code> and <code>repo-guardian/add-catalog-info</code> with their titles (<code>internal/reconciler/identity_test.go:9-18</code>).</li>
+<li>"Adopt each other's PRs" is literal: v2 runs the same engine (<code>check.go:60</code>), which finds its own PR by <code>pr.Head == BranchName</code> (<code>internal/checker/engine_pr.go:57</code>), so v1 and v2 converge on one PR because they are one code path.</li>
+<li>DESIGN-0032 D4 closes v1's PR with a pointer comment at cutover and names only <code>add-missing-files</code>. The two reconciler branches are also frozen identities with PRs in the wild.</li>
+</ul>
+<p><strong>Consequence:</strong> retire both tests deliberately at cutover. Correction: D4's close step should name all three branches (<code>add-missing-files</code>, <code>set-custom-properties</code>, <code>add-catalog-info</code>). The "If wrong" column (a transitional adopter) does not apply.</p>
+<h3 id="a18-taskpriority-applies-unchanged">A18 — TaskPriority applies unchanged</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>TaskPriority(p, installationID)</code> returns <code>{PriorityKey: p, FairnessKey: installation id}</code> (<code>internal/workflows/options.go:28-30</code>). Priorities are <code>webhook 2</code>, <code>schedule 3</code>, <code>rollout 4</code> (<code>internal/workflows/types.go:13-17</code>); pushes use <code>PriorityWebhook</code> (<code>internal/activities/route.go:162-168</code>). The budget halves its reserve for priority 2 and below (<code>internal/workflows/installation.go:247-257</code>).</li>
+<li>Under two Apps each role has its own queue and each App its own installation ids, so fairness by installation partitions naturally; a remediation run keys on the Remediation App's installation.</li>
+</ul>
+<p><strong>Consequence:</strong> keep. Remediation runs triggered by an evaluation change need a priority value in DESIGN-0032's table (3 fits "machine-triggered, not a rollout"). The "If wrong" column does not apply.</p>
+<h3 id="a19-posture-export-and-dashboards-regenerate-from-control-results">A19 — Posture export and dashboards regenerate from control results</h3>
+<p><strong>Verdict:</strong> holds with caveat; the exporter does not exist on the v2 path.</p>
+<ul>
+<li><code>PostureExporter.Export</code> publishes <code>repos_actionable{rule_name, org}</code>, <code>repos_tracked{org}</code> and <code>repos_unmeasurable{org, reason}</code> after reading, then <code>ResetPosture</code> (<code>internal/checker/posture.go:48-125</code>). It reads v1's <code>rule_state</code> joined to <code>repo_state</code> (<code>internal/store/postgres/postgres.go:470-520</code>, <code>store.Store.Posture</code>).</li>
+<li>It is wired only in the v1 <code>run()</code> path (<code>cmd/repo-guardian/main.go:353</code>). No v2 role exports posture: <code>cmd/repo-guardian/roles.go</code>, <code>cmd/repo-guardian/services.go</code> and <code>internal/activities</code> contain no posture code. The E1 and E2 panels query <code>repo_guardian_repos_actionable</code> and <code>repo_guardian_repos_tracked</code> with <code>max by</code> (<code>internal/monitoring/dashboard/e1.go:33-34</code>, <code>dashboard/e2.go:79-156</code>), so on a v2 deployment those panels read "no data" today.</li>
+<li>The generator derives its model from <code>*policy.PolicyConfig</code> and keys every posture series on <code>rule_name</code>, rejecting duplicate names across kinds (<code>internal/monitoring/derive.go:55</code>, <code>derive.go:226-240</code>). The leader-only pattern relies on Valkey SETNX, which v2 roles do not have.</li>
+</ul>
+<p><strong>Consequence:</strong> the <code>max by</code> and "no data" patterns and the catalogue-as-data alert model carry over, but the exporter is new work on v2 regardless of controls: an exporter over control results, run from one place (a Temporal schedule or the api role, which is the only singleton), with <code>Derive</code> fed by the catalogue and policy snapshot and keyed on control id. The "If wrong" column (monitoring generation rewritten) applies to the model derivation and the exporter, not to the panel library or emitters. DESIGN-0029's <code>installation_info{topology}</code> addition lands in the same change.</p>
+<h3 id="a20-shadow-verification-and-the-v1-backfill-are-not-carried-over">A20 — Shadow verification and the v1 backfill are not carried over</h3>
+<p><strong>Verdict:</strong> holds.</p>
+<ul>
+<li><code>internal/shadow</code> compares v1 <code>rule_state</code> with v2 findings per <code>(repository, rule)</code> and classifies divergences (<code>internal/shadow/shadow.go:1-60</code>, <code>Compare</code> at line 107); the subcommand is <code>migrate verify-shadow</code> (<code>cmd/repo-guardian/verify_shadow.go:17</code>).</li>
+<li>The backfill is goose migration <code>00003</code> (<code>internal/store/postgres/backfill_v1.go:53</code>), no-op unless adopted, writing findings with <code>migrated_from_v1</code> (<code>backfill_v1.go:240-275</code>) and setting <code>v2_meta.bootstrap_pending</code>, which <code>BootstrapWorkflow</code> clears (<code>internal/workflows/service.go:205-218</code>). <code>00001_adopt_v1</code> creates <code>v2_meta</code> and checks the v1 schema (<code>internal/store/postgres/adopt_v1.go:30-60</code>); both Go migrations are in <code>goMigrations</code> (<code>internal/store/postgres/goose.go:67-72</code>). <code>migrate --dry-run</code> hand-wires the <code>00002</code> replay (<code>internal/store/postgres/dry_run.go</code>).</li>
+<li>Without a rule-to-control mapping the shadow comparison has no key to join on, which is exactly why A20 chooses a fresh evaluation.</li>
+</ul>
+<p><strong>Consequence:</strong> remove <code>internal/shadow</code>, <code>verify-shadow</code>, <code>ReasonMigratedFromV1</code>, <code>BootstrapWorkflow</code> and the bootstrap store methods. Keep <code>00001</code> (the v1-idle check still protects a v1 database). Make <code>00003</code> a versioned no-op rather than deleting it, so <code>SchemaVersion</code> and existing rc databases keep a contiguous chain; its only product is dropped by <code>00007</code>. The "If wrong" column (a v1 to controls mapping) does not apply.</p>
+<h3 id="a21-github-reads-codeowners-from-github-then-root-then-docs">A21 — GitHub reads CODEOWNERS from .github/, then root, then docs/</h3>
+<p><strong>Verdict:</strong> not verifiable from code.</p>
+<ul>
+<li>Nothing in the repository encodes GitHub's precedence. v1's default rule lists <code>CODEOWNERS</code>, <code>.github/CODEOWNERS</code>, <code>docs/CODEOWNERS</code> in that order with <code>Target = .github/CODEOWNERS</code> (<code>internal/policy/defaults.go:112-126</code>), and the operator docs repeat root-first (<code>docs/usage/getting-started.md:199</code>). v1's <code>exists</code> check passes when any path exists, so the order never mattered to v1 and is not evidence either way.</li>
+<li>DESIGN-0031's <code>codeowners</code> table lists <code>.github/CODEOWNERS</code>, <code>CODEOWNERS</code>, <code>docs/CODEOWNERS</code> as "the first found is the one GitHub uses", matching GitHub's published documentation at the time of writing.</li>
+</ul>
+<p><strong>Consequence:</strong> do not copy v1's order. Pin the precedence in a table test of <code>LocateFile</code> and confirm it once in the homelab with two CODEOWNERS files and the errors endpoint, which reports the file GitHub actually used. If the probe disagrees, the "If wrong" column holds: only the location precedence changes.</p>
+<h3 id="a22-the-codeowners-errors-endpoint-is-readable-with-read-permissions">A22 — The CODEOWNERS errors endpoint is readable with read permissions</h3>
+<p><strong>Verdict:</strong> not verifiable from code.</p>
+<ul>
+<li>go-github v68 exposes the endpoint with a <code>Ref</code> option, so binding validation to the evaluated commit (DESIGN-0031 AR-0031-05) is implementable: <code>RepositoriesService.GetCodeownersErrors(ctx, owner, repo, &amp;GetCodeownersErrorsOptions{Ref})</code> (<code>$GOMODCACHE/github.com/google/go-github/v68@v68.0.0/github/repos_codeowners.go:15-19</code>, <code>repos_codeowners.go:42</code>). Nothing in the repository calls it.</li>
+<li>Neither permission table in the repository mentions the endpoint (<code>docs/operations/ent-setup.md:128-145</code>, <code>docs/operations/v2-onboarding.md:122-131</code>).</li>
+</ul>
+<p><strong>Consequence:</strong> the fallback in the "If wrong" column is already the design (<code>unknown{reason=permission}</code>, never pass on parser evidence). Verify with the Evaluation App's token in the homelab when DESIGN-0034 is taken up; A22 is in that design's scope now.</p>
+<h3 id="a23-the-evaluation-apps-read-set-covers-every-built-in-read">A23 — The Evaluation App's read set covers every built-in read</h3>
+<p><strong>Verdict:</strong> not verifiable from code; one correction is visible from the code.</p>
+<ul>
+<li>The reads the code performs today: <code>Repositories.GetContents</code> (<code>internal/github/client.go:131</code>, <code>client.go:474</code>), <code>PullRequests.List</code> (<code>client.go:155</code>), <code>Repositories.Get</code> (<code>client.go:184</code>, <code>client.go:595</code>), <code>Git.GetRef</code> (<code>client.go:213</code>), <code>Repositories.GetAllCustomPropertyValues</code> (<code>client.go:500</code>), <code>Organizations.GetAllCustomProperties</code> (<code>client.go:550</code>), <code>Repositories.GetVulnerabilityAlerts</code> (<code>client.go:565</code>), <code>Repositories.GetAllRulesets</code> and <code>GetRuleset</code> (<code>client.go:653</code>, <code>client.go:668</code>), <code>Issues.ListLabels</code> (<code>client.go:813</code>), <code>Issues.ListComments</code> (<code>client.go:1012</code>). The new reads in DESIGN-0031 (tree listing, commits, CODEOWNERS errors) are Contents and Metadata reads.</li>
+<li>The repository's own permission docs distinguish two Custom properties permissions: repository-level for values and organisation-level for the schema (<code>docs/operations/ent-setup.md:140-144</code>, <code>docs/operations/v2-onboarding.md:128-131</code>, <code>docs/operations/annotation-properties-migration.md:85</code>). The design's list says "Custom properties:read" once. <code>GetOrgPropertySchema</code> (<code>client.go:549</code>), which DESIGN-0031 keeps on <code>Reader</code> as <code>OrgPropertySchema</code>, needs the organisation permission.</li>
+<li>Which permission each endpoint needs is GitHub's rule, not the code's.</li>
+</ul>
+<p><strong>Consequence:</strong> amend A23 and DESIGN-0032's permission table to list "Custom properties (repository): read" and "Custom properties (organization): read" separately. Verify the full set once by registering the Evaluation App with exactly that set and running one evaluation per built-in control type in the homelab. If a read fails, the "If wrong" column applies to that control type only.</p>
+<h3 id="keep-adapt-remove">Keep, adapt, remove</h3>
+<table>
+<thead>
+<tr>
+<th>Package or component</th>
+<th>Decision</th>
+<th>Basis</th>
+<th>What changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/workflows</code></td>
+<td>adapt</td>
+<td>A1, A2, A3, A7, A13, A16, A18</td>
+<td><code>repoLoop</code> becomes the shared loop under <code>EvaluationWorkflow</code>; budget id gains the App; discovery input gains the App and a resolution step; rollout re-resolves; webhook gains <code>pull_request</code>; new type names in <code>names.go</code></td>
+</tr>
+<tr>
+<td><code>internal/activities</code></td>
+<td>adapt</td>
+<td>A1, A3, A6, A8, A13</td>
+<td><code>CheckRepo</code> becomes <code>Evaluate</code>; <code>classify</code>, identity capture and <code>StageCheck</code> stay; router gains <code>pull_request</code> and per-App installation upserts; <code>UpsertRepositories</code> resolves before starting</td>
+</tr>
+<tr>
+<td><code>internal/temporal</code></td>
+<td>keep</td>
+<td>A16</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>internal/store/postgres</code> (v2 store, identity, goose, sqlc)</td>
+<td>adapt</td>
+<td>A4, A5, A6, A7, A20</td>
+<td>migrations <code>00004</code> to <code>00007</code>; <code>identity.go</code> and <code>checks</code> unchanged; findings queries replaced by control-result queries; <code>00003</code> becomes a no-op</td>
+</tr>
+<tr>
+<td><code>internal/store/postgres</code> v1 <code>Store</code> (<code>postgres.go</code>, <code>compliance.go</code>, <code>report.go</code>)</td>
+<td>remove with the <code>v1</code> role</td>
+<td>A19, A20</td>
+<td><code>rule_state</code> / <code>repo_state</code> access goes with v1</td>
+</tr>
+<tr>
+<td><code>internal/store</code> (<code>v2.go</code>, <code>api.go</code>, <code>findings.go</code>)</td>
+<td>adapt</td>
+<td>A5, A6</td>
+<td><code>Outcome</code>, <code>Finding</code>, <code>ComplianceCount</code> re-keyed to controls</td>
+</tr>
+<tr>
+<td><code>internal/findings</code></td>
+<td>adapt</td>
+<td>A5</td>
+<td><code>Status</code> reused for control status; <code>Reason</code> and <code>Evidence</code> catalogue re-cut per control type</td>
+</tr>
+<tr>
+<td><code>internal/checker</code></td>
+<td>remove</td>
+<td>A8, A17</td>
+<td>lift <code>skip.go</code>, <code>RepositoryIdentity</code>, the comparators and the E4 log lines first</td>
+</tr>
+<tr>
+<td><code>internal/reconciler</code></td>
+<td>remove</td>
+<td>A8, A17</td>
+<td>lift label and ruleset diff logic into <code>labels</code> and <code>branch_ruleset</code></td>
+</tr>
+<tr>
+<td><code>internal/policy</code></td>
+<td>replace</td>
+<td>A7, A9</td>
+<td>keep hclparse, <code>Content()</code> decode, <code>path.Match</code>, the PR compile and merge code (moving to <code>template</code>), the <code>VersionV2</code> classification-test pattern</td>
+</tr>
+<tr>
+<td><code>internal/template</code>, <code>internal/rules</code> (TemplateStore)</td>
+<td>keep</td>
+<td>A10</td>
+<td>add <code>Vars</code>; <code>PRConfig</code> / <code>PRTemplate</code> move in; retire <code>FileVars</code> / <code>Rule</code></td>
+</tr>
+<tr>
+<td><code>internal/catalog</code></td>
+<td>adapt</td>
+<td>A11</td>
+<td>expose the entity or node; keep the properties projection for <code>custom_properties</code></td>
+</tr>
+<tr>
+<td><code>internal/github</code></td>
+<td>adapt</td>
+<td>A12</td>
+<td>transport chain, <code>AsThrottled</code>, <code>WithUsage</code>, <code>IsAccessDenied</code> unchanged; implement <code>control.Reader</code> / <code>PRObserver</code> / <code>Writer</code> with new methods; delete <code>Client</code>; regenerate mocks</td>
+</tr>
+<tr>
+<td><code>internal/ingest</code></td>
+<td>adapt</td>
+<td>A13</td>
+<td>two secrets by target App id; <code>pull_request</code>; push filter over <code>Owns()</code> and <code>Reads()</code></td>
+</tr>
+<tr>
+<td><code>internal/api</code>, <code>ui/</code></td>
+<td>adapt</td>
+<td>A14</td>
+<td>framework and guards kept; <code>/rules</code>, <code>/findings</code> and their views replaced; signal-only Temporal client for the evaluate POST</td>
+</tr>
+<tr>
+<td><code>internal/config</code></td>
+<td>adapt</td>
+<td>A15</td>
+<td>role bitmask gains <code>evaluator</code> / <code>remediator</code>; two credential sets; per-role refusals extended</td>
+</tr>
+<tr>
+<td><code>internal/metrics</code></td>
+<td>adapt</td>
+<td>A19</td>
+<td>posture gauges re-keyed to control; v1 queue, worker and write-back metrics removed with v1</td>
+</tr>
+<tr>
+<td><code>internal/monitoring</code>, <code>contrib/generated/</code></td>
+<td>adapt</td>
+<td>A8, A19</td>
+<td><code>Derive</code> from the catalogue and policy snapshot; posture series by control; E4 matchers re-pointed; a v2 exporter to feed them</td>
+</tr>
+<tr>
+<td><code>internal/observability</code></td>
+<td>keep</td>
+<td>A12</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>internal/report</code></td>
+<td>adapt</td>
+<td>A5</td>
+<td>shared compliance query over control results; percent rule kept</td>
+</tr>
+<tr>
+<td><code>internal/shadow</code>, <code>backfill_v1.go</code> body, <code>BootstrapWorkflow</code>, <code>migrate verify-shadow</code></td>
+<td>remove</td>
+<td>A20</td>
+<td><code>00003</code> kept as a versioned no-op</td>
+</tr>
+<tr>
+<td><code>internal/worker</code>, <code>internal/webhook</code>, <code>internal/scheduler</code>, <code>internal/queue</code>, the <code>v1</code> subcommand</td>
+<td>remove at cutover</td>
+<td>A19, A20</td>
+<td>the v1 runtime; already absent from v2 roles</td>
+</tr>
+<tr>
+<td><code>cmd/rg-burst</code></td>
+<td>adapt</td>
+<td>A2</td>
+<td>installation id becomes App plus id</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian</code></td>
+<td>adapt</td>
+<td>A15</td>
+<td>roles list and helpers extended; two credential blocks; two queues; removed-values guard for the single-App keys</td>
+</tr>
+</tbody>
+</table>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> Yes, with caveats. All twenty-three assumptions either hold (A1, A2, A6, A9, A10, A14, A17, A18, A20 and, for its code half, A16), hold with a caveat that changes the plan but not the model (A3, A4, A5, A7, A8, A11, A12, A13, A15, A19), or are GitHub facts the code cannot settle (A21, A22, A23). None is wrong in the sense its "If wrong" column anticipates. The keep-versus-replace split in DESIGN-0029 stands: the Temporal control plane, the store's identity and check-log tables, the template layer, the client transport chain, the API framework and the chart's role pattern are kept or adapted; the rule engine, the reconcilers, the findings tables, the HCL loader and the v1 bridge are removed or replaced.</p>
+<p>The six findings that change the implementation plan are: resolution must run inside <code>UpsertRepositories</code> before the workflow starts (A3); discovery, ingest, config and the chart are single-App and need an App dimension rather than a redesign (A3, A13, A15); the client split adds methods instead of partitioning existing ones (A12); the posture exporter does not run on v2 and has to be built, not re-pointed (A19); the replay suite fails closed when its fixtures lose their workflow type (A16); and five non-engine pieces inside <code>internal/checker</code> must be lifted before the package goes (A8).</p>
+<h2 id="recommendation">Recommendation</h2>
+<ol>
+<li><strong>DESIGN-0029, assumptions table.</strong> Mark A1 to A20 verified with the verdicts above; mark A21 to A23 "homelab probe" with the probe described in each finding. Reword A12 from "splits into" to "is replaced by <code>control.Reader</code>, <code>PRObserver</code>, <code>Writer</code>, implemented as new methods on <code>GitHubClient</code>".</li>
+<li><strong>DESIGN-0029 "What happens to v1 concepts" and the overview.</strong> Add a line that the five surviving checker pieces (durable-skip classification, repository identity capture, the setting, ruleset and label comparators, the foreign-PR match, the E4 log lines) are lifted into the evaluate activity and the control types, so "removed, not adapted" reads correctly (A8).</li>
+<li><strong>DESIGN-0030 "When resolution runs".</strong> State that resolution runs inside <code>UpsertRepositories</code> between the upsert and the SignalWithStart, and inside the rollout before re-evaluation (A3, A7).</li>
+<li><strong>DESIGN-0032 "Two Apps" and "Migration".</strong> Replace any remaining <code>installations.app</code> wording in <code>00004_controls_policy</code> with <code>app_installations</code> and <code>app_repository_access</code> (A2). Decide the fate of <code>repositories.installation_id</code> (OQ2) and record it under Data Model (A4).</li>
+<li><strong>DESIGN-0032 ingest paragraph.</strong> Name the two concrete reshapes: secret selection by the target App id header before <code>ValidatePayload</code>, and a push filter over <code>Owns()</code> and <code>Reads()</code> computed without store access (A13).</li>
+<li><strong>DESIGN-0032 D4.</strong> Extend the cutover close step to <code>repo-guardian/set-custom-properties</code> and <code>repo-guardian/add-catalog-info</code> (A17).</li>
+<li><strong>DESIGN-0032 cutover (D8).</strong> Add: capture <code>EvaluationWorkflow</code> and <code>RemediationWorkflow</code> histories in the PR that removes <code>RepoWorkflow</code>, because the replay suite fails on an empty directory; terminate live <code>repo/&lt;id&gt;</code> executions before deploying a build that no longer registers <code>RepoWorkflow</code>, because the worker runs <code>AutoUpgrade</code> (A16, OQ3).</li>
+<li><strong>DESIGN-0032 permission table and A23.</strong> List repository-level and organisation-level Custom properties: read separately (A23).</li>
+<li><strong>DESIGN-0032 "Temporal mapping" or the IMPL.</strong> Add a v2 posture exporter over control results as its own phase; today nothing feeds the E1 and E2 panels on v2 (A19). Re-point <code>Derive</code> from <code>PolicyConfig</code> to the catalogue and policy snapshot in the same phase.</li>
+<li><strong>DESIGN-0032 priorities table.</strong> Give change-triggered remediation runs a priority value (A18).</li>
+<li><strong>IMPL plan.</strong> Order the phases so <code>control.Reader</code> and its new client methods (ref-pinned reads, tree listing, CODEOWNERS errors, git-data commit) land before any control type, since every type depends on them (A12). Keep goose <code>00003</code> as a versioned no-op and delete only its body (A20). Apply <code>Content()</code> decode to every block in the new loader (A9).</li>
+</ol>
+<p><strong>Outcome (2026-10-05):</strong> all three questions are resolved below. Recommendation 4's migration wording and the <code>00004</code> numbering are superseded by DESIGN-0032 D27: the controls schema is a fresh goose chain on a fresh database, with no migrations over the rc schema.</p>
+<h3 id="oq1-how-is-installation-suspension-modelled-under-the-controls-model">OQ1: How is installation suspension modelled under the controls model?</h3>
+<p><strong>Resolved 2026-10-05: (a).</strong> Suspension of either App is <code>app_installations.suspended_at</code>, never a park; "ignore but keep visible" is <code>exclude_repos</code> with its required free-text reason (DESIGN-0029 D6 and DESIGN-0030 D6 amended).</p>
+<ul>
+<li>(a) ✅ recommended: as <code>app_installations.suspended_at</code>, from which <code>remediable</code> and <code>unmeasurable</code> are derived; not a park. Today suspension is only a budget gate (<code>route.go:224-247</code>) and <code>park_reason</code> has no <code>suspended</code> value; keeping it out of parking preserves "discovery is the only un-parker" and needs no un-park path on <code>installation.unsuspend</code>.</li>
+<li>(b) add <code>suspended</code> to <code>park_reason</code>, park on <code>installation.suspend</code> keeping results, and un-park on <code>installation.unsuspend</code>, which makes <code>unsuspend</code> a second un-parker.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq2-does-repositoriesinstallation_id-stay-once-app_repository_access-exists">OQ2: Does <code>repositories.installation_id</code> stay once <code>app_repository_access</code> exists?</h3>
+<p><strong>Resolved 2026-10-05: (b).</strong> The column is dropped: one record of the fact is logically cleaner even though the two options are functionally the same (DESIGN-0030 D19).</p>
+<ul>
+<li>(a) ✅ recommended: keep it as the Evaluation App's installation, <code>NOT NULL</code>, refreshed by <code>applyIdentity</code> on transfer as today (<code>identity.go:98-99</code>), with <code>app_repository_access</code> as the authority for <code>evaluable</code> and <code>remediable</code>. Discovery inserts stay one statement and the identity tests stay green.</li>
+<li>(b) drop it in <code>00004</code> and make <code>matchRepository</code> / <code>applyIdentity</code> installation-free, reading the Evaluation App installation from <code>app_repository_access</code> wherever <code>CheckRepo</code> and <code>TaskPriority</code> need it.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq3-how-are-live-repoworkflow-executions-retired-when-the-build-stops-registering-the-type">OQ3: How are live <code>RepoWorkflow</code> executions retired when the build stops registering the type?</h3>
+<p><strong>Resolved 2026-10-05: (a), widened.</strong> The cutover installs against a fresh database with no in-place upgrade path (DESIGN-0029 D11, DESIGN-0032 D27); the runbook still terminates every live execution before the new build is promoted, and the new histories are captured in the PR that removes <code>RepoWorkflow</code>.</p>
+<ul>
+<li>(a) ✅ recommended: the cutover runbook terminates every <code>repo/&lt;id&gt;</code> and <code>installation/&lt;id&gt;</code> execution before the new build is promoted, and the PR that removes <code>RepoWorkflow</code> replaces the two replay fixtures with captures of the new workflows.</li>
+<li>(b) the new build keeps a tombstone <code>RepoWorkflow</code> that completes immediately, so executions drain on their own under <code>AutoUpgrade</code>, and the fixtures are kept until the tombstone is removed one release later.</li>
+<li>other:</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>DESIGN-0029: <code>docs/design/0029-controls-and-policies-opinionated-compliance-with-separate.md</code> (assumptions table, "What happens to v1 concepts", Data Model)</li>
+<li>DESIGN-0030: <code>docs/design/0030-policy-model-enterprise-and-org-policies-and-control-assignment.md</code> ("When resolution runs", AR-0030-04)</li>
+<li>DESIGN-0031: <code>docs/design/0031-control-framework-controls-control-rules-and-file-controls.md</code> (D7, AR-0031-05, AR-0031-08, <code>codeowners</code> locations)</li>
+<li>DESIGN-0032: <code>docs/design/0032-evaluation-and-remediation-workflows-change-driven-remediation.md</code> ("Two Apps", "Roles", D4, D8, "Migration")</li>
+<li>IMPL-0025: <code>docs/impl/0025-*.md</code> (Phases 3 to 18, the code under test)</li>
+<li>INV-0015 (parking and the subset invariant), IMPL-0020 (catalog parse contract), IMPL-0023 (posture-state contract)</li>
+<li><code>CLAUDE.md</code>, "The v2 branch (IMPL-0025)"</li>
+<li>go-github v68 <code>repos_codeowners.go</code> (<code>GetCodeownersErrors</code>, <code>GetCodeownersErrorsOptions.Ref</code>)</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

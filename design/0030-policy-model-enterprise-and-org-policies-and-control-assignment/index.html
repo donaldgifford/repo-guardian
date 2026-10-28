@@ -1,0 +1,6876 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0029-controls-and-policies-opinionated-compliance-with-separate/">
+      
+      
+        <link rel="next" href="../0031-control-framework-controls-control-rules-and-file-controls/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Policy model: enterprise and org policies and control assignment - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-0030-policy-model-enterprise-and-org-policies-and-control-assignment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Policy model: enterprise and org policies and control assignment
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-control-catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The control catalogue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-enterprise-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The enterprise policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#org-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Org policies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-resolution-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When resolution runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-at-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation at load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compliance-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adversarial-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adversarial Review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adversarial Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-01-high-pairwise-enumeration-is-neither-a-proof-nor-a-complete-error-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-03 (high): Assignment changes need revision fences around results and writes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-04-high-org-installation-presence-is-not-repository-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-04 (high): Org installation presence is not repository authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-06-high-final-layer-provenance-cannot-answer-baseline-compliance-reliably" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-07-medium-overlapping-modes-and-replacements-need-an-executable-precedence-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Open Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-is-there-a-separate-repository-policy-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: Is there a separate repository policy type?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-at-what-granularity-is-the-mode-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: At what granularity is the mode set?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0026-temporal-client-auth-credential-reload-keda-prometheus-trigger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-control-catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The control catalogue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-enterprise-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The enterprise policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#org-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Org policies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-resolution-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When resolution runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-at-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation at load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compliance-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-interface-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API / Interface Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-rollout-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Rollout Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adversarial-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adversarial Review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adversarial Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-01-high-pairwise-enumeration-is-neither-a-proof-nor-a-complete-error-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-03 (high): Assignment changes need revision fences around results and writes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-04-high-org-installation-presence-is-not-repository-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-04 (high): Org installation presence is not repository authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-06-high-final-layer-provenance-cannot-answer-baseline-compliance-reliably" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ar-0030-07-medium-overlapping-modes-and-replacements-need-an-executable-precedence-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Open Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-is-there-a-separate-repository-policy-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: Is there a separate repository policy type?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-at-what-granularity-is-the-mode-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: At what granularity is the mode set?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="design-0030-policy-model-enterprise-and-org-policies-and-control-assignment">DESIGN-0030: Policy model: enterprise and org policies and control assignment</h1>
+<!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#goals-and-non-goals">Goals and Non-Goals</a></li>
+<li><a href="#goals">Goals</a></li>
+<li><a href="#non-goals">Non-Goals</a></li>
+<li><a href="#background">Background</a></li>
+<li><a href="#detailed-design">Detailed Design</a></li>
+<li><a href="#files">Files</a></li>
+<li><a href="#the-control-catalogue">The control catalogue</a></li>
+<li><a href="#the-enterprise-policy">The enterprise policy</a></li>
+<li><a href="#org-policies">Org policies</a></li>
+<li><a href="#resolution">Resolution</a></li>
+<li><a href="#resource-ownership">Resource ownership</a></li>
+<li><a href="#modes">Modes</a></li>
+<li><a href="#when-resolution-runs">When resolution runs</a></li>
+<li><a href="#validation-at-load">Validation at load</a></li>
+<li><a href="#compliance-queries">Compliance queries</a></li>
+<li><a href="#api--interface-changes">API / Interface Changes</a></li>
+<li><a href="#data-model">Data Model</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#migration--rollout-plan">Migration / Rollout Plan</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#adversarial-review">Adversarial Review</a></li>
+<li><a href="#ar-0030-01-high-pairwise-enumeration-is-neither-a-proof-nor-a-complete-error-model">AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model</a></li>
+<li><a href="#ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement">AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement</a></li>
+<li><a href="#ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes">AR-0030-03 (high): Assignment changes need revision fences around results and writes</a></li>
+<li><a href="#ar-0030-04-high-org-installation-presence-is-not-repository-authorization">AR-0030-04 (high): Org installation presence is not repository authorization</a></li>
+<li><a href="#ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss">AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss</a></li>
+<li><a href="#ar-0030-06-high-final-layer-provenance-cannot-answer-baseline-compliance-reliably">AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably</a></li>
+<li><a href="#ar-0030-07-medium-overlapping-modes-and-replacements-need-an-executable-precedence-contract">AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#oq1-is-there-a-separate-repository-policy-type">OQ1: Is there a separate repository policy type?</a></li>
+<li><a href="#oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams">OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?</a></li>
+<li><a href="#oq3-at-what-granularity-is-the-mode-set">OQ3: At what granularity is the mode set?</a></li>
+</ul>
+<!-- markdownlint-restore -->
+<!--toc:end-->
+
+<h2 id="overview">Overview</h2>
+<p>A policy is the <em>who</em> and the <em>what</em>: which orgs and repositories, and which controls apply to them. This document defines:</p>
+<ul>
+<li>the <strong>control catalogue</strong>, where controls are defined once;</li>
+<li>the <strong>enterprise policy</strong>, the baseline for every listed org;</li>
+<li><strong>org policies</strong>, which add, replace or exclude controls for one org or for specific repositories in it, and set the mode;</li>
+<li><strong>resolution</strong>, the deterministic function that turns those, together with the repository's stored state and each App's access to it, into a repository's <strong>assignments</strong>: the controls that apply, the policy each came from and the baseline each fulfils, and the requested and effective mode (<code>evaluate</code> or <code>remediate</code>);</li>
+<li>how assignments are stored and queried for compliance at repository, org, enterprise and policy level.</li>
+</ul>
+<p>Vocabulary and the overall architecture are in DESIGN-0029. What a control <em>is</em> in code is in DESIGN-0031. How assignments drive evaluation and remediation is in DESIGN-0032.</p>
+<h2 id="goals-and-non-goals">Goals and Non-Goals</h2>
+<h3 id="goals">Goals</h3>
+<ul>
+<li><strong>One baseline, local variation.</strong> The enterprise policy says what applies everywhere. Org policies are only needed for differences.</li>
+<li><strong>Trial a control on one org.</strong> An org policy can enable a new control, or a new version of one, without touching the enterprise policy.</li>
+<li><strong>Exclusions are explicit and explained.</strong> Every exclusion names its scope and a reason, and is visible per repository in the UI.</li>
+<li><strong>Every assignment has provenance.</strong> For each repository and control, the database records which policy assigned it, which excluded it, and why.</li>
+<li><strong>Deterministic resolution with no API calls.</strong> The same policy snapshot, the same repository row and the same per-App access facts always give the same assignments. Resolution reads stored state only, so it is table-testable, and its golden cases are the contract every implementation reproduces (D18).</li>
+<li><strong>One owner per resource holds per repository.</strong> Resolution never activates two controls that own the same resource — the "one owner per resource" goal of DESIGN-0029. A collision is not dropped or guessed at: it is persisted as a <code>conflict</code> that nobody evaluates or remediates (D12).</li>
+</ul>
+<h3 id="non-goals">Non-Goals</h3>
+<ul>
+<li><strong>A policy language with arbitrary conditions.</strong> Selection is by org and repository name (with globs). Selection by repository facts is a later addition (D4). It is not a general expression language.</li>
+<li><strong>Per-team or per-topic policies.</strong> These could come later through repository facts.</li>
+<li><strong>Editing policy through the UI.</strong> Policies are files under version control. The UI is read-only (DESIGN-0027 stance).</li>
+</ul>
+<h2 id="background">Background</h2>
+<p>v1 and v2 today use one policy file:</p>
+<ul>
+<li>a top-level <code>scope { orgs }</code> that engages strict mode;</li>
+<li>per-rule <code>scope</code> and <code>ignore</code> blocks;</li>
+<li>global <code>ignore { repos }</code> globs.</li>
+</ul>
+<p>Every rule must restate its scope, and an exception for one org means editing a shared file. That creates three problems:</p>
+<ul>
+<li>there is no way to trial a rule on one org without scoping tricks;</li>
+<li>nothing records <em>why</em> a rule does not apply to a repository;</li>
+<li>"how compliant is org X with the enterprise baseline" is not a question the data can answer.</li>
+</ul>
+<p>A fourth problem is structural rather than about scoping: rules are evaluated in isolation, so two rules that name the same file have no shared view of the result and can undo each other. The policy model's answer is resource ownership (below); the control model's answer is in DESIGN-0031.</p>
+<h2 id="detailed-design">Detailed Design</h2>
+<h3 id="files">Files</h3>
+<pre><code class="language-text">policy/
+  catalogue/
+    codeowners.hcl        # control definitions, any number of files
+    catalog_info.hcl
+    dependency_updates.hcl
+  templates/              # file templates the catalogue names; optional
+    codeowners.tmpl
+  enterprise.hcl          # exactly one
+  orgs/
+    donaldgifford.hcl     # zero or one per org
+    test-org.hcl
+</code></pre>
+<p>The directory is mounted the way <code>GUARDIAN_CONFIG</code> is today (a ConfigMap from chart values or an existing ConfigMap) (D3). Everything in it is loaded, validated and hashed together into one <strong>policy version</strong>, so every repository is resolved against a consistent snapshot.</p>
+<p><strong>Templates live under the policy root (D20).</strong> Today file templates come from two places outside the policy: <code>TEMPLATE_DIR</code>, a separate mount at <code>/etc/repo-guardian/templates</code>, and the embedded <code>rules.TemplateStore</code>. Under the controls model an operator template is a file under <code>policy/templates/</code> (or any path under the root that the catalogue names), read and hashed in the same pass as the HCL, so editing a template changes the policy version. The embedded templates remain the fallback for a template name the root does not supply, and their bytes are part of the hashed snapshot too, so a binary upgrade that changes an embedded default also changes the version. <code>TEMPLATE_DIR</code> and the chart's separate <code>templates</code> mount go away. How the chart renders the template files into the same ConfigMap, and the effect on the version hash, is a phase-0 spike (INV-0022). Amended 2026-10-06 (INV-0022).</p>
+<p>The spike settled both (INV-0022 Phase-0 results, spike 7). ConfigMap keys cannot contain <code>/</code>, so the chart encodes a nested path into the key with <code>__</code> (<code>templates__codeowners.tmpl</code>; a file name containing <code>__</code> fails render) and maps it back with the volume's <code>items[].path</code>. The reader walks <code>&lt;root&gt;/..data/</code> when it exists, which is kubelet's one consistent snapshot, skips every name starting with <code>..</code>, and keys files by their path relative to it: a plain walk of the mount sees only kubelet's timestamped copies, because the nested directories are symlinks it does not follow. The version hashes the root's files and the embedded templates the root does <strong>not</strong> shadow, sorted and length-prefixed, so a binary upgrade that changes an overridden default does not re-roll the fleet. The whole root, HCL and templates, fits one ConfigMap's 1 MiB. Amended 2026-10-07 (INV-0022 Phase-0 results).</p>
+<h3 id="the-control-catalogue">The control catalogue</h3>
+<p>A control is defined once and referenced by <code>name@version</code>, where the version is an integer and the reference matches exactly (DESIGN-0029 D2 and D3):</p>
+<pre><code class="language-hcl">control &quot;codeowners&quot; {
+  version = 2
+  title   = &quot;CODEOWNERS&quot;
+  type    = &quot;codeowners&quot;              # the Go control type (DESIGN-0031)
+
+  rule &quot;exists&quot; {
+    number = &quot;1.1&quot;
+    title  = &quot;A CODEOWNERS file exists in a standard location&quot;
+    remediate = true                  # this rule is remediable
+  }
+
+  # Ownership rules (kind = &quot;owners&quot;, pattern/owners parameters) are
+  # DESIGN-0034, deferred. Version 2 here differs from version 1 by its
+  # template, which is a catalogue change, not a Go change (DESIGN-0029 D3).
+  template = &quot;codeowners&quot;             # full-file template for an absent file
+
+  pr {
+    title = &quot;chore: CODEOWNERS ({{ .Control.Title }} v{{ .Control.Version }})&quot;
+  }
+}
+
+control &quot;repo_settings&quot; {
+  version = 1
+  title   = &quot;Repository settings&quot;
+  type    = &quot;repo_settings&quot;           # an API-remediated type
+
+  rule &quot;no-wiki&quot; {
+    number    = &quot;1.1&quot;
+    title     = &quot;The wiki is disabled&quot;
+    kind      = &quot;equals&quot;
+    property  = &quot;has_wiki&quot;
+    value     = false
+    remediate = true
+  }
+
+  remediation {
+    apply = &quot;recommend&quot;               # &quot;recommend&quot; (default), &quot;direct&quot;, or &quot;workflow&quot; for
+                                      # types that declare it (DESIGN-0031, DESIGN-0032)
+  }
+}
+</code></pre>
+<p>Rule ids (<code>exists</code>, <code>no-wiki</code>) are bare and unique within their control. Control slugs and rule ids share one grammar, <code>^[a-z][a-z0-9]*([_-][a-z0-9]+)*$</code>, and a rule's <code>kind</code> may be omitted only when its id is itself a rule kind the control type declares, as <code>exists</code> is; otherwise load fails naming the rule (DESIGN-0033 AR-0033-01). Rule <strong>numbers</strong> (<code>1.1</code>, <code>1.2</code>) are display-only labels for reports and the UI; they are a different axis from the control <strong>version</strong> (<code>2</code>), which is what policies pin. A new version of a control is a new catalogue definition under the same name, not a new Go type. Beside the version, every definition has a <strong>revision</strong>: a content digest over everything that can change an outcome or a remediation (DESIGN-0029 AR-0029-04, DESIGN-0031), which assignments and results record so that a semantic edit under an unchanged integer still re-evaluates.</p>
+<p>Which rule kinds and parameters a control can use is defined by its control type, and validated at load (DESIGN-0031). The catalogue holds definitions only. A control in the catalogue that no policy references is inert.</p>
+<h3 id="the-enterprise-policy">The enterprise policy</h3>
+<pre><code class="language-hcl">enterprise {
+  orgs = [&quot;donaldgifford&quot;, &quot;test-org&quot;, &quot;platform&quot;]
+  mode = &quot;evaluate&quot;                    # default for everything; see Modes
+
+  controls = [
+    &quot;codeowners@1&quot;,
+    &quot;catalog_info@1&quot;,
+    &quot;dependency_updates@1&quot;,
+  ]
+
+  remediation {                        # defaults; an org policy may override
+    max_open_prs = 3                   # per repository (DESIGN-0032 OQ2)
+    reopen_after = &quot;336h&quot;              # after a user closes a PR (DESIGN-0032 OQ3)
+  }
+}
+</code></pre>
+<p>The enterprise policy has <strong>no exclusions</strong>: it is the baseline. Its org list is also the onboarding gate. An org not listed is not managed, even if an App is installed there or an org policy file exists (D1).</p>
+<h3 id="org-policies">Org policies</h3>
+<pre><code class="language-hcl">org &quot;test-org&quot; {
+  mode = &quot;remediate&quot;                   # overrides the enterprise default for this org
+
+  # Additional controls for this org only.
+  controls = [&quot;branch_ruleset@1&quot;]
+
+  # Trial a new version of an enterprise control in this org.
+  replace &quot;codeowners@1&quot; {
+    with   = &quot;codeowners@2&quot;
+    reason = &quot;trialling the v2 template before it becomes the baseline&quot;
+  }
+
+  # Exclude a control for the whole org.
+  exclude &quot;dependency_updates@1&quot; {
+    reason = &quot;test-org uses an in-house updater&quot;
+  }
+
+  # Keep evaluating one control while the rest of the org remediates.
+  control &quot;codeowners@2&quot; {
+    mode = &quot;evaluate&quot;
+  }
+
+  # Exclude repositories from repo-guardian entirely.
+  exclude_repos {
+    match  = [&quot;sandbox-*&quot;, &quot;archive-*&quot;]  # globs on the repository name
+    reason = &quot;throwaway repositories&quot;
+  }
+
+  # Repository-level variation (OQ1: no separate repository policy type).
+  # The label is the block's stable identity in provenance (D17).
+  repos &quot;legacy&quot; {
+    match = [&quot;legacy-api&quot;, &quot;legacy-web&quot;]
+
+    exclude &quot;catalog_info@1&quot; {
+      reason = &quot;being decommissioned, no Backstage entry&quot;
+    }
+
+    mode = &quot;evaluate&quot;                  # never remediate these
+  }
+
+  repos &quot;payments&quot; {
+    match    = [&quot;payments-*&quot;]
+    controls = [&quot;secret_scanning@1&quot;]   # (hypothetical control)
+
+    control &quot;secret_scanning@1&quot; {
+      mode = &quot;remediate&quot;
+    }
+  }
+
+  remediation {
+    max_open_prs = 5
+  }
+}
+</code></pre>
+<p>Block labels are quoted strings; lists live in attributes. A <code>repos</code> block carries a label (<code>repos "legacy" {}</code>) that is unique within the org policy and is the block's stable identity in provenance (<code>org:test-org/repos[legacy]</code>), so reordering a block or editing its globs does not change what an assignment records (D17). <code>repos</code> and <code>exclude_repos</code> both select repositories with <code>match</code>, a list of globs on the repository name.</p>
+<p>An org policy can:</p>
+<ul>
+<li><strong>add</strong> controls (<code>controls</code>), org-wide or in a <code>repos</code> block; a slug the enterprise baseline names is restored to the baseline, any other slug is org-added (D17);</li>
+<li><strong>replace</strong> a control with another that owns the same resource, usually a newer version (<code>replace</code>), org-wide or in a <code>repos</code> block, with a required <code>reason</code> (D17); the replacement fulfils the baseline its source did;</li>
+<li><strong>exclude</strong> a control, org-wide or in a <code>repos</code> block, with a required <code>reason</code> (D2);</li>
+<li><strong>exclude repositories</strong> entirely (<code>exclude_repos</code>), with a required <code>reason</code>;</li>
+<li><strong>set the mode</strong> org-wide, in a <code>repos</code> block, or for one control with a <code>control "name@N" { mode }</code> override inside either (OQ3); this is the requested mode, and the effective mode also depends on the Remediation App's access to the repository (see Modes);</li>
+<li><strong>tune remediation</strong> (<code>remediation { max_open_prs, reopen_after }</code>) for the org.</li>
+</ul>
+<h3 id="resolution">Resolution</h3>
+<p>Resolution makes no API calls. It reads the policy snapshot and two pieces of stored state:</p>
+<pre><code class="language-text">resolve(policySnapshot,
+        repository{org, name, active, archived, fork},
+        access{evaluable, remediable})
+  → RepositoryPolicyState{state, reason}, []Assignment
+</code></pre>
+<p><code>access</code> is per repository and per App, not per org (D15). It is read from DESIGN-0032's <code>app_repository_access(repository_id, app, installation_id, seen_at)</code> joined to <code>app_installations(app, account_login, installation_id, suspended_at, repository_selection, seen_at)</code>: <code>evaluable</code> is true when the Evaluation App has access to this repository; <code>remediable</code> is true when the Remediation App has access to it and its installation is not suspended, and <code>evaluable</code> is likewise false while the Evaluation App's installation is suspended. Suspension of either App is access state read from <code>app_installations.suspended_at</code>, never a park reason, so <code>installation.unsuspend</code> has nothing to un-park and discovery stays the only un-parker (INV-0021 OQ1). A GitHub App can be installed on selected repositories, so a live Remediation installation for the org says nothing about this repository, which is why the booleans are per repository. Each App refreshes its own facts: both Apps run discovery through their own installations (the Remediation App's discovery only lists repositories), and both deliver <code>installation</code> and <code>installation_repositories</code> lifecycle events to the same ingest endpoint, distinguished by the target App id header and signed with their own secret (DESIGN-0032).</p>
+<p>The repository's <code>active</code> flag is the parking mechanism carried over from today: archived repositories, forks, removed repositories and repositories the Evaluation App cannot read are parked, and discovery (<code>UpsertDiscovered</code>) is the only thing that un-parks. Assignments are desired state, derived from the policy snapshot and the repository's identity, so parking never removes them (D6): a parked repository keeps its assignments and is simply never evaluated while parked. What happens to its results depends on the park reason (see Data Model). Evaluation App absence on an active repository needs no rule of its own: the next complete discovery listing parks it <code>removed</code>.</p>
+<pre><code class="language-mermaid">flowchart TD
+    A[&quot;repository row&lt;br/&gt;(org, name, active, archived, fork)&quot;] --&gt; B{&quot;org in enterprise.orgs?&quot;}
+    B -- no --&gt; U[&quot;state = unmanaged&lt;br/&gt;(no assignments)&quot;]
+    B -- yes --&gt; C{&quot;matched by org exclude_repos?&quot;}
+    C -- yes --&gt; X[&quot;state = excluded&lt;br/&gt;(reason recorded, no assignments)&quot;]
+    C -- no --&gt; L1[&quot;step 1: enterprise baseline&quot;]
+    L1 --&gt; L2[&quot;step 2: org policy in file order&lt;br/&gt;controls, replace, exclude, mode, control overrides&quot;]
+    L2 --&gt; L3[&quot;step 2 continued: each matching labelled repos block in file order&lt;br/&gt;same operations, one row per slug&quot;]
+    L3 --&gt; M[&quot;step 4: requested mode per control by specificity&lt;br/&gt;step 5: effective mode = requested when remediable, else evaluate&quot;]
+    M --&gt; W[&quot;step 6: final write set = union of Owns() over active assignments&quot;]
+    W --&gt; I{&quot;one resource claimed&lt;br/&gt;by two active controls?&quot;}
+    I -- yes --&gt; ERR[&quot;state = conflict on the affected assignments&lt;br/&gt;(error recorded, never evaluated or remediated)&quot;]
+    I -- no --&gt; OUT[&quot;active assignments with provenance, lineage and epoch&quot;]
+    ERR --&gt; P{&quot;active?&quot;}
+    OUT --&gt; P
+    P -- no --&gt; PK[&quot;repository state = parked&lt;br/&gt;(park reason kept, assignments kept, never evaluated)&quot;]
+    P -- yes --&gt; MG[&quot;repository state = managed&quot;]
+</code></pre>
+<p><strong>The algorithm.</strong> One ordered algorithm defines resolution, and it is published as golden cases, <code>testdata/resolution/*.hcl</code> with the expected JSON, that every implementation must reproduce exactly (D18):</p>
+<ol>
+<li>Start from the enterprise baseline: every control in <code>enterprise.controls</code> is active with <code>decision = baseline</code> and <code>baseline_control</code> set to its own slug.</li>
+<li>Apply the org policy in file order: <code>controls</code> adds (a slug the enterprise baseline names is restored with its <code>baseline_control</code> and <code>decision = baseline</code>; any other slug is <code>decision = org_added</code> with no <code>baseline_control</code>), <code>replace</code> swaps (the source must be in the current set, else a load error; the replacement inherits the source's <code>baseline_control</code>, records <code>replaced</code> and <code>decision = replaced</code>, and the predecessor's resources leave the write set before anything is checked), <code>exclude</code> removes and records (<code>decision = excluded</code>, <code>excluded_by</code>, <code>reason</code>). Then apply each matching <code>repos</code> block in file order the same way. Within one layer an exclusion beats an addition of the same control, because "exclude" is the explicit opt-out.</li>
+<li>Keep one row per slug and repository: a later layer supersedes an earlier version or an earlier exclusion, so re-adding <code>@1</code> after excluding <code>@2</code> yields an active <code>@1</code> row and the <code>@2</code> exclusion is history. A later layer adding back a control an earlier layer excluded is how "exclude org-wide except these repositories" is written. <code>source</code> and <code>source_block</code> record the layer that made the final decision; <code>baseline_control</code> records the lineage regardless of which layer that was.</li>
+<li>Choose the <strong>requested mode</strong> by specificity, not file order: a per-control override in a matching <code>repos</code> block, then that block's <code>mode</code>, then a per-control override at org level, then the org <code>mode</code>, then the enterprise <code>mode</code>. Two declarations at the same specificity with different values fall to the later one in file order, and <code>validate</code> warns on them.</li>
+<li>Derive the <strong>effective mode</strong>: the requested mode when the repository is <code>remediable</code>, else <code>evaluate</code> with <code>mode_reason</code> set to <code>remediation_app_no_access</code> or <code>remediation_app_suspended</code>. This is per repository, so one org can hold remediated and evaluate-only repositories side by side without a policy edit.</li>
+<li>Compute the repository's final write set, the union of <code>Owns()</code> across its active assignments after replacements. If one canonical resource key is claimed by two active controls, every assignment that claims it gets <code>state = conflict</code> and an <code>error</code> naming the resource and both controls, and none of them is evaluated or remediated (D12).</li>
+<li>Assign the <code>epoch</code>: a new row starts at 1; an existing row's epoch increments whenever its version, revision, requested or effective mode, write set, source or state changed since the previous resolution (D14).</li>
+</ol>
+<p><strong>Precedence</strong>, from weakest to strongest:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Can add</th>
+<th>Can replace</th>
+<th>Can exclude</th>
+<th>Can set mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>enterprise</td>
+<td>✓ baseline</td>
+<td>—</td>
+<td>—</td>
+<td>default</td>
+</tr>
+<tr>
+<td>org</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>org <code>repos "&lt;label&gt;"</code> block</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>control "name@N" {}</code> override, inside the org or a <code>repos</code> block</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>✓ for that control</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Worked example</strong> — two overlapping <code>repos</code> blocks:</p>
+<pre><code class="language-hcl">org &quot;test-org&quot; {
+  exclude &quot;catalog_info@1&quot; {
+    reason = &quot;no Backstage in test-org yet&quot;
+  }
+
+  repos &quot;backstage&quot; {
+    match    = [&quot;backstage-*&quot;]
+    controls = [&quot;catalog_info@1&quot;]      # re-activates it for these repositories
+  }
+
+  repos &quot;backstage-legacy&quot; {
+    match = [&quot;backstage-legacy&quot;]
+    exclude &quot;catalog_info@1&quot; {
+      reason = &quot;being decommissioned&quot;
+    }
+  }
+}
+</code></pre>
+<p>For <code>backstage-api</code>: the enterprise assigns <code>catalog_info@1</code>, the org excludes it, the first block adds it back. Final: active, <code>source = org:test-org/repos[backstage]</code>, <code>baseline_control = catalog_info</code>, <code>decision = baseline</code>. For <code>backstage-legacy</code>: the same, then the second block excludes it again. Final: excluded, <code>excluded_by = org:test-org/repos[backstage-legacy]</code>. Swapping the two blocks leaves <code>backstage-legacy</code> active, which is why blocks apply in file order and the validator warns when a later block re-adds what an earlier one excluded for an overlapping match. Editing a block's globs does not change its provenance, because <code>source</code> carries the block's label, not its <code>match</code>.</p>
+<p><strong>The output, per repository:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>control</td>
+<td><code>codeowners@2</code></td>
+</tr>
+<tr>
+<td>revision</td>
+<td>the definition's content digest (DESIGN-0031)</td>
+</tr>
+<tr>
+<td>state</td>
+<td><code>active</code>, <code>excluded</code> or <code>conflict</code></td>
+</tr>
+<tr>
+<td>decision</td>
+<td><code>baseline</code>, <code>replaced</code>, <code>org_added</code> or <code>excluded</code></td>
+</tr>
+<tr>
+<td>baseline_control</td>
+<td><code>codeowners</code> (the enterprise slug this row fulfils; <code>NULL</code> when org-added)</td>
+</tr>
+<tr>
+<td>source</td>
+<td><code>enterprise</code>, <code>org:test-org</code>, <code>org:test-org/repos[legacy]</code></td>
+</tr>
+<tr>
+<td>source_block</td>
+<td><code>legacy</code> (the <code>repos</code> block label; <code>NULL</code> otherwise)</td>
+</tr>
+<tr>
+<td>replaced</td>
+<td><code>codeowners@1</code> (when a <code>replace</code> applied)</td>
+</tr>
+<tr>
+<td>excluded_by, reason</td>
+<td><code>org:test-org</code>, "being decommissioned"</td>
+</tr>
+<tr>
+<td>error</td>
+<td><code>NULL</code>, or <code>resource_conflict: file:.github/CODEOWNERS claimed by codeowners@2 and legacy_codeowners@1</code></td>
+</tr>
+<tr>
+<td>requested_mode</td>
+<td><code>evaluate</code> or <code>remediate</code>, from policy</td>
+</tr>
+<tr>
+<td>effective_mode</td>
+<td><code>evaluate</code> or <code>remediate</code>, what actually runs</td>
+</tr>
+<tr>
+<td>mode_source</td>
+<td>which layer set the requested mode</td>
+</tr>
+<tr>
+<td>mode_reason</td>
+<td><code>NULL</code> (effective equals requested), <code>remediation_app_no_access</code> or <code>remediation_app_suspended</code></td>
+</tr>
+<tr>
+<td>epoch</td>
+<td><code>1</code>, then incremented on every change to the row (D14)</td>
+</tr>
+</tbody>
+</table>
+<p>Alongside the assignments, resolution writes the repository's effective remediation settings, <code>max_open_prs</code> and <code>reopen_after</code> (enterprise default, org override), onto its <code>repository_policy_state</code> row (D7). DESIGN-0032's <code>remediation_due</code> definition and the remediator read them from that row, never from a settings table or a re-parse of policy.</p>
+<p>Excluded assignments are stored, not dropped. "Excluded by policy, with reason" is posture information the UI shows, and it is distinct from "not applicable" (a control that ran and decided it does not apply). On an excluded row, <code>requested_mode</code> and <code>effective_mode</code> hold the modes that would have applied had the control been active; they are informational. A <code>conflict</code> row is likewise stored with its modes and its <code>error</code>; it is distinct from both, and posture counts it as <code>unmeasurable{reason=conflict}</code>.</p>
+<h3 id="resource-ownership">Resource ownership</h3>
+<p>Each control type declares the resources it may write, <code>Owns()</code>, separately from the resources it only reads, <code>Reads()</code> (DESIGN-0031 AR-0031-02). Only owned resources take part in ownership; a read dependency never collides with anything.</p>
+<table>
+<thead>
+<tr>
+<th>Control type</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>codeowners</code></td>
+<td><code>file:.github/CODEOWNERS</code>, <code>file:CODEOWNERS</code> and <code>file:docs/CODEOWNERS</code>, three static keys</td>
+</tr>
+<tr>
+<td><code>catalog_info</code></td>
+<td><code>file:catalog-info.yaml</code> and <code>file:catalog-info.yml</code></td>
+</tr>
+<tr>
+<td><code>dependency_updates</code></td>
+<td>one <code>file:</code> key per Renovate configuration location and per Dependabot configuration location; the <code>renovate</code> key of <code>package.json</code> is a read dependency, not owned (below)</td>
+</tr>
+<tr>
+<td><code>file</code></td>
+<td><code>file:&lt;its path&gt;</code>, canonicalized</td>
+</tr>
+<tr>
+<td><code>repo_settings</code></td>
+<td><code>setting:&lt;property&gt;</code> for each property it sets</td>
+</tr>
+<tr>
+<td><code>branch_ruleset</code></td>
+<td><code>ruleset:&lt;name&gt;</code> for each ruleset it manages</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td><code>label:&lt;name&gt;</code> for each label it manages</td>
+</tr>
+<tr>
+<td><code>custom_properties</code></td>
+<td><code>property:&lt;name&gt;</code> for each property it manages</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Canonical keys (D13).</strong> Resource keys are canonicalized by the framework, not by each type, so two spellings of one resource cannot evade the check. <code>file:&lt;path&gt;</code> runs through <code>path.Clean</code> and rejects absolute paths, <code>..</code>, empty segments and a leading <code>./</code>, then compares byte for byte, as GitHub does (<code>.github/./CODEOWNERS</code> is therefore <code>file:.github/CODEOWNERS</code>, and <code>.GITHUB/CODEOWNERS</code> is a different file). <code>label:&lt;name&gt;</code> is lower-cased, because GitHub label names are case-insensitive. <code>property:&lt;name&gt;</code>, <code>ruleset:&lt;name&gt;</code> and <code>setting:&lt;name&gt;</code> compare exactly until the investigation verifies each provider's case rules. Keys are static per definition: there is no per-repository templating of a resource key, which is why the CODEOWNERS control owns all three locations as three keys rather than one templated one.</p>
+<p><strong>Whole resources only.</strong> Ownership is of a whole resource; sub-field ownership is out of scope for this release. The <code>renovate</code> key of <code>package.json</code> is a <code>Reads()</code> dependency of <code>dependency_updates</code>, and its <code>exclusive</code> rule fails non-remediably with a note instead of editing <code>package.json</code>.</p>
+<p><strong>The write boundary.</strong> <code>replace</code> removes the predecessor's resources before the final set is checked, so <code>codeowners@2</code> replacing <code>codeowners@1</code> is never a self-collision. Every <code>ChangeSet</code> a control returns is validated by the framework against the assignment's current <code>Owns()</code> before any write, independently of what the type returned (DESIGN-0031); a change outside the write set is rejected, not written.</p>
+<p><strong>At load</strong>, the validator runs the ownership check over the final active set of every combination it can enumerate: each org's layer alone, each org plus each of its <code>repos</code> blocks, and each org plus each pair of its <code>repos</code> blocks, because globs can overlap. It rejects any combination where two active controls own the same canonical resource and no <code>replace</code> connects them: adding <code>codeowners@2</code> without replacing <code>codeowners@1</code> is a load error that names both controls and the org. This check is a <strong>conservative early warning, not the guarantee</strong>. Repository names are not known at load, so which combination of blocks a repository will actually meet is undecidable there; the enumeration can therefore reject a layout that a later layer would have resolved, and the remedy is restructuring the policy. Three or more overlapping blocks are not enumerated at all.</p>
+<p><strong>At runtime</strong>, resolution is the guarantee. For every repository it computes the final write set, the union of <code>Owns()</code> across the active assignments, and any overlap fails closed for that repository: every assignment claiming the overlapping resource is persisted with <code>state = conflict</code> and an <code>error</code> such as <code>resource_conflict: file:.github/CODEOWNERS claimed by codeowners@2 and legacy_codeowners@1</code>. A conflicted control is never evaluated or remediated, and it counts as <code>unmeasurable{reason=conflict}</code> in posture, never as compliant and never as unassigned. A runtime collision is a policy state with a visible error, not a bug, and it clears on the next resolution after the policy is fixed (D12).</p>
+<h3 id="modes">Modes</h3>
+<ul>
+<li><code>evaluate</code> (default): evaluate and record. A remediation is never started for this assignment.</li>
+<li><code>remediate</code>: evaluate and record. When the control is non-compliant, has a remediable failing rule and the evaluation changed, start remediation (DESIGN-0032).</li>
+</ul>
+<p>The mode a policy asks for is the assignment's <strong>requested mode</strong>, resolved per (repository, control) by specificity (algorithm step 4). "Remediate the whole org except one new control while we watch it" is therefore a <code>control "name@N" { mode = "evaluate" }</code> override inside a <code>remediate</code> org (OQ3).</p>
+<p>What actually runs is the <strong>effective mode</strong>. Remediation additionally requires the Remediation App to have access to this repository through an installation that is not suspended: that is the <code>remediable</code> input to resolution, per repository, not per org (D15). Where it is false, every assignment whose requested mode is <code>remediate</code> resolves to <code>effective_mode = evaluate</code> with <code>mode_reason = remediation_app_no_access</code> or <code>remediation_app_suspended</code>, persisted on the assignment, which the UI and an alert surface. It is not an error. Granting the App the repository, or unsuspending it, re-resolves the affected repositories (see below) and the overrides disappear without a policy edit. The remediator re-reads <code>effective_mode</code>, <code>remediable</code>, the write set and the <code>epoch</code> immediately before every external write (D14), so a mode that changed while a change was being prepared is honoured.</p>
+<h3 id="when-resolution-runs">When resolution runs</h3>
+<table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>Scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repository discovered, renamed, transferred, parked or un-parked</td>
+<td>that repository</td>
+</tr>
+<tr>
+<td>policy version changes (any file in <code>policy/</code>), including a control revision change</td>
+<td>every repository: re-resolve, and re-evaluate where assignments changed, spread over the rollout window (assumption A7)</td>
+</tr>
+<tr>
+<td>either App's installation created, suspended, unsuspended or removed (<code>installation</code>)</td>
+<td>the repositories that installation covers</td>
+</tr>
+<tr>
+<td>either App's repository selection changes (<code>installation_repositories</code>), or its discovery lists a different set</td>
+<td>the repositories whose <code>app_repository_access</code> rows changed</td>
+</tr>
+</tbody>
+</table>
+<p>Resolution is cheap and makes no API calls, so it runs inline in the activity that needs it. Its result is persisted, so the API and the evaluation workflow read assignments rather than recomputing them. In today's code the discovery activity upserts the repository and signal-with-starts its workflow in one step (<code>UpsertRepositories</code>), and the rollout workflow only signals (<code>SignalRepositories</code>); resolution slots between the upsert and the start, and the rollout re-resolves before it re-signals (INV-0021, A3 and A7).</p>
+<p>Rollout is <strong>monotonic in policy version</strong>: a resolver writes its result only if its policy version is the most recently <strong>activated</strong> one in <code>policy_versions</code>, so an old-snapshot worker still running during a rollout cannot resolve newer state backwards (D14). Its write is discarded and logged, and the repository is re-resolved by a current worker.</p>
+<p>"Most recently activated" is <code>policy_versions.activated_at</code>, set to <code>now()</code> by every deploy that loads that version, including a re-deploy of a version seen before. A deploy is the chart's migrate Job, not a worker starting: the Job runs once per <code>helm install</code>, <code>upgrade</code> and <code>rollback</code>, loads the same binary and policy root as the workers, and upserts the activation as the schema owner. Workers only read the newest activation; a worker that restarts activates nothing, so an old-version pod restarting during a rollout cannot re-activate the version being replaced. Amended 2026-10-07 (INV-0022 Phase-0 results, OQ1). It is not the first time a version was seen: today's insert is <code>ON CONFLICT DO NOTHING</code> ordered by <code>first_seen_at</code>, so reverting the policy to an earlier version would leave that version older than the one it replaced and every resolution under it would be discarded forever. The upsert therefore becomes <code>ON CONFLICT (version) DO UPDATE SET activated_at = now()</code>, <code>first_seen_at</code> is kept for history, and a revert is an ordinary rollout. Amended 2026-10-06 (INV-0022).</p>
+<h3 id="validation-at-load">Validation at load</h3>
+<p>Load fails, with the file, line and names in the message, on:</p>
+<ul>
+<li>an unknown control name or version;</li>
+<li>a parameter the control type rejects, or a rule without <code>kind</code> whose id is not a rule kind of the type (DESIGN-0031, DESIGN-0033 AR-0033-01);</li>
+<li>an org policy for an org not in <code>enterprise.orgs</code> (D1);</li>
+<li>a <code>replace</code> whose source is not in the current set at that layer, or whose two controls do not own the same resource;</li>
+<li>a resource ownership collision in the enumerated combinations (see above);</li>
+<li>an <code>exclude</code>, <code>exclude_repos</code> or <code>replace</code> without a <code>reason</code> (D2, D17);</li>
+<li>a <code>repos</code> block without a label, or two <code>repos</code> blocks in one org policy with the same label (D17);</li>
+<li>a <code>control {}</code> override naming a control that no layer assigns;</li>
+<li><code>remediation.max_open_prs</code> below 1, or <code>reopen_after</code> that is not a duration of at least <code>1h</code>;</li>
+<li>a duplicate org policy, or a duplicate control name at one version;</li>
+<li>a referenced file that is missing, larger than 1 MiB, or outside the policy root once resolved (below).</li>
+</ul>
+<p>Load warns on:</p>
+<ul>
+<li>an exclusion of a control that is not assigned at that layer, which is a no-op;</li>
+<li>a <code>repos</code> block that re-adds a control an earlier block excluded for an overlapping <code>match</code>;</li>
+<li>two mode declarations at the same specificity with different values, where the later one in file order wins (algorithm step 4);</li>
+<li>a <code>repos</code> block that matches no known repository, which is checked after discovery.</li>
+</ul>
+<p><strong>Reading the policy root (DESIGN-0033 AR-0033-06).</strong> The only expression forms allowed in policy files are literals and <code>file()</code>; there is no evaluation context beyond that. "In root" is resolved, not lexical: the loader resolves the policy root and every referenced file with <code>filepath.EvalSymlinks</code> and requires the resolved file to lie under the resolved root, which admits the symlinks a Kubernetes ConfigMap projection uses (they resolve inside the mount) and rejects links that escape it. The catalogue, the policies, the templates and every referenced file are read in one pass at load and hashed from those bytes, so the policy version is the digest of what was actually read. There is no hot reload, as today: a change to the mount takes effect on restart, so two loads can never mix versions.</p>
+<h3 id="compliance-queries">Compliance queries</h3>
+<p>Because each assignment records its lineage and its provenance, posture can be cut by policy, not only by repository. Status is not stored on the assignment: posture queries <strong>start from active assignments and LEFT JOIN</strong> DESIGN-0032's <code>control_results</code> on <code>(repository_id, control_id)</code>, matching the result's <code>assignment_epoch</code> and <code>revision</code> against the assignment's (D16). Neither key includes the control version, on purpose — a repository has at most one version of a control assigned, and a result row follows the assignment through a version bump; the epoch and revision say whether it is current. The join puts every active assignment in exactly one bucket:</p>
+<table>
+<thead>
+<tr>
+<th>Bucket</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>compliant</code>, <code>non_compliant</code></td>
+<td>a result at the assignment's current epoch and revision</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>an active assignment with no result yet, the normal state between assignment and first evaluation</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>a result from an older epoch or revision, awaiting re-evaluation</td>
+</tr>
+<tr>
+<td><code>unmeasurable</code></td>
+<td>the repository is parked <code>access_denied</code> or its Evaluation App installation is suspended (results kept, not current), or the assignment is in <code>conflict</code></td>
+</tr>
+<tr>
+<td><code>not_applicable</code>, <code>unknown</code></td>
+<td>the control ran and said so</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Percentage:</strong> <code>compliant ÷ (compliant + non_compliant)</code>, floored to one decimal place, computed in SQL and shared by <code>ComplianceByRule</code>, the API, the report, snapshots and the gauges (IMPL-0025 Phase 8; today <code>compliance.sql:21</code>). Totals summed across orgs are computed by the Go mirror <code>store.CompliantPercent</code> (<code>api_views.go:22</code>), which is kept and must apply the same rounding; a test compares the two on the same counts. Amended 2026-10-06 (INV-0022): the text said integer floor, which the code never did. An empty denominator is NULL, shown as "no data", never 100% (DESIGN-0022). The percentage is only ever shown with the other buckets beside it, so a fleet with one evaluated repository and ninety-nine pending ones reads as 100% of one measurement, not as a measured fleet.</li>
+<li><strong>Coverage:</strong> <code>measured ÷ assigned</code>, where <code>measured</code> counts the assignments with a result at the current epoch and revision (<code>compliant</code>, <code>non_compliant</code>, <code>not_applicable</code>) and <code>assigned</code> counts every active assignment. <code>pending</code>, <code>stale</code>, <code>unmeasurable</code> and <code>unknown</code> are reported as counts beside it.</li>
+<li><strong>Enterprise baseline compliance for org X:</strong> active assignments in org X with <code>baseline_control IS NOT NULL</code>, whichever layer last touched them and whichever version or slug fulfils the baseline now; a replacement counts once, as fulfilling its baseline (D17).</li>
+<li><strong>Org-specific compliance:</strong> active assignments with <code>decision = 'org_added'</code>.</li>
+<li><strong>Worst controls in org X:</strong> non-compliant count per control.</li>
+<li><strong>Exclusions report:</strong> excluded assignments and excluded repositories with their reasons, per org (D5), and conflicted assignments with their <code>error</code>.</li>
+</ul>
+<h2 id="api-interface-changes">API / Interface Changes</h2>
+<ul>
+<li>New policy directory and HCL schema (above); <code>GUARDIAN_CONFIG</code> points at the directory (D3).</li>
+<li><code>policy.Snapshot</code>, with <code>Resolve(repo RepositoryRow, access AppAccess) Resolution</code> (deterministic, no I/O), <code>Version() string</code>, <code>Control(id control.ID) control.Control</code> and <code>Definition(id control.ID) control.Definition</code>. <code>AppAccess{Evaluable, Remediable bool}</code> is the per-repository access input (D15). <code>Resolution{State, Reason, Assignments, MaxOpenPRs, ReopenAfter}</code> carries the repository policy state, the assignments and the effective remediation settings (D7). <code>Assignment</code> carries <code>Control, Revision, State, Decision, BaselineControl, Source, SourceBlock, Replaced, ExcludedBy, Reason, Error, RequestedMode, EffectiveMode, ModeSource, ModeReason, Epoch</code>, one per <code>control_assignments</code> row.</li>
+<li>API: <code>/policies</code> (the loaded snapshot, summarised, scoped to the principal's visible orgs with enterprise-wide fields only for a principal that sees every org; DESIGN-0032 AR-0032-12), <code>/controls</code> (catalogue), <code>/repositories/{id}/controls</code> (assignments with provenance, lineage, posture bucket and the latest result), and <code>/orgs/{org}</code> gaining baseline-versus-org compliance with coverage beside the percentage (DESIGN-0032 lists the full set).</li>
+</ul>
+<h2 id="data-model">Data Model</h2>
+<pre><code class="language-sql">-- Why a repository has, or has not, assignments; rewritten on resolution.
+CREATE TABLE repository_policy_state (
+    repository_id   BIGINT PRIMARY KEY REFERENCES repositories(id),
+    state           TEXT   NOT NULL CHECK (state IN ('managed', 'excluded', 'unmanaged', 'parked')),
+    reason          TEXT,                      -- exclusion reason or park reason
+    max_open_prs    INT    NOT NULL,           -- effective remediation settings (D7):
+    reopen_after    INTERVAL NOT NULL,         --   enterprise default, org override
+    last_remediation_at TIMESTAMPTZ,           -- the one column rg_remediator may UPDATE, which is what grants its SELECT ... FOR UPDATE (DESIGN-0032 AR-0032-05, AR-0032-09)
+    policy_version  TEXT   NOT NULL REFERENCES policy_versions(version),
+    resolved_at     TIMESTAMPTZ NOT NULL
+);
+
+-- The resolved assignments; rewritten per repository on resolution.
+CREATE TABLE control_assignments (
+    repository_id    BIGINT NOT NULL REFERENCES repositories(id),
+    control_id       TEXT   NOT NULL,          -- 'codeowners'
+    control_version  INT    NOT NULL,          -- 2
+    revision         TEXT   NOT NULL,          -- content digest of the definition (DESIGN-0031)
+    state            TEXT   NOT NULL CHECK (state IN ('active', 'excluded', 'conflict')),
+    decision         TEXT   NOT NULL CHECK (decision IN ('baseline', 'replaced', 'org_added', 'excluded')),
+    baseline_control TEXT,                     -- 'codeowners': the enterprise slug this row fulfils; NULL when org-added
+    source           TEXT   NOT NULL,          -- 'enterprise' | 'org:&lt;org&gt;' | 'org:&lt;org&gt;/repos[&lt;label&gt;]'
+    source_block     TEXT,                     -- the repos block label when source is a block
+    ordinal          INT    NOT NULL,          -- position: enterprise controls in order, then org additions, then repos additions; remediation priority (DESIGN-0032 AR-0032-05)
+    replaced         TEXT,                     -- 'codeowners@1'
+    excluded_by      TEXT,
+    reason           TEXT,                     -- exclusion or replacement reason
+    error            TEXT,                     -- 'resource_conflict: &lt;key&gt; claimed by &lt;a&gt; and &lt;b&gt;' when state = 'conflict'
+    requested_mode   TEXT   NOT NULL CHECK (requested_mode IN ('evaluate', 'remediate')),
+    effective_mode   TEXT   NOT NULL CHECK (effective_mode IN ('evaluate', 'remediate')),
+    mode_source      TEXT   NOT NULL,          -- which layer set the requested mode
+    mode_reason      TEXT,                     -- NULL = effective equals requested; 'remediation_app_no_access' | 'remediation_app_suspended'
+    epoch            BIGINT NOT NULL,          -- 1 on first resolution; see below
+    policy_version   TEXT   NOT NULL REFERENCES policy_versions(version),
+    resolved_at      TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (repository_id, control_id)
+);
+
+-- Owned by DESIGN-0032's data model; resolution compares against activated_at (D14):
+--   policy_versions(version, first_seen_at, activated_at, rollout_completed_at, ...)
+--   activated_at is set to now() by the migrate Job on every deploy, including a revert and a rollback.
+
+-- Read by resolution, owned by DESIGN-0032's data model: per-App installation facts and per-App
+-- repository membership, each refreshed by that App's own discovery and lifecycle events (D15).
+--   app_installations(app, account_login, installation_id, suspended_at, repository_selection, seen_at)
+--   app_repository_access(repository_id, app, installation_id, seen_at)
+</code></pre>
+<p>There is one row per (repository, control name). That is the resource-ownership invariant, restated as a key: only one version of a control can be assigned to a repository. Two different slugs claiming one resource are not caught by the key; they are caught by the write-set check and persisted as <code>conflict</code> rows (D12). A repository in state <code>excluded</code> or <code>unmanaged</code> has a <code>repository_policy_state</code> row and no <code>control_assignments</code> rows; a <code>parked</code> repository keeps its rows, because assignments are desired state (D6). So "no assignments" is always explained, and "not evaluated" is explained by the repository state. Assignment and state changes write a <code>repository_events</code> row (<code>assignment_changed</code>) so the timeline shows when a control started or stopped applying; the <code>kind</code> CHECK on <code>repository_events</code> must be extended for it (assumption A4 covers the identity tables, not the event kinds).</p>
+<p><strong>Epochs fence results and writes (D14).</strong> <code>epoch</code> starts at 1 and increments whenever the row's version, revision, requested or effective mode, write set, source or state changes. <code>control_results.assignment_epoch</code> records which epoch produced a result; <code>RecordCheck</code> writes a result only if the assignment is active and the epoch matches, otherwise the result is discarded as stale, logged and counted in <code>results_discarded_total{reason=stale_epoch}</code>. Generations are scoped to <code>(repository, control, epoch)</code>, so a control that is excluded and re-added starts a fresh generation that no old run can acknowledge (DESIGN-0032 AR-0032-06). The remediator re-reads the assignment (<code>effective_mode</code>, <code>epoch</code>, write set, <code>remediable</code>) immediately before every external write and records <code>remediations.assignment_epoch</code>. A write that completes after withdrawal is not prevented; it is withdrawn by lifecycle maintenance on the next pass (DESIGN-0032 AR-0032-04), and that window is accepted.</p>
+<p><strong>Results follow assignments, except on access loss (D6).</strong> Results are cleared in exactly two cases. First, when resolution withdraws or excludes an assignment by policy (the control dropped from policy or replaced, the org removed from <code>enterprise.orgs</code>, the repository excluded): the same transaction, running as the evaluator role (DESIGN-0032 AR-0032-09), deletes that control's <code>control_results</code> row, cascades to <code>rule_results</code>, and writes a <code>result_events</code> row with <code>rule_id = NULL</code>, <code>from_status</code> set to the last status and <code>to_status = NULL</code>, so the timeline shows when posture stopped being tracked. Resolution never touches <code>remediations</code>: an outstanding PR or recommendation for a withdrawn assignment is closed by DESIGN-0032's lifecycle maintenance (AR-0032-04). Second, when the repository is parked <code>archived</code>, <code>fork</code>, <code>removed</code> or <code>installation_removed</code>, which is definitive non-applicability: the repository has left the fleet or no control applies to it (v1's empty-result rule). On an <code>access_denied</code> or <code>unknown</code> park, or while the Evaluation App's installation is suspended (access state, not a park), the results stay and the repository is reported as <code>unmeasurable</code>, because nothing new was learned and access loss must never improve displayed posture (DESIGN-0029 AR-0029-01, v1's nil-result rule). <code>unknown</code> is treated as access loss because it is the fail-safe: a park whose cause is not known must not be allowed to clear posture. <code>park_reason</code> already carries both <code>installation_removed</code> and <code>unknown</code>, and the code writes the first today (<code>v2store_ops.go:237</code>); the original text classified neither (amended 2026-10-06, INV-0022). <code>remediations</code> rows are kept in every case; an open remediation PR for a control that is no longer assigned is closed by lifecycle maintenance as <code>closed_withdrawn</code> (DESIGN-0032). The consequence is that compliance queries, the posture gauges and <code>/repositories/{id}/controls</code> never show a result as current without an active assignment at the same epoch and revision, while "no assignment" and "no result" are different facts: an active assignment awaiting its first evaluation is <code>pending</code>, and it counts against coverage until it is measured.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Resolution golden cases (D18):</strong> <code>testdata/resolution/*.hcl</code> with expected JSON, covering every precedence row, replace, exclude, <code>exclude_repos</code>, overlapping <code>repos</code> blocks (the worked example in both block orders), early-specific versus later-general mode overrides, same-layer replacement chains, exclude/new-version/re-add combinations, the five requested-mode layers, <code>remediable</code> false by no access and by suspension, and each <code>repository_policy_state</code> outcome (parked, unmanaged, excluded, managed). Each case asserts the complete assignment, including lineage, provenance, both modes and epoch.</li>
+<li><strong>Policy revert test (D14):</strong> deploy version A, then B, then A again; resolutions under the re-activated A are written, and an old-snapshot resolver for B is discarded. Fails against first-seen ordering.</li>
+<li><strong>Load validation tests:</strong> one per error and warning above, asserting the message names the file and the controls. Every example catalogue and policy in this document and in <code>examples/</code> is loaded through the strict loader, so the text cannot diverge from its schema (DESIGN-0033 AR-0033-01).</li>
+<li><strong>Ownership tests:</strong> path aliases (<code>.github/./CODEOWNERS</code>), two different slugs owning one file, label names differing only in case, and a <code>ChangeSet</code> writing an undeclared path, each rejected at its boundary (load, resolution or the write boundary). Three or more overlapping blocks, identical selectors with a later conflict-removing layer, and a repository not known at load all resolve to <code>conflict</code> rows with an <code>error</code>, with no write permitted and the conflict visible as <code>unmeasurable</code> posture. A fuzz test generates random catalogues and org policies and asserts that a load-valid policy never resolves to an undetected collision.</li>
+<li><strong>Epoch fence tests:</strong> interleave exclusion, version replacement, mode downgrade and ownership transfer with evaluation, <code>RecordCheck</code> and remediation. A stale run must not resurrect a result, acknowledge the new assignment's generation or continue a write the new epoch does not authorize; an old-snapshot resolver must not overwrite a newer resolution.</li>
+<li><strong>Access tests:</strong> install both Apps with different repository selections, suspend or remove only the Remediation App, then grant it one more repository. Stored <code>effective_mode</code>, <code>mode_reason</code> and the resolution triggers must converge without a policy edit.</li>
+<li><strong>Posture tests:</strong> assign a control to 100 repositories and evaluate one as compliant; the report, API, snapshot and gauges must show 99 <code>pending</code>, coverage 1%, and must not imply a fully measured fleet. Revoke access to a failing repository, rediscover it and restore access; at no point may the displayed posture improve or the last-known failure disappear.</li>
+<li><strong>Golden snapshot of the shipped example policies,</strong> resolved against a fixed repository list, so a resolution change shows up as a diff.</li>
+</ul>
+<h2 id="migration-rollout-plan">Migration / Rollout Plan</h2>
+<ul>
+<li>There is no v1 policy compatibility (DESIGN-0029 D1). The example policies are rewritten as <code>policy/</code> directories, so they double as documentation.</li>
+<li>The chart's <code>policy</code> values move from one HCL string to a map of file names to contents, rendered into one ConfigMap. <code>existingConfigMap</code> keeps working. Template files go in the same map (D20); the separate <code>templates</code> values and <code>TEMPLATE_DIR</code> are removed.</li>
+</ul>
+<h2 id="decisions">Decisions</h2>
+<p>Former open questions settled in this document; the body text above states each as fact.</p>
+<ul>
+<li><strong>D1 Org onboarding</strong> — the enterprise <code>orgs</code> list is the only onboarding gate; an org policy for an org not in it is a load error. Onboarding stays one reviewed change in one file, and a stray org file cannot silently bring an org under management.</li>
+<li><strong>D2 Exclusion reasons</strong> — every <code>exclude</code> and <code>exclude_repos</code> carries a required, non-empty <code>reason</code>, stored with the assignment or the repository state and shown in the UI. An exception without a reason is the one an auditor asks about.</li>
+<li><strong>D3 Policy source</strong> — the policy directory is a mounted ConfigMap, as <code>GUARDIAN_CONFIG</code> is today. No new moving parts; changes go through the same values or Argo review path. A git-sync sidecar can be added later without changing the loader.</li>
+<li><strong>D4 Fact selectors</strong> — selection is by org and repository name globs only. Facts (visibility, topics, catalog-info <code>spec.type</code>) need an evaluation to have run first, which would make resolution two-pass; names cover the stated needs, and a <code>facts</code> selector can be added later.</li>
+<li><strong>D5 Counting exclusions</strong> — excluded controls and excluded, unmanaged or parked repositories are recorded (<code>control_assignments.state</code>, <code>repository_policy_state</code>) and reported separately, never in the compliance denominator. "92% compliant, 14 exclusions" is honest; folding exclusions into either side of the percentage is not.</li>
+<li><strong>D6 Results follow assignments, except on access loss</strong> — assignments are desired state and survive parking; a result is cleared only when policy withdraws or excludes the assignment, or when the repository is parked <code>archived</code>, <code>fork</code>, <code>removed</code> or <code>installation_removed</code>, each a definitive statement that the posture no longer applies, and the deletion runs in the resolution transaction with the transition recorded in <code>result_events</code>. On an <code>access_denied</code> or <code>unknown</code> park, or while the Evaluation App's installation is suspended (access state, never a park, so discovery stays the only un-parker; amended 2026-10-05 per INV-0021 OQ1), the last results stay and the repository is reported <code>unmeasurable</code>, because nothing new was learned and access loss must never improve displayed posture. Amended 2026-10-04 per AR-0029-01 and AR-0030-05: the original cleared on every park and called "no assignment" and "no result" the same fact, which hid every assignment awaiting its first evaluation. Amended 2026-10-06 (INV-0022): <code>installation_removed</code> clears and <code>unknown</code> keeps; the earlier text classified neither.</li>
+<li><strong>D7 Remediation settings are persisted per repository</strong> — <code>max_open_prs</code> and <code>reopen_after</code> are resolved like mode (enterprise default, org override) and written to <code>repository_policy_state</code>, so the sweep query and the remediator read one row instead of re-deriving policy; a policy change re-resolves and rewrites them like every other assignment field.</li>
+<li><strong>D8 No repository policy type</strong> — repository-level variation lives in <code>repos { match = [...] }</code> blocks inside the org policy (OQ1, resolved 2026-10-04). Every exception for an org is in the one file its owners review, and <code>match</code> globs cover "these five repos" without a third file type.</li>
+<li><strong>D9 No parameter overrides</strong> — parameters are templated with repository context (<code>{{ .Org }}</code>); a genuinely different requirement is a different control or version, used through <code>replace</code> (OQ2, resolved 2026-10-04). "CODEOWNERS 1.2" means the same thing in every org.</li>
+<li><strong>D10 Mode granularity</strong> — enterprise default, org, <code>repos</code> block and a per-control <code>control "name@N" { mode }</code> override, most specific wins (OQ3, resolved 2026-10-04). This is what makes "remediate everything except the control we are trialling" expressible.</li>
+<li><strong>D11 One org is enough, and a user account is an org</strong> — the enterprise <code>orgs</code> list may hold a single entry, and every level below the enterprise default is optional, so an enterprise policy alone is a complete policy. "Org" means the installation's account login whatever GitHub's account type is: a personal account with the Apps installed on its repositories is managed exactly like an organisation, and is the first test target. What GitHub does not offer on a user account (teams as CODEOWNERS owners, custom properties) is the control's concern, not the policy model's: DESIGN-0031 D10.</li>
+<li><strong>D12 A resource conflict is a persisted state, not a bug</strong> — resolution computes each repository's final write set and fails closed on overlap, persisting <code>state = conflict</code> with an <code>error</code> on every affected assignment; a conflicted control is never evaluated or remediated and counts as <code>unmeasurable{reason=conflict}</code>. The load-time pairwise enumeration stays as a conservative early warning only, because repository names are unknown at load and "reachable" is undecidable there (AR-0030-01).</li>
+<li><strong>D13 Canonical, static, whole-resource keys</strong> — the framework canonicalizes every resource key (<code>path.Clean</code> and byte comparison for files, lower-casing for labels, exact comparison for the rest until verified), keys are static per definition with no per-repository templating, ownership is of whole resources only, <code>replace</code> removes the predecessor's resources before the check, and every <code>ChangeSet</code> is validated against the assignment's <code>Owns()</code> before any write (AR-0030-02).</li>
+<li><strong>D14 Assignment epochs fence results and writes</strong> — every assignment carries an <code>epoch</code> that increments on any change to its version, revision, mode, write set, source or state; results record the epoch that produced them and are discarded as stale otherwise, generations are scoped per epoch, the remediator re-reads the assignment before every external write, and rollout is monotonic in policy version so an old snapshot cannot resolve newer state backwards (AR-0030-03). "Newest" means most recently activated (<code>policy_versions.activated_at</code>, set by the migrate Job on every deploy, never by a worker starting), not first seen, so reverting to an earlier policy is a normal rollout rather than a permanently discarded one (amended 2026-10-06, INV-0022).</li>
+<li><strong>D15 Access is per App and per repository</strong> — <code>installations{org → …}</code> is replaced by <code>app_installations</code> and <code>app_repository_access</code>, each App refreshing its own facts through its own discovery and lifecycle events; resolution stores a <code>requested_mode</code> from policy and an <code>effective_mode</code> that is <code>evaluate</code> with a <code>mode_reason</code> wherever the Remediation App lacks access to the repository or is suspended. An org-level installation flag said nothing about which repositories the App could actually write (AR-0030-04).</li>
+<li><strong>D16 Posture starts from assignments and reports coverage</strong> — compliance queries LEFT JOIN results onto active assignments at the matching epoch and revision and bucket every assignment as <code>compliant</code>, <code>non_compliant</code>, <code>pending</code>, <code>stale</code>, <code>unmeasurable</code>, <code>not_applicable</code> or <code>unknown</code>; the percentage stays <code>compliant ÷ (compliant + non_compliant)</code> with NULL ("no data") on an empty denominator, and coverage is reported beside it. An inner join reported 100% for the evaluated subset while most required controls had no result (AR-0030-05).</li>
+<li><strong>D17 Lineage is stored beside provenance, and blocks have names</strong> — <code>baseline_control</code> records the enterprise slug an assignment fulfils through any replacement chain and <code>decision</code> records the policy decision, so "baseline compliance" is independent of which layer last touched a row and a replacement counts once; <code>repos</code> blocks carry a required unique label stored as <code>source_block</code>, so provenance survives reordering and glob edits; <code>replace</code> carries a required <code>reason</code>, which is where a departure from the baseline is explained for humans rather than as a second compliance category (AR-0030-06).</li>
+<li><strong>D18 One ordered resolution algorithm, published as golden cases</strong> — the numbered algorithm in Resolution is the contract: layers apply in file order, one row per slug supersedes earlier versions and exclusions, requested mode is chosen by specificity with later-wins and a warning at equal specificity, and <code>testdata/resolution/*.hcl</code> with expected JSON is what every implementation must reproduce (AR-0030-07).</li>
+<li><strong>D19 <code>repositories.installation_id</code> is dropped</strong> — <code>app_repository_access</code> under <code>app = 'eval'</code> is the only record of which installation covers a repository for the Evaluation App, and discovery writes the repository row and its access row in one transaction. The column would have been a second copy of the same fact, and two copies can disagree; identity capture and the task fairness key read the access row instead. Functionally equivalent to keeping it, logically cleaner (INV-0021 OQ2, resolved 2026-10-05).</li>
+<li><strong>D20 Templates are part of the policy root</strong> — operator file templates live under the policy root and are hashed with the policies; the embedded templates are the fallback and the ones the root does not shadow are hashed too; <code>TEMPLATE_DIR</code> and the chart's separate templates mount are removed. One root, one read, one version: a template edit is a policy change like any other (INV-0022, 2026-10-06).</li>
+</ul>
+<h2 id="adversarial-review">Adversarial Review</h2>
+<p>Reviewed 2026-10-03 against the full DESIGN-0029–0033 set. <strong>Disposition: changes required before relying on resolution as the ownership and authorization boundary.</strong> These are unresolved findings; severity meanings are defined in DESIGN-0029's Adversarial Review. Proposed corrections require a design decision before becoming implementation requirements.</p>
+<p><strong>Responses (2026-10-03):</strong> 5 accepted, 2 accepted with changes. Each finding below carries a <strong>Response</strong> giving the disposition and the concrete change, and an <strong>Applied</strong> line recording where it landed. The accepted changes were applied to the body and the Decisions ledger on 2026-10-04; the body and the Decisions ledger are now authoritative.</p>
+<h3 id="ar-0030-01-high-pairwise-enumeration-is-neither-a-proof-nor-a-complete-error-model">AR-0030-01 (high): Pairwise enumeration is neither a proof nor a complete error model</h3>
+<p><strong>Basis:</strong> Resource ownership and its testing strategy. The validator enumerates individual/pairwise <code>repos</code> layers while runtime may apply three or more. It can also reject unreachable subsets: if three blocks all match <code>*</code>, a later replacement/exclusion can make the actual final set safe while an enumerated pair is unsafe. Runtime collisions are described both as expected policy cases and as bugs. <code>resolution_error</code> is promised on assignments but is absent from <code>Assignment</code>, its SQL state CHECK and the result model.</p>
+<p><strong>Proposed correction:</strong> Define validation over reachable final sets, or a conservative restriction whose false rejections are documented. Keep a runtime fail-closed check for every repository and give collisions a persisted, queryable error representation. Never omit conflicted requirements in a way that makes them look compliant or unassigned by choice.</p>
+<p><strong>Verification:</strong> Test three-plus overlapping blocks, identical selectors with a later conflict-removing layer, and a new repository not known at load. Assert both write prohibition and visible error posture.</p>
+<p><strong>Response:</strong> <strong>Accepted with changes.</strong> The runtime check is the guarantee, not the load-time enumeration: resolution computes every repository's final write set, the union of <code>Owns()</code> across its active assignments (AR-0031-02), and any overlap fails closed for that repository. Conflicted assignments are persisted rather than omitted: <code>control_assignments.state</code> gains <code>conflict</code>, a new <code>error TEXT</code> column holds the message (<code>resource_conflict: file:CODEOWNERS claimed by codeowners@1 and generic:wiz-config@1</code>), and a conflicted control is never evaluated or remediated and counts as <code>unmeasurable{reason=conflict}</code> in posture, never as compliant or unassigned. The <code>resolution_error</code> named in Resolution and Resource ownership is this <code>error</code> column, added to the <code>Assignment</code> type and to the state CHECK, and the sentence calling a runtime collision a bug is withdrawn: it is a policy state with a visible error. The load-time pairwise check stays as a conservative early warning and is documented as such: it can reject a layout a later layer would have resolved, and the remedy is restructuring the policy. Validation over reachable final sets is rejected, because repository names are not known at load, so "reachable" is undecidable there, which is exactly why the runtime check exists. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> Resource ownership (runtime write-set check, <code>conflict</code> state and <code>error</code> column, the load-time enumeration documented as a conservative early warning, the "collision is a bug" sentence withdrawn), the resolution diagram, algorithm step 6 and the output table, Data Model (<code>state</code> CHECK and <code>error</code>), Compliance queries (<code>unmeasurable</code> bucket), Testing Strategy and D12; the body's conflict example names a generic <code>file</code> control instead of the Response's wiz-config, since Wiz controls left this design set.</p>
+<h3 id="ar-0030-02-high-resource-identity-needs-canonicalization-and-write-boundary-enforcement">AR-0030-02 (high): Resource identity needs canonicalization and write-boundary enforcement</h3>
+<p><strong>Basis:</strong> Resource ownership's logical keys, DESIGN-0031's concrete file keys and the assignment primary key. <code>file:CODEOWNERS</code> is described here as covering three paths, while the interface claims each path individually. A generic control using <code>.github/./CODEOWNERS</code> must not evade the collision check. Labels/properties/rulesets also need provider-specific identity rules. <code>(repository_id, control_id)</code> prevents duplicate versions of a slug, not two different slugs writing the same resource. <code>replace</code> does not itself prove ownership safety.</p>
+<p><strong>Proposed correction:</strong> Specify canonical resource keys and overlap rules, including whole-file versus sub-field ownership such as <code>package.json</code>'s Renovate key. Require every returned change to be within the assignment's current write set; replacements remove the predecessor before checking the final set. Either prohibit context-templated ownership keys or resolve them per repository.</p>
+<p><strong>Verification:</strong> Try path aliases, different slugs owning one file, duplicate provider names under their actual comparison semantics, and a change set writing an undeclared path. All must be rejected at the appropriate boundary.</p>
+<p><strong>Response:</strong> <strong>Accepted.</strong> Resource keys are canonicalized by the framework, not by each type: <code>file:&lt;path&gt;</code> runs through <code>path.Clean</code> and rejects absolute paths, <code>..</code>, empty segments and a leading <code>./</code>, then compares byte for byte as GitHub does; <code>label:&lt;name&gt;</code> is lower-cased because GitHub label names are case-insensitive; <code>property:&lt;name&gt;</code>, <code>ruleset:&lt;name&gt;</code> and <code>setting:&lt;name&gt;</code> compare exactly until the INV verifies each provider's case rules. Ownership is whole-resource only; sub-field ownership is out of scope for this release, so the <code>renovate</code> key of <code>package.json</code> becomes a read dependency (DESIGN-0031 <code>Reads()</code>) and <code>exclusive</code> fails non-remediably with a note instead of editing <code>package.json</code>. Resource keys are static per definition, with no per-repository templating, so the CODEOWNERS control owns all three locations as three <code>file:</code> keys, which is what the collision check and the interface already assume; the <code>file:CODEOWNERS</code> shorthand in the Resource ownership table is replaced by the three keys. <code>replace</code> removes the predecessor's resources before the final set is checked. Every <code>ChangeSet</code> is validated by the framework against the assignment's current <code>Owns()</code> before any write, independently of what the type returned. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> Resource ownership (<code>Owns()</code> versus <code>Reads()</code>, the three CODEOWNERS <code>file:</code> keys in the table, Canonical keys, Whole resources only and The write boundary paragraphs), algorithm step 2 (<code>replace</code> removes the predecessor's resources first), Testing Strategy (ownership tests) and D13.</p>
+<h3 id="ar-0030-03-high-assignment-changes-need-revision-fences-around-results-and-writes">AR-0030-03 (high): Assignment changes need revision fences around results and writes</h3>
+<p><strong>Basis:</strong> Compliance queries, resolution transactions and DESIGN-0032's separate activity record step. Assigning <code>codeowners@2</code> leaves an <code>@1</code> result joined by slug during rollout. Worse, an evaluation started before exclusion can finish after resolution deletes its results and insert them again. A remediator can read <code>mode = remediate</code>, spend time preparing a change, and write after the policy switched to evaluate or ownership moved to another control.</p>
+<p><strong>Proposed correction:</strong> Give each resolved assignment a revision/epoch. Record results only if that revision is still active and matches; display older results as pending/stale rather than current compliance. Fence remediation records and revalidate authorization immediately before external action, with an explicit policy for a write already in flight at withdrawal. Rollout must prevent old-snapshot workers from resolving newer state backwards.</p>
+<p><strong>Verification:</strong> Interleave exclusion, version replacement, mode downgrade and ownership transfer with evaluation/record/remediation. Stale activities must not resurrect results, acknowledge the new assignment or continue proposing an unauthorized change.</p>
+<p><strong>Response:</strong> <strong>Accepted.</strong> Every resolved assignment carries <code>epoch BIGINT NOT NULL</code>, starting at 1 and incremented whenever the row's version, mode, write set, source or state changes, and <code>control_results.assignment_epoch</code> records which epoch produced a result. <code>RecordCheck</code> writes a result only if the assignment is active and the epoch matches; otherwise the result is discarded as stale, logged and counted in <code>results_discarded_total{reason=stale_epoch}</code>. Generations are scoped to <code>(repository, control, epoch)</code>, so a re-added control cannot inherit an old run's generation (AR-0032-06). The remediator re-reads the assignment (mode, epoch, write set, <code>remediable</code>) immediately before every external write and records <code>remediations.assignment_epoch</code>; a write that completes after withdrawal is not prevented, it is withdrawn by lifecycle maintenance on the next pass (AR-0032-04), and that window is documented. Policy rollout is monotonic: a resolver writes only if its policy version is the newest recorded, so an old-snapshot worker cannot resolve newer state backwards. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> algorithm step 7 and the output table (<code>epoch</code>), Data Model (<code>epoch</code> column and the "Epochs fence results and writes" paragraph, including <code>control_results.assignment_epoch</code>, the stale-epoch discard, per-epoch generations and <code>remediations.assignment_epoch</code>), Modes (remediator re-read), When resolution runs (monotonic rollout), API (<code>Assignment.Epoch</code>), Testing Strategy (epoch fence tests) and D14.</p>
+<h3 id="ar-0030-04-high-org-installation-presence-is-not-repository-authorization">AR-0030-04 (high): Org installation presence is not repository authorization</h3>
+<p><strong>Basis:</strong> Resolution's installation booleans and When resolution runs; DESIGN-0032 gives the Remediation App no webhooks. GitHub Apps can be installed on selected repositories. A live remediation installation for an org says nothing about whether it includes this repository. The Evaluation App's installation events describe its own installation, not the other App's suspension/removal/selection changes. The resolver also takes Evaluation App presence as input without defining what absence does to an otherwise active repository.</p>
+<p><strong>Proposed correction:</strong> Persist repository membership and lifecycle/permission observations separately for each App. Define how those facts are refreshed through each App's authenticated discovery or its lifecycle events. Resolve requested mode separately from effective write eligibility, and handle removal, suspension, permission acceptance and selected-repository changes for both Apps.</p>
+<p><strong>Verification:</strong> Install both Apps with different repository selections, suspend/remove only the Remediation App, then grant it one additional repository. Stored eligibility, mode reasons and workflow triggers must converge without requiring an unrelated policy edit.</p>
+<p><strong>Response:</strong> <strong>Accepted.</strong> Installation presence per org is replaced by per-App repository membership: <code>app_installations(app, account_login, installation_id, suspended_at, repository_selection, seen_at)</code> and <code>app_repository_access(repository_id, app, installation_id, seen_at)</code>. Each App refreshes its own facts: both Apps run discovery through their own installations (the Remediation App's discovery only lists repositories), and both deliver <code>installation</code> and <code>installation_repositories</code> lifecycle events to the same ingest endpoint, distinguished by the target app id header and signed with their own secret (DESIGN-0032). <code>evaluable</code> means the Evaluation App has access to this repository; <code>remediable</code> means the Remediation App has access to it and is not suspended. Resolution stores <code>requested_mode</code> and <code>effective_mode</code> (the requested mode when <code>remediable</code>, else <code>evaluate</code>) with a <code>mode_reason</code>, which replaces the single <code>mode</code> column and the org-wide <code>remediation_app_not_installed</code> override; the <code>installations{org → …}</code> input to <code>resolve</code> becomes these two per-repository booleans. Evaluation App absence on an active repository needs no new rule: the next complete discovery listing parks it <code>removed</code>. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> Overview and Goals, Resolution (the <code>access{evaluable, remediable}</code> input read from <code>app_installations</code> and <code>app_repository_access</code>, each App refreshing its own facts, the diagram and algorithm step 5), Modes, When resolution runs (per-App triggers), the output table and Data Model (<code>requested_mode</code>, <code>effective_mode</code>, <code>mode_reason</code>, the two tables referenced as DESIGN-0032's), API (<code>AppAccess</code>), Testing Strategy (access tests) and D15; the <code>mode_reason</code> values are named here as <code>remediation_app_no_access</code> and <code>remediation_app_suspended</code>, since the Response left them unnamed.</p>
+<h3 id="ar-0030-05-high-compliance-must-expose-unevaluated-assignments-and-measurement-loss">AR-0030-05 (high): Compliance must expose unevaluated assignments and measurement loss</h3>
+<p><strong>Basis:</strong> Compliance queries/D5/D6 and DESIGN-0032's version-free result keys. An inner join drops newly assigned controls until their first evaluation. During a long rollout the dashboard can report 100% for the already-evaluated subset while most required controls have no result. Unknown, stale and access-denied cases can similarly shrink the measured denominator. “No assignment” and “no result” are not equivalent: an active assignment awaiting evaluation is a normal state.</p>
+<p><strong>Proposed correction:</strong> Start posture queries from active desired assignments with a left join to matching-revision results. Expose pending, stale and unmeasurable counts plus measurement coverage alongside the compliant/(compliant + non-compliant) percentage. Define empty-denominator behavior consistently in SQL, API, reports, snapshots and gauges. Coordinate access-loss retention with AR-0029-01.</p>
+<p><strong>Verification:</strong> Assign a control to 100 repositories and evaluate only one compliant repository. Every surface must show 99 pending measurements and must not imply a fully measured compliant fleet.</p>
+<p><strong>Response:</strong> <strong>Accepted.</strong> D6 is amended as AR-0029-01 states: assignments are desired state and survive parking; results are cleared only on withdrawal or exclusion by policy and on <code>archived</code>, <code>fork</code> and <code>removed</code> parks, and are kept on <code>access_denied</code> and <code>suspended</code> parks. Posture queries start from active assignments with a LEFT JOIN to results at the matching epoch and revision, which yields explicit buckets: <code>compliant</code>, <code>non_compliant</code>, <code>pending</code> (no result yet), <code>stale</code> (a result from an older epoch or revision), <code>unmeasurable</code> (parked <code>access_denied</code> or <code>suspended</code>, or <code>conflict</code>), <code>not_applicable</code> and <code>unknown</code>. The percentage stays <code>compliant/(compliant+non_compliant)</code>, and <code>coverage</code>, measured over assigned, is reported beside it. The empty-denominator rule is one definition shared by <code>ComplianceByRule</code>, the API, the report, snapshots and the gauges: NULL, shown as "no data", as DESIGN-0022 already requires. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> D6 rewritten as amended, Resolution (parking keeps assignments), Data Model (retention per park reason, "no assignment" and "no result" are no longer the same fact), Compliance queries (LEFT JOIN at matching epoch and revision, the bucket table, percentage, coverage and the NULL denominator), Testing Strategy (posture tests) and D16; <code>measured</code> for coverage is defined here as the assignments with a current result (<code>compliant</code>, <code>non_compliant</code>, <code>not_applicable</code>).</p>
+<h3 id="ar-0030-06-high-final-layer-provenance-cannot-answer-baseline-compliance-reliably">AR-0030-06 (high): Final-layer provenance cannot answer baseline compliance reliably</h3>
+<p><strong>Basis:</strong> Layers' final <code>source</code> and Compliance queries' enterprise/replaced filter. Re-adding an enterprise control after an org exclusion changes its source to a <code>repos</code> layer and removes it from the stated baseline query. Chained replacements can lose the original enterprise reference. Replacing with a different slug also changes the aggregation identity, so “baseline compliance” becomes a count of layer operations rather than the baseline requirements actually being fulfilled.</p>
+<p><strong>Proposed correction:</strong> Store baseline requirement lineage separately from the last assignment decision: original baseline identity, replacement chain/effective definition, and explicit exception decisions. Give policy blocks stable identities rather than identifying them only by glob text. Define whether a replacement satisfies or departs from its baseline and avoid double-counting it as both baseline and org-specific posture.</p>
+<p><strong>Verification:</strong> Resolve baseline → exclude → re-add, <code>@1 → @2 → @3</code>, and cross-slug replacement. Baseline and org-specific reports must attribute the same resolved requirements consistently before and after block reordering.</p>
+<p><strong>Response:</strong> <strong>Accepted with changes.</strong> Lineage is stored on the assignment, separate from the final layer: <code>baseline_control TEXT NULL</code> holds the enterprise slug this assignment fulfils through the replacement chain (NULL for org-added controls), and <code>decision TEXT</code> is one of <code>baseline</code>, <code>replaced</code>, <code>org_added</code>, <code>excluded</code>. "Baseline compliance" is then "assignments with a <code>baseline_control</code>", regardless of which block last touched them, and a replacement counts once, as fulfilling its baseline, so the <code>source = enterprise</code> filter in Compliance queries is replaced by that column. <code>repos</code> blocks get a required label (<code>repos "frontend" { match = [...] }</code>) stored as <code>source_block</code>, so provenance survives reordering and glob edits, and <code>source</code> becomes <code>org:test-org/repos[frontend]</code>. The rejected part: a replacement always satisfies its baseline; whether it is a departure is what the required <code>reason</code> on the replacement records for humans, not a second compliance category. Verification: adopted.</p>
+<p><strong>Applied 2026-10-04:</strong> Org policies and the worked example (labelled <code>repos</code> blocks, <code>reason</code> on <code>replace</code>, the <code>org:test-org/repos[&lt;label&gt;]</code> source form), algorithm steps 1 to 3 (<code>baseline_control</code> and <code>decision</code>), the output table, Compliance queries (<code>baseline_control IS NOT NULL</code> replaces the <code>source = enterprise</code> filter, org-specific is <code>decision = 'org_added'</code>), Data Model (<code>baseline_control</code>, <code>decision</code>, <code>source_block</code>), Validation at load (label and <code>reason</code> errors), API and D17.</p>
+<h3 id="ar-0030-07-medium-overlapping-modes-and-replacements-need-an-executable-precedence-contract">AR-0030-07 (medium): Overlapping modes and replacements need an executable precedence contract</h3>
+<p><strong>Basis:</strong> Layers' file-order semantics versus Mode's most-specific-wins list. If an early matching block has a per-control <code>evaluate</code> override and a later block has <code>mode = remediate</code>, file-order application and override-specificity can produce different answers. The design also does not settle replacement chains in one layer, replacement of an absent/excluded source, or re-adding <code>@1</code> when an excluded <code>@2</code> row already occupies the slug key.</p>
+<p><strong>Proposed correction:</strong> Define one ordered resolution algorithm, including how override specificity interacts with block order, what replacement sources must exist, and how excluded versions are retained or superseded. Reject ambiguous/conflicting declarations or specify their exact winner. Include requested mode, effective mode and provenance in the output.</p>
+<p><strong>Verification:</strong> Publish table cases for early-specific/later-general mode overrides, reversed block order, same-layer replacement chains, and exclude/new-version/re-add combinations. Implementations must produce identical complete assignments for each case.</p>
+<p><strong>Response:</strong> <strong>Accepted.</strong> One ordered algorithm replaces the prose in Layers and Mode, and it is published as golden cases, <code>testdata/resolution/*.hcl</code> with expected JSON, that every implementation must reproduce exactly. The output carries requested mode, effective mode and provenance (AR-0030-04, AR-0030-06). Verification: adopted.</p>
+<p>The algorithm:</p>
+<ol>
+<li>Start from the enterprise baseline.</li>
+<li>Apply the org policy in file order: <code>controls</code> adds, <code>replace</code> swaps (the source must be in the current set, else a load error), <code>exclude</code> removes and records; then apply each matching <code>repos</code> block in file order the same way.</li>
+<li>Keep one row per slug and repository: a later layer supersedes an earlier version or an earlier exclusion, so re-adding <code>@1</code> after excluding <code>@2</code> yields an active <code>@1</code> row and the <code>@2</code> exclusion is history.</li>
+<li>Choose mode by specificity, not file order: a per-control override in a matching <code>repos</code> block, then that block's <code>mode</code>, then a per-control override at org level, then the org <code>mode</code>, then the enterprise <code>mode</code>. Two declarations at the same specificity with different values fall to the later one in file order, and <code>validate</code> warns on them.</li>
+</ol>
+<p><strong>Applied 2026-10-04:</strong> Resolution, where the Layers and Mode prose is replaced by the numbered algorithm (steps 1 to 4 from this Response, steps 5 to 7 folding in AR-0030-04, AR-0030-01 and AR-0030-03 so there is one algorithm, not four), Validation at load (<code>replace</code> source must be in the current set, the same-specificity warning), Testing Strategy (golden cases under <code>testdata/resolution/</code>), Goals and D18.</p>
+<h2 id="open-questions">Open Questions</h2>
+<h3 id="oq1-is-there-a-separate-repository-policy-type">OQ1: Is there a separate repository policy type?</h3>
+<p><strong>Resolved 2026-10-04: (a).</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>no.</strong> Repository-level variation lives in <code>repos { match = [...] }</code> blocks inside the org policy. Every exception for an org is in one file the org's owners review, and resolution has two layers plus blocks rather than three file types. <code>match</code> globs also cover "these five repos", which a per-repo file would not.</li>
+<li>(b) Yes: <code>repo "org/name" {}</code> files under <code>policy/repos/</code>. Repository owners could own their file, but exceptions scatter, and precedence gains a third file type.</li>
+<li>(c) A repository-owned file inside the repository (<code>.github/repo-guardian.hcl</code>). Self-service, but a repository could exclude itself from controls, which defeats the point of a policy.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq2-can-an-org-policy-change-a-controls-parameters-eg-different-owner-teams">OQ2: Can an org policy change a control's parameters (e.g. different owner teams)?</h3>
+<p><strong>Resolved 2026-10-04: (a).</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>no parameter overrides; parameters are templated with repository context</strong> (<code>{{ .Org }}</code>), and a genuinely different requirement is a different control or version, used through <code>replace</code>. Results stay comparable across orgs: "CODEOWNERS 1.2" means the same thing everywhere. The cost is real: an org whose team slugs do not follow the templated convention (<code>@{{ .Org }}/security_champions</code>) has <code>replace</code> as its only escape, which means a second catalogue entry for that org.</li>
+<li>(b) <code>override "codeowners@1" { rule "wiz-owners" { owners = [...] } }</code> in org policies. Flexible, but the same control id then means different things per org, and compliance numbers stop being comparable.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq3-at-what-granularity-is-the-mode-set">OQ3: At what granularity is the mode set?</h3>
+<p><strong>Resolved 2026-10-04: (a).</strong> Every level below the enterprise default is optional; D11 records what that means for a single org or a personal account.</p>
+<ul>
+<li>(a) ✅ recommended: <strong>enterprise default, org, <code>repos</code> block, and a per-control <code>control "name@N" { mode }</code> override inside the org or a <code>repos</code> block</strong>, resolved most-specific-wins by the precedence table. This enables "remediate everything except the control we are trialling", which is the safe way to roll out a new remediation.</li>
+<li>(b) Org and enterprise only. Simpler, but a new control in a <code>remediate</code> org starts writing PRs the moment it is added.</li>
+<li>(c) Per control only, in the catalogue. That is global, so it cannot express "remediate in the test org, evaluate everywhere else".</li>
+<li>other:</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,6750 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0019-temporal-as-the-repo-guardian-control-plane/">
+      
+      
+        <link rel="next" href="../0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>KEDA worker autoscaling cannot authenticate to Temporal - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inv-0020-keda-worker-autoscaling-cannot-authenticate-to-temporal" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              KEDA worker autoscaling cannot authenticate to Temporal
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0030-policy-model-enterprise-and-org-policies-and-control-assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0026-temporal-client-auth-credential-reload-keda-prometheus-trigger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impl/0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-as-shipped-keda-only-works-against-an-unauthenticated-plaintext-frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1: as shipped, KEDA only works against an unauthenticated plaintext frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-the-mtls-case-fails-silently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2: the mTLS case fails silently
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-kedas-temporal-scaler-supports-mtls-and-a-static-api-key-nothing-else" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3: KEDA's Temporal scaler supports mTLS and a static API key, nothing else
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-a-rotating-token-would-self-heal-because-keda-rebuilds-a-failing-scaler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4: a rotating token would self-heal, because KEDA rebuilds a failing scaler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-5-worker-versioning-does-not-hide-the-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 5: worker versioning does not hide the backlog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-6-keda-221-removed-settings-we-do-not-use-and-added-one-we-must-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 6: KEDA 2.21 removed settings we do not use, and added one we must not
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-7-autoscaling-buys-burst-latency-not-throughput" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 7: autoscaling buys burst latency, not throughput
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-8-the-temporal-server-already-exports-the-backlog-to-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 8: the Temporal server already exports the backlog to Prometheus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-9-temporal-oss-has-exactly-one-built-in-authorizer-and-it-reads-jwts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 9: Temporal OSS has exactly one built-in authorizer, and it reads JWTs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-10-the-ui-does-not-see-the-backlog-in-split-topology-with-or-without-keda" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 10: the UI does not see the backlog in split topology, with or without KEDA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-11-mtls-and-oidc-already-work-together-and-certificates-are-ours-to-issue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 11: mTLS and OIDC already work together, and certificates are ours to issue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-12-the-client-certificate-is-read-once-so-rotation-needs-a-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 12: the client certificate is read once, so rotation needs a restart
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work-a-shared-temporal-auth-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future work: a shared Temporal auth package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#question" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Question
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Findings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#observation-1-as-shipped-keda-only-works-against-an-unauthenticated-plaintext-frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 1: as shipped, KEDA only works against an unauthenticated plaintext frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-2-the-mtls-case-fails-silently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 2: the mTLS case fails silently
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-3-kedas-temporal-scaler-supports-mtls-and-a-static-api-key-nothing-else" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 3: KEDA's Temporal scaler supports mTLS and a static API key, nothing else
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-4-a-rotating-token-would-self-heal-because-keda-rebuilds-a-failing-scaler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 4: a rotating token would self-heal, because KEDA rebuilds a failing scaler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-5-worker-versioning-does-not-hide-the-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 5: worker versioning does not hide the backlog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-6-keda-221-removed-settings-we-do-not-use-and-added-one-we-must-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 6: KEDA 2.21 removed settings we do not use, and added one we must not
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-7-autoscaling-buys-burst-latency-not-throughput" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 7: autoscaling buys burst latency, not throughput
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-8-the-temporal-server-already-exports-the-backlog-to-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 8: the Temporal server already exports the backlog to Prometheus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-9-temporal-oss-has-exactly-one-built-in-authorizer-and-it-reads-jwts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 9: Temporal OSS has exactly one built-in authorizer, and it reads JWTs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-10-the-ui-does-not-see-the-backlog-in-split-topology-with-or-without-keda" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 10: the UI does not see the backlog in split topology, with or without KEDA
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-11-mtls-and-oidc-already-work-together-and-certificates-are-ours-to-issue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 11: mTLS and OIDC already work together, and certificates are ours to issue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observation-12-the-client-certificate-is-read-once-so-rotation-needs-a-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation 12: the client certificate is read once, so rotation needs a restart
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work-a-shared-temporal-auth-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future work: a shared Temporal auth package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD025 MD041 -->
+
+<h1 id="inv-0020-keda-worker-autoscaling-cannot-authenticate-to-temporal">INV-0020: KEDA worker autoscaling cannot authenticate to Temporal</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#question">Question</a></li>
+<li><a href="#hypothesis">Hypothesis</a></li>
+<li><a href="#context">Context</a></li>
+<li><a href="#approach">Approach</a></li>
+<li><a href="#environment">Environment</a></li>
+<li><a href="#findings">Findings</a></li>
+<li><a href="#observation-1-as-shipped-keda-only-works-against-an-unauthenticated-plaintext-frontend">Observation 1: as shipped, KEDA only works against an unauthenticated plaintext frontend</a></li>
+<li><a href="#observation-2-the-mtls-case-fails-silently">Observation 2: the mTLS case fails silently</a></li>
+<li><a href="#observation-3-kedas-temporal-scaler-supports-mtls-and-a-static-api-key-nothing-else">Observation 3: KEDA's Temporal scaler supports mTLS and a static API key, nothing else</a></li>
+<li><a href="#observation-4-a-rotating-token-would-self-heal-because-keda-rebuilds-a-failing-scaler">Observation 4: a rotating token would self-heal, because KEDA rebuilds a failing scaler</a></li>
+<li><a href="#observation-5-worker-versioning-does-not-hide-the-backlog">Observation 5: worker versioning does not hide the backlog</a></li>
+<li><a href="#observation-6-keda-221-removed-settings-we-do-not-use-and-added-one-we-must-not">Observation 6: KEDA 2.21 removed settings we do not use, and added one we must not</a></li>
+<li><a href="#observation-7-autoscaling-buys-burst-latency-not-throughput">Observation 7: autoscaling buys burst latency, not throughput</a></li>
+<li><a href="#observation-8-the-temporal-server-already-exports-the-backlog-to-prometheus">Observation 8: the Temporal server already exports the backlog to Prometheus</a></li>
+<li><a href="#observation-9-temporal-oss-has-exactly-one-built-in-authorizer-and-it-reads-jwts">Observation 9: Temporal OSS has exactly one built-in authorizer, and it reads JWTs</a></li>
+<li><a href="#observation-10-the-ui-does-not-see-the-backlog-in-split-topology-with-or-without-keda">Observation 10: the UI does not see the backlog in split topology, with or without KEDA</a></li>
+<li><a href="#observation-11-mtls-and-oidc-already-work-together-and-certificates-are-ours-to-issue">Observation 11: mTLS and OIDC already work together, and certificates are ours to issue</a></li>
+<li><a href="#observation-12-the-client-certificate-is-read-once-so-rotation-needs-a-restart">Observation 12: the client certificate is read once, so rotation needs a restart</a></li>
+<li><a href="#options">Options</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#recommendation">Recommendation</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+<li><a href="#future-work-a-shared-temporal-auth-package">Future work: a shared Temporal auth package</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<h2 id="question">Question</h2>
+<p>Can the chart's optional KEDA autoscaling (<code>worker.keda.enabled</code>) scale
+the v2 worker against a Temporal frontend that requires authentication,
+either mTLS or OIDC bearer tokens? If not, what is the smallest change
+that makes it work for both?</p>
+<h2 id="hypothesis">Hypothesis</h2>
+<p>KEDA works with mTLS and fails with OIDC: the chart already refuses
+KEDA together with <code>temporal.auth.oidc</code>, because KEDA's Temporal
+trigger cannot mint OIDC tokens. A secondary worry was that our use of
+Worker Deployment versioning might make KEDA's backlog reading always
+zero, since the ScaledObject sets no version.</p>
+<p>The first half turned out to be wrong (mTLS does not work either). The
+worry about versioning turned out to be unfounded.</p>
+<h2 id="context">Context</h2>
+<p><strong>Triggered by:</strong> the v2.0.0-rc.4 homelab rollout. The homelab Temporal
+uses a Keycloak JWT authorizer (<code>temporal.auth.oidc</code>, IMPL-0025 rc.2),
+so <code>worker.keda.enabled</code> fails to render there. Reviewing why led to
+the chart template and to KEDA's scaler source.</p>
+<p>KEDA was made optional in DESIGN-0026 (OQ14) and rendered by
+<code>charts/repo-guardian/templates/worker-scaledobject.yaml</code> in IMPL-0025
+Phase 17. INV-0018 Observation 7 set the expectation for what
+autoscaling is worth here.</p>
+<h2 id="approach">Approach</h2>
+<ol>
+<li>Read the chart's ScaledObject template and its render-time guards.</li>
+<li>Read KEDA's Temporal scaler source at the v2.21.0 release
+   (<code>pkg/scalers/temporal_scaler.go</code>): its auth options, how it dials
+   Temporal, and which API it reads the backlog from.</li>
+<li>Read KEDA's scaler cache (<code>pkg/scaling/cache/scalers_cache.go</code>) to
+   see what happens when a scaler's credentials go stale.</li>
+<li>Measure, on a real Temporal dev server, whether the unversioned
+   <code>DescribeTaskQueue</code> call KEDA makes by default reports the backlog of
+   a versioned queue.</li>
+<li>Read the Temporal server's metric definitions and its authorization
+   package, to find a credential-free backlog source and to establish
+   what mTLS-only clients can do on a JWT-authorized cluster.</li>
+<li>Trace how the status page gets its backlog in each topology.</li>
+</ol>
+<h2 id="environment">Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version / Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repo-guardian chart</td>
+<td>2.0.0-rc.4</td>
+</tr>
+<tr>
+<td>KEDA</td>
+<td>v2.21.0 (2026-09-23); scaler source at <code>main</code>, last changed 2026-09-09</td>
+</tr>
+<tr>
+<td>Temporal dev server</td>
+<td>Temporal CLI v1.9.1 (the <code>temporaltest</code> pin)</td>
+</tr>
+<tr>
+<td>Temporal Go SDK</td>
+<td>as pinned in <code>go.mod</code></td>
+</tr>
+<tr>
+<td>Worker versioning</td>
+<td>Worker Deployments, deployment <code>repo-guardian</code>, build ID = image tag, AutoUpgrade</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<h3 id="observation-1-as-shipped-keda-only-works-against-an-unauthenticated-plaintext-frontend">Observation 1: as shipped, KEDA only works against an unauthenticated plaintext frontend</h3>
+<p>The whole trigger the chart renders:</p>
+<pre><code class="language-yaml">triggers:
+  - type: temporal
+    metadata:
+      endpoint: {{ .Values.temporal.address | quote }}
+      namespace: {{ .Values.temporal.namespace | quote }}
+      taskQueue: {{ .Values.temporal.taskQueue | quote }}
+      queueTypes: workflow,activity
+      targetQueueSize: {{ .Values.worker.keda.targetQueueSize | quote }}
+</code></pre>
+<p>There is no <code>authenticationRef</code>, no <code>TriggerAuthentication</code>, and no
+<code>tlsServerName</code>. The scaler only turns on TLS when it is given a client
+certificate or an API key (<code>getTemporalClient</code>, <code>buildTemporalTLSConfig</code>),
+so with this template it dials the frontend in plaintext with no
+credentials.</p>
+<table>
+<thead>
+<tr>
+<th>Temporal auth (<code>temporal.*</code>)</th>
+<th>KEDA as shipped</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None, plaintext (<code>tls.disabled: true</code>)</td>
+<td>works</td>
+</tr>
+<tr>
+<td>Server TLS only, no client auth</td>
+<td>fails: KEDA does not speak TLS</td>
+</tr>
+<tr>
+<td>mTLS (<code>tls.existingSecret</code>)</td>
+<td>renders, never connects</td>
+</tr>
+<tr>
+<td>OIDC (<code>auth.oidc</code>)</td>
+<td>refused at render by <code>validateTemporalAuth</code></td>
+</tr>
+</tbody>
+</table>
+<p>The reference cluster in <code>contrib/temporal/</code> requires mTLS, so KEDA has
+never worked against it.</p>
+<h3 id="observation-2-the-mtls-case-fails-silently">Observation 2: the mTLS case fails silently</h3>
+<p>The chart renders, <code>helm install</code> succeeds, and nothing complains. Each
+KEDA poll fails, the HPA KEDA manages cannot read its metric, and the
+worker stays at whatever replica count it has. No <code>fallback</code> is
+configured on the ScaledObject.</p>
+<p>It is not an outage: the workers keep running and checks happen. It just
+never scales, and the only signal is error conditions on the
+ScaledObject and lines in the KEDA operator's log, neither of which our
+alerts watch.</p>
+<h3 id="observation-3-kedas-temporal-scaler-supports-mtls-and-a-static-api-key-nothing-else">Observation 3: KEDA's Temporal scaler supports mTLS and a static API key, nothing else</h3>
+<p>From the scaler's metadata and auth parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Auth parameter</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cert</code>, <code>key</code>, <code>ca</code>, <code>keyPassword</code></td>
+<td>TriggerAuthentication</td>
+<td>standard mTLS</td>
+</tr>
+<tr>
+<td><code>apiKey</code> / <code>apiKeyFromEnv</code></td>
+<td>TriggerAuthentication</td>
+<td>passed to <code>sdk.NewAPIKeyStaticCredentials</code>: a fixed bearer token</td>
+</tr>
+<tr>
+<td><code>enableTLS</code></td>
+<td>trigger metadata</td>
+<td>TLS with an API key (added in KEDA 2.21)</td>
+</tr>
+<tr>
+<td><code>tlsServerName</code>, <code>unsafeSsl</code></td>
+<td>trigger metadata</td>
+<td>server verification</td>
+</tr>
+</tbody>
+</table>
+<p>The mTLS path is enough for the mTLS case: the worker's Secret
+(<code>temporal.tls.existingSecret</code>, keys <code>tls.crt</code>, <code>tls.key</code>, <code>ca.crt</code>)
+maps onto it one to one. The chart just never wires it up.</p>
+<p>OIDC is a different problem. A Keycloak access token <em>is</em> a bearer
+token, so <code>apiKey</code> would accept one, but access tokens expire after
+minutes. A static key does not fit them.</p>
+<p>Nor does mTLS help on a cluster that authorizes JWTs, such as the
+homelab's. A client presenting only a certificate carries no token, gets
+no roles, and is denied (Observation 9). KEDA's Temporal trigger
+therefore works on a JWT-authorized cluster only if the server is also
+changed to authorize certificate identities.</p>
+<h3 id="observation-4-a-rotating-token-would-self-heal-because-keda-rebuilds-a-failing-scaler">Observation 4: a rotating token would self-heal, because KEDA rebuilds a failing scaler</h3>
+<p><code>ScalersCache.GetMetricsAndActivityForScaler</code>: when a scaler's
+<code>GetMetricsAndActivity</code> returns an error, KEDA calls <code>refreshScaler</code>,
+which rebuilds the scaler from its factory and so re-resolves the
+TriggerAuthentication. It then retries once:</p>
+<pre><code class="language-go">metric, activity, err := sb.Scaler.GetMetricsAndActivity(requestCtx, metricName)
+if err == nil {
+    return metric, activity, time.Since(startTime), nil
+}
+
+ns, err := c.refreshScaler(ctx, index)
+</code></pre>
+<p>So if something keeps a Secret's token fresh, an expired token costs one
+failed poll and then picks up the new one. That makes a refresher
+(Option C below) workable, not just theoretical.</p>
+<h3 id="observation-5-worker-versioning-does-not-hide-the-backlog">Observation 5: worker versioning does not hide the backlog</h3>
+<p>The ScaledObject sets neither of KEDA's Worker Deployment fields
+(<code>workerDeploymentName</code>, <code>workerDeploymentBuildId</code>), so KEDA uses its
+unversioned path: <code>DescribeTaskQueue</code> with <code>ReportStats: true</code> and no
+version selector. Our status page reads the backlog the same way
+(<code>internal/temporal/backlog.go</code>). KEDA's own source suggests that path
+reads only the unversioned queue: its running-workflow query in that
+mode filters on <code>TemporalWorkerDeploymentVersion is null</code>. If so, the
+backlog for our versioned workers would always read near zero.</p>
+<p>Measured on the dev server with a throwaway integration test:</p>
+<ol>
+<li>start a versioned worker at build <code>1.0.0</code>, promote it with
+   <code>PromoteBuild</code>, then stop it;</li>
+<li>start 7 workflows on the task queue, with no poller;</li>
+<li>every 4s, read the backlog both ways.</li>
+</ol>
+<pre><code class="language-text">round 0: unversioned DescribeTaskQueue backlog=7 age=4.0s  | DescribeWorkerDeploymentVersion backlog=7
+round 1: unversioned DescribeTaskQueue backlog=7 age=4.0s  | DescribeWorkerDeploymentVersion backlog=7
+round 2: unversioned DescribeTaskQueue backlog=7 age=12.0s | DescribeWorkerDeploymentVersion backlog=7
+round 3: unversioned DescribeTaskQueue backlog=7 age=12.0s | DescribeWorkerDeploymentVersion backlog=7
+</code></pre>
+<p>The unversioned call reports the current version's backlog. Neither
+KEDA's default mode nor our status page needs a version selector,
+as long as there is one current version. Two caveats:</p>
+<ul>
+<li>We never ramp between versions (each build becomes current
+  outright), so a split backlog across two versions does not arise.</li>
+<li>This was measured on the CLI dev server, not on the homelab's 1.32
+  cluster. The dev server runs the same matching service, but a
+  one-off check on the homelab would close the gap.</li>
+</ul>
+<h3 id="observation-6-keda-221-removed-settings-we-do-not-use-and-added-one-we-must-not">Observation 6: KEDA 2.21 removed settings we do not use, and added one we must not</h3>
+<ul>
+<li>KEDA 2.21 removed <code>buildId</code>, <code>selectAllActive</code> and <code>selectUnversioned</code>,
+  because Temporal is dropping the rules-based versioning APIs. The
+  chart uses none of them, so it is compatible.</li>
+<li>KEDA 2.20 added Worker Deployment fields (<code>workerDeploymentName</code>,
+  <code>workerDeploymentBuildId</code>). We do not need them (Observation 5).
+  Setting them would also tie the ScaledObject to a single build ID,
+  which changes on every release.</li>
+<li>KEDA 2.21 added a composite metric: backlog plus the count of running
+  workflows. <strong>This must never be enabled here.</strong> Every repository is a
+  permanently running <code>RepoWorkflow</code>, so the running count is roughly
+  the fleet size, and the scaler would always demand <code>maxReplicas</code>.</li>
+</ul>
+<h3 id="observation-7-autoscaling-buys-burst-latency-not-throughput">Observation 7: autoscaling buys burst latency, not throughput</h3>
+<p>INV-0018 Observation 7 still holds under v2, and more strongly. Checks
+are bound by each installation's GitHub budget, which the
+<code>InstallationWorkflow</code> enforces. A check denied a lease waits on a
+workflow timer, and a timer is not backlog, so a fleet throttled on
+budget correctly reads as idle. More pods past the budget only add
+waiting.</p>
+<p>What scaling does buy is shorter bursts: a policy rollout, onboarding a
+large org, or a push storm, where activity tasks are ready but every
+slot is busy. <code>maxReplicas</code> should be sized from the budget
+(roughly: budget-limited checks per hour divided by checks per pod per
+hour), not from the backlog. The chart's values comment already says
+this; the operator docs do not.</p>
+<h3 id="observation-8-the-temporal-server-already-exports-the-backlog-to-prometheus">Observation 8: the Temporal server already exports the backlog to Prometheus</h3>
+<p>KEDA's Temporal trigger is not the only way to read the backlog, and not
+the conventional one. Before the trigger existed (KEDA 2.17), Temporal
+workers were scaled on Prometheus metrics, and that remains the fallback
+wherever the trigger's auth does not fit.</p>
+<p>The server publishes the number we need. In
+<code>common/metrics/metric_defs.go</code>, the matching service defines
+<code>approximate_backlog_count</code> and <code>approximate_backlog_age_seconds</code> as
+gauges. <code>service/matching/task_queue_partition_manager.go</code> records them
+per partition and per priority, with these labels from
+<code>common/metrics/tags.go</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>namespace</code></td>
+<td><code>repo-guardian</code></td>
+</tr>
+<tr>
+<td><code>taskqueue</code></td>
+<td><code>repo-guardian</code></td>
+</tr>
+<tr>
+<td><code>task_type</code></td>
+<td><code>Workflow</code>, <code>Activity</code></td>
+</tr>
+<tr>
+<td><code>partition</code></td>
+<td>partition ID, or <code>__sticky__</code></td>
+</tr>
+<tr>
+<td><code>worker_version</code> / <code>worker_build_id</code></td>
+<td>the Worker Deployment version</td>
+</tr>
+</tbody>
+</table>
+<p>They are on by default. The dynamic-config settings
+<code>metrics.breakdownByTaskQueue</code> and <code>metrics.breakdownByPartition</code> both
+default to <code>true</code>, and turning either off removes these gauges. They are
+fed by the same task-queue stats <code>DescribeTaskQueue</code> returns, so the
+Observation 5 measurement applies to them too.</p>
+<p>That makes this a trigger with no Temporal credentials and no
+repo-guardian code:</p>
+<pre><code class="language-yaml">triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      query: |
+        sum(max by (partition, task_type) (
+          approximate_backlog_count{namespace=&quot;repo-guardian&quot;, taskqueue=&quot;repo-guardian&quot;}
+        ))
+      threshold: &quot;50&quot;
+</code></pre>
+<p>The inner <code>max by (partition, task_type)</code> keeps a partition from being
+counted twice while it moves between matching hosts. The metric may
+carry a prefix depending on how the server's Prometheus reporter is
+configured, so the chart should take the query as a value, not hard-code
+it.</p>
+<p>The only requirement is that the Temporal server's metrics reach a
+Prometheus KEDA can query. That holds when you run Temporal yourself and
+scrape it, as the homelab does. It does not hold for Temporal Cloud, or
+for a shared cluster another team runs without exposing its metrics.
+Only then is a worker-exported gauge (Option B2) needed.</p>
+<h3 id="observation-9-temporal-oss-has-exactly-one-built-in-authorizer-and-it-reads-jwts">Observation 9: Temporal OSS has exactly one built-in authorizer, and it reads JWTs</h3>
+<p>This finding reframes the auth question. In the server source
+(<code>common/authorization/</code>):</p>
+<ul>
+<li><code>GetClaimMapperFromConfig</code> accepts <code>claimMapper: ""</code> (no-op) or
+  <code>"default"</code> (the JWT claim mapper). <code>GetAuthorizerFromConfig</code> accepts
+  <code>authorizer: ""</code> (no-op: allow everything) or <code>"default"</code>. Any other
+  mapper or authorizer means compiling a custom server binary.</li>
+<li>The default JWT claim mapper reads only <code>AuthToken</code>. It never looks at
+  <code>TLSSubject</code>, although <code>AuthInfo</code> carries it.</li>
+<li>The default authorizer denies every call from a caller without claims,
+  except health checks:</li>
+</ul>
+<p><code>go
+  if IsHealthCheckAPI(target.APIName) {
+      return resultAllow, nil
+  }
+  if claims == nil {
+      return resultDeny, nil
+  }</code></p>
+<p>A caller with a token but no matching role gets zero roles, and is
+  denied as well.</p>
+<p>So on self-hosted Temporal, mTLS and JWTs are not alternative ways of
+doing the same job. They are layers:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Mechanism</th>
+<th>Answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transport</td>
+<td>TLS, or mTLS</td>
+<td>is the connection encrypted, and does the client hold a cert from a trusted CA?</td>
+</tr>
+<tr>
+<td>Authorization</td>
+<td>JWT claim mapper and default authorizer</td>
+<td>what may this caller do, in which namespace?</td>
+</tr>
+</tbody>
+</table>
+<p>"mTLS for workers, OIDC only for people logging in" therefore has a
+specific meaning on OSS Temporal: <strong>frontend authorization is turned
+off</strong> (no-op authorizer), and holding a client certificate from the CA
+grants full access to every namespace, including cluster-level
+operations. The Temporal UI's OIDC login then gates humans at the UI
+only. The UI's own connection to the frontend carries full power.</p>
+<p>What switching the homelab workers from OIDC to mTLS would trade:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Workers on OIDC (today)</th>
+<th>Workers on mTLS, no-op authorizer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Least privilege</td>
+<td>the token grants <code>repo-guardian:write</code> on one namespace</td>
+<td>any certificate is cluster admin</td>
+</tr>
+<tr>
+<td>Dev and prod in one cluster</td>
+<td>a dev token cannot touch the prod namespace</td>
+<td>a dev certificate can</td>
+</tr>
+<tr>
+<td>Revocation</td>
+<td>disable the client in the IdP; tokens die within their lifetime</td>
+<td>rotate the CA, or wait for expiry; Temporal checks no CRL</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>IdP logs every token issued; the frontend sees a principal</td>
+<td>the frontend sees a certificate subject only</td>
+</tr>
+<tr>
+<td>Runtime dependency</td>
+<td>the IdP must be up to renew tokens (one minute early); an IdP outage stops workers within one token lifetime</td>
+<td>none once the certificate is issued</td>
+</tr>
+<tr>
+<td>Rotation</td>
+<td>automatic (token refresh)</td>
+<td>automatic with cert-manager</td>
+</tr>
+<tr>
+<td>Tooling</td>
+<td>KEDA's Temporal trigger cannot authenticate; the <code>temporal</code> CLI needs a token</td>
+<td>KEDA's trigger and the CLI work with the certificate</td>
+</tr>
+<tr>
+<td>Per-user authorization in the Temporal UI</td>
+<td>possible: the UI can forward each user's token</td>
+<td>impossible: the authorizer is off</td>
+</tr>
+</tbody>
+</table>
+<p>Keeping fine-grained authorization <em>and</em> using certificates means a
+custom claim mapper that turns a certificate subject into claims. That
+in turn means building and running your own Temporal server binary.</p>
+<p>Temporal Cloud is different: client certificates and API keys there are
+scoped per namespace natively. That is why ecosystem tools assume
+"mTLS or an API key". It is not a sign that JWT client auth is
+unsupported on OSS. The Go SDK supports it directly
+(<code>client.NewAPIKeyDynamicCredentials</code>, which repo-guardian uses), and
+the JWT authorizer is the only fine-grained authorization OSS Temporal
+ships. The friction is in tools built for Cloud and mTLS, KEDA among
+them, not in the server or the SDK.</p>
+<p><strong>With Okta instead of Keycloak.</strong> The Temporal side is unchanged: it
+needs a JWKS URL and a permissions claim. The IdP side is harder,
+subject to your Okta SKU:</p>
+<ul>
+<li>A client-credentials token with a custom <code>permissions</code> claim
+  typically needs an Okta custom authorization server, which is part of
+  API Access Management, a paid add-on.</li>
+<li>Okta's org authorization server issues tokens only for Okta's own
+  APIs.</li>
+<li>repo-guardian's API has the same need: a custom audience
+  (<code>repo-guardian-api</code>) and a groups claim in access tokens.</li>
+</ul>
+<p>An organisation on Okta without API Access Management would find mTLS
+with a no-op authorizer the practical choice for Temporal. It would
+still need a custom authorization server for the repo-guardian API.</p>
+<h3 id="observation-10-the-ui-does-not-see-the-backlog-in-split-topology-with-or-without-keda">Observation 10: the UI does not see the backlog in split topology, with or without KEDA</h3>
+<p>The status page has a <code>backlog</code> component (<code>internal/api/status.go</code>),
+fed by <code>temporal.DescribeBacklog</code>. <code>cmd/repo-guardian/api.go</code> wires that
+probe only when the process holds a Temporal client:</p>
+<pre><code class="language-go">if tc != nil {
+    statusCfg.Backlog = func(ctx context.Context) (api.Backlog, error) {
+        age, pollers, err := temporal.DescribeBacklog(ctx, tc, tcfg)
+        ...
+</code></pre>
+<p>Only the <code>all</code> role has one. The <code>api</code> role in <code>split</code> topology, the
+default, deliberately holds no Temporal credentials (DESIGN-0027:
+least privilege, read-only Postgres only). So in split, the backlog
+component is <strong>omitted from the status page today</strong>.</p>
+<p>The choice of KEDA trigger is independent of this. KEDA reads
+Prometheus, the UI reads the API, and neither path feeds or blocks the
+other. Choosing the Prometheus trigger makes the UI no worse off. It
+also does not fix the gap. Ways to fix it:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>How</th>
+<th>Fits the role model?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(a)</td>
+<td>The worker writes the backlog (count, age, pollers) to a small Postgres row on each poll; the API reads it like every other status input</td>
+<td>yes: the API keeps reading Postgres only</td>
+</tr>
+<tr>
+<td>(b)</td>
+<td>Give the <code>api</code> role read-only Temporal credentials</td>
+<td>weakens the api role's least privilege</td>
+</tr>
+<tr>
+<td>(c)</td>
+<td>The API queries Prometheus</td>
+<td>adds a runtime dependency the API does not have today</td>
+</tr>
+</tbody>
+</table>
+<p>(a) matches the design: the worker already holds the credentials, and
+the API stays read-only Postgres. It also replaces Option B2's
+worker-exported gauge, if that is ever needed, with one poll that feeds
+both.</p>
+<h3 id="observation-11-mtls-and-oidc-already-work-together-and-certificates-are-ours-to-issue">Observation 11: mTLS and OIDC already work together, and certificates are ours to issue</h3>
+<p>The layered posture from Observation 9 needs no new code paths:</p>
+<ul>
+<li><code>internal/temporal/temporal.go.tlsConfig</code> loads the client
+  certificate when <code>TEMPORAL_TLS_CERT_PATH</code> is set, and <code>Dial</code> attaches
+  the OIDC token source whenever <code>TEMPORAL_OIDC_*</code> is set. Neither
+  excludes the other.</li>
+<li><code>repo-guardian.validateTemporalAuth</code> in <code>_helpers.tpl</code> allows
+  <code>temporal.tls.existingSecret</code> together with <code>temporal.auth.oidc</code>. It
+  only refuses <code>caSecret</code> alongside <code>existingSecret</code>, and KEDA alongside
+  OIDC.</li>
+</ul>
+<p>With both set, the frontend checks the certificate at the TLS handshake
+(transport: is this a workload we issued a certificate to?) and the
+token on each call (authorization: what may it do, in which namespace?).
+KEDA, on the Prometheus trigger, needs neither.</p>
+<p>The identity provider does not supply the certificate. Keycloak can
+check client certificates for its own logins, and can bind a token to a
+certificate (RFC 8705), but Temporal never checks that binding. Okta's
+certificate features cover employee devices, not workloads. A
+certificate authority for Temporal clients is ours to run:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Issuer</th>
+<th>Fits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cert-manager with a CA Issuer</td>
+<td>cert-manager, with the CA key in a k8s Secret</td>
+<td>quickest to stand up</td>
+</tr>
+<tr>
+<td><strong>cert-manager backed by OpenBao</strong></td>
+<td>OpenBao's PKI engine, through cert-manager's Vault issuer (OpenBao keeps Vault's API)</td>
+<td>CA key outside k8s, audited issuing, per-role limits on the names a certificate may carry</td>
+</tr>
+<tr>
+<td>OpenBao directly</td>
+<td>OpenBao agent or CSI driver, with pods authenticating by service account</td>
+<td>sites already running the OpenBao agent everywhere</td>
+</tr>
+</tbody>
+</table>
+<p>The middle row is the chosen posture:</p>
+<ol>
+<li>A dedicated PKI mount in OpenBao, used only for Temporal clients. At
+   the transport layer every certificate it signs is admitted, so
+   sharing the CA with anything else widens who gets through.</li>
+<li>An OpenBao role per workload, limiting the common names and lifetime
+   it may request.</li>
+<li>cert-manager's Vault <code>Issuer</code> against that role, and a <code>Certificate</code>
+   writing the Secret named in <code>temporal.tls.existingSecret</code>.
+   trust-manager can distribute the CA certificate.</li>
+<li>The Temporal frontend requires client certificates and trusts only
+   that CA. Its TLS settings can reload certificate files on an
+   interval; confirm the setting name in the pinned Temporal chart.</li>
+<li><code>temporal.auth.oidc</code> stays as it is.</li>
+</ol>
+<p>OpenBao can later also hold the Keycloak client secret, so a worker's
+two credentials come from one place.</p>
+<h3 id="observation-12-the-client-certificate-is-read-once-so-rotation-needs-a-restart">Observation 12: the client certificate is read once, so rotation needs a restart</h3>
+<p><code>tlsConfig</code> calls <code>tls.LoadX509KeyPair</code> once and stores the result in
+<code>tls.Config.Certificates</code>. The connection is built at <code>Dial</code>, at
+startup. When cert-manager renews the certificate, kubelet updates the
+mounted file, but the process keeps presenting the old certificate until
+the pod restarts. Once that certificate expires, the frontend refuses
+the handshake and the worker stops.</p>
+<p>Short-lived certificates make this certain rather than possible:
+OpenBao-issued certificates typically live hours to days. The usual
+external workaround, a restart-on-Secret-change controller such as
+Reloader, is another component for every operator to install, and it
+restarts workers mid-check.</p>
+<p>The fix belongs in the client. Set <code>tls.Config.GetClientCertificate</code> to
+a loader that re-reads the key pair when the files change (checking
+modification time, and keeping the last good pair if a read fails
+mid-rotation). Go calls it on every handshake, so a reconnect picks up
+the new certificate with no restart. The CA bundle has the same shape
+and needs the same treatment through <code>VerifyPeerCertificate</code> or a
+reloaded <code>RootCAs</code>, because a CA rollover is the other half of rotation.</p>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Approach</th>
+<th>Works with</th>
+<th>Cost</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong></td>
+<td><strong>Wire mTLS into the ScaledObject.</strong> Render a <code>TriggerAuthentication</code> from <code>temporal.tls.existingSecret</code> (<code>cert</code>, <code>key</code>, <code>ca</code>) and set <code>tlsServerName</code> from <code>temporal.tls.serverName</code>.</td>
+<td>mTLS</td>
+<td>chart only, small</td>
+<td>Do it: it is a bug fix</td>
+</tr>
+<tr>
+<td><strong>B1</strong></td>
+<td><strong>KEDA's <code>prometheus</code> trigger on the server's <code>approximate_backlog_count</code></strong> (Observation 8).</td>
+<td>any auth</td>
+<td>chart only: a <code>worker.keda.trigger</code> choice, a Prometheus address and a query value; needs the server's metrics in Prometheus</td>
+<td><strong>Recommended</strong></td>
+</tr>
+<tr>
+<td><strong>B2</strong></td>
+<td><strong>The worker exports the backlog itself.</strong> A goroutine calls <code>DescribeTaskQueue</code> with the worker's authenticated client and publishes it, as a gauge or as the Postgres row of Observation 10 (a).</td>
+<td>any auth</td>
+<td>one goroutine; needs Prometheus for KEDA</td>
+<td>Only where the server's metrics are out of reach (Temporal Cloud, someone else's cluster)</td>
+</tr>
+<tr>
+<td><strong>C</strong></td>
+<td><strong>Token-refresher CronJob.</strong> Mint a token every few minutes into the Secret the TriggerAuthentication reads as <code>apiKey</code>, with <code>enableTLS: true</code>. Self-heals per Observation 4.</td>
+<td>OIDC</td>
+<td>a new pod holding the client secret plus RBAC to write a Secret; a second Keycloak client (ideally read-only on the namespace)</td>
+<td>Workable, but more moving parts and more credential surface than B1</td>
+</tr>
+<tr>
+<td><strong>D</strong></td>
+<td><strong>Long-lived token.</strong> A Keycloak client with a token lifetime of months, stored as <code>apiKey</code>.</td>
+<td>OIDC</td>
+<td>a long-lived Temporal credential in a Secret</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>E</strong></td>
+<td><strong>Do nothing.</strong> Keep KEDA off, set replicas by hand.</td>
+<td>any</td>
+<td>none</td>
+<td>Fine at current fleet size; the bug in Observation 2 stays</td>
+</tr>
+<tr>
+<td><strong>F</strong></td>
+<td><strong>Move the cluster's workers to mTLS</strong> to suit KEDA's trigger.</td>
+<td>mTLS</td>
+<td>on a JWT-authorized cluster, either turn off frontend authorization or build a custom claim mapper (Observation 9)</td>
+<td>No: it trades least privilege for one tool's convenience, and B1 makes it unnecessary</td>
+</tr>
+</tbody>
+</table>
+<p>The server's backlog gauge also serves dashboards and alerts better
+than the SDK's schedule-to-start latency, which only moves once tasks
+are picked up. Neither needs repo-guardian code.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p><strong>Answer:</strong> No, not as shipped. KEDA works today only against a
+plaintext, unauthenticated Temporal frontend:</p>
+<ul>
+<li><strong>mTLS:</strong> the chart renders, but KEDA cannot connect, and it fails
+  silently (Observations 1 and 2).</li>
+<li><strong>OIDC:</strong> refused at render.</li>
+<li><strong>Versioning:</strong> the worry was unfounded; the backlog is visible
+  without a version selector (Observation 5).</li>
+</ul>
+<p>The mTLS gap is a chart bug with a chart-only fix (Option A). OIDC needs
+the backlog to reach KEDA without Temporal credentials, and the Temporal
+server already publishes it to Prometheus (Option B1, Observation 8). A
+rotating token (Option C) would also work, but it costs more than it is
+worth.</p>
+<p>The broader worry, that we chose an unsupported auth pattern, does not
+hold up (Observation 9). On OSS Temporal, JWT authorization is the only
+built-in fine-grained authorization, and the SDK supports JWT clients
+directly. mTLS is the transport layer, not a substitute for it. Moving
+the workers to mTLS alone means turning frontend authorization off.
+Ecosystem tools assume mTLS or API keys because Temporal Cloud scopes
+those per namespace; that is where KEDA's gap comes from. The homelab
+should keep OIDC worker auth. If anything, it could add client
+certificates on top of it, for the full layered posture.</p>
+<p>The UI is unaffected by the trigger choice. In split topology it lacks
+the backlog today for an unrelated reason (Observation 10).</p>
+<h2 id="recommendation">Recommendation</h2>
+<p>For an rc.5:</p>
+<ol>
+<li><strong>Option A:</strong> render a <code>TriggerAuthentication</code> for mTLS. Add a
+   helm-unittest case per Temporal auth mode, asserting the ScaledObject
+   references it under mTLS and needs nothing under plaintext.</li>
+<li><strong>Option B1:</strong> a <code>worker.keda.trigger</code> value (<code>temporal</code> |
+   <code>prometheus</code>) with <code>worker.keda.prometheus.{serverAddress, query,
+   threshold}</code>, defaulting the query to the Observation 8 expression.
+   Relax the OIDC + KEDA guard to refuse only <code>trigger: temporal</code>. No Go
+   code.</li>
+<li><strong>Guard the composite metric:</strong> never render it, and say why in the
+   template.</li>
+<li><strong>Docs:</strong> add KEDA sizing guidance (<code>maxReplicas</code> from the budget) to
+   the chart values and <code>docs/operations/v2-onboarding.md</code> § Day-two.</li>
+<li><strong>Close the measurement gap:</strong> run the Observation 5 check once
+   against the homelab 1.32 cluster. In the same pass, confirm the
+   server's <code>approximate_backlog_count</code> name and labels in the homelab
+   Prometheus.</li>
+<li><strong>Keep OIDC worker auth, and add mTLS beneath it</strong> (Observation 11).
+   Document the posture (cert-manager backed by OpenBao) and the
+   Observation 9 trade-off in <code>docs/operations/v2-onboarding.md</code>, with
+   the OpenBao role, Issuer and Certificate as a worked example.</li>
+<li><strong>Reload the client certificate and CA on rotation</strong>
+   (Observation 12). Go change plus a test that rotates the files under
+   a live client and asserts the next handshake presents the new
+   certificate. No Reloader requirement.</li>
+<li><strong>Separately, and later:</strong> fix the status page's backlog in split
+   topology with Observation 10 (a).</li>
+</ol>
+<p>Until then: leave <code>worker.keda.enabled: false</code> and set
+<code>worker.replicas</code> by hand.</p>
+<h3 id="open-questions">Open questions</h3>
+<ul>
+<li><strong>OQ1: Which auth paths should KEDA support?</strong></li>
+<li>(a) ✅ recommended: A + B1. mTLS through KEDA's own scaler, everything
+    else through the server's backlog metric. Covers every auth mode
+    with no new credentials and no Go code.</li>
+<li>(b) B1 only. Simplest. mTLS users also go through Prometheus, and
+    the Observation 2 bug is fixed by removing the <code>temporal</code> trigger.</li>
+<li>(c) A + C. OIDC through a token refresher; no Prometheus dependency,
+    but a new credential-holding workload.</li>
+<li>
+<p>other:</p>
+</li>
+<li>
+<p><strong>OQ2: Should the Prometheus trigger replace the Temporal trigger
+  entirely?</strong></p>
+</li>
+<li>(a) ✅ recommended: no. Offer both, defaulting to <code>temporal</code>. The
+    native scaler has no scrape lag and no Prometheus dependency where
+    mTLS works.</li>
+<li>(b) Yes. One code path, but Prometheus becomes mandatory for
+    autoscaling.</li>
+<li>
+<p>other:</p>
+</li>
+<li>
+<p><strong>OQ3: How should the UI get the backlog in split topology?</strong></p>
+</li>
+<li>(a) ✅ recommended: the worker writes it to Postgres and the API reads
+    it (Observation 10 (a)). Keeps the api role read-only Postgres.</li>
+<li>(b) Read-only Temporal credentials for the api role. Least code,
+    weaker least privilege.</li>
+<li>(c) Leave it: the backlog shows only in <code>all</code> topology and in
+    Grafana.</li>
+<li>
+<p>other:</p>
+</li>
+<li>
+<p><strong>OQ4: Should the homelab move Temporal worker auth from OIDC to
+  mTLS?</strong></p>
+</li>
+<li>(a) ✅ decided: neither alone; both. Keep OIDC for authorization
+    (namespace scope, IdP revocation and audit) and add client
+    certificates from cert-manager backed by OpenBao for the transport
+    layer (Observation 11). B1 keeps KEDA out of both.</li>
+<li>(b) Yes, with a no-op authorizer. Simpler tooling and no IdP
+    runtime dependency, but any certificate is cluster admin, and dev
+    and prod are not isolated.</li>
+<li>(c) Yes, with a custom claim mapper. Keeps authorization, but means
+    building and running a custom Temporal server.</li>
+<li>other:</li>
+</ul>
+<h2 id="future-work-a-shared-temporal-auth-package">Future work: a shared Temporal auth package</h2>
+<p>The pattern settled here, OIDC for authorization, mTLS from cert-manager
+backed by OpenBao for transport, hot certificate reload, and KEDA scaling
+from server metrics, is likely to be the default for every Temporal
+workload, not only repo-guardian. Much of the GitHub App plumbing
+(installation-scoped clients, the rate-limit transport, webhook HMAC
+validation) is similarly reusable.</p>
+<p>Once the rc ships and the posture is proven in the homelab, extract the
+reusable parts into a shared module, such as <code>donaldgifford/x</code>:</p>
+<ul>
+<li>Temporal client dialing: <code>ConfigFromEnv</code>, mTLS with hot reload, the
+  OIDC token source, the server version check.</li>
+<li>The GitHub App client stack and webhook validation.</li>
+<li>Chart snippets or docs for the OpenBao issuer and the KEDA Prometheus
+  trigger.</li>
+</ul>
+<p>This could be the last step of the v2 beta before 2.0.0. It is out of
+scope for this investigation; it gets its own design doc when started.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0026-v2-temporal-control-plane-and-role-split/">DESIGN-0026</a>:
+  § Scaling, OQ14 (KEDA optional).</li>
+<li><a href="../0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/">INV-0018</a>:
+  Observation 7, autoscaling buys burst latency, not throughput.</li>
+<li><a href="../../impl/0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/">IMPL-0025</a>:
+  Phase 17 (chart roles, ScaledObject); rc.2 (Temporal OIDC auth).</li>
+<li><code>charts/repo-guardian/templates/worker-scaledobject.yaml</code>;
+  <code>validateTemporalAuth</code> in <code>charts/repo-guardian/templates/_helpers.tpl</code>.</li>
+<li><code>internal/temporal/backlog.go</code>, the status page's backlog probe.</li>
+<li>KEDA Temporal scaler:
+  <a href="https://keda.sh/docs/2.18/scalers/temporal/">docs</a> ·
+  <a href="https://github.com/kedacore/keda/blob/main/pkg/scalers/temporal_scaler.go"><code>pkg/scalers/temporal_scaler.go</code></a> ·
+  <a href="https://github.com/kedacore/keda/blob/main/pkg/scaling/cache/scalers_cache.go"><code>pkg/scaling/cache/scalers_cache.go</code></a>.</li>
+<li>Temporal server: <code>common/metrics/metric_defs.go</code>
+  (<code>approximate_backlog_count</code>), <code>common/dynamicconfig/constants.go</code>
+  (<code>metrics.breakdownByTaskQueue</code>), <code>common/authorization/</code>
+  (<code>default_authorizer.go</code>, <code>default_jwt_claim_mapper.go</code>,
+  <code>claim_mapper.go</code>, <code>authorizer.go</code>).</li>
+<li><code>cmd/repo-guardian/api.go</code>, where the backlog probe is wired only with
+  a Temporal client.</li>
+<li>KEDA changes: #7672 (Worker Deployment versions), #7460 (composite
+  metric), #7854 (<code>enableTLS</code>), #7985 (removed <code>buildId</code>,
+  <code>selectAllActive</code>, <code>selectUnversioned</code>).</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,7104 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/">
+      
+      
+        <link rel="next" href="../0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Temporal client auth: credential reload and OpenBao-issued certificates - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0026-temporal-client-auth-credential-reload-and-openbao-issued-certificates" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Temporal client auth: credential reload and OpenBao-issued certificates
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0030-policy-model-enterprise-and-org-policies-and-control-assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-implementation-audit-2026-10-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-implementation audit (2026-10-01)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-client-credential-reload-internaltemporal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Client credential reload (internal/temporal)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Client credential reload (internal/temporal)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Chart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Chart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-generated-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Generated monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Generated monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-reference-temporal-cluster-contribtemporal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Reference Temporal cluster (contrib/temporal/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Reference Temporal cluster (contrib/temporal/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-verify-release-rc5-and-roll-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Verify, release rc.5 and roll out
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Verify, release rc.5 and roll out">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Open Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-how-does-the-reload-goroutine-stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: How does the reload goroutine stop?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-where-do-the-two-metrics-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Where do the two metrics register?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-how-does-the-client-certificate-flag-reach-the-monitoring-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: How does the client-certificate flag reach the monitoring model?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq4-what-if-the-live-checks-are-not-done-before-rc5-is-tagged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ4: What if the live checks are not done before rc.5 is tagged?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq5-one-operations-page-or-sections-in-existing-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ5: One operations page, or sections in existing docs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq6-one-rc-or-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ6: One rc, or two?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ7: Should the expiry gauge carry a label for which certificate it is?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-implementation-audit-2026-10-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-implementation audit (2026-10-01)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-client-credential-reload-internaltemporal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Client credential reload (internal/temporal)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Client credential reload (internal/temporal)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Chart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Chart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-generated-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Generated monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Generated monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-reference-temporal-cluster-contribtemporal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Reference Temporal cluster (contrib/temporal/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Reference Temporal cluster (contrib/temporal/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-verify-release-rc5-and-roll-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Verify, release rc.5 and roll out
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Verify, release rc.5 and roll out">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Open Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oq1-how-does-the-reload-goroutine-stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ1: How does the reload goroutine stop?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq2-where-do-the-two-metrics-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ2: Where do the two metrics register?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq3-how-does-the-client-certificate-flag-reach-the-monitoring-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ3: How does the client-certificate flag reach the monitoring model?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq4-what-if-the-live-checks-are-not-done-before-rc5-is-tagged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ4: What if the live checks are not done before rc.5 is tagged?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq5-one-operations-page-or-sections-in-existing-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ5: One operations page, or sections in existing docs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq6-one-rc-or-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ6: One rc, or two?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OQ7: Should the expiry gauge carry a label for which certificate it is?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD024 MD025 MD041 -->
+
+<h1 id="impl-0026-temporal-client-auth-credential-reload-and-openbao-issued-certificates">IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#scope">Scope</a></li>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+<li><a href="#pre-implementation-audit-2026-10-01">Pre-implementation audit (2026-10-01)</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a></li>
+<li><a href="#phase-1-client-credential-reload-internaltemporal">Phase 1: Client credential reload (internal/temporal)</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-chart">Phase 2: Chart</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-generated-monitoring">Phase 3: Generated monitoring</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-reference-temporal-cluster-contribtemporal">Phase 4: Reference Temporal cluster (contrib/temporal/)</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-documentation">Phase 5: Documentation</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-verify-release-rc5-and-roll-out">Phase 6: Verify, release rc.5 and roll out</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#verification-results">Verification results</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#oq1-how-does-the-reload-goroutine-stop">OQ1: How does the reload goroutine stop?</a></li>
+<li><a href="#oq2-where-do-the-two-metrics-register">OQ2: Where do the two metrics register?</a></li>
+<li><a href="#oq3-how-does-the-client-certificate-flag-reach-the-monitoring-model">OQ3: How does the client-certificate flag reach the monitoring model?</a></li>
+<li><a href="#oq4-what-if-the-live-checks-are-not-done-before-rc5-is-tagged">OQ4: What if the live checks are not done before rc.5 is tagged?</a></li>
+<li><a href="#oq5-one-operations-page-or-sections-in-existing-docs">OQ5: One operations page, or sections in existing docs?</a></li>
+<li><a href="#oq6-one-rc-or-two">OQ6: One rc, or two?</a></li>
+<li><a href="#oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is">OQ7: Should the expiry gauge carry a label for which certificate it is?</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!--toc:end-->
+
+<blockquote>
+<p><strong>Scope change (2026-10-07):</strong> the KEDA Prometheus trigger moved to
+IMPL-0028 (controls foundations), which builds one ScaledObject per role
+and task queue. Building a single-queue Prometheus trigger here first
+would be rebuilt there. This plan keeps credential reload, the OpenBao
+certificates and their monitoring, and runs after IMPL-0028. Tasks
+marked "Moved" are tracked in IMPL-0028 Phase 5.</p>
+</blockquote>
+<h2 id="objective">Objective</h2>
+<p>Implement <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/">DESIGN-0028</a>
+for the next v2 rc (<code>v2.0.0-rc.5</code>, chart <code>2.0.0-rc.5</code>):</p>
+<ul>
+<li>repo-guardian's Temporal clients re-read their client certificate, CA
+  bundle and OIDC client secret when the files change, with no restart;</li>
+<li>KEDA scales the worker from the Temporal server's
+  <code>approximate_backlog_count</code> through its Prometheus trigger;</li>
+<li>the chart can render a cert-manager <code>Certificate</code> for an
+  operator-owned OpenBao-backed Issuer;</li>
+<li><code>contrib/temporal/</code> runs the JWT authorizer on top of its mTLS;</li>
+<li>certificate expiry is visible as a metric, a chart alert, and a
+  generated alert and panel.</li>
+</ul>
+<p><strong>Implements:</strong> DESIGN-0028 (all ten open questions decided).</p>
+<h2 id="scope">Scope</h2>
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li><code>internal/temporal</code>: credential reload (<code>reload.go</code>), <code>Dial</code> wiring,
+  <code>TEMPORAL_TLS_RELOAD_INTERVAL</code>, OIDC secret re-read, two metrics.</li>
+<li><code>internal/monitoring</code>: <code>MechanismTemporalClientCert</code>, one alert spec,
+  one E3 stat, the <code>--temporal-client-cert</code> flag.</li>
+<li>Chart: <code>temporal.tls.reloadInterval</code>, <code>temporal.tls.certManager.*</code>,
+  <code>worker.keda.{trigger, fallbackReplicas, prometheus.*}</code>, the
+  <code>Certificate</code> and <code>TriggerAuthentication</code> templates, the
+  ScaledObject rewrite, guards, schema, the expiry alert, tests.</li>
+<li><code>contrib/temporal/</code>: authorization, audience, TLS refresh, internal
+  frontend, namespace Job moved to the internal frontend.</li>
+<li>Docs: a Temporal client auth operations page with the OpenBao and
+  cert-manager recipe, onboarding and migration updates, chart README,
+  CLAUDE.md, INV-0020 and DESIGN-0028 status.</li>
+</ul>
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li>Running OpenBao, cert-manager, KEDA or Prometheus (operator-owned).</li>
+<li>How people reach Temporal (the Temporal UI, human sign-in).</li>
+<li>The status page's backlog in split topology (INV-0020 Observation 10).</li>
+<li>Extracting a shared module (INV-0020 § Future work; after the rc is
+  proven).</li>
+<li>Temporal Cloud specifics.</li>
+</ul>
+<h2 id="pre-implementation-audit-2026-10-01">Pre-implementation audit (2026-10-01)</h2>
+<p>Verified against the code on <code>v2</code> (rc.4) before writing the phases:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Assumption in DESIGN-0028</th>
+<th>Finding</th>
+<th>Effect on this plan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1</td>
+<td>The client certificate is read once</td>
+<td><code>tlsConfig</code> calls <code>tls.LoadX509KeyPair</code> and fills <code>Certificates</code>; <code>RootCAs</code> from one <code>os.ReadFile</code></td>
+<td>Phase 1 replaces both</td>
+</tr>
+<tr>
+<td>A2</td>
+<td>The OIDC secret is read once</td>
+<td><code>OIDCConfig.tokenSource</code> reads it once; its comment says rotation needs a restart</td>
+<td>Phase 1 task 1.6</td>
+</tr>
+<tr>
+<td>A3</td>
+<td>Certificate + OIDC together are allowed</td>
+<td><code>Config.validate</code> and <code>validateTemporalAuth</code> both allow them</td>
+<td>No change needed</td>
+</tr>
+<tr>
+<td>A4</td>
+<td><code>Dial</code> owns the client's lifetime</td>
+<td><code>Dial</code> returns a bare <code>client.Client</code>; callers are <code>cmd/repo-guardian/roles.go</code> (<code>dialTemporal</code>) and <code>cmd/rg-burst</code></td>
+<td>A goroutine needs a stop hook (OQ1)</td>
+</tr>
+<tr>
+<td>A5</td>
+<td>Metrics register through <code>internal/metrics</code></td>
+<td>Every repo-guardian metric is <code>promauto</code> in <code>internal/metrics/metrics.go</code></td>
+<td>Phase 1 follows it (OQ2)</td>
+</tr>
+<tr>
+<td>A6</td>
+<td>Mechanisms can be set from outside the policy</td>
+<td><code>Mechanisms.add</code> is unexported; <code>Derive(cfg, opts Options)</code> builds them from the policy</td>
+<td>Add a <code>Derive</code> option (OQ3)</td>
+</tr>
+<tr>
+<td>A7</td>
+<td>The Temporal alerts are mirrored by hand in the chart</td>
+<td><code>prometheusrule.yaml</code> group <code>repo-guardian.temporal</code>, comment says "keep the two in step"</td>
+<td>Same treatment for the new alert</td>
+</tr>
+<tr>
+<td>A8</td>
+<td>The dev server can run mTLS</td>
+<td><code>temporal server start-dev</code> (CLI v1.9.1) has no TLS flags</td>
+<td>Integration test via an in-process TLS-terminating proxy (task 1.9)</td>
+</tr>
+<tr>
+<td>A9</td>
+<td>The ScaledObject only renders in split</td>
+<td><code>worker-scaledobject.yaml</code> gates on <code>topology == split</code></td>
+<td>Unchanged</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>The KEDA + OIDC guard is unconditional</td>
+<td><code>validateTemporalAuth</code> fails on <code>oidc.tokenUrl</code> + <code>worker.keda.enabled</code></td>
+<td>Phase 2 makes it conditional on <code>trigger: temporal</code></td>
+</tr>
+<tr>
+<td>A11</td>
+<td>The upstream Temporal chart supports authorization, audience, TLS refresh and the internal frontend</td>
+<td>chart 1.7.0: <code>server.config.authorization</code>, <code>server.config.tls</code> merged into <code>global.tls</code>, <code>server.internal-frontend.enabled</code>; server <code>config.Authorization.Audience</code> exists</td>
+<td>Phase 4 is values only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase ends with <code>make lint</code> and <code>make test</code> green (plus the phase's
+own gates), and a commit per numbered task. The live checks DESIGN-0028
+depends on are in Phase 6, before the tag: the rc is held until they
+pass (OQ4), and this IMPL cannot close until they are done.</p>
+<h3 id="phase-1-client-credential-reload-internaltemporal">Phase 1: Client credential reload (<code>internal/temporal</code>)</h3>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[ ] 1.1 <code>ConfigFromEnv</code>: add <code>TLSReloadInterval time.Duration</code> from
+  <code>TEMPORAL_TLS_RELOAD_INTERVAL</code> (Go duration, default <code>30s</code>). <code>validate</code>
+  rejects values outside 5s–10m with a message naming the bounds. Table
+  tests for default, valid, out of range, unparsable.</li>
+<li>[ ] 1.2 <code>reload.go</code>: <code>credentialFiles</code> with an
+  <code>atomic.Pointer[tlsMaterial]</code> snapshot, <code>reload()</code> (stat with symlinks
+  followed; skip when every modification time is unchanged; read, parse,
+  validate pair match and <code>NotAfter &gt; now</code>; swap), and <code>run(ctx)</code>
+  ticking at <code>TLSReloadInterval</code>. The first <code>reload</code> is strict; later
+  failures keep the last good snapshot, <code>slog.Warn</code> with the file and
+  error, and count an error.</li>
+<li>[ ] 1.3 <code>getClientCertificate</code> serves the snapshot's certificate.
+  <code>verifyConnection</code> verifies the peer chain against the snapshot's
+  pool: <code>x509.VerifyOptions{DNSName: serverName, Roots, Intermediates
+  from PeerCertificates[1:], KeyUsages: [ExtKeyUsageServerAuth],
+  CurrentTime: now}</code>. <code>InsecureSkipVerify</code> is set only when a CA path is
+  configured, with <code>//nolint:gosec // G402: verification moved to
+  VerifyConnection so the CA can reload (DESIGN-0028)</code>. Without a CA
+  path (OIDC on system roots), standard verification stays.</li>
+<li>[ ] 1.4 Rewrite <code>tlsConfig</code> to build from <code>credentialFiles</code> (no more
+  <code>Certificates</code>/<code>RootCAs</code> fields). Keep <code>TestTLSConfig</code>'s cases and
+  update its assertions to the callbacks.</li>
+<li>[ ] 1.5 Lifecycle (OQ1: a <code>Close</code> wrapper): <code>Dial</code> returns a type
+  embedding <code>client.Client</code> whose <code>Close</code> stops the poller, then closes
+  the client. <code>run</code> starts on <code>context.WithoutCancel(ctx)</code> plus its own
+  cancel, so a startup timeout on the dial context never stops
+  reloading. Both
+  callers (<code>dialTemporal</code>, <code>rg-burst</code>) keep their code unchanged.</li>
+<li>[ ] 1.6 OIDC: replace the read-once secret with a <code>TokenSource</code> that
+  reads <code>ClientSecretPath</code> on each fetch and builds the
+  client-credentials request; keep the <code>ReuseTokenSourceWithExpiry</code>
+  wrapper. Update the <code>tokenSource</code> comment. A read failure counts
+  <code>credential="oidc_secret", outcome="error"</code>.</li>
+<li>[ ] 1.7 Metrics (OQ2: <code>internal/metrics</code>, <code>promauto</code>): <code>repo_guardian_temporal_client_cert_expiry_timestamp_seconds</code>
+  (gauge, set on every successful load) and
+  <code>repo_guardian_temporal_credential_reloads_total{credential, outcome}</code>
+  (<code>client_cert|ca|oidc_secret</code> × <code>changed|error</code>; unchanged polls
+  count nothing). Pre-initialise the six label pairs so <code>increase()</code>
+  sees the first change.</li>
+<li>[ ] 1.8 Unit tests (<code>reload_test.go</code>), with a helper that mimics
+  kubelet's <code>..data</code> symlink swap and a test CA:</li>
+<li>rotation is picked up on the next tick;</li>
+<li>mismatched pair, empty file, missing file and expired certificate
+    each keep the last good snapshot and count an error;</li>
+<li>a bad startup fails <code>Dial</code>;</li>
+<li>handshake: an in-process <code>tls.Listen</code> requiring client certs sees
+    the new serial after rotation and reconnect;</li>
+<li>CA rollover: handshake fails until the client CA file holds the new
+    CA, then succeeds with no restart;</li>
+<li>verification: wrong hostname, unknown CA, expired server cert and a
+    cert without server-auth EKU are all rejected;</li>
+<li>OIDC: an <code>httptest</code> token endpoint accepting only the current
+    secret; rotate the file, expire the token, the next fetch uses the
+    new secret;</li>
+<li>interval parsing (in 1.1).</li>
+<li>[ ] 1.9 Integration test (<code>-tags integration</code>): an in-process TLS
+  proxy (requires client certs, ALPN <code>h2</code>) in front of
+  <code>temporaltest.Start</code>. <code>Dial</code> with mTLS through it, rotate the client
+  certificate, drop connections at the proxy, and assert the next call
+  succeeds with the new serial and no new <code>Dial</code>.</li>
+<li>[ ] 1.10 Non-vacuous check: temporarily restore static
+  <code>Certificates</code>/<code>RootCAs</code> and a read-once secret; confirm the rotation,
+  CA-rollover and OIDC tests fail; restore. Record the result in the
+  task.</li>
+<li>[ ] 1.11 Go doc comments on every new type and function;
+  <code>internal/temporal</code> package doc mentions reload.</li>
+</ul>
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li>Every test in 1.8 and 1.9 passes under <code>-race</code>, and 1.10 shows they
+  fail without the change.</li>
+<li><code>make lint</code> clean, with exactly one justified <code>gosec</code> exclusion.</li>
+<li><code>Dial</code>'s signature and both callers are unchanged.</li>
+<li>The parity suite and replay tests are untouched (no workflow or
+  engine change).</li>
+</ul>
+<h3 id="phase-2-chart">Phase 2: Chart</h3>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[ ] 2.1 Values: <code>temporal.tls.reloadInterval</code> (→
+  <code>TEMPORAL_TLS_RELOAD_INTERVAL</code> on roles that dial Temporal),
+  <code>temporal.tls.certManager.{enabled, issuerRef.{name,kind,group},
+  commonName, duration, renewBefore, secretName}</code>,
+  <code>worker.keda.{trigger, fallbackReplicas}</code>,
+  <code>worker.keda.prometheus.{serverAddress, query, authenticationRef}</code>.
+  Defaults per DESIGN-0028 § Chart values; <code>trigger: prometheus</code>.</li>
+<li>[ ] 2.2 <code>_helpers.tpl</code>: <code>repo-guardian.temporalTLSSecret</code> returns the
+  effective Secret (<code>certManager.secretName</code>, else <code>existingSecret</code>,
+  else <code>&lt;fullname&gt;-temporal-tls</code> when <code>certManager.enabled</code>). The TLS
+  env, volume and checksum logic use it, so <code>certManager.enabled</code> alone
+  mounts the certificate.</li>
+<li>[ ] 2.3 <code>templates/temporal-certificate.yaml</code>: the <code>Certificate</code>
+  (usages <code>client auth</code>, <code>digital signature</code>; ECDSA P-256;
+  <code>rotationPolicy: Always</code>), namespace stamped, rendered when
+  <code>certManager.enabled</code>.</li>
+<li>[x] 2.4 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. <code>worker-scaledobject.yaml</code>: <code>prometheus</code> trigger with
+  <code>serverAddress</code>, <code>query</code> (default built from <code>temporal.namespace</code> and
+  <code>temporal.taskQueue</code>, as designed; task 6.3 confirms or corrects it
+before the tag), <code>threshold</code> from
+  <code>targetQueueSize</code>, optional <code>authenticationRef</code>; <code>temporal</code> trigger as
+  today plus <code>authenticationRef</code> when a client certificate is
+  configured; <code>fallback</code> (<code>failureThreshold: 3</code>, <code>replicas</code> =
+  <code>fallbackReplicas</code> or <code>worker.replicas</code>) for both. A template comment
+  explains why KEDA 2.21's composite running-workflows metric is never
+  set.</li>
+<li>[x] 2.5 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. <code>templates/worker-triggerauthentication.yaml</code>: <code>cert</code>, <code>key</code>,
+  <code>ca</code> from the effective TLS Secret, rendered for <code>trigger: temporal</code>
+  with a client certificate. <code>tlsServerName</code> in the trigger metadata
+  from <code>temporal.tls.serverName</code>.</li>
+<li>[ ] 2.6 <strong>Split 2026-10-07:</strong> the <code>trigger</code> and OIDC-with-KEDA guards moved to IMPL-0028 Phase 5; this task keeps the <code>certManager.enabled</code> without <code>issuerRef.name</code> guard. Guards in <code>validateTemporalAuth</code>: <code>trigger: prometheus</code>
+  without <code>serverAddress</code> fails; the OIDC guard fails only for
+  <code>trigger: temporal</code>, naming <code>trigger: prometheus</code> as the fix;
+  <code>certManager.enabled</code> without <code>issuerRef.name</code> fails; an unknown
+  <code>trigger</code> fails. Messages name the value to change.</li>
+<li>[ ] 2.7 <code>values.schema.json</code>: the new keys, <code>trigger</code> enum,
+  <code>reloadInterval</code> pattern.</li>
+<li>[ ] 2.8 <code>prometheusrule.yaml</code>: <code>RepoGuardianTemporalClientCertExpiring</code>
+  in the <code>repo-guardian.temporal</code> group, rendered only with a client
+  certificate configured, overridable like its siblings
+  (<code>prometheusRule.alerts.TemporalClientCertExpiring</code>).</li>
+<li>[ ] 2.9 <strong>Split 2026-10-07:</strong> <code>keda_test.yaml</code> moved to IMPL-0028 Phase 5; this task keeps the temporal-auth, certificate and prometheusrule tests. helm-unittest: new <code>keda_test.yaml</code> (both triggers, default
+  and custom query, <code>authenticationRef</code>, <code>fallback</code>, composite metric
+  absent, TriggerAuthentication present only for temporal + client
+  cert); <code>temporal_auth_test.yaml</code> (relaxed and new guards,
+  <code>reloadInterval</code> env, certManager mounting); <code>certificate_test.yaml</code>
+  (rendering, secret-name precedence, namespace); <code>prometheusrule_test.yaml</code>
+  (alert gating). <code>make lint-alerts-chart</code> passes.</li>
+<li>[ ] 2.10 <code>README.md.gotmpl</code> notes for the new blocks; <code>make
+  helm-docs</code>.</li>
+</ul>
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li><code>make helm-test</code> and <code>make lint-alerts-chart</code> green.</li>
+<li>A render with <code>temporal.auth.oidc</code> + <code>worker.keda.enabled</code> (default
+  trigger) succeeds; with <code>trigger: temporal</code> it fails with the new
+  message.</li>
+<li><code>helm template ... | grep -E '^kind:|^  namespace:'</code> pairs every new
+  kind with the release namespace.</li>
+</ul>
+<h3 id="phase-3-generated-monitoring">Phase 3: Generated monitoring</h3>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[ ] 3.1 <code>MechanismTemporalClientCert</code> in <code>mechanism.go</code>, with the
+  membership comment naming its two series.</li>
+<li>[ ] 3.2 Plumbing (OQ3): <code>monitoring.Options.TemporalClientCert bool</code>;
+  <code>Derive</code> adds the mechanism when set.</li>
+<li>[ ] 3.3 <code>repo-guardian monitoring generate --temporal-client-cert</code>
+  sets the option.</li>
+<li>[ ] 3.4 Alert spec <code>RepoGuardianTemporalClientCertExpiring</code> in
+  <code>temporalSpecs</code>, <code>Requires: MechanismTemporalClientCert</code>, same
+  expression, threshold and <code>for</code> as the chart rule.</li>
+<li>[ ] 3.5 E3 stat "Temporal client certificate: time to expiry"
+  (<code>min(...expiry_timestamp_seconds) - time()</code>, seconds unit), gated on
+  the mechanism.</li>
+<li>[ ] 3.6 Tests: alert and panel absent without the flag, present with
+  it; a test comparing the catalogue expression with the chart rule's
+  rendered expression; existing promtool check covers the new spec.</li>
+<li>[ ] 3.7 <code>make monitoring-generate</code> produces no diff (the committed
+  tier is generated without the flag); <code>make lint-monitoring</code> clean.</li>
+</ul>
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li><code>contrib/generated/</code> unchanged; <code>make lint-monitoring</code> clean.</li>
+<li>With <code>--temporal-client-cert</code>, the alert and the stat appear and pass
+  promtool.</li>
+</ul>
+<h3 id="phase-4-reference-temporal-cluster-contribtemporal">Phase 4: Reference Temporal cluster (<code>contrib/temporal/</code>)</h3>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[ ] 4.1 <code>values-base.yaml</code>: <code>server.config.authorization</code>
+  (<code>jwtKeyProvider.keySourceURIs</code> placeholder, <code>refreshInterval: 1m</code>,
+  <code>permissionsClaimName: permissions</code>, <code>audience</code> placeholder,
+  <code>authorizer: default</code>, <code>claimMapper: default</code>),
+  <code>server.config.tls.refreshInterval: 1m</code>,
+  <code>server.internal-frontend.enabled: true</code>. Comments link DESIGN-0028.</li>
+<li>[ ] 4.2 <code>namespace-job.yaml</code>: target the internal frontend with the
+  internode certificate (OQ7 of DESIGN-0028); keep retention and
+  idempotency; update the header comment.</li>
+<li>[ ] 4.3 <code>networkpolicy.yaml</code>: allow the namespace Job to reach the
+  internal frontend; repo-guardian still reaches only the external
+  frontend.</li>
+<li>[ ] 4.4 <code>README.md</code>: prerequisites (Keycloak or Okta JWKS, the
+  audience per environment, the client CA in <code>clientCaFiles</code>), rewrite
+  § Why these choices (mTLS + NetworkPolicy bound reachability; the JWT
+  authorizer bounds rights), and an "upgrading an mTLS-only install"
+  note.</li>
+<li>[ ] 4.5 <code>make lint-temporal-contrib</code> asserts the rendered config
+  contains <code>authorization</code> with <code>authorizer: default</code>, the TLS
+  <code>refreshInterval</code>, and an internal-frontend Service.</li>
+</ul>
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li><code>make lint-temporal-contrib</code> green across every visibility mode,
+  including the new assertions.</li>
+</ul>
+<h3 id="phase-5-documentation">Phase 5: Documentation</h3>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[ ] 5.1 New page (OQ5) <code>docs/operations/temporal-client-auth.md</code>: the
+  posture and why (the INV-0020 trade-off table), environment isolation
+  (client per environment + audience; separate tenants as the stronger
+  option), the OpenBao commands, Issuer, token-request Role, chart
+  values, the rollout order and rollback from DESIGN-0028, and
+  troubleshooting (the two metrics, the alert, <code>cmctl status</code>).</li>
+<li>[ ] 5.2 <code>docs/operations/v2-onboarding.md</code>: link the page from
+  prerequisites; replace the KEDA guidance with the Prometheus trigger
+  and the sizing note.</li>
+<li>[x] 5.3 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. <code>docs/operations/v2-migration.md</code>: the KEDA values change
+  (default trigger is now <code>prometheus</code>, needs <code>serverAddress</code>).</li>
+<li>[ ] 5.4 <code>mkdocs.yml</code> nav; <code>make</code> docs build clean of new warnings.</li>
+<li>[ ] 5.5 CLAUDE.md: one v2-branch entry (reload contract: strict
+  first load, forgiving later loads, <code>InsecureSkipVerify</code> only with a
+  CA path and why; the KEDA trigger default; the hand-mirrored alert).</li>
+<li>[ ] 5.6 Status: INV-0020 → Concluded, DESIGN-0028 → Approved (if not
+  already), this doc → In Progress / Completed as phases land; <code>docz
+  update</code>.</li>
+</ul>
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li>markdownlint and the mkdocs build pass with no new warnings.</li>
+<li>A reader can go from nothing to a renewing OpenBao-issued certificate
+  using only <code>temporal-client-auth.md</code>.</li>
+</ul>
+<h3 id="phase-6-verify-release-rc5-and-roll-out">Phase 6: Verify, release rc.5 and roll out</h3>
+<p>The rc is held until 6.1–6.4 pass. Every <em>deferred: human required</em>
+task must be checked off before this IMPL is marked Completed.</p>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] 6.1 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. In the homelab Prometheus, list the series and labels of
+  <code>approximate_backlog_count{namespace="repo-guardian"}</code> (and any
+  prefixed variant). Record whether per-<code>priority</code> series coexist with
+  an aggregate, and whether <code>worker_build_id</code> splits a partition. —
+  <em>deferred: human required</em></li>
+<li>[x] 6.2 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. With the queue non-empty, compare the default query's value
+  with the backlog <code>DescribeTaskQueue</code> reports (the status page in
+  <code>all</code> topology, or <code>temporal task-queue describe</code>). Record both
+  numbers under § Verification results. — <em>deferred: human required</em></li>
+<li>[x] 6.3 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. If 6.1/6.2 show double counting or a dropped split, change the
+  default query in <code>worker-scaledobject.yaml</code> (group by the splitting
+  label before summing), update its helm-unittest, and record why.</li>
+<li>[ ] 6.4 Confirm the installed cert-manager supports Vault Kubernetes
+  auth with <code>serviceAccountRef</code> (record the token audience format it
+  sends), and that the installed OpenBao signs through
+  <code>pki_*/sign/&lt;role&gt;</code> for a throwaway Certificate. Put the minimum
+  versions in <code>temporal-client-auth.md</code>. — <em>deferred: human required</em></li>
+<li>[ ] 6.5 <code>Chart.yaml</code> <code>2.0.0-rc.5</code> / appVersion <code>2.0.0-rc.5</code>; helm
+  unittest pins updated; CHANGELOG via git-cliff.</li>
+<li>[ ] 6.6 PR to <code>v2</code> with <code>dont-release</code> (Rule 6); after merge, tag
+  <code>v2.0.0-rc.5</code> and dispatch <code>ghcr.yml</code>; verify assets, signatures,
+  provenance, and that <code>latest</code> did not move.</li>
+<li>[ ] 6.7 Homelab, in DESIGN-0028's order: OpenBao mount, roles, policy
+  and Kubernetes auth; Issuer; <code>certManager.enabled</code> (pods present a
+  certificate the server does not yet require). — <em>deferred: human
+  required</em></li>
+<li>[ ] 6.8 Frontend <code>requireClientAuth</code> with the OpenBao CA in
+  <code>clientCaFiles</code>, <code>tls.refreshInterval</code>, <code>authorization.audience</code>. —
+  <em>deferred: human required</em></li>
+<li>[x] 6.9 <strong>Moved 2026-10-07 to IMPL-0028 Phase 5:</strong> the KEDA half of this plan is folded into the controls foundations, which build one ScaledObject per role and queue. <code>worker.keda.enabled</code> with the Prometheus trigger; generate a
+  backlog (a policy change, or <code>rg-burst</code>) and watch it scale out and
+  back. — <em>deferred: human required</em></li>
+<li>[ ] 6.10 <code>cmctl renew</code> the client certificate and restart the
+  frontend; confirm <code>credential_reloads_total{outcome="changed"}</code>
+  rises, no pod restarts, workers keep polling, the alert stays quiet.
+  — <em>deferred: human required</em></li>
+</ul>
+<h4 id="verification-results">Verification results</h4>
+<!-- Filled in by 6.1, 6.2 and 6.4. -->
+
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li>The default KEDA query matches <code>DescribeTaskQueue</code>'s backlog on live
+  series (6.1–6.3), and the minimum cert-manager and OpenBao versions
+  are documented (6.4), before the tag.</li>
+<li>rc.5 published like rc.4 (assets, cosign, provenance, <code>latest</code>
+  unchanged).</li>
+<li>Homelab: renewal and a frontend restart cause no worker restarts and
+  no failed checks; KEDA scales on backlog under OIDC.</li>
+<li>Every deferred task is checked off.</li>
+</ul>
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/temporal/temporal.go</code></td>
+<td><code>TLSReloadInterval</code>; <code>tlsConfig</code> from <code>credentialFiles</code>; <code>Dial</code> lifecycle</td>
+</tr>
+<tr>
+<td><code>internal/temporal/reload.go</code> (new)</td>
+<td><code>credentialFiles</code>, <code>tlsMaterial</code>, callbacks</td>
+</tr>
+<tr>
+<td><code>internal/temporal/reload_test.go</code> (new)</td>
+<td>unit tests in 1.8</td>
+</tr>
+<tr>
+<td><code>internal/temporal/mtls_integration_test.go</code> (new)</td>
+<td>proxy-based integration test in 1.9</td>
+</tr>
+<tr>
+<td><code>internal/temporal/oidc.go</code>, <code>oidc_test.go</code></td>
+<td>secret re-read</td>
+</tr>
+<tr>
+<td><code>internal/temporal/temporal_test.go</code></td>
+<td>interval parsing; <code>TestTLSConfig</code></td>
+</tr>
+<tr>
+<td><code>internal/metrics/metrics.go</code></td>
+<td>two metrics</td>
+</tr>
+<tr>
+<td><code>internal/monitoring/mechanism.go</code>, <code>derive.go</code>, <code>model.go</code></td>
+<td>mechanism and option</td>
+</tr>
+<tr>
+<td><code>internal/monitoring/alert/alert.go</code>, tests</td>
+<td>alert spec</td>
+</tr>
+<tr>
+<td><code>internal/monitoring/dashboard/e3.go</code>, tests</td>
+<td>expiry stat</td>
+</tr>
+<tr>
+<td><code>cmd/repo-guardian/monitoring.go</code></td>
+<td><code>--temporal-client-cert</code></td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code>, <code>values.schema.json</code>, <code>README.md.gotmpl</code>, <code>README.md</code></td>
+<td>values</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/_helpers.tpl</code></td>
+<td>effective TLS Secret, env, guards</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/deployment.yaml</code></td>
+<td>reload interval env, Secret helper</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/worker-scaledobject.yaml</code></td>
+<td>triggers, fallback</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/worker-triggerauthentication.yaml</code> (new)</td>
+<td>mTLS for the temporal trigger</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/temporal-certificate.yaml</code> (new)</td>
+<td>cert-manager Certificate</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/templates/prometheusrule.yaml</code></td>
+<td>expiry alert</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/tests/*</code></td>
+<td><code>keda_test.yaml</code>, <code>certificate_test.yaml</code> (new); auth and rule suites</td>
+</tr>
+<tr>
+<td><code>contrib/temporal/values-base.yaml</code>, <code>namespace-job.yaml</code>, <code>networkpolicy.yaml</code>, <code>README.md</code></td>
+<td>layered posture</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td><code>lint-temporal-contrib</code> assertions</td>
+</tr>
+<tr>
+<td><code>docs/operations/temporal-client-auth.md</code> (new), <code>v2-onboarding.md</code>, <code>v2-migration.md</code>, <code>mkdocs.yml</code></td>
+<td>docs</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code></td>
+<td>v2-branch entry</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code>, <code>CHANGELOG.md</code></td>
+<td>rc.5</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-plan">Testing Plan</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td>reload, verification, OIDC secret, interval</td>
+<td><code>internal/temporal/*_test.go</code> (1.1, 1.8)</td>
+</tr>
+<tr>
+<td>Integration</td>
+<td>mTLS through a proxy to the dev server, rotation without re-dial</td>
+<td><code>mtls_integration_test.go</code> (1.9)</td>
+</tr>
+<tr>
+<td>Non-vacuous</td>
+<td>static credentials make the rotation tests fail</td>
+<td>1.10</td>
+</tr>
+<tr>
+<td>Chart</td>
+<td>triggers, guards, Certificate, TriggerAuthentication, alert gating</td>
+<td>helm-unittest (2.9)</td>
+</tr>
+<tr>
+<td>Alerts</td>
+<td>promtool on chart and catalogue</td>
+<td><code>make lint-alerts-chart</code>, monitoring tests</td>
+</tr>
+<tr>
+<td>Drift</td>
+<td>generated tier unchanged</td>
+<td><code>make lint-monitoring</code> (3.7)</td>
+</tr>
+<tr>
+<td>Reference cluster</td>
+<td>authorizer, refresh, internal frontend render</td>
+<td><code>make lint-temporal-contrib</code> (4.5)</td>
+</tr>
+<tr>
+<td>Live</td>
+<td>query vs <code>DescribeTaskQueue</code>, renewal, frontend restart, KEDA scale-out</td>
+<td>homelab (6.1–6.4, 6.7–6.10)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>DESIGN-0028 decisions (all ten decided).</li>
+<li>The Phase 6 live checks gate the tag (OQ4): the default KEDA query
+  (6.1–6.3) and the minimum cert-manager/OpenBao versions (6.4).</li>
+<li>Operator-owned: OpenBao with the Kubernetes auth method, cert-manager
+  with the Vault issuer, KEDA 2.21+, a Prometheus scraping the Temporal
+  server, Keycloak or Okta.</li>
+<li>Phases 1 and 2 are independent and can proceed in parallel; Phase 3
+  needs the metric names from Phase 1; Phase 5 needs 1–4; Phase 6 needs
+  all.</li>
+</ul>
+<h2 id="open-questions">Open Questions</h2>
+<h3 id="oq1-how-does-the-reload-goroutine-stop">OQ1: How does the reload goroutine stop?</h3>
+<ul>
+<li>(a) ✅ decided: <strong><code>Dial</code> returns a thin wrapper that embeds <code>client.Client</code> and
+  overrides <code>Close</code></strong> to stop the poller, then close the client. The
+  goroutine runs on a context detached from the dial context, so a
+  startup timeout never stops reloading. Callers stay unchanged.</li>
+<li>(b) <code>DialOptions</code> gains a long-lived <code>Context</code> the caller cancels.
+  Explicit, but both callers change, and forgetting it leaks or stops
+  reload early.</li>
+<li>(c) No stop: the goroutine lives for the process. Simplest, but tests
+  that dial repeatedly leak goroutines.</li>
+<li>other:</li>
+</ul>
+<p>Why, and what is typical. Go has two common shapes for a background
+goroutine owned by a component:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>Close</code>/<code>Stop</code> on the owning object</th>
+<th><code>Run(ctx)</code> / a lifetime context</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Examples</td>
+<td><code>grpc.ClientConn.Close</code>, <code>http.Server.Shutdown</code>, <code>time.Ticker.Stop</code>, the Temporal SDK's own <code>client.Close</code></td>
+<td>controller-runtime <code>certwatcher.Start(ctx)</code>, Kubernetes <code>dynamiccertificates</code> <code>Run(ctx)</code></td>
+</tr>
+<tr>
+<td>Lifetime</td>
+<td>tied to the thing it serves: reload can neither outlive the client nor stop before it</td>
+<td>tied to whatever context the caller passes; a short one stops reload while the client keeps working, and certificates go stale silently</td>
+</tr>
+<tr>
+<td>Callers</td>
+<td>unchanged</td>
+<td>every caller must thread a process-lifetime context through</td>
+</tr>
+<tr>
+<td>Go guidance</td>
+<td>fits "contexts are for request scope, not object lifetime" (go.dev/blog/context-and-structs)</td>
+<td>normal for components run under a manager or errgroup</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>a wrapper type embedding <code>client.Client</code></td>
+<td>one more <code>DialOptions</code> field</td>
+</tr>
+</tbody>
+</table>
+<p>The reloader is part of the client, not a separate component under a
+manager, so it follows the client's own <code>Close</code>. If the shared module
+later grows a standalone reloader for other consumers, that type can
+expose <code>Run(ctx)</code> too; the client wrapper would call it.</p>
+<h3 id="oq2-where-do-the-two-metrics-register">OQ2: Where do the two metrics register?</h3>
+<ul>
+<li>(a) ✅ decided: <strong><code>internal/metrics</code> with <code>promauto</code></strong>, like every other
+  <code>repo_guardian_*</code> metric, so names and the generated catalogue line
+  up.</li>
+<li>(b) Through the OpenTelemetry <code>MeterProvider</code> already passed to
+  <code>Dial</code>. Fits the OTel-first direction, but the names then follow the
+  OTel bridge's conventions and <code>rg-burst</code> (no provider) records
+  nothing.</li>
+<li>other:</li>
+</ul>
+<p>On the OTel/Prometheus split: DESIGN-0022 assigns OTel the
+off-the-shelf instrumentation at the hops (<code>otelhttp</code>, <code>redisotel</code>,
+<code>otelpgx</code>, the Temporal SDK's handler), which is where RED comes from.
+Domain and state metrics no library knows about stay hand-written in
+<code>internal/metrics</code>. Certificate expiry and reload outcomes are state, not
+request traffic, and no instrumentation library emits them, so they
+belong with the hand-written set. <code>rg-burst</code> also dials with no meter
+provider, so OTel would record nothing there.</p>
+<p>When this moves to the shared module, switch it to the OTel meter API
+taken through <code>DialOptions.MeterProvider</code>: a library should not register
+into a global Prometheus registry. Not now.</p>
+<h3 id="oq3-how-does-the-client-certificate-flag-reach-the-monitoring-model">OQ3: How does the client-certificate flag reach the monitoring model?</h3>
+<ul>
+<li>(a) ✅ decided: <strong>A <code>monitoring.Options.TemporalClientCert</code> field</strong> that <code>Derive</code>
+  turns into the mechanism. Keeps <code>Mechanisms.add</code> unexported and
+  every mechanism decided in one place.</li>
+<li>(b) Export <code>Mechanisms.Add</code> and set it in <code>cmd</code>. Less code, but any
+  caller can then add any mechanism, which the package's membership
+  rule is designed to prevent.</li>
+<li>other:</li>
+</ul>
+<p>There is no second use today. The <code>Options</code> field is still a flag at the
+CLI; the difference is internal. Each future deployment fact (KEDA on,
+OIDC on) becomes one more <code>Options</code> field, decided inside <code>Derive</code>
+beside the policy-derived mechanisms. Exporting <code>add</code> would only pay
+off for a caller outside the package, and none exists.</p>
+<h3 id="oq4-what-if-the-live-checks-are-not-done-before-rc5-is-tagged">OQ4: What if the live checks are not done before rc.5 is tagged?</h3>
+<ul>
+<li>(a) <strong>Ship the designed default query, documented as "verify against
+  your series", and keep <code>worker.keda.prometheus.query</code> overridable.</strong>
+  KEDA is off by default, so nothing scales on an unverified query
+  unless an operator enables it.</li>
+<li>(b) Make <code>worker.keda.prometheus.query</code> required (no default) until
+  verified. Safe, but every operator writes PromQL first.</li>
+<li>(c) ✅ decided: hold the rc until the live checks pass. They are
+  tasks 6.1–6.4, deferred to a human, ahead of the tag in the last
+  phase, so the IMPL cannot close until they are done.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq5-one-operations-page-or-sections-in-existing-docs">OQ5: One operations page, or sections in existing docs?</h3>
+<ul>
+<li>(a) ✅ decided: <strong>A new <code>docs/operations/temporal-client-auth.md</code></strong>, linked from
+  onboarding. The recipe is long, and it is the piece most likely to
+  move into a shared module later.</li>
+<li>(b) A section in <code>v2-onboarding.md</code>. One fewer page, a much longer
+  runbook.</li>
+<li>other:</li>
+</ul>
+<p>Decided: the page is linked from <code>v2-onboarding.md</code> (task 5.2).</p>
+<h3 id="oq6-one-rc-or-two">OQ6: One rc, or two?</h3>
+<ul>
+<li>(a) ✅ decided: <strong>One rc (rc.5) with Phases 1–5.</strong> The pieces are small, and the
+  rollout order in Phase 6 already lets each be switched on separately
+  by values.</li>
+<li>(b) rc.5 with Phases 1–2 (reload and KEDA), rc.6 with Phases 3–4
+  (monitoring and the reference cluster). Smaller PRs, two release
+  rounds.</li>
+<li>other:</li>
+</ul>
+<h3 id="oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is">OQ7: Should the expiry gauge carry a label for which certificate it is?</h3>
+<ul>
+<li>(a) ✅ decided: <strong>No labels.</strong> One client certificate per process; Prometheus
+  target labels already identify the pod.</li>
+<li>(b) A <code>subject</code> label (the certificate's common name). Useful if one
+  process ever presents more than one certificate; adds a label nothing
+  needs today.</li>
+<li>other:</li>
+</ul>
+<p>Why no labels:</p>
+<ul>
+<li><strong>One series per pod already.</strong> Each process presents one client
+  certificate, and Prometheus adds <code>pod</code>/<code>namespace</code>/<code>job</code> at scrape
+  time.</li>
+<li><strong>The useful labels churn.</strong> A <code>serial</code> label would start a new series
+  on every renewal (daily, with 24h certificates), and the old one
+  would linger as stale data until it ages out.</li>
+<li><strong>The static ones say nothing new.</strong> The common name is fixed by
+  chart values (<code>repo-guardian</code>), so a <code>subject</code> label repeats config.</li>
+<li><strong>The alert does not need it.</strong> It uses <code>min(...)</code>, which picks the
+  worst pod regardless of labels; adding a label later would not break
+  it.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/">DESIGN-0028</a></li>
+<li><a href="../../investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/">INV-0020</a></li>
+<li><a href="../0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/">IMPL-0025</a>:
+  the v2 phases this rc builds on.</li>
+<li><code>internal/temporal/</code>, <code>internal/monitoring/</code>,
+  <code>charts/repo-guardian/templates/worker-scaledobject.yaml</code>,
+  <code>contrib/temporal/</code>.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

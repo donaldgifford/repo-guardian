@@ -1,0 +1,7395 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0033-identity-provider-portability-for-the-api-and-ui-design-0038/">
+      
+      
+        <link rel="next" href="../0035-public-docs-site-on-astro-starlight-design-0038-part-c/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A) - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0030-policy-model-enterprise-and-org-policies-and-control-assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0026-temporal-client-auth-credential-reload-keda-prometheus-trigger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-implementation-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-implementation audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-phases-are-ordered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the phases are ordered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-sync-main-into-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Sync main into v2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Sync main into v2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-the-public-docs-site-interim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: The public docs site, interim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: The public docs site, interim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-the-documentation-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: The documentation rewrite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: The documentation rewrite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-changelogs-branch-entries-and-claudemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Changelogs, branch entries and CLAUDE.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Changelogs, branch entries and CLAUDE.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-security-tier-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Security tier 1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Security tier 1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-the-ga-prep-pull-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: The GA-prep pull request
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: The GA-prep pull request">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-soak-and-homelab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Soak and homelab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Soak and homelab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-the-merge-and-the-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: The merge and the release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: The merge and the release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-after-ga" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: After GA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: After GA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-implementation-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-implementation audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-phases-are-ordered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the phases are ordered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-sync-main-into-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Sync main into v2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Sync main into v2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-the-public-docs-site-interim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: The public docs site, interim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: The public docs site, interim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-the-documentation-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: The documentation rewrite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: The documentation rewrite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-changelogs-branch-entries-and-claudemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Changelogs, branch entries and CLAUDE.md
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Changelogs, branch entries and CLAUDE.md">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-security-tier-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Security tier 1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Security tier 1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-the-ga-prep-pull-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: The GA-prep pull request
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: The GA-prep pull request">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-soak-and-homelab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Soak and homelab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Soak and homelab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-the-merge-and-the-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: The merge and the release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: The merge and the release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-9-after-ga" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9: After GA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 9: After GA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD024 MD025 MD041 -->
+
+<h1 id="impl-0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a">IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)</h1>
+<!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#scope">Scope</a></li>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+<li><a href="#pre-implementation-audit">Pre-implementation audit</a></li>
+<li><a href="#how-the-phases-are-ordered">How the phases are ordered</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a></li>
+<li><a href="#phase-1-sync-main-into-v2">Phase 1: Sync main into v2</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-the-public-docs-site-interim">Phase 2: The public docs site, interim</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-the-documentation-rewrite">Phase 3: The documentation rewrite</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-changelogs-branch-entries-and-claudemd">Phase 4: Changelogs, branch entries and CLAUDE.md</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-security-tier-1">Phase 5: Security tier 1</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-the-ga-prep-pull-request">Phase 6: The GA-prep pull request</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-7-soak-and-homelab">Phase 7: Soak and homelab</a><ul>
+<li><a href="#tasks-6">Tasks</a></li>
+<li><a href="#success-criteria-6">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-8-the-merge-and-the-release">Phase 8: The merge and the release</a><ul>
+<li><a href="#tasks-7">Tasks</a></li>
+<li><a href="#success-criteria-7">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-9-after-ga">Phase 9: After GA</a><ul>
+<li><a href="#tasks-8">Tasks</a></li>
+<li><a href="#success-criteria-8">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!-- markdownlint-restore -->
+<!--toc:end-->
+
+<!--docz:objective:start-->
+<h2 id="objective">Objective</h2>
+<p>Take <code>v2</code> to <code>main</code> and ship <code>v2.0.0</code> through the existing release
+pipeline: converge the branches with merge commits, make the tree
+GA-shaped before the final merge (docs, changelogs, branch-entry
+reverts, chart <code>2.0.0</code>), land the first tier of supply-chain security
+(SBOMs, CodeQL, rulesets, pins, pod hardening, a verification page), run
+the soak IMPL-0030 set, then merge with the <code>major</code> label so one push
+produces the binaries, both registries, the UI image, the chart and
+provenance.</p>
+<p><strong>Implements:</strong> <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/">DESIGN-0038</a>
+Part A (A1–A9), Part D tier 1 (D4), decisions D1–D3, D10–D12, OQ1–OQ3,
+OQ10–OQ12, OQ16–OQ19. Supersedes IMPL-0030 OQ12 and carries IMPL-0030
+Phase 10.</p>
+<!--docz:objective:end-->
+
+<!--docz:scope:start-->
+<h2 id="scope">Scope</h2>
+<!--docz:in-scope:start-->
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li>M1 (<code>main</code> → <code>v2</code>) and M2 (<code>v2</code> → <code>main</code>), both merge commits through
+  pull requests; M2 labelled <code>major</code>.</li>
+<li><code>mkdocs-ghpages.yml</code> inheriting <code>mkdocs.yml</code>, a strict docs build in
+  CI, the nav reorganised, mermaid rendering in the interim (OQ1).</li>
+<li>The documentation rewrite inventory from DESIGN-0038 A4, the
+  <code>v2-migration.md</code> contradictions, the historical admonitions.</li>
+<li><code>changelog-update.yml</code> prepending; the <code>[main, v2]</code> trigger reverts;
+  <code>ct.yaml</code>; <code>prerelease.yml</code> and <code>changelog-update.yml</code> wording;
+  CLAUDE.md § The v2 branch and rule 6; CONTRIBUTING.</li>
+<li>Security tier 1: SBOM generation and attestation for binaries, both
+  images and the chart; CodeQL default setup; required status checks
+  and a <code>v*</code> tag ruleset; <code>@latest</code> pins; Dependabot/Renovate
+  clean-up; chart security-context parity; <code>verifying-releases.md</code>;
+  <code>SECURITY.md</code>; <code>concurrency</code> and <code>release.yml</code> permission narrowing.</li>
+<li>Chart <code>2.0.0</code>, the <code>2.0.0</code> UI changelog entry, regenerated READMEs.</li>
+<li>The soak gate and the homelab tasks gathered from IMPL-0029/0030/
+  0031/0032, ticked here and there.</li>
+<li>Post-GA bookkeeping: docz statuses, issues, memory, the <code>v2</code> branch.</li>
+</ul>
+<!--docz:in-scope:end-->
+
+<!--docz:out-of-scope:start-->
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li>Security tiers 2–3 (IMPL-0036) and the Astro docs site (IMPL-0035).</li>
+<li>Any runtime behaviour change. Every code edit in this IMPL is to
+  workflows, chart defaults, docs or metadata.</li>
+<li>An in-place upgrade from 1.x (DESIGN-0032 D27).</li>
+<li>IMPL-0026, DESIGN-0034, the Go module path (OQ11 decided).</li>
+</ul>
+<!--docz:out-of-scope:end-->
+<!--docz:scope:end-->
+
+<h2 id="pre-implementation-audit">Pre-implementation audit</h2>
+<p>Verified 2026-10-24/25 (DESIGN-0038 § Background):</p>
+<ul>
+<li><code>main</code> = 1a825c0 (v1.14.1) has five commits <code>v2</code> lacks: #203
+  (<code>tools/rgctl</code>), #227, #225 (<code>docs/operations/rgctl.md</code>), #228
+  (<code>release.yml</code> <code>base-branch: true</code>), #229. <code>v2</code> = 517f0cd (rc.16)
+  after #239. Merge-base 5bd96bb. The <code>main</code> ruleset (12545694) has
+  rules <code>deletion</code>, <code>non_fast_forward</code>, <code>pull_request</code> and no bypass
+  actors; no required checks; no tag ruleset. No <code>v2.0.0</code> tag or
+  release exists.</li>
+<li><code>release.yml</code>: <code>bump-version</code> (<code>jefflinse/pr-semver-bump@v1.7.4</code>,
+  labels <code>major|minor|patch</code>, noop <code>dont-release</code>) → <code>release</code>
+  (goreleaser, GPG) → <code>publish-ghcr</code>/<code>publish-ecr</code> (reusable, <code>tag</code>
+  from the bump; ECR gated on <code>vars.ECR_PUBLISH_ENABLED</code>). The action
+  parses all tags as semver (loose), sorts, and with <code>base-branch</code>
+  takes the newest reachable from the base branch; node-semver
+  <code>inc("2.0.0-rc.16", major|minor|patch)</code> = <code>2.0.0</code>.</li>
+<li><code>prerelease.yml</code> matches <code>v*-*</code>; <code>changelog-update.yml</code> runs
+  <code>git-cliff --output CHANGELOG.md</code> (full regeneration) on <code>v*</code> pushes
+  without a dash; <code>cliff.toml</code> has a header and <code>render_always</code>.</li>
+<li><code>gh-pages.yml</code> deploys <code>mkdocs-ghpages.yml</code> (nav up to DESIGN-0009,
+  no Operations, no v2 pages; <code>theme: material</code> is its only non-nav
+  difference from <code>mkdocs.yml</code>, which has <code>exclude_docs</code> and <code>plugins:
+  techdocs-core</code>) with an unpinned <code>pip install mkdocs-material</code>;
+  neither config enables <code>pymdownx.superfences</code>, so the 39 mermaid
+  blocks render as code.</li>
+<li>Landing docs still describe v1: <code>README.md</code>, <code>docs/index.md</code>,
+  <code>docs/usage/getting-started.md</code>, <code>docs/ADDING_RULES.md</code>,
+  <code>docs/operations/{aws,scaling,ent-setup}.md</code>, chart README intro.
+  <code>v2-migration.md</code> contradicts itself at the <code>RECONCILE_FRESHNESS</code> and
+  <code>migrate.freshness</code> rows.</li>
+<li>Security: no <code>sboms:</code> in <code>.goreleaser.yml</code>; no <code>attest</code> in
+  <code>docker-bake.hcl</code>; CodeQL default setup <code>not-configured</code>; 6 of 111
+  external action refs SHA-pinned; govulncheck/go-licenses installed
+  <code>@latest</code>, <code>mkdocs-material</code> unpinned, <code>mise.toml</code> <code>latest</code> for
+  trivy, syft, cosign, goreleaser, git-cliff, govulncheck, go-licenses;
+  <code>.github/dependabot.yml</code> docker entry at <code>directory: cicd</code> (does not
+  exist) and actions managed by both Dependabot and Renovate;
+  <code>renovate.json5</code> lacks the <code>slsa-github-generator</code> pin exception;
+  <code>values.yaml</code> <code>podSecurityContext: {}</code> and a container context
+  without <code>allowPrivilegeEscalation</code>/<code>capabilities</code>/seccomp while
+  <code>templates/ui.yaml</code> has all of them plus
+  <code>automountServiceAccountToken: false</code>; no role imports a Kubernetes
+  client (<code>k8s.io/client-go</code> absent from <code>go.mod</code>); <code>SECURITY.md</code>
+  § Reporting Vulnerabilities is three lines; the chart README is the
+  only verification doc; no <code>concurrency:</code> anywhere; <code>release.yml</code>
+  grants <code>contents/packages/id-token: write</code> workflow-wide.</li>
+<li><code>ci.yml</code> gates jobs on <code>dorny/paths-filter</code> outputs (<code>go</code>, <code>docker</code>,
+  <code>helm</code>, <code>workflows</code>, <code>alerts</code>, <code>monitoring</code>, <code>sql</code>, <code>temporal</code>,
+  <code>api</code>, <code>ui</code>); skipped jobs satisfy required checks (CLAUDE.md § CI
+  paths-filter convention). <code>pr-labels.yml</code> requires exactly one semver
+  label.</li>
+</ul>
+<h2 id="how-the-phases-are-ordered">How the phases are ordered</h2>
+<p>Phase 1 first because every later edit must land on a tree that is a
+superset of <code>main</code>. Phases 2–5 are independent of one another and of
+the soak; they are separate pull requests against <code>v2</code>, each reviewable
+alone and none changing runtime behaviour. Phase 6 is the last pull
+request before M2 and makes the tree GA-shaped. Phase 7 runs in the
+homelab in parallel with 2–6 and is the clock. Phase 8 is M2 and the
+release; Phase 9 the clean-up. IMPL-0033 (rc.17) merges before Phase 6
+so the GA docs name knobs that exist.</p>
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase builds on the previous one. A phase is complete when all its
+tasks are checked off and its success criteria are met.</p>
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-1-sync-main-into-v2">Phase 1: Sync main into v2</h3>
+<p>DESIGN-0038 A1 (M1), D1.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[x] 1.1 <strong>Branch.</strong> <code>chore/sync-main-into-v2</code> from <code>v2</code>; <code>git merge
+  --no-ff origin/main</code>. Expected conflicts: <code>.github/workflows/release.yml</code>
+  (keep <code>base-branch: true</code> and <code>v2</code>'s surrounding text), <code>go.mod</code>/
+  <code>go.sum</code> (keep <code>v2</code>'s versions; both lines have 1.26.10). Anything
+  else conflicting is noted on this task. <em>Done on
+  <code>feat/impl-0034-ga-cutover</code> (one PR for the IMPL), not a separate
+  branch. Also conflicted: <code>ci.yml</code> (rgctl coverage step kept in
+  test-go, before v2's replay/integration jobs), <code>.gitignore</code> (both),
+  <code>.golangci.yml</code> (<code>rgctl-boundary</code> joined v2's depguard rules),
+  <code>Makefile</code> (<code>lint: lint-controls-docs lint-rgctl</code>), <code>mkdocs.yml</code>
+  and the two docz READMEs (v2's side, then 1.3).</em></li>
+<li>[x] 1.2 <strong>Verify the superset.</strong> <code>git merge-base --is-ancestor
+  origin/main HEAD</code> exits 0; <code>git ls-files tools/rgctl | wc -l</code> &gt; 0;
+  <code>docs/operations/rgctl.md</code> exists; <code>grep -c 'base-branch: true'
+  .github/workflows/release.yml</code> = 1; <code>.codecov.yml</code> carries the rgctl
+  flag; <code>go build ./... &amp;&amp; go vet ./tools/...</code> (rgctl's module layout
+  per IMPL-0027) pass.</li>
+<li>[x] 1.3 <strong>Nav.</strong> <code>mkdocs.yml</code> gains <code>docs/operations/rgctl.md</code> under
+  Operations and DESIGN-0035 / IMPL-0027 under their sections (docz did
+  not see them on <code>v2</code>); <code>docz update design</code> and <code>docz update impl</code>
+  regenerate the READMEs; revert unrelated TOC churn.</li>
+<li>[ ] 1.4 (<code>deferred - human required</code>: the maintainer opens and merges the PR) <strong>PR.</strong> <code>dont-release</code>, <strong>merge commit</strong> (pick "Create a merge
+  commit" by hand; the default squash would flatten <code>main</code>'s history
+  into <code>v2</code>). CI green, including <code>lint</code> (rgctl is in the module set).
+  <em>This IMPL's single PR carries the sync, so that PR is the one to
+  merge with "Create a merge commit".</em></li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li><code>git log origin/v2..origin/main</code> is empty after the merge.</li>
+<li><code>rgctl</code> builds and its tests pass on <code>v2</code>; the <code>v2-migration.md</code>
+  links to <code>rgctl.md</code> resolve.</li>
+<li><code>release.yml</code> on <code>v2</code> carries <code>base-branch: true</code>.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-2-the-public-docs-site-interim">Phase 2: The public docs site, interim</h3>
+<p>DESIGN-0038 A3, D2, OQ3 (decided (a)); IMPL-0034 OQ1, OQ2.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[x] 2.1 <strong>Inherit.</strong> <code>mkdocs-ghpages.yml</code> becomes <code>INHERIT: mkdocs.yml</code>
+  plus <code>theme: {name: material}</code>; <code>plugins</code> is overridden to <code>[search]</code>
+  because <code>techdocs-core</code> is not installed on Pages. Per OQ1 (b) no
+  mermaid extension is added: the 39 diagrams keep rendering as code
+  on the interim site until IMPL-0035 (which renders them client-side).</li>
+<li>[x] 2.2 <strong>Pin.</strong> <code>gh-pages.yml</code> installs <code>mkdocs-material==&lt;current&gt;</code>
+  with a <code># renovate: datasource=pypi depName=mkdocs-material</code> comment
+  so Renovate's mise/pypi managers bump it.</li>
+<li>[x] 2.3 <strong>Nav.</strong> <code>mkdocs.yml</code>: Usage order (Getting Started, Policy
+  reference, Control-type reference, The business UI, The read-only
+  API, Identity providers); Operations gains v2 overview, onboarding,
+  migration, rgctl, verifying releases (Phase 5) at the top; a
+  "Historical (1.x)" group holds the pages Phase 3 marks historical.
+  docz keeps appending new documents to their sections. <em>The
+  verifying-releases entry lands with its page in 5.9 (strict mode
+  refuses a nav entry with no file).</em></li>
+<li>[x] 2.4 <strong>Strict build in CI.</strong> <code>ci.yml</code>: a <code>docs</code> paths filter
+  (<code>docs/**</code>, <code>mkdocs.yml</code>, <code>mkdocs-ghpages.yml</code>) and a <code>docs</code> job (OQ2)
+  that installs the pinned <code>mkdocs-material</code> and runs <code>mkdocs build
+  --strict --config-file mkdocs-ghpages.yml</code>; <code>make lint-docs</code> wraps the
+  same command for local use. A dead nav entry or a broken inherit now
+  fails the pull request, not the deploy.</li>
+<li>[x] 2.5 <strong>Verify locally.</strong> <code>make lint-docs</code> renders into a throwaway
+  directory (<code>mkdocs build -d build/mkdocs</code>; MkDocs's default <code>site_dir</code>
+  is <code>site/</code>, which IMPL-0035 claims for the Astro source, so set
+  <code>site_dir: build/mkdocs</code> in <code>mkdocs.yml</code> now and narrow <code>.gitignore</code>'s
+  <code>site/</code> entry to <code>build/</code>); open one Usage page and confirm the nav;
+  note the result on the task. <em>2026-10-27: <code>make lint-docs</code> exits 0
+  with no warnings (mkdocs-material 9.8.0, via <code>uvx</code>), output in
+  <code>build/mkdocs</code>, no <code>site/</code>; <code>usage/api/index.html</code> carries the Usage
+  group with Identity providers, the v2 Operations entries and
+  Historical (1.x).</em></li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li><code>mkdocs build --strict --config-file mkdocs-ghpages.yml</code> passes on
+  <code>v2</code> with every page in the nav and no warnings, writing under
+  <code>build/</code>, never <code>site/</code>.</li>
+<li>The two mkdocs configs have no nav of their own to drift: <code>grep -c
+  '^nav:' mkdocs-ghpages.yml</code> = 0.</li>
+<li>The <code>docs</code> CI job runs on a docs-only pull request and skips on a
+  Go-only one.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-3-the-documentation-rewrite">Phase 3: The documentation rewrite</h3>
+<p>DESIGN-0038 A4 (the disposition table), OQ10, OQ12.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[x] 3.1 <strong><code>README.md</code>.</strong> Rewrite: what repo-guardian is on the
+  controls line (two Apps, policy root, controls, evaluate/remediate,
+  Temporal + Postgres, UI/API); architecture diagram adapted from
+  <code>docs/operations/v2-overview.md</code>; install via the chart at <code>2.0.0</code>
+  pointing at <code>v2-onboarding.md</code>; the 1.14 line's README reachable by
+  tag; the <code>latest</code> note from A9; the release-verification pointer
+  (Phase 5). No <code>guardian.hcl</code>, <code>watch = true</code>, Valkey, <code>SCHEDULE_INTERVAL</code>,
+  <code>STORE_BACKEND</code>.</li>
+<li>[x] 3.2 <strong><code>docs/index.md</code>.</strong> Mirror 3.1's opening; link v2 overview,
+  onboarding, UI, API, identity providers, verifying releases.</li>
+<li>[x] 3.3 <strong><code>docs/usage/getting-started.md</code>.</strong> Rewrite as the fresh-install
+  walk: create the two Apps (policy-derived permissions from
+  <code>registerRemediation</code>'s log line), write a minimal policy root, chart
+  values, first evaluation, reading the UI, turning on remediation for
+  one org. Cross-check every value name against <code>values.yaml</code> and every
+  env var against <code>config/</code>.</li>
+<li>[x] 3.4 <strong><code>docs/ADDING_RULES.md</code> → "Adding a control type".</strong> New
+  content: <code>controls/builtin</code> registration, <code>Semantics()</code>,
+  <code>TestRevisionGolden</code>, <code>Owns()</code>/<code>Reads()</code>, <code>repo-guardian controls
+  docs</code> and <code>make lint-controls-docs</code>; the old text moves to
+  <code>docs/historical/adding-rules-1x.md</code> with the admonition (3.7).
+  <code>SECURITY.md</code> and <code>mkdocs.yml</code> links updated.</li>
+<li>[x] 3.5 <strong>Operations pages.</strong> <code>aws.md</code> (drop ElastiCache/Valkey; RDS for
+  the controls database with the two roles; Temporal is the
+  operator's), <code>scaling.md</code> (drop <code>staleSweep.*</code>/<code>queue.valkey.*</code>; KEDA
+  per queue, <code>evaluator.*</code>/<code>remediator.*</code>, pool sizing ≥ concurrency;
+  keep the posture/<code>max by</code> section), <code>ent-setup.md</code> (two Apps,
+  permissions per App, two webhook URLs).</li>
+<li>[x] 3.6 <strong><code>v2-migration.md</code>.</strong> Fix the two contradictions:
+  <code>RECONCILE_FRESHNESS</code> → "none", <code>staleSweep.freshness</code> → <code>EVAL_INTERVAL</code>
+  with <code>migrate.freshness</code> removed as a replacement; re-read the whole
+  page against the chart values once.</li>
+<li>[x] 3.7 <strong>Historical admonitions.</strong> One admonition at the top of each
+  1.x-only page (<code>absent-rules-migration</code>, <code>annotation-properties-migration</code>,
+  <code>chart-0.5.0-migration</code>, <code>pr-convergence-migration</code>,
+  <code>template-migration</code>, <code>custom-properties-security-fix</code>,
+  <code>delayed-requeue-runbook</code>, <code>property-name-charset</code>,
+  <code>compliance-reports</code>): "This page describes repo-guardian 1.x. v2 has
+  no equivalent" with the v2 pointer where one exists. GFM alert syntax
+  (<code>&gt; [!WARNING]</code> as the first line, then <code>&gt; **1.x only.** ...</code>), never
+  an MkDocs <code>!!!</code> admonition: Starlight renders a GFM alert as an aside
+  and MkDocs/TechDocs/GitHub degrade it to a blockquote, so one source
+  serves every renderer (claudelint's DESIGN-0003 convention).</li>
+<li>[x] 3.8 <strong>Chart README.</strong> <code>README.md.gotmpl</code> introduction rewritten for
+  the controls line; <code>make helm-docs</code>.</li>
+<li>[x] 3.9 <strong>Tombstone.</strong> <code>git rm deploy/MIGRATED.md</code> (OQ10) and remove
+  its mentions (CLAUDE.md IMPL-0014 entry gets "deleted at GA").</li>
+<li>[x] 3.10 <strong>Sweep.</strong> <code>grep -rn 'guardian\.hcl\|watch = true\|Valkey\|
+  staleSweep\|STORE_BACKEND' README.md docs/index.md docs/usage
+  docs/operations/{aws,scaling,ent-setup,v2-*}.md
+  charts/repo-guardian/README.md.gotmpl</code> returns only lines inside
+  historical admonitions or explicit "was removed" sentences; paste the
+  output on the task. <em>2026-10-27, every hit is a removal sentence, a
+  v1→v2 comparison or under a history admonition:</em></li>
+</ul>
+<p><code>text
+  docs/usage/policy-reference.md:418:## From `guardian.hcl`
+  docs/operations/scaling.md:12:&gt; `staleSweep.*` and `queue.valkey.*` were removed in v2, as were
+  docs/operations/v2-overview.md:4,28,82,256,260,470 (guardian.hcl → policy directory comparison)
+  docs/operations/v2-overview.md:364,371,475 (v1 Valkey job system vs Temporal)
+  docs/operations/v2-migration.md:223,236,237,249,276 (removed-value tables)
+  docs/operations/aws.md:21:&gt; Valkey (and ElastiCache with it) was removed in v2.
+  README.md:9,132 (fresh-install note; rgctl reads a 1.x guardian.hcl)
+  docs/operations/v2-onboarding.md:519:`guardian.hcl` is gone. The policy is a **directory**:
+  charts/repo-guardian/README.md.gotmpl:252-363 (rc/1.x upgrade notes under the History admonition)</code></p>
+<p><em>The chart README's upgrade notes gained an <code>## Upgrade notes</code> heading
+  with a GFM history admonition, since several name values that were
+  later removed. <code>docs/README.md</code>'s quick links were rewritten too.
+  Follow-ups found on the way: <code>rds-terraform-variables.md</code> is still
+  v1 in places, and <code>store.controls.enabled</code> still defaults to <code>false</code>
+  with an "off until IMPL-0029" comment.</em></p>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li>Every page in <code>mkdocs.yml</code>'s Usage and Operations groups (outside
+  Historical) describes v2; the 3.10 grep is clean.</li>
+<li><code>make lint-docs</code> (Phase 2) passes; <code>make lint-controls-docs</code> passes
+  (3.4 touches no generated file).</li>
+<li>A reader following <code>getting-started.md</code> from an empty cluster reaches
+  the first evaluation using only values that exist in <code>values.yaml</code>
+  (checked by the implementer in a kind cluster or by review against
+  the schema).</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-4-changelogs-branch-entries-and-claudemd">Phase 4: Changelogs, branch entries and CLAUDE.md</h3>
+<p>DESIGN-0038 A5, A6, D3.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[x] 4.1 <strong>Prepend.</strong> <code>changelog-update.yml</code>: <code>git-cliff --latest
+  --strip all --prepend CHANGELOG.md</code> (header and footer already live
+  in the file; <code>--latest</code> renders the newest tag's section only).
+  Verify locally against a scratch copy: run it for <code>v2.0.0-rc.16</code> and
+  confirm the rc.11 section and the 1.x sections below are unchanged
+  byte for byte. Default the <code>ref</code> input to <code>main</code> only; reword the
+  comment about rc tags. <em>Done with <code>--latest --prepend</code> and no
+  <code>--strip</code>: tested on a scratch copy (git-cliff 2.14.2, rc.18 as the
+  newest tag), <code>--strip all</code> writes the section above <code># Changelog</code>,
+  because git-cliff only swaps the file's header out when it renders
+  one. Without it the header stays on top, exactly one section is
+  added and every older section is byte-identical. <code>cliff.toml</code>'s
+  header gained a trailing blank line so the new section is separated
+  from it.</em></li>
+<li>[x] 4.2 <strong>Triggers.</strong> <code>ci.yml</code>, <code>license-check.yml</code>, <code>security.yml</code>:
+  <code>branches: [main]</code> (keep <code>security.yml</code>'s <code>pull_request</code> trigger);
+  <code>ct.yaml</code> <code>target-branch: main</code>. These land on <code>v2</code> and are correct
+  the moment M2 merges; until then <code>v2</code> pushes run no CI, so this is
+  the <strong>last</strong> pull request before Phase 6 and is merged together with
+  it (OQ3). <em>Single-PR note: this IMPL ships as one PR against <code>v2</code>, and
+  a <code>pull_request: branches: [main]</code> trigger stops CI on that PR, so
+  4.2 is the branch's last commit, pushed after CI is green on
+  everything else.</em> <em>Done as the branch's last commit; the remaining
+  <code>v2</code> strings in the workflows are the rc version in <code>release.yml</code>'s
+  comment and action/tool versions.</em></li>
+<li>[x] 4.3 <strong><code>prerelease.yml</code>.</strong> Comment: hand-cut <code>vX.Y.Z-rc.N</code> tags on
+  <code>main</code>, built here because <code>release.yml</code>'s bump cannot cut
+  pre-releases; dispatch is possible once on <code>main</code>, so add
+  <code>workflow_dispatch</code> with a <code>tag</code> input for re-runs.</li>
+<li>[x] 4.4 <strong>CLAUDE.md.</strong> Replace § "The v2 branch (IMPL-0025)" with a
+  short § "Release line": GA releases by semver label through
+  <code>release.yml</code>, never a hand tag; rc tags by hand with <code>dont-release</code>
+  and <code>prerelease.yml</code> + <code>ghcr.yml</code> dispatch; the merge-commit rule for
+  line merges; the changelog prepend. Rule 6 gains "a GA release is cut
+  by its semver label". Keep the historical bullets that still explain
+  code (UI image, e2e stack, DESIGN-0037 contracts) under a new
+  heading "The UI" so nothing load-bearing is lost.</li>
+<li>[x] 4.5 <strong>CONTRIBUTING.md.</strong> The release section describes the label
+  flow for GA and the rc flow; the chart-bump changelog step stays.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li>The scratch prepend leaves every existing <code>CHANGELOG.md</code> section
+  intact and adds exactly one.</li>
+<li><code>grep -rn 'v2' .github/workflows/*.yml ct.yaml</code> returns only
+  <code>prerelease.yml</code>'s and <code>changelog-update.yml</code>'s reworded comments.</li>
+<li>CLAUDE.md has no instruction that assumes a <code>v2</code> branch exists.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-5-security-tier-1">Phase 5: Security tier 1</h3>
+<p>DESIGN-0038 D2, D3, D4 tier 1; D10–D12; OQ16–OQ19. GitHub-settings
+tasks carry the exact command and are run per OQ4.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[x] 5.1 <strong>SBOMs for binaries.</strong> <code>.goreleaser.yml</code> <code>sboms: [{artifacts:
+  archive}]</code> (syft, SPDX JSON, <code>*.sbom.json</code> beside each archive;
+  <code>checksums.txt</code> covers them). <code>make release-snapshot</code> (goreleaser
+  <code>--snapshot</code>) locally shows the SBOM files; syft pinned in
+  <code>mise.toml</code> (5.6). <em><code>make release-local</code> (goreleaser <code>--snapshot</code>)
+  wrote four <code>*.tar.gz.sbom.json</code> files, all four in <code>checksums.txt</code>.
+  <code>release.yml</code> and <code>prerelease.yml</code> install syft
+  (<code>anchore/sbom-action/download-syft</code>) before goreleaser, which needs
+  it on the runner.</em></li>
+<li>[x] 5.2 <strong>SBOMs for images.</strong> <code>docker-bake.hcl</code> <code>_common</code>: <code>attest =
+  ["type=provenance,mode=max", "type=sbom"]</code> (provenance made explicit,
+  SBOM added; <code>BUILDX_METADATA_PROVENANCE</code> untouched, the digest still
+  comes from the expression layer). In <code>ghcr.yml</code> and <code>ecr.yml</code>, after
+  each <code>cosign sign</code>: <code>syft &lt;image@digest&gt; -o spdx-json &gt; sbom.json</code>
+  and <code>cosign attest --yes --type spdxjson --predicate sbom.json
+  &lt;image@digest&gt;</code>, for the image, the UI image and the chart (the
+  chart's SBOM is syft over the <code>.tgz</code>), then <code>cosign verify-attestation
+  --type spdxjson --certificate-identity-regexp ... &lt;ref@digest&gt;</code> as the
+  in-workflow verify (the SBOM-presence check from the design's testing
+  strategy). Digests from <code>steps.digest.outputs.digest</code>, never a shell
+  blob. <em><code>dev</code>/<code>ui-dev</code> (local <code>type=docker</code> loads) override <code>attest</code>
+  with both types <code>disabled=true</code>, since an empty list does not
+  override an inherited one and the docker exporter cannot carry
+  attestations. syft over the chart <code>.tgz</code> gives an SPDX-2.3 document.
+  The verify regexp is the workflow file (<code>ghcr\.yml@</code>/<code>ecr\.yml@</code>),
+  matching both the <code>release.yml</code> call (<code>@refs/heads/main</code>) and an rc
+  dispatch (<code>@refs/tags/...</code>).</em></li>
+<li>[x] 5.3 <strong>CodeQL.</strong> Default setup for <code>go</code>, <code>javascript-typescript</code>,
+  <code>actions</code> (OQ18): <code>gh api -X PATCH
+  repos/donaldgifford/repo-guardian/code-scanning/default-setup -f
+  state=configured -f query_suite=default -f
+  'languages[]=go' -f 'languages[]=javascript-typescript' -f
+  'languages[]=actions'</code>; confirm the first analysis lands under tool
+  <code>CodeQL</code> and that <code>security.yml</code>'s govulncheck upload still appears
+  beside it. <em>(Enabled by the maintainer 2026-10-27 through Settings, Default
+  suite; GitHub also picked up <code>python</code>. The first run passed, with
+  analyses for go, javascript-typescript, actions and python beside
+  govulncheck. One alert, #17: highlight.js from cdnjs without SRI in
+  <code>docs/design/controls-redesign.html</code>. It is fixed by hashing all three
+  CDN loads and pinning mermaid to 11.17.2.)</em></li>
+<li>[ ] 5.4 (<code>deferred - human required</code>, OQ4 (a)) <strong>Rulesets.</strong> (a) <code>main</code>: add <code>required_status_checks</code> with the
+  set OQ3 chooses (the aggregate <code>ci-ok</code> job added in 5.5, <code>Check
+  Required Labels</code>, <code>govulncheck</code>, <code>Check Dependency Licenses</code>), strict
+  off (merge commits), <code>pull_request</code> with 0 approvals as today. (b) A
+  tag ruleset on <code>refs/tags/v*</code> with <code>deletion</code> and <code>non_fast_forward</code>
+  rules only (OQ5) so <code>release.yml</code>'s bump can still create tags. Both
+  via <code>gh api</code> with the JSON written in the task note first; <code>gh api
+  repos/.../rulesets/&lt;id&gt;</code> output pasted after. <em>Commands, for after
+  M2 (the checks must exist on <code>main</code> first):</em></li>
+</ul>
+<p><code>``bash
+  # (a) main: add the required checks to ruleset 12545694, keeping its rules.
+  gh api repos/donaldgifford/repo-guardian/rulesets/12545694 \
+    | jq '{name, target, enforcement, conditions, bypass_actors,
+           rules: (.rules + [{type: "required_status_checks", parameters: {
+             strict_required_status_checks_policy: false,
+             required_status_checks: [
+               {context: "CI OK"},
+               {context: "Check Required Labels"},
+               {context: "Check for vulnerabilities using</code>govulncheck`"},
+               {context: "Check Dependency Licenses"}]}}])}' \
+    &gt; /tmp/main-ruleset.json
+  gh api -X PUT repos/donaldgifford/repo-guardian/rulesets/12545694 \
+    --input /tmp/main-ruleset.json</p>
+<p># (b) v* tags: no deletion, no move; creation stays open for release.yml.
+  gh api -X POST repos/donaldgifford/repo-guardian/rulesets --input - &lt;&lt;'JSON'
+  {"name": "release tags", "target": "tag", "enforcement": "active",
+   "conditions": {"ref_name": {"include": ["refs/tags/v<em>"], "exclude": []}},
+   "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}]}
+  JSON
+  <code>``
+- [x] 5.5 **</code>ci-ok<code>aggregate.**</code>ci.yml<code>: a final job</code>ci-ok<code>with</code>needs:<code>every job,</code>if: always()<code>, failing when any needed job's</code>result<code>is</code>failure<code>or</code>cancelled<code>(skipped counts as pass, which is
+  what the paths filters need). It is the one required check for CI.
+  *Job name</code>CI OK<code>, needs all 18 jobs.*
+- [x] 5.6 **Pins.**</code>mise.toml<code>: exact versions for</code>trivy<code>,</code>syft<code>,</code>cosign<code>,</code>goreleaser<code>,</code>git-cliff<code>,</code>govulncheck<code>,</code>go-licenses<code>,</code>golines<code>,</code>jq<code>,</code>checkmake<code>,</code>promtool<code>, helm plugins, each with its</code># renovate:<code>comment.</code>ci.yml<code>Security Scan,</code>security.yml<code>and</code>license-check.yml<code>install through</code>jdx/mise-action<code>instead of</code>go install ...@latest<code>.</code>ci.yml<code></code>helm plugin install<code>pinned to a
+  version (keep</code>--verify=false<code>, documented in CLAUDE.md § Helm CLI
+  semantics; a verified install is IMPL-0036's). *Every</code>latest<code>in</code>mise.toml<code>is pinned to the installed version (plus</code>actionlint<code>,
+  for 5.12); govulncheck and go-licenses install through</code>jdx/mise-action<code>with</code>install_args<code>naming only that tool;
+  helm-unittest is</code>v1.2.1<code>with a renovate comment.*
+- [x] 5.7 **Dependabot and Renovate.**</code>.github/dependabot.yml<code>: remove
+  the</code>github-actions<code>and</code>docker<code>version-update entries (the docker
+  one points at a nonexistent</code>cicd/<code>); keep</code>gomod<code>security-only and
+  add</code>npm<code>(</code>directory: /ui<code>) and</code>github-actions<code>security-only
+  entries (</code>open-pull-requests-limit: 0<code>).</code>renovate.json5<code>: a</code>packageRules<code>entry</code>matchPackageNames: ["slsa-framework/slsa-github-generator"],
+  pinDigests: false<code>with a comment pointing at CLAUDE.md's reason.
+  Renovate's dashboard (#213) shows no duplicate of a Dependabot PR
+  after one cycle (verified in Phase 9). *The UI entry is</code>package-ecosystem: "bun"<code>, not</code>npm<code>: the lockfile is</code>bun.lock<code>,
+  and Dependabot's npm ecosystem needs a</code>package-lock.json<code>.*
+- [x] 5.8 **Pod hardening.**</code>values.yaml<code>:</code>podSecurityContext:
+  {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile:
+  {type: RuntimeDefault}}<code>,</code>securityContext: {readOnlyRootFilesystem:
+  true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}<code>(move</code>runAsNonRoot<code>/</code>runAsUser<code>up to the pod level, matching</code>ui.yaml<code>);</code>automountServiceAccountToken: false<code>on every role's
+  Deployment and on the hook Jobs (no role or Job calls the Kubernetes
+  API:</code>k8s.io/client-go<code>is not in</code>go.mod<code>, the Jobs run</code>migrate<code>and</code>psql<code>).</code>templates/deployment.yaml<code>,</code>migrate-job.yaml<code>and the
+  two controls-roles/read-only Jobs render them; helm-unittest asserts
+  each field per role in</code>tests/security_context_test.yaml<code>;</code>ci-values.yaml<code>(busybox) still renders. *The two psql Jobs keep the baked Postgres
+  pod context (uid 999) and get a container context with no privilege
+  escalation,</code>drop: [ALL]<code>and RuntimeDefault seccomp, but not a
+  read-only root (the image's shell may spool the heredoc to</code>/tmp<code>).</code>make helm-unittest<code>257/257; default values render every Deployment
+  and the migrate Job with</code>automountServiceAccountToken: false<code>,
+  RuntimeDefault and no privilege escalation.*
+- [x] 5.9 **Verifying releases.**</code>docs/operations/verifying-releases.md<code>:
+  for</code>repo-guardian<code>,</code>repo-guardian-ui<code>and the chart, the</code>cosign
+  verify<code>and</code>cosign verify-attestation --type slsaprovenance<code>and</code>--type spdxjson<code>commands with the certificate identity</code>https://github.com/donaldgifford/repo-guardian/.github/workflows/ghcr.yml@refs/tags/<tag><code>and the OIDC issuer; for binaries,</code>checksums.txt<code>+ its GPG
+  signature today (the key published in the page and as a release
+  asset, OQ20 says cosign replaces it in IMPL-0036) and</code>slsa-verifier verify-image<code>for the images; retrieving an SBOM with</code>cosign download attestation<code>. The chart README's verification
+  section becomes a link. *Written with Phase 3 (the landing pages
+  link it). Certificate identity is given as a regexp over</code>ghcr|ecr.yml@refs/(heads/main|tags/v.+)<code>, because a GA publish runs</code>ghcr.yml<code>as</code>release.yml<code>'s reusable workflow, whose identity is</code>@refs/heads/main<code>, not the tag. The release key's fingerprint
+  (C47D…8D59, from</code>checksums.txt.sig<code>) is on the page; **publishing
+  the public key as a release asset is</code>deferred - human required<code>**.*
+- [x] 5.10 **</code>SECURITY.md<code>.** § Reporting Vulnerabilities: GitHub private
+  vulnerability reporting (enabled) as the channel, acknowledgement
+  within 3 business days and a fix or mitigation plan within 30 for
+  high/critical, supported versions (2.x; 1.14.x for 90 days after GA),
+  the verifying-releases link, and the supply-chain controls list from
+  DESIGN-0038 D1 in two paragraphs. The three remaining</code>docs/ADDING_RULES.md<code>links move to the new page from 3.4. *The v1
+  "Scope-constrained rule evaluation" and key/filesystem sections were
+  rewritten for v2 (two Apps, pod hardening, scoped policy), which is
+  where the one remaining link now points at the new page.*
+- [x] 5.11 **Workflow hygiene.**</code>concurrency: {group: release-${{
+  github.ref }}, cancel-in-progress: false}<code>on</code>release.yml<code>,</code>ghcr.yml<code>,</code>ecr.yml<code>and</code>prerelease.yml<code>;</code>release.yml<code>job-level
+  permissions (</code>bump-version<code>:</code>contents: write, pull-requests: read,
+  issues: read<code>;</code>release<code>:</code>contents: write<code>; the publish callers keep
+  their documented ceilings) and the workflow-level block reduced to</code>contents: read<code>. Re-run the June post-mortem check: the first
+  push-triggered run after this change **creates jobs**. *</code>ghcr.yml<code>and</code>ecr.yml<code>use</code>release-ghcr-<code>/</code>release-ecr-${{ github.ref }}<code>,
+  not</code>release-${{ github.ref }}<code>: called from</code>release.yml<code>, a
+  reusable workflow sees the caller's</code>github.ref<code>, and one waiting on
+  its caller's group is cancelled as a deadlock. The post-merge
+  "creates jobs" check is</code>deferred - human required<code>(8.3).*
+- [x] 5.12 **Lint the workflows once.** Run</code>actionlint<code>(mise) and</code>zizmor<code>locally on the edited workflows before the PR; the CI job
+  for them is IMPL-0036's, but the edits here should not introduce
+  findings. *actionlint 1.7.12 clean on every workflow (one
+  pre-existing SC2086 in</code>gh-pages.yml<code>fixed). zizmor 1.31.1
+  (</code>--offline<code>) against the base commit,</code>unpinned-uses<code>aside (that is
+  IMPL-0036's SHA pinning):</code>excessive-permissions<code>6 → 3, everything
+  else unchanged after giving the new</code>docs<code>checkout</code>persist-credentials: false`.</em></p>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li>A <code>workflow_dispatch</code> of <code>ghcr.yml</code> with <code>dry_run=false</code> for the
+  current rc tag (re-publish is idempotent) attaches an SPDX attestation
+  to all three artefacts and the verify step passes; <code>cosign download
+  attestation</code> returns it.</li>
+<li><code>gh api repos/.../code-scanning/default-setup</code> reports <code>configured</code>
+  with the three languages; the first CodeQL analysis is visible.</li>
+<li>A test pull request with one deliberately failing job cannot be
+  merged (<code>ci-ok</code> red, required); a <code>v*</code> tag cannot be deleted or moved
+  by the maintainer without a bypass.</li>
+<li><code>grep -rn '@latest' .github/workflows mise.toml</code> is empty; a
+  <code>helm template</code> of default values shows every role's pod with
+  seccomp, no privilege escalation, dropped capabilities and no
+  mounted service-account token.</li>
+<li>The push-triggered <code>release.yml</code> run after 5.11 shows jobs.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-6-the-ga-prep-pull-request">Phase 6: The GA-prep pull request</h3>
+<p>DESIGN-0038 A1 (the tree before M2), A5.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] 6.1 <strong>Chart.</strong> <code>Chart.yaml</code> <code>version: 2.0.0</code>, <code>appVersion:
+  "2.0.0"</code>; <code>make helm-docs</code>.</li>
+<li>[x] 6.2 <strong>UI changelog.</strong> <code>ui/CHANGELOG.yaml</code> <code>2.0.0</code> entry (title "v2:
+  controls, remediation and the UI"; summary written so no Playwright
+  substring locator matches it; tags <code>new</code>, <code>breaking</code>, <code>fleet</code>,
+  <code>findings</code>, <code>policy</code>, <code>ui</code>, <code>api</code>, <code>chart</code>); <code>bun run gen:changelog</code>;
+  <code>make lint-ui</code> green.</li>
+<li>[x] 6.3 <strong>Preflight script.</strong> <code>scripts/ga-preflight.sh</code> (OQ6), run by
+  the maintainer on the M2 head before merging: <code>git merge-base
+  --is-ancestor origin/main HEAD</code>; <code>git tag --merged HEAD | grep -x
+  v2.0.0-rc.17</code>; no <code>v2.0.0</code> tag or release; <code>grep -c 'base-branch:
+  true' .github/workflows/release.yml</code> = 1; <code>Chart.yaml</code> both fields
+  <code>2.0.0</code>; <code>make lint-ui lint-docs</code>; the 3.10 grep; the PR has exactly
+  the <code>major</code> label (<code>gh pr view --json labels</code>). Exit non-zero on any
+  failure with the failing check named. <em><code>--pr N</code> or <code>--skip-label</code>.
+  The 3.10 check allowlists the reviewed files, so a new hit elsewhere
+  fails (proven by appending <code>Valkey</code> to <code>docs/index.md</code>). Passes on
+  <code>feat/impl-0034-ga-cutover</code> with <code>--skip-label</code>, 2026-10-27.</em></li>
+<li>[x] 6.4 <strong>Release notes.</strong> Draft <code>docs/releases/2.0.0.md</code> (or the GitHub
+  release body, OQ7): what 2.0 is, fresh install only, <code>latest</code> moves,
+  the identity-provider page, verification. goreleaser's release header
+  links it. <em>The header links it only when <code>.Version</code> is 2.0.0, and
+  links verifying-releases on every release; <code>goreleaser check</code> passes.
+  The page is in the nav under Release notes and linked from the
+  README.</em></li>
+<li>[ ] 6.5 (<code>deferred - human required</code>: the maintainer opens or approves
+  the pull request; this IMPL ships as one PR, which needs "Create a
+  merge commit" because it carries Phase 1) <strong>PR.</strong> <code>dont-release</code> against <code>v2</code>, together with Phase 4.2's
+  trigger reverts; merge commit not required (this is a normal squash
+  PR onto <code>v2</code>).</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li><code>scripts/ga-preflight.sh</code> passes on <code>v2</code>'s head after merge (with the
+  label check skipped via a flag, since there is no M2 PR yet).</li>
+<li><code>v2</code>'s tree is what <code>main</code> will be: a <code>diff</code> between <code>v2</code> and the
+  eventual M2 merge commit is empty but for the merge itself.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-7-soak-and-homelab">Phase 7: Soak and homelab</h3>
+<p>DESIGN-0038 A7; IMPL-0030 Phase 9 and OQ7/OQ8; IMPL-0029 9.7, 9.8;
+IMPL-0031 8.3; IMPL-0032 9.2, 9.3. Every task here is
+<code>deferred - human required</code>; the implementer ticks the box when the
+maintainer reports it, in this document and in the origin document.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[x] 7.1 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> IMPL-0030 9.2–9.7 as written there (Apps, stop the old writers,
+  delete the old schedules, <code>rgctl prs list</code> per old App, fresh
+  install, verify evaluation and KEDA). Several are already true of
+  the running homelab (rc.16 is the fresh install); tick what is true
+  with the date.</li>
+<li>[x] 7.2 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> IMPL-0030 9.8: <code>donaldgifford</code> in <code>remediate</code>; 7 days with
+  every hold explained and no PR over the cap (OQ7 window 1). Record
+  the start date here.</li>
+<li>[x] 7.3 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> IMPL-0030 9.9: the remaining orgs; <code>rgctl prs close</code> per OQ6.
+  Window 2 starts.</li>
+<li>[x] 7.4 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> IMPL-0029 9.7/9.8 and IMPL-0032 9.2: the fresh evaluate-only
+  install check and the UI walk (Findings, orgs tree, fleet panels,
+  Remediations, status Changelog card) on rc.17.</li>
+<li>[x] 7.5 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> IMPL-0029 8.9, IMPL-0031 8.3, IMPL-0032 9.3: the group-split
+  check by the <code>identity-provider.md</code> procedure (IMPL-0033 4.7); one
+  item, three origin boxes.</li>
+<li>[x] 7.6 <em>(Skipped 2026-10-27 by maintainer decision: roll forward,
+  no soak.)</em> Window 2 complete: 7 more days with no unexplained <code>conflict</code>,
+  <code>foreign_branch</code> or <code>permission</code> hold (<code>remediation_holds</code> gauge and
+  the Remediations page). GA clock satisfied; date recorded.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li>IMPL-0030 Phase 9's success criteria hold and its boxes are ticked.</li>
+<li>Both OQ7 windows have elapsed with the holds explained in the task
+  notes.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-8-the-merge-and-the-release">Phase 8: The merge and the release</h3>
+<p>DESIGN-0038 A1 (M2), A2, A9; D1; OQ2.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[x] 8.1 <strong>M2 PR.</strong> From <code>v2</code> into <code>main</code>, title "release: v2.0.0", body
+  from 6.4, label <strong><code>major</code></strong> and nothing else from the semver set;
+  <code>scripts/ga-preflight.sh</code> output pasted into the PR. <em>(PR #245,
+  2026-10-27. The label check was too strict: it refused the labeler's
+  path labels. Fixed afterwards to check the semver set only, which is
+  what this task asks for.)</em></li>
+<li>[x] 8.2 <strong>Merge</strong> with "Create a merge commit" (<code>deferred - human
+  required</code>: the maintainer merges). Immediately open the Actions tab
+  and confirm the <code>Release</code> run <strong>has jobs</strong> (a <code>startup_failure</code> has
+  none and shows only on the web page). <em>(Merge commit 8350f11; Release
+  run 40514249680 created every job and went green.)</em></li>
+<li>[x] 8.3 <strong>Bump.</strong> <code>bump-version</code> log says "Only considering tags on
+  branch main" and tags <code>v2.0.0</code>; <code>gh release view v2.0.0</code> exists with
+  goreleaser's archives, <code>checksums.txt</code>, its signature, the SBOMs and
+  <code>openapi.yaml</code>. <em>(Tagged <code>v2.0.0</code> on 8350f11; all four archives, their
+  SBOMs, <code>checksums.txt</code> + <code>.sig</code> (GPG verified) and <code>openapi.yaml</code>.)</em></li>
+<li>[x] 8.4 <strong>Registries.</strong> <code>publish-ghcr</code> (and <code>publish-ecr</code> if enabled)
+  green with every SLSA job; <code>cosign verify</code> on
+  <code>ghcr.io/donaldgifford/repo-guardian:2.0.0</code> and <code>repo-guardian-ui:2.0.0</code>;
+  <code>cosign verify-attestation --type spdxjson</code> on both and on the chart;
+  <code>helm pull oci://ghcr.io/donaldgifford/charts/repo-guardian --version
+  2.0.0</code>; <code>latest</code> and <code>2.0</code> resolve to the 2.0.0 digests. <em>(All pass;
+  ECR is not enabled. The verification page's SBOM read command was
+  wrong for cosign v3, which writes a sigstore bundle; fixed to read
+  <code>.dsseEnvelope.payload</code>. <code>slsa-verifier</code> was not run.)</em></li>
+<li>[x] 8.5 <strong>Docs site.</strong> The <code>gh-pages.yml</code> run deploys the inherited
+  config; the public site's nav shows Usage and Operations as in Phase
+  2 and a design page renders its diagram. <em>(The deploy ran; the live nav
+  shows Getting started, Historical (1.x), Release notes, Verifying
+  releases. The diagram was not checked in a browser.)</em></li>
+<li>[x] 8.6 <strong>Changelog PR.</strong> <code>changelog-update.yml</code> opens the prepend PR
+  for <code>v2.0.0</code>; review that the 1.x sections are intact; merge
+  (<code>dont-release</code>). <em>(It never fired: <code>bump-version</code> pushes the tag with
+  GITHUB_TOKEN, which starts no workflow. Dispatched by hand, it pushed
+  its branch but could not open the PR (the repository does not let
+  Actions create PRs), and <code>--latest</code> started at <code>v2.0.0-rc.18</code>. The
+  workflow now runs from the previous GA tag with rc tags ignored and
+  takes the tag as a dispatch input. The 2.0.0 section (v1.14.1..v2.0.0,
+  66 lines added, none removed) went in with the post-GA follow-up PR.)</em></li>
+<li>[x] 8.7 <strong>Alerts.</strong> Dependabot alerts #15 and #16 close on their own
+  (the patched versions are now on <code>main</code>); confirm. <em>(Both <code>fixed</code>.)</em></li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_7">Success Criteria</h4>
+<ul>
+<li>One push produced the GitHub release, both images, the UI image, the
+  chart and provenance; every artefact verifies with the commands in
+  <code>verifying-releases.md</code> exactly as written.</li>
+<li><code>latest</code> points at 2.0.0; the 1.14.1 tags still pull.</li>
+<li>The public site is the v2 nav.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-9-after-ga">Phase 9: After GA</h3>
+<p>DESIGN-0038 A8; IMPL-0030 10.3–10.5.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_8">Tasks</h4>
+<ul>
+<li>[ ] 9.1 IMPL-0030 10.3 (<code>deferred - human required</code>): upgrade the
+  homelab from rc.17 to 2.0.0 in place; OQ8's 14-day database window
+  starts.</li>
+<li>[x] 9.2 <strong>docz statuses.</strong> DESIGN-0029, 0030, 0031, 0032, 0036 →
+  Implemented; IMPL-0028, 0029, 0030, 0031, 0032 → Completed (fix
+  IMPL-0025's body status line); DESIGN-0034, IMPL-0026 stay Draft;
+  <code>docz update design</code>, <code>docz update impl</code>; revert TOC churn.</li>
+<li>[ ] 9.3 (<code>deferred - human required</code>: after GA) <strong>Issues.</strong> Close #232 and #235 (fixed, verified in the
+  homelab), #199, #200, #73 ("1.x only; component removed in 2.0").
+  Check #192 against the <code>monitoring generate</code> of 2.0.0 and close or
+  re-scope.</li>
+<li>[ ] 9.4 (<code>deferred - human required</code>: after GA) <strong><code>v2</code> branch.</strong> Delete <code>origin/v2</code> and its ruleset (24046649)
+  once 9.2 is merged; update the memory files that name the branch
+  ([[project-v2-branch-docz-ids]] becomes history).</li>
+<li>[x] 9.5 <strong>CLAUDE.md and memory.</strong> Record the ship date in CLAUDE.md
+  § Release line and in memory; note anything the fresh install taught
+  (IMPL-0030 10.5). <em>(Ship date 2026-10-27 recorded. No fresh-install
+  notes, because Phase 7 was skipped.)</em></li>
+<li>[ ] 9.6 (<code>deferred - human required</code>: after GA) <strong>The <code>file.go</code> <code>FIX:</code>.</strong> <code>internal/controls/file/file.go</code>:
+  replace the yaml.v3 struct <code>Decode</code> duplicate-key compare with the
+  linear node walk <code>internal/catalog</code> already uses; benchmark against
+  the 50k-key fixture noted in the comment; ships as 2.0.1 by label.</li>
+<li>[ ] 9.7 (<code>deferred - human required</code>: after GA) <strong>Close out.</strong> IMPL-0034 → Completed; DESIGN-0038 stays In
+  Review until IMPL-0035 and IMPL-0036 complete.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_8">Success Criteria</h4>
+<ul>
+<li>Every docz index shows the statuses above; no open issue refers to a
+  removed 1.x component without the "1.x only" closing comment.</li>
+<li>The homelab runs 2.0.0 and the old databases are archived and dropped
+  at the end of OQ8's window (date recorded).</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:file-changes:start-->
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mkdocs-ghpages.yml</code>, <code>mkdocs.yml</code>, <code>gh-pages.yml</code>, <code>Makefile</code> (<code>lint-docs</code>), <code>ci.yml</code> (<code>docs</code> filter + job, <code>ci-ok</code>)</td>
+<td>Modify</td>
+<td>interim site, strict build, aggregate check</td>
+</tr>
+<tr>
+<td><code>README.md</code>, <code>docs/index.md</code>, <code>docs/usage/getting-started.md</code>, <code>docs/ADDING_RULES.md</code> → new content, <code>docs/historical/adding-rules-1x.md</code>, <code>docs/operations/{aws,scaling,ent-setup,v2-migration}.md</code>, nine historical pages, <code>charts/repo-guardian/README.md.gotmpl</code></td>
+<td>Modify/Create</td>
+<td>the rewrite</td>
+</tr>
+<tr>
+<td><code>deploy/MIGRATED.md</code></td>
+<td>Delete</td>
+<td>OQ10</td>
+</tr>
+<tr>
+<td><code>.github/workflows/{changelog-update,ci,license-check,security,prerelease,release,ghcr,ecr}.yml</code>, <code>ct.yaml</code></td>
+<td>Modify</td>
+<td>prepend, triggers, concurrency, permissions, SBOM attest + verify</td>
+</tr>
+<tr>
+<td><code>.goreleaser.yml</code>, <code>docker-bake.hcl</code></td>
+<td>Modify</td>
+<td><code>sboms:</code>, <code>attest</code></td>
+</tr>
+<tr>
+<td><code>mise.toml</code>, <code>.github/dependabot.yml</code>, <code>renovate.json5</code></td>
+<td>Modify</td>
+<td>pins; security-only Dependabot; SLSA exception</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/values.yaml</code>, <code>templates/{deployment,migrate-job,*job*}.yaml</code>, <code>tests/security_context_test.yaml</code></td>
+<td>Modify/Create</td>
+<td>pod hardening</td>
+</tr>
+<tr>
+<td><code>docs/operations/verifying-releases.md</code>, <code>SECURITY.md</code></td>
+<td>Create/Modify</td>
+<td>verification and disclosure</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code>, <code>CONTRIBUTING.md</code></td>
+<td>Modify</td>
+<td>release line</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code>, <code>ui/CHANGELOG.yaml</code>, <code>ui/web/src/generated/changelog.json</code>, <code>scripts/ga-preflight.sh</code>, <code>docs/releases/2.0.0.md</code></td>
+<td>Modify/Create</td>
+<td>GA prep</td>
+</tr>
+<tr>
+<td><code>internal/controls/file/file.go</code></td>
+<td>Modify</td>
+<td>9.6</td>
+</tr>
+</tbody>
+</table>
+<!--docz:file-changes:end-->
+
+<!--docz:testing:start-->
+<h2 id="testing-plan">Testing Plan</h2>
+<ul>
+<li>[ ] Phase 2 (local strict build passes; CI and the in-browser
+  mermaid <code>&lt;svg&gt;</code> check are <code>deferred - human required</code>): <code>mkdocs build --strict</code> locally and in CI; a mermaid
+  page renders an <code>&lt;svg&gt;</code>.</li>
+<li>[x] Phase 3: the 3.10 grep; <code>make lint-docs</code>; review of
+  <code>getting-started.md</code> against <code>values.schema.json</code>.</li>
+<li>[x] Phase 4: scratch prepend byte-compare; <code>actionlint</code> on every edited
+  workflow.</li>
+<li>[ ] Phase 5 (<code>helm unittest</code> passes, 257/257; the rest is
+  <code>deferred - human required</code>): idempotent re-publish of the current rc with attestation
+  and verify; the blocked-merge test for required checks; a tag
+  move/delete refused; <code>helm unittest</code> for the security context; the
+  jobs-created check after the permission change.</li>
+<li>[x] Phase 6: <code>scripts/ga-preflight.sh</code> on <code>v2</code>. <em>(Passed with
+  <code>--skip-label</code> on the branch head; rerun on <code>v2</code> after merge.)</em></li>
+<li>[x] Phase 8: the verification page's commands run verbatim against the
+  published 2.0.0 artefacts.</li>
+</ul>
+<!--docz:testing:end-->
+
+<!--docz:dependencies:start-->
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>DESIGN-0038 (PR #240) and IMPL-0033 (rc.17) merged before Phase 6.</li>
+<li>The soak (Phase 7) is the maintainer's and gates Phase 8.</li>
+<li><code>jefflinse/pr-semver-bump@v1.7.4</code> behaviour as audited (tag parsing
+  with <code>semver.parse(..., {loose: true})</code>, <code>base-branch</code> commit walk);
+  re-verify against the pinned version's <code>version.js</code> before Phase 8 if
+  Renovate bumps it.</li>
+<li>GitHub: the maintainer's admin rights for CodeQL, rulesets and the
+  Pages settings.</li>
+</ul>
+<!--docz:dependencies:end-->
+
+<h2 id="open-questions">Open Questions</h2>
+<p><strong>OQ1. Mermaid on the interim MkDocs site.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>enable <code>pymdownx.superfences</code> with the mermaid
+  fence in <code>mkdocs-ghpages.yml</code></strong>; it is four lines, Material renders
+  mermaid natively with it, and the GA site stops showing 39 diagrams
+  as code while IMPL-0035 is built.</li>
+<li>(b) leave it to Starlight; the GA site keeps today's rendering for a
+  few more weeks.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (b).</p>
+<p><strong>OQ2. Where the strict docs build runs.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>a new <code>docs</code> CI job</strong> on a <code>docs</code> paths filter,
+  installing the pinned <code>mkdocs-material</code> with pip; it later becomes
+  IMPL-0035's Starlight build job under the same name and filter.</li>
+<li>(b) inside the existing <code>lint</code> job; fewer jobs, but <code>lint</code> would then
+  run on docs-only pull requests and needs Python.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<p><strong>OQ3. The required status checks.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>one aggregate <code>ci-ok</code> job</strong> (needs every
+  <code>ci.yml</code> job, <code>if: always()</code>, red on any failure or cancellation)
+  plus <code>Check Required Labels</code>, <code>govulncheck</code> and <code>Check Dependency
+  Licenses</code> from their own workflows; adding a CI job never needs a
+  ruleset edit, and skipped (paths-filtered) jobs pass.</li>
+<li>(b) list every job name in the ruleset; explicit, but every new or
+  renamed job silently stops being required until someone edits the
+  ruleset.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<p><strong>OQ4. Who runs the GitHub-settings changes (CodeQL, rulesets, Pages).</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong>the maintainer runs the <code>gh api</code> commands
+  written in the task</strong>, after reviewing the JSON in the task note;
+  they are outward-facing, hard to review after the fact, and need
+  admin rights.</li>
+<li>(b) the implementer runs them with the maintainer's explicit go-ahead
+  per command; faster, same commands.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<p><strong>OQ5. The <code>v*</code> tag ruleset's rules.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong><code>deletion</code> and <code>non_fast_forward</code> only</strong>;
+  existing release tags cannot be moved or deleted, and <code>release.yml</code>'s
+  <code>GITHUB_TOKEN</code> can still create the next one. The ruleset has no
+  bypass actors, like <code>main</code>'s.</li>
+<li>(b) also restrict <code>creation</code> with a bypass actor for the GitHub
+  Actions integration; stops a maintainer's accidental hand tag, but
+  the bypass must name the right integration id and breaks the
+  pipeline if it drifts.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<p><strong>OQ6. The GA preflight.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong><code>scripts/ga-preflight.sh</code></strong>, run by the
+  maintainer on the M2 head and pasted into the PR; one file, no CI
+  wiring, and the checks are release-time facts (tags, labels) CI
+  cannot see on a pull request.</li>
+<li>(b) a <code>make ga-preflight</code> target wrapping the same script; one more
+  Makefile entry for a once-per-major action.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<p><strong>OQ7. Where the 2.0.0 release notes live.</strong></p>
+<ul>
+<li>(a) ✅ recommended: <strong><code>docs/releases/2.0.0.md</code></strong>, linked from
+  goreleaser's release header and from the README; the notes outlive
+  the GitHub release page and render on the docs site.</li>
+<li>(b) only the GitHub release body (goreleaser <code>header</code>); nothing to
+  keep in the tree, not on the docs site.</li>
+<li>other:</li>
+</ul>
+<p><strong>Decision (2026-10-25):</strong> (a).</p>
+<!--docz:references:start-->
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/">DESIGN-0038</a> Parts A and D.</li>
+<li><a href="../0030-controls-remediation-per-control-prs-remediation-workflow-and/">IMPL-0030</a> Phases 9–10, OQ6–OQ8, OQ12.</li>
+<li><a href="../0033-identity-provider-portability-for-the-api-and-ui-design-0038/">IMPL-0033</a> (rc.17, before Phase 6).</li>
+<li><a href="../0035-public-docs-site-on-astro-starlight-design-0038-part-c/">IMPL-0035</a>, <a href="../0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/">IMPL-0036</a> (after GA).</li>
+<li>IMPL-0029 8.9, 9.7, 9.8; IMPL-0031 8.3; IMPL-0032 9.2, 9.3 (origin boxes for Phase 7).</li>
+<li><code>.github/workflows/*.yml</code>, <code>ct.yaml</code>, <code>cliff.toml</code>, <code>.goreleaser.yml</code>,
+  <code>docker-bake.hcl</code>, <code>mise.toml</code>, <code>renovate.json5</code>,
+  <code>.github/dependabot.yml</code>, <code>mkdocs.yml</code>, <code>mkdocs-ghpages.yml</code>,
+  <code>charts/repo-guardian/values.yaml</code>, <code>templates/ui.yaml</code>.</li>
+<li><code>jefflinse/pr-semver-bump</code> <code>version.js</code>; node-semver <code>inc</code>.</li>
+<li>CLAUDE.md § Release (the pipeline post-mortems), § CI paths-filter
+  convention, § The v2 branch, rule 6.</li>
+<li>GitHub rulesets 12545694 (<code>main</code>), 24046649 (<code>v2</code>); Dependabot alerts
+  #15, #16; issues #192, #199, #200, #213, #232, #235, #73.</li>
+</ul>
+<!--docz:references:end-->
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

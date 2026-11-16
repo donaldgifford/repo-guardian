@@ -14,6 +14,8 @@ created: 2026-05-29
 **Date:** 2026-05-29 (extended 2026-06-08 with Finding 8 + Implementation taxonomy)
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -24,7 +26,7 @@ created: 2026-05-29
   - [Finding 3 — Custom-properties equivalent](#finding-3--custom-properties-equivalent)
   - [Finding 4 — Webhook authentication](#finding-4--webhook-authentication)
   - [Finding 5 — Rate-limit model](#finding-5--rate-limit-model)
-  - [Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)](#finding-6--wiz-consumption-does-customproperties-even-matter-on-gitlab)
+  - [Finding 6 — Wiz consumption (does custom_properties even matter on GitLab?)](#finding-6--wiz-consumption-does-custom_properties-even-matter-on-gitlab)
   - [Finding 7 — Auth model](#finding-7--auth-model)
   - [Finding 8 — Groups as the scope unit](#finding-8--groups-as-the-scope-unit)
 - [Cross-provider feature matrix](#cross-provider-feature-matrix)
@@ -37,6 +39,7 @@ created: 2026-05-29
 - [Recommendation](#recommendation)
 - [Open questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

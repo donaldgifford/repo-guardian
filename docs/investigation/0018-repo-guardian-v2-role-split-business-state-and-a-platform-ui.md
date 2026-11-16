@@ -11,6 +11,8 @@ created: 2026-09-23
 # INV-0018: repo-guardian v2: role split, business state, and a platform UI
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -37,6 +39,7 @@ created: 2026-09-23
 - [Recommendation](#recommendation)
   - [Open questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

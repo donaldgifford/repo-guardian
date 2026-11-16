@@ -11,6 +11,8 @@ created: 2026-10-04
 # INV-0021: Controls model assumptions A1 to A23 against the v2 code
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -27,9 +29,9 @@ created: 2026-10-04
   - [A8 — The checker engine is removed, not adapted](#a8--the-checker-engine-is-removed-not-adapted)
   - [A9 — The HCL loader is replaced; small pieces survive](#a9--the-hcl-loader-is-replaced-small-pieces-survive)
   - [A10 — The template package is reused](#a10--the-template-package-is-reused)
-  - [A11 — The catalog parser is the core of the catalog_info type](#a11--the-catalog-parser-is-the-core-of-the-cataloginfo-type)
+  - [A11 — The catalog parser is the core of the catalog_info type](#a11--the-catalog-parser-is-the-core-of-the-catalog_info-type)
   - [A12 — The client layer survives; the interface splits](#a12--the-client-layer-survives-the-interface-splits)
-  - [A13 — Ingest and WebhookWorkflow survive; pull_request is added](#a13--ingest-and-webhookworkflow-survive-pullrequest-is-added)
+  - [A13 — Ingest and WebhookWorkflow survive; pull_request is added](#a13--ingest-and-webhookworkflow-survive-pull_request-is-added)
   - [A14 — API structure and UI shell survive](#a14--api-structure-and-ui-shell-survive)
   - [A15 — Roles and chart secret scoping extend to evaluator and remediator](#a15--roles-and-chart-secret-scoping-extend-to-evaluator-and-remediator)
   - [A16 — No production histories; new workflow type names need no gates](#a16--no-production-histories-new-workflow-type-names-need-no-gates)
@@ -44,9 +46,10 @@ created: 2026-10-04
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
   - [OQ1: How is installation suspension modelled under the controls model?](#oq1-how-is-installation-suspension-modelled-under-the-controls-model)
-  - [OQ2: Does repositories.installationid stay once apprepository_access exists?](#oq2-does-repositoriesinstallationid-stay-once-apprepositoryaccess-exists)
+  - [OQ2: Does repositories.installation_id stay once app_repository_access exists?](#oq2-does-repositoriesinstallation_id-stay-once-app_repository_access-exists)
   - [OQ3: How are live RepoWorkflow executions retired when the build stops registering the type?](#oq3-how-are-live-repoworkflow-executions-retired-when-the-build-stops-registering-the-type)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

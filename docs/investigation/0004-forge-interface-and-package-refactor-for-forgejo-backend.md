@@ -15,6 +15,8 @@ created: 2026-05-03
 **Resolved:** 2026-05-03 (PR #71 review walkthrough)
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -28,6 +30,7 @@ created: 2026-05-03
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

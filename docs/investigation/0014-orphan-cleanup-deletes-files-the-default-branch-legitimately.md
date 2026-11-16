@@ -14,6 +14,8 @@ created: 2026-08-03
 **Date:** 2026-08-03
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [What it looks like in practice](#what-it-looks-like-in-practice)
 - [Hypothesis](#hypothesis)
@@ -43,6 +45,7 @@ created: 2026-08-03
 - [What shipped](#what-shipped)
 - [Open questions for the operator](#open-questions-for-the-operator)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

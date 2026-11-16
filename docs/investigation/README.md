@@ -37,6 +37,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 | INV-0022 | Controls designs against the v2 code, GitHub and Temporal | Concluded | 2026-10-06 | Donald Gifford | [0022-controls-designs-against-the-v2-code-github-and-temporal.md](0022-controls-designs-against-the-v2-code-github-and-temporal.md) |
 | INV-0023 | rc.11 follow-ups: rule-status badges, repository page and release verification | Concluded | 2026-10-18 | Donald Gifford | [0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md](0023-rc11-follow-ups-rule-status-badges-repository-page-and-release.md) |
 | INV-0024 | Icon set for the UI | Concluded | 2026-10-21 | Donald Gifford | [0024-icon-set-for-the-ui.md](0024-icon-set-for-the-ui.md) |
+| INV-0025 | Migrating the UI to the shared @donaldgifford/design-system package | Concluded | 2026-11-16 | Donald Gifford | [0025-migrating-the-ui-to-the-shared-donaldgifforddesign-system.md](0025-migrating-the-ui-to-the-shared-donaldgifforddesign-system.md) |
 <!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->

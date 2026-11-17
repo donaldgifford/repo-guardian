@@ -490,7 +490,9 @@ change.
 
 ## Recommendation
 
-Write the design doc for the migration against 0.2.1, starting from
+Write the design doc for the migration against 0.2.1 (the design and
+IMPL-0037 later moved the pin to 0.3.0, which adds only `DataTable`'s
+`sortable` prop), starting from
 the issue's seven stages with these changes:
 
 1. Pin `@donaldgifford/design-system` exactly, as a `devDependency`,

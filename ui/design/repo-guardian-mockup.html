@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Repo Guardian · UI mockup (DESIGN-0036, DESIGN-0037)</title>
+<title>Repo Guardian · UI mockup (DESIGN-0036, DESIGN-0037, DESIGN-0039)</title>
 <!--
   Single-file mockup of the v2 UI on the controls line: DESIGN-0036's
   design language with the pages DESIGN-0037 specifies (findings over
@@ -11,6 +11,15 @@
   changelog, the Remediations view and remediation-gated panels) and the
   INV-0023 fixes (rule
   tone, name crumbs, next due, remediable wording).
+
+  DESIGN-0039 moves the app onto @donaldgifford/design-system. Two
+  parts of this file follow that package and are a drawing of it, not
+  its source: the token values in :root (its dark theme) and the frame
+  (its shell: a full-height collapsible sidebar with the app identity
+  on top and the account menu at the foot, and a top bar holding the
+  collapse trigger, the breadcrumbs, search and the time zone). The
+  package's Storybook is the reference for components; this file stays
+  the reference for what each page shows and how it is composed.
 
   This file is part of the design: it is updated in the design's pull
   request and accepted with it, and implementation builds to it.
@@ -33,9 +42,14 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#17191d; --panel:#1f2227; --panel2:#262a30; --line:#31363d;
-  --fg:#e8eaed; --muted:#9aa1ab; --accent:#5fa8f5;
-  --ok:#3fb950; --warn:#d9a020; --bad:#f2554d; --info:#7aa7ff; --avatar:#3a4c6d;
+  /* The package's dark theme (DESIGN-0039), as hex. The names are this
+     file's own; in the app they are the package's tokens:
+     bg=background, panel=card, panel2=muted, line=border, fg=foreground,
+     muted=muted-foreground, accent=primary, ok=success, warn=warning,
+     bad=destructive. */
+  --bg:#17191c; --panel:#202328; --panel2:#262a31; --line:#32373e;
+  --fg:#e8eaed; --muted:#9aa2ac; --accent:#61a8f5;
+  --ok:#40ba52; --warn:#d99f21; --bad:#f7756e; --info:#7aa7ff; --avatar:#3a4c6d;
   --r:3px;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -51,32 +65,67 @@ code,.mono{font-family:var(--mono)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* shell */
-.shell{display:grid;grid-template-rows:40px 1fr;height:100vh}
-.topbar{display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line);font-size:13px}
+/* shell (DESIGN-0039): the package's frame. A full-height sidebar,
+   16rem or a 3rem icon rail, beside the content and its 40px top bar;
+   a sheet over the page below 768px. */
+.shell{display:grid;grid-template-columns:16rem minmax(0,1fr);height:100vh}
+.shell.rail{grid-template-columns:3rem minmax(0,1fr)}
+.side{display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);font-size:13px;min-height:0}
+.side .id{display:flex;align-items:center;gap:8px;margin:8px;padding:6px;border-radius:var(--r);color:var(--fg);min-width:0}
+.side .id:hover{background:var(--panel2);text-decoration:none}
+.side .mark{flex:none;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--r);background:var(--accent);color:var(--bg)}
+.side .mark svg{width:18px;height:18px}
+.side .mark.user{background:var(--avatar);color:#fff;font:600 11px var(--sans);letter-spacing:.08em}
+.side .who{display:grid;min-width:0;line-height:1.25;text-align:left;flex:1}
+.side .who b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .who small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .sel{flex:none;width:16px;height:16px;color:var(--muted)}
+.side .navs{flex:1;overflow:auto;padding:0 8px;min-height:0}
+.side .g{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 8px 4px}
+.side a.nav{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);color:var(--fg)}
+.side a.nav svg{width:15px;height:15px;flex:none}
+.side a.nav em{font:11px var(--mono);font-style:normal;margin-left:auto;color:var(--muted)}
+.side a.nav .ext{margin-left:auto;width:12px;height:12px;color:var(--muted)}
+.side a.nav:hover{background:var(--panel2);text-decoration:none}
+.side a.nav.cur{background:var(--panel2);font-weight:500}
+.side .foot{padding:8px 16px;font:11px var(--mono);color:var(--muted)}
+.side .foot a{color:var(--muted)}
+.side .acct{display:flex;align-items:center;gap:8px;margin:8px;padding:6px;border-radius:var(--r);width:calc(100% - 16px);min-width:0}
+.side .acct:hover{background:var(--panel2)}
+.shell.rail .side .who,.shell.rail .side .sel,.shell.rail .side .g,.shell.rail .side .foot,.shell.rail .side a.nav span,.shell.rail .side a.nav em,.shell.rail .side a.nav .ext{display:none}
+.shell.rail .side .id,.shell.rail .side .acct{margin:8px;padding:0;justify-content:center;width:auto}
+.shell.rail .side .navs{padding:0 8px}
+.shell.rail .side a.nav{justify-content:center;padding:8px 0}
 .brand{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--fg)}
 .brand svg{width:16px;height:16px;color:var(--accent)}
 .brand small{font-weight:400;color:var(--muted)}
+.inset{display:grid;grid-template-rows:40px minmax(0,1fr);min-width:0;min-height:0}
+.topbar{display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--bg);border-bottom:1px solid var(--line);font-size:13px;min-width:0}
+.topbar .trig{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);color:var(--muted);flex:none}
+.topbar .trig:hover{background:var(--panel2);color:var(--fg)}
+.topbar .trig svg{width:16px;height:16px}
+.topbar .vr{width:1px;height:16px;background:var(--line);flex:none;margin-right:4px}
 .topbar .sp{flex:1}
-.tb-btn{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r);color:var(--muted);font-size:12px}
+.tb-btn{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r);color:var(--muted);font-size:12px;flex:none}
 .tb-btn:hover{background:var(--panel2);color:var(--fg)}
-.tb-btn kbd{font:11px var(--mono);background:var(--panel2);padding:1px 4px;border-radius:2px}
-.avatar{width:20px;height:20px;border-radius:var(--r);background:var(--avatar);color:#fff;font:600 10px/20px var(--sans);text-align:center}
-.body{display:grid;grid-template-columns:220px 1fr;min-height:0}
-.side{display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);padding:10px 8px;font-size:13px;overflow:auto}
-.side .g{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 10px 4px}
-.side a.nav{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--r);color:var(--muted);border-left:2px solid transparent}
-.side a.nav svg{width:15px;height:15px;flex:none}
-.side a.nav em{font:11px var(--mono);margin-left:auto;color:var(--muted)}
-.side a.nav:hover{background:var(--panel2);color:var(--fg);text-decoration:none}
-.side a.nav.cur{background:var(--panel2);color:var(--fg);border-left-color:var(--accent)}
-.side .foot{margin-top:auto;padding:12px 10px 6px;font:11px var(--mono);color:var(--muted);border-top:1px solid var(--line)}
-.side .foot a{color:var(--muted)}
+.tb-btn kbd{font:11px var(--mono);border:1px solid var(--line);padding:0 4px;border-radius:2px}
+.tzg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;flex:none}
+.tzg button{height:24px;padding:0 8px;font-size:12px;color:var(--muted)}
+.tzg button[aria-pressed="true"]{background:var(--panel2);color:var(--fg)}
 .main{overflow:auto;padding:14px 24px 40px;min-width:0}
+.side-scrim{display:none}
+@media (max-width:767px){
+  .shell,.shell.rail{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .shell.sheet .side{display:flex;position:fixed;inset:0 auto 0 0;width:18rem;z-index:40;box-shadow:12px 0 36px rgba(0,0,0,.45)}
+  .shell.sheet .side-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:39}
+  .shell.rail .side .who,.shell.rail .side .g,.shell.rail .side a.nav span,.shell.rail .side a.nav em{display:revert}
+  .tb-btn span{display:none}
+}
 
 /* page anatomy */
-.crumbs{font-size:12px;color:var(--muted);margin-bottom:8px}
-.crumbs b{color:var(--fg);font-weight:500}
+.crumbs{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.crumbs b{color:var(--fg);font-weight:400}
 .crumbs span{margin:0 6px;opacity:.6}
 .page-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px;flex-wrap:wrap}
 .page-h h1{margin:0;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px}
@@ -182,10 +231,10 @@ code,.mono{font-family:var(--mono)}
 
 /* drawer */
 .layout{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
-.layout.open{grid-template-columns:minmax(0,1fr) 470px}
+.layout.open{grid-template-columns:minmax(0,1fr) 36rem}
 .drawer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;position:sticky;top:0;max-height:100vh;overflow-y:auto}
 .drawer-scrim{display:none}
-@media (max-width:1599px){.layout.open{grid-template-columns:minmax(0,1fr)}.drawer-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:25}.drawer{position:fixed;top:0;right:0;bottom:0;width:470px;max-width:92vw;border-radius:0;border-width:0 0 0 1px;z-index:30;box-shadow:-12px 0 32px rgba(0,0,0,.45)}}
+@media (max-width:1599px){.layout.open{grid-template-columns:minmax(0,1fr)}.drawer-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:25}.drawer{position:fixed;top:0;right:0;bottom:0;width:36rem;max-width:100vw;border-radius:0;border-width:0 0 0 1px;z-index:30;box-shadow:-12px 0 32px rgba(0,0,0,.45)}}
 .drawer h3{margin:0;font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .drawer .sub{font:12px var(--mono);color:var(--muted);margin:3px 0 14px}
 .kv{display:grid;grid-template-columns:110px 1fr;gap:9px 10px;font-size:13px;align-items:center;margin-bottom:14px}
@@ -321,7 +370,7 @@ code,.mono{font-family:var(--mono)}
 /* ------------------------------------------------------------------ */
 /* tokens, formatting                                                  */
 /* ------------------------------------------------------------------ */
-const C={accent:'#5fa8f5',info:'#7aa7ff',ok:'#3fb950',warn:'#d9a020',bad:'#f2554d',muted:'#9aa1ab',panel:'#1f2227',bg:'#17191d',line:'#31363d'};
+const C={accent:'#61a8f5',info:'#7aa7ff',ok:'#40ba52',warn:'#d99f21',bad:'#f7756e',muted:'#9aa2ac',panel:'#202328',bg:'#17191c',line:'#32373e'};
 const NOW=new Date('2026-10-18T14:20:00Z');
 const DAY=864e5;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -616,8 +665,8 @@ function barList(items,o){o=o||{};const max=Math.max(1,...items.map(i=>i.value))
 function gated(title,why){return `<div class="gated"><div><b>${esc(title)}</b>${why}</div></div>`}
 const NO_REMEDIATION='Remediation is not enabled on this deployment: no Remediation App is installed (<code>Status.apps</code>). Fills in with IMPL-0030.';
 // Tabler Icons (@tabler/icons 3.49.0, MIT), stroke 2 (INV-0024).
-const TABLER_NAMES={"wrench":"tool","grid":"layout-grid","list":"list-check","boxes":"building","activity":"activity","repo":"folder-code","chart":"chart-line","file":"file-text","check":"circle-check","book":"book","shield":"shield-check","search":"search","clock":"clock","ext":"arrow-up-right"};
-const TABLER_BODY={wrench:'<path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" />',grid:'<path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" />',list:'<path d="M3.5 5.5l1.5 1.5l2.5 -2.5" /><path d="M3.5 11.5l1.5 1.5l2.5 -2.5" /><path d="M3.5 17.5l1.5 1.5l2.5 -2.5" /><path d="M11 6l9 0" /><path d="M11 12l9 0" /><path d="M11 18l9 0" />',boxes:'<path d="M3 21l18 0" /><path d="M9 8l1 0" /><path d="M9 12l1 0" /><path d="M9 16l1 0" /><path d="M14 8l1 0" /><path d="M14 12l1 0" /><path d="M14 16l1 0" /><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16" />',activity:'<path d="M3 12h4l3 8l4 -16l3 8h4" />',repo:'<path d="M11 19h-6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v4" /><path d="M20 21l2 -2l-2 -2" /><path d="M17 17l-2 2l2 2" />',chart:'<path d="M4 19l16 0" /><path d="M4 15l4 -6l4 2l4 -5l4 4" />',file:'<path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 9l1 0" /><path d="M9 13l6 0" /><path d="M9 17l6 0" />',check:'<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" />',book:'<path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" />',shield:'<path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /><path d="M15 19l2 2l4 -4" />',search:'<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" />',clock:'<path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" />',ext:'<path d="M17 7l-10 10" /><path d="M8 7l9 0l0 9" />'};
+const TABLER_NAMES={"wrench":"tool","grid":"layout-grid","list":"list-check","boxes":"building","activity":"activity","repo":"folder-code","chart":"chart-line","file":"file-text","check":"circle-check","book":"book","shield":"shield-check","search":"search","clock":"clock","ext":"arrow-up-right","sidebar":"layout-sidebar","selector":"selector"};
+const TABLER_BODY={sidebar:'<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12" /><path d="M9 4l0 16" />',selector:'<path d="M8 9l4 -4l4 4" /><path d="M16 15l-4 4l-4 -4" />',wrench:'<path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" />',grid:'<path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /><path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" />',list:'<path d="M3.5 5.5l1.5 1.5l2.5 -2.5" /><path d="M3.5 11.5l1.5 1.5l2.5 -2.5" /><path d="M3.5 17.5l1.5 1.5l2.5 -2.5" /><path d="M11 6l9 0" /><path d="M11 12l9 0" /><path d="M11 18l9 0" />',boxes:'<path d="M3 21l18 0" /><path d="M9 8l1 0" /><path d="M9 12l1 0" /><path d="M9 16l1 0" /><path d="M14 8l1 0" /><path d="M14 12l1 0" /><path d="M14 16l1 0" /><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16" />',activity:'<path d="M3 12h4l3 8l4 -16l3 8h4" />',repo:'<path d="M11 19h-6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v4" /><path d="M20 21l2 -2l-2 -2" /><path d="M17 17l-2 2l2 2" />',chart:'<path d="M4 19l16 0" /><path d="M4 15l4 -6l4 2l4 -5l4 4" />',file:'<path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 9l1 0" /><path d="M9 13l6 0" /><path d="M9 17l6 0" />',check:'<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" />',book:'<path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" />',shield:'<path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /><path d="M15 19l2 2l4 -4" />',search:'<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" />',clock:'<path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" />',ext:'<path d="M17 7l-10 10" /><path d="M8 7l9 0l0 9" />'};
 const ICON=Object.fromEntries(Object.entries(TABLER_BODY).map(([k,b])=>[k,`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${k==='ext'?' width="12" height="12" style="vertical-align:-1px"':''}>${b}</svg>`]));
 
 /* evidence is text only (lib/evidence.ts): head by reason for framework evidence, else by
@@ -708,10 +757,10 @@ function wireCharts(root){
 /* ------------------------------------------------------------------ */
 /* router + state                                                      */
 /* ------------------------------------------------------------------ */
-const state={gg:{},pop:null,exports:{}};
+const state={gg:{},pop:null,exports:{},sheet:false};
 function route(){const h=location.hash.replace(/^#\/?/,'');const [path,qs]=h.split('?');const q=Object.fromEntries(new URLSearchParams(qs||''));return {parts:path?path.split('/'):[],q}}
 function go(path,q,keep){const cur=route().q;const next=Object.assign({},keep===false?{}:{org:cur.org,days:cur.days},q||{});Object.keys(next).forEach(k=>(next[k]==null||next[k]==='')&&delete next[k]);const qs=new URLSearchParams(next).toString();location.hash='#/'+path+(qs?'?'+qs:'')}
-window.addEventListener('hashchange',render);
+window.addEventListener('hashchange',()=>{state.sheet=false;render()});
 const days=()=>+(route().q.days||30);
 
 /* ------------------------------------------------------------------ */
@@ -725,22 +774,28 @@ const NAV=[
 function shell(crumb,main){
   const {parts,q}=route();const me=api.me();const initials=me.name.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();const pol=api.policies();
   const cur=parts[0]||'';const keep=new URLSearchParams(Object.fromEntries(Object.entries({org:q.org,days:q.days}).filter(([,v])=>v))).toString();
-  return `<div class="shell">
-  <div class="topbar">
-    <a class="brand" href="#/">${ICON.shield}<span>Repo Guardian</span><small>compliance</small></a>
-    <span class="sp"></span>
-    <button class="tb-btn mock-flag" data-act="mock-remediate" title="Mockup only: preview the remediation-gated panels with a Remediation App installed">mockup · remediation ${remediationOn()?'on':'off'}</button>
-    <button class="tb-btn" data-act="palette">${ICON.search}<span>Search</span><kbd>⌘K</kbd></button>
-    <button class="tb-btn" data-act="tz" title="Time zone for every timestamp">${ICON.clock}<span>${tz()==='utc'?'UTC':'Local'}</span></button>
-    <button class="avatar" data-act="pop" data-pop="user" aria-label="Account menu">${esc(initials)}</button>
-  </div>
-  <div class="body">
-    <nav class="side" aria-label="Primary">
-      ${NAV.map(n=>n.g?`<div class="g">${n.g}</div>`:n.to==null?`<a class="nav" href="${n.href}" target="_blank" rel="noopener noreferrer">${ICON[n.icon]}<span>${n.label}</span></a>`:`<a class="nav ${cur===n.to||(n.to==='repositories'&&cur==='repositories')?'cur':''}" href="#/${n.to}${keep?'?'+keep:''}">${ICON[n.icon]}<span>${n.label}</span>${n.count&&n.count()?`<em>${n.count()}</em>`:''}</a>`).join('')}
-      <div class="foot"><a href="#/policy">policy ${esc(pol.version.slice(0,17))} · rollout complete</a></div>
+  const rail=localStorage.getItem('rg.sidebar')==='collapsed';
+  return `<div class="shell ${rail?'rail':''} ${state.sheet?'sheet':''}">
+  <aside class="side">
+    <a class="id" href="#/" title="Repo Guardian"><span class="mark">${ICON.shield}</span><span class="who"><b>Repo Guardian</b><small>compliance · read-only</small></span></a>
+    <nav class="navs" aria-label="Primary">
+      ${NAV.map(n=>n.g?`<div class="g">${n.g}</div>`:n.to==null?`<a class="nav" href="${n.href}" target="_blank" rel="noopener noreferrer" title="${n.label}">${ICON[n.icon]}<span>${n.label}</span><i class="ext">${ICON.ext}</i></a>`:`<a class="nav ${cur===n.to||(n.to==='repositories'&&cur==='repositories')?'cur':''}" ${cur===n.to?'aria-current="page"':''} title="${n.label}" href="#/${n.to}${keep?'?'+keep:''}">${ICON[n.icon]}<span>${n.label}</span>${n.count&&n.count()?`<em>${n.count()}</em>`:''}</a>`).join('')}
     </nav>
+    <div class="foot"><a href="#/policy">policy ${esc(pol.version.slice(0,17))} · rollout complete</a></div>
+    <button class="acct" data-act="pop" data-pop="user" aria-label="Account menu"><span class="mark user">${esc(initials)}</span><span class="who"><b>${esc(me.name)}</b><small>${esc(me.subject)}</small></span><i class="sel">${ICON.selector}</i></button>
+  </aside>
+  <div class="side-scrim" data-act="side" aria-hidden="true"></div>
+  <div class="inset">
+    <div class="topbar">
+      <button class="trig" data-act="side" aria-label="Toggle sidebar" title="Toggle sidebar (⌘B)">${ICON.sidebar}</button>
+      <span class="vr"></span>
+      <nav class="crumbs" aria-label="Breadcrumb">${crumb.map((c,i)=>i===crumb.length-1?`<b aria-current="page">${esc(c.l||c)}</b>`:`${c.p!=null?`<a href="#/${c.p}">${esc(c.l)}</a>`:`<span style="margin:0">${esc(c.l||c)}</span>`}<span>/</span>`).join('')}</nav>
+      <span class="sp"></span>
+      <button class="tb-btn mock-flag" data-act="mock-remediate" title="Mockup only: preview the remediation-gated panels with a Remediation App installed">mockup · remediation ${remediationOn()?'on':'off'}</button>
+      <button class="tb-btn" data-act="palette">${ICON.search}<span>Search</span><kbd>⌘K</kbd></button>
+      <div class="tzg" role="group" aria-label="Time zone"><button data-act="tz" data-tz="utc" aria-pressed="${tz()==='utc'}">UTC</button><button data-act="tz" data-tz="local" aria-pressed="${tz()!=='utc'}">Local</button></div>
+    </div>
     <main class="main">
-      <div class="crumbs">${crumb.map((c,i)=>i===crumb.length-1?`<b>${esc(c.l||c)}</b>`:`${c.p!=null?`<a href="#/${c.p}">${esc(c.l)}</a>`:`<span style="margin:0">${esc(c.l||c)}</span>`}<span>/</span>`).join('')}</div>
       ${main}
     </main>
   </div></div>`;
@@ -996,7 +1051,7 @@ function openPop(anchor,kind){closePop();const scrim=document.createElement('div
   else if(kind.startsWith('filter:')){const key=kind.slice(7);
     if(!key){pop.innerHTML=`<div class="hd">Add filter</div>${FILTERS.map(([k])=>{const dis=(k==='rule'&&!q.control)||(k==='pr_stale'&&!remediationOn());return `<button class="it" data-filter="${k}" ${dis?'disabled style="opacity:.45;cursor:not-allowed"':''}>${k}<small>${k==='rule'&&!q.control?'choose a control first':k==='pr_stale'&&!remediationOn()?'remediation not enabled':''}</small></button>`}).join('')}`;pop.addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b&&!b.disabled)openPop(anchor,'filter:'+b.dataset.filter)})}
     else{const vals=FILTERS.find(([k])=>k===key)[1]();pop.innerHTML=`<div class="hd">${esc(key)}</div><button class="it" data-val="">any</button>${vals.map(v=>`<button class="it ${q[key]===v?'cur':''}" data-val="${esc(v)}">${esc(v)}</button>`).join('')}`;pop.addEventListener('click',e=>{const b=e.target.closest('[data-val]');if(!b)return;const nq=Object.assign({},route().q);if(b.dataset.val)nq[key]=b.dataset.val;else delete nq[key];if(key==='control')delete nq.rule;delete nq.open;go('findings',nq)})}}
-  document.body.appendChild(pop);const r=anchor.getBoundingClientRect();pop.style.top=(r.bottom+6)+'px';pop.style.left=Math.min(window.innerWidth-pop.offsetWidth-8,r.left)+'px';state.pop=kind;
+  document.body.appendChild(pop);const r=anchor.getBoundingClientRect();if(kind==='user'){pop.style.top=Math.max(8,r.bottom-pop.offsetHeight)+'px';pop.style.left=Math.min(window.innerWidth-pop.offsetWidth-8,r.right+6)+'px'}else{pop.style.top=(r.bottom+6)+'px';pop.style.left=Math.min(window.innerWidth-pop.offsetWidth-8,r.left)+'px'}state.pop=kind;
 }
 function openPalette(){closePop();const scrim=document.createElement('div');scrim.className='scrim';scrim.addEventListener('click',closePop);document.body.appendChild(scrim);
   const pal=document.createElement('div');pal.className='pal';pal.setAttribute('role','dialog');pal.setAttribute('aria-label','Search');pal.innerHTML=`<input placeholder="Search repositories, controls, orgs…" aria-label="Search"><div class="res"></div>`;document.body.appendChild(pal);const inp=pal.querySelector('input'),res=pal.querySelector('.res');let cur=0,items=[];
@@ -1028,7 +1083,8 @@ document.addEventListener('click',e=>{
   else if(act==='pop')openPop(b,b.dataset.pop);
   else if(act==='palette')openPalette();
   else if(act==='mock-remediate'){localStorage.setItem('rg.mock.remediate',remediationOn()?'off':'on');render()}
-  else if(act==='tz'){localStorage.setItem('rg.tz',tz()==='utc'?'local':'utc');render()}
+  else if(act==='tz'){localStorage.setItem('rg.tz',b.dataset.tz);render()}
+  else if(act==='side'){if(window.innerWidth<768)state.sheet=!state.sheet;else localStorage.setItem('rg.sidebar',localStorage.getItem('rg.sidebar')==='collapsed'?'expanded':'collapsed');render()}
   else if(act==='toast')toast('Mockup: this action is not wired.');
 });
 document.addEventListener('change',e=>{const t=e.target;const {q}=route();
@@ -1037,7 +1093,7 @@ document.addEventListener('change',e=>{const t=e.target;const {q}=route();
   else if(t.matches('[data-act="repo-search"]'))go('repositories',Object.assign({},q,{q:t.value}));
   else if(t.matches('[data-act="org-search"]'))go('orgs',Object.assign({},q,{q:t.value}));
 });
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}else if(e.key==='Escape'){if(state.pop||document.querySelector('.pal'))closePop();else if(route().q.open)go(route().parts[0]==='remediations'?'remediations':'findings',Object.assign({},route().q,{open:''}))}else if(e.key==='Enter'&&e.target.matches('tr[data-act="open"],tr[data-act="ropen"]'))e.target.click()});
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='b'){e.preventDefault();document.querySelector('[data-act="side"]').click()}else if(e.key==='Escape'){if(state.pop||document.querySelector('.pal'))closePop();else if(route().q.open)go(route().parts[0]==='remediations'?'remediations':'findings',Object.assign({},route().q,{open:''}))}else if(e.key==='Enter'&&e.target.matches('tr[data-act="open"],tr[data-act="ropen"]'))e.target.click()});
 render();
 })();
 </script>

@@ -14,6 +14,8 @@ created: 2026-06-22
 **Date:** 2026-06-22
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -36,8 +38,8 @@ created: 2026-06-22
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
   - [Unit tests (internal/queue/valkey/)](#unit-tests-internalqueuevalkey)
-  - [Behaviour tests (inline in valkeyintegrationtest.go)](#behaviour-tests-inline-in-valkeyintegrationtestgo)
-  - [Integration tests (integrationtest.go)](#integration-tests-integrationtestgo)
+  - [Behaviour tests (inline in valkey_integration_test.go)](#behaviour-tests-inline-in-valkey_integration_testgo)
+  - [Integration tests (_integration_test.go)](#integration-tests-_integration_testgo)
   - [Chaos tests](#chaos-tests)
 - [Migration / Rollout Plan](#migration--rollout-plan)
   - [Phase 1 — Feature flag (default off)](#phase-1--feature-flag-default-off)
@@ -46,6 +48,7 @@ created: 2026-06-22
   - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

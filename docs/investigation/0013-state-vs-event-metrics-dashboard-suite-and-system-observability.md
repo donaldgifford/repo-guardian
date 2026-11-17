@@ -14,6 +14,8 @@ created: 2026-08-01
 **Date:** 2026-08-01
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -33,6 +35,7 @@ created: 2026-08-01
 - [Recommendation](#recommendation)
 - [Disposition (2026-08-14)](#disposition-2026-08-14)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

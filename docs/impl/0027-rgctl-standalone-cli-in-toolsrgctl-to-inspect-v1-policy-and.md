@@ -11,6 +11,8 @@ created: 2026-10-05
 # IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -49,6 +51,7 @@ created: 2026-10-05
   - [OQ8: Is the module's coverage reported?](#oq8-is-the-modules-coverage-reported)
   - [OQ9: Where do the reader's fixtures come from?](#oq9-where-do-the-readers-fixtures-come-from)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

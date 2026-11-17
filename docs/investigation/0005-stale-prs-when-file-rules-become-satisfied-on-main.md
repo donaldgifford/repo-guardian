@@ -14,6 +14,8 @@ created: 2026-05-26
 **Date:** 2026-05-26
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -22,7 +24,7 @@ created: 2026-05-26
 - [Findings](#findings)
   - [Observation 1 — file rules: gap confirmed](#observation-1--file-rules-gap-confirmed)
   - [Observation 2 — setting rules: convergent](#observation-2--setting-rules-convergent)
-  - [Observation 3 — branch_protection rules: convergent](#observation-3--branchprotection-rules-convergent)
+  - [Observation 3 — branch_protection rules: convergent](#observation-3--branch_protection-rules-convergent)
   - [Observation 4 — reconcilers: idempotent](#observation-4--reconcilers-idempotent)
   - [Observation 5 — legacy engine has the same gap](#observation-5--legacy-engine-has-the-same-gap)
 - [Code references](#code-references)
@@ -47,6 +49,7 @@ created: 2026-05-26
   - [Scale considerations (4000+ repos)](#scale-considerations-4000-repos)
   - [Updated IMPL sequence](#updated-impl-sequence)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

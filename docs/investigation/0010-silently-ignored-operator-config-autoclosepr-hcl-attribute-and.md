@@ -14,17 +14,20 @@ created: 2026-07-20
 **Date:** 2026-07-20
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
 - [Approach](#approach)
 - [Findings](#findings)
-  - [Observation 1 — autoclosepr in HCL is dead: two independent gaps](#observation-1--autoclosepr-in-hcl-is-dead-two-independent-gaps)
+  - [Observation 1 — auto_close_pr in HCL is dead: two independent gaps](#observation-1--auto_close_pr-in-hcl-is-dead-two-independent-gaps)
   - [Observation 2 — the root cause is the guardian block's permissive decode](#observation-2--the-root-cause-is-the-guardian-blocks-permissive-decode)
   - [Observation 3 — chart existingSecret knobs are silently ignored cross-mode](#observation-3--chart-existingsecret-knobs-are-silently-ignored-cross-mode)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

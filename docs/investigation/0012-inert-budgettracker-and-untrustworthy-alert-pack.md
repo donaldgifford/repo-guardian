@@ -21,6 +21,8 @@ created: 2026-07-25
 > recommendation is about the queue.
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -41,6 +43,7 @@ created: 2026-07-25
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

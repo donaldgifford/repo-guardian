@@ -11,6 +11,8 @@ created: 2026-10-05
 # DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -43,6 +45,7 @@ created: 2026-10-05
   - [OQ9: How is it distributed?](#oq9-how-is-it-distributed)
   - [OQ10: What does the default pointer comment say?](#oq10-what-does-the-default-pointer-comment-say)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

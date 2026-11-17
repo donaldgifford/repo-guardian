@@ -15,6 +15,8 @@ created: 2026-10-15
 > mockup `ui/design/repo-guardian-mockup.html` is kept in step with it.
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -46,6 +48,7 @@ created: 2026-10-15
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

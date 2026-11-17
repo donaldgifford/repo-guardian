@@ -11,6 +11,8 @@ created: 2026-10-01
 # DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -50,6 +52,7 @@ created: 2026-10-01
   - [OQ9: Where does the certificate-expiry alert live?](#oq9-where-does-the-certificate-expiry-alert-live)
   - [OQ10: Should the ScaledObject set a fallback?](#oq10-should-the-scaledobject-set-a-fallback)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

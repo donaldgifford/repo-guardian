@@ -14,6 +14,8 @@ created: 2026-06-22
 **Date:** 2026-06-22
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -28,7 +30,7 @@ created: 2026-06-22
   - [Per-reconcile Store update — the missing half](#per-reconcile-store-update--the-missing-half)
   - [Pacing — two layered mechanisms](#pacing--two-layered-mechanisms)
   - [Layer 1 — Budget-aware enqueueing (primary)](#layer-1--budget-aware-enqueueing-primary)
-  - [Layer 2 — Jittered initial lastcheckedat (secondary)](#layer-2--jittered-initial-lastcheckedat-secondary)
+  - [Layer 2 — Jittered initial last_checked_at (secondary)](#layer-2--jittered-initial-last_checked_at-secondary)
   - [Cross-replica coordination](#cross-replica-coordination)
   - [Discovery-only Sweeper mode](#discovery-only-sweeper-mode)
   - [Webhook-driven incremental discovery](#webhook-driven-incremental-discovery)
@@ -46,7 +48,7 @@ created: 2026-06-22
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
   - [Unit tests](#unit-tests)
-  - [Integration tests (integrationtest.go)](#integration-tests-integrationtestgo)
+  - [Integration tests (_integration_test.go)](#integration-tests-_integration_testgo)
   - [Cutover validation](#cutover-validation)
   - [Chart tests (helm-unittest)](#chart-tests-helm-unittest)
 - [Migration / Rollout Plan](#migration--rollout-plan)
@@ -58,6 +60,7 @@ created: 2026-06-22
   - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

@@ -15,6 +15,8 @@ created: 2026-09-24
 **Date:** 2026-09-24
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -41,6 +43,7 @@ created: 2026-09-24
 - [Risks](#risks)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

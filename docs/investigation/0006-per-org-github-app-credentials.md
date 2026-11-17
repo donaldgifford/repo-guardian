@@ -14,6 +14,8 @@ created: 2026-05-26
 **Date:** 2026-05-26
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -29,6 +31,7 @@ created: 2026-05-26
   - [What is not a trigger](#what-is-not-a-trigger)
 - [Initial-scale guidance](#initial-scale-guidance)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

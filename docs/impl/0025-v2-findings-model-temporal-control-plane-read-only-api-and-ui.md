@@ -14,6 +14,8 @@ created: 2026-09-25
 **Date:** 2026-09-25
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -96,6 +98,7 @@ created: 2026-09-25
 - [Dependencies](#dependencies)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

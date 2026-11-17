@@ -11,6 +11,8 @@ created: 2026-10-04
 # DESIGN-0034: CODEOWNERS ownership control
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -29,6 +31,7 @@ created: 2026-10-04
 - [Open Questions](#open-questions)
   - [OQ1: What does "pattern is owned by owners" mean for CODEOWNERS?](#oq1-what-does-pattern-is-owned-by-owners-mean-for-codeowners)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 > **Deferred, not decided (2026-10-04).** This document holds the in-depth CODEOWNERS design that DESIGN-0031 carried until 2026-10-04: ownership rules, effective ownership under GitHub's last-match-wins, the CODEOWNERS errors endpoint. The maintainer deferred all of it. This version of repo-guardian's `codeowners` control is existence plus template (DESIGN-0031 D11), exactly v1's behaviour, because repo-guardian should not be the first option used for ownership enforcement. Everything below is provisional: carried over with the adversarial-review corrections applied, and open to re-design when a team needs it. Nothing here is an input to the IMPL plan for the controls model.

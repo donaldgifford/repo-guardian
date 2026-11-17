@@ -11,6 +11,8 @@ created: 2026-10-02
 # DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -43,6 +45,7 @@ created: 2026-10-02
   - [OQ3: What are the GitHub property keys called?](#oq3-what-are-the-github-property-keys-called)
   - [OQ4: Should repo-guardian publish repository compliance into Wiz?](#oq4-should-repo-guardian-publish-repository-compliance-into-wiz)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

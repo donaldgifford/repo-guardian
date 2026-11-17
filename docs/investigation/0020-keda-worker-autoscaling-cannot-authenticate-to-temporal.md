@@ -11,6 +11,8 @@ created: 2026-10-01
 # INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -35,6 +37,7 @@ created: 2026-10-01
   - [Open questions](#open-questions)
 - [Future work: a shared Temporal auth package](#future-work-a-shared-temporal-auth-package)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

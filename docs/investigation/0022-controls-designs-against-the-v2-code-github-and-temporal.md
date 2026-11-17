@@ -11,6 +11,8 @@ created: 2026-10-06
 # INV-0022: Controls designs against the v2 code, GitHub and Temporal
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Question](#question)
 - [Hypothesis](#hypothesis)
 - [Context](#context)
@@ -39,7 +41,29 @@ created: 2026-10-06
 - [Recommendation](#recommendation)
   - [Decisions](#decisions)
   - [Phase-0 spikes](#phase-0-spikes)
+- [Phase-0 results](#phase-0-results)
+  - [Dev Temporal baseline (IMPL-0028 0.1)](#dev-temporal-baseline-impl-0028-01)
+  - [Bringing dev in line (IMPL-0028 0.2)](#bringing-dev-in-line-impl-0028-02)
+  - [OIDC smoke (IMPL-0028 0.3)](#oidc-smoke-impl-0028-03)
+  - [Budget burst (IMPL-0028 0.4)](#budget-burst-impl-0028-04)
+  - [Budget branch on the live build (IMPL-0028 0.5)](#budget-branch-on-the-live-build-impl-0028-05)
+  - [Backlog metric on the homelab Prometheus (IMPL-0028 5.6)](#backlog-metric-on-the-homelab-prometheus-impl-0028-56)
+  - [Spike 1: GraphQL commit (IMPL-0028 0.6)](#spike-1-graphql-commit-impl-0028-06)
+  - [Spike 2: update-branch (IMPL-0028 0.7)](#spike-2-update-branch-impl-0028-07)
+  - [Spike 3: Evaluation App minimal permissions (IMPL-0028 0.8)](#spike-3-evaluation-app-minimal-permissions-impl-0028-08)
+  - [Spike 4: installation_repositories on an all-repositories install (IMPL-0028 0.9)](#spike-4-installation_repositories-on-an-all-repositories-install-impl-0028-09)
+  - [Spike 5: Temporal behaviours (IMPL-0028 0.10)](#spike-5-temporal-behaviours-impl-0028-010)
+  - [Spike 6: Database role provisioning (IMPL-0028 0.11)](#spike-6-database-role-provisioning-impl-0028-011)
+  - [Spike 7: Template sourcing (IMPL-0028 0.12)](#spike-7-template-sourcing-impl-0028-012)
+  - [Spike 8: Policy revert (IMPL-0028 0.13)](#spike-8-policy-revert-impl-0028-013)
+  - [Spike 9: Per-role deployment rehearsal (IMPL-0028 0.14)](#spike-9-per-role-deployment-rehearsal-impl-0028-014)
+  - [Spike 10: Label case (IMPL-0028 0.15)](#spike-10-label-case-impl-0028-015)
+  - [rc.6 through Argo CD on the homelab (IMPL-0028 8.8)](#rc6-through-argo-cd-on-the-homelab-impl-0028-88)
+  - [Phase-0 open questions](#phase-0-open-questions)
+    - [OQ1: What activates a policy version?](#oq1-what-activates-a-policy-version)
+    - [OQ2: Should installation_repositories.added on an all-repositories installation still run a full installation discovery?](#oq2-should-installation_repositoriesadded-on-an-all-repositories-installation-still-run-a-full-installation-discovery)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Question

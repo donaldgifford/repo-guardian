@@ -11,6 +11,8 @@ created: 2026-10-07
 # IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -72,6 +74,7 @@ created: 2026-10-07
   - [OQ19: last_evaluated_at once checks are pruned](#oq19-last_evaluated_at-once-checks-are-pruned)
   - [OQ20: Where the Held list reads branch holds from](#oq20-where-the-held-list-reads-branch-holds-from)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

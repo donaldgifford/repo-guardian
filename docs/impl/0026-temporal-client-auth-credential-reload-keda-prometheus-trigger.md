@@ -11,6 +11,8 @@ created: 2026-10-01
 # IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -48,6 +50,7 @@ created: 2026-10-01
   - [OQ6: One rc, or two?](#oq6-one-rc-or-two)
   - [OQ7: Should the expiry gauge carry a label for which certificate it is?](#oq7-should-the-expiry-gauge-carry-a-label-for-which-certificate-it-is)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 > **Scope change (2026-10-07):** the KEDA Prometheus trigger moved to

@@ -11,6 +11,8 @@ created: 2026-10-02
 # DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
   - [Document set](#document-set)
 - [Goals and Non-Goals](#goals-and-non-goals)
@@ -40,6 +42,7 @@ created: 2026-10-02
 - [Open Questions](#open-questions)
   - [OQ1: When does the controls model land relative to v2.0.0?](#oq1-when-does-the-controls-model-land-relative-to-v200)
   - [OQ2: Where does this work happen?](#oq2-where-does-this-work-happen)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

@@ -252,7 +252,7 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 `web/testing/dom.ts`: preload `@base-ui/react` and `cmdk` where it preloads `radix-ui`. Run the whole unit suite twice in different file orders to show the portal failure the file guards against does not return.
+- [ ] 4.1 `web/testing/preload.ts` (the bunfig preload from #254): load `@base-ui/react` and `cmdk` under the temporary document, beside `radix-ui`, and drop `radix-ui` from it in Phase 7. Rendering test files keep `withDOM(cleanup)`. Run the unit suite in CI's file order and in 20 shuffled orders to show no overlay test depends on which file loads first.
 - [ ] 4.2 `ui/button` to `components/button`. Give the three calls with no `variant` (`LoadMore`'s former call site if any remains, `OrgScope`, `views/repositories.tsx`) `variant="outline"`. Replace the four `<Link><Button tabIndex={-1}>` nestings with `render={<Link …/>}`.
 - [ ] 4.3 `ui/badge` to `components/badge` with `variant`; rebuild every badge in `components/badges.tsx` on it. `HoldBadge` keeps its sentence as the title.
 - [ ] 4.4 `ui/avatar` to `components/avatar` at its current call site (it moves again in Phase 6).
@@ -435,7 +435,7 @@ The change is released as v2.1.0 and the documents say what the code now does.
 | `ui/web/index.html`, `web/src/index.css`, `web/src/main.tsx` | Modify | `class="dark"`, one import, no font imports |
 | `ui/scripts/check-tokens.ts` (+ test) | Create | fails on a removed token name |
 | `ui/eslint.config.js`, `ui/scripts/eslint-ban.test.ts` | Modify | Radix import ban and its proof |
-| `ui/web/testing/dom.ts` | Modify | preload Base UI and cmdk |
+| `ui/web/testing/preload.ts` | Modify | preload Base UI and cmdk |
 | `ui/web/src/components/ui/`, `components/charts/` | Delete | replaced by the package |
 | `components/time.tsx`, `ExportButton.tsx`, `LoadMore.tsx`, `lib/{csv,time,utils,use-media-query}.ts` | Delete | replaced by the package |
 | `components/Panel.tsx`, `SegmentedTabs.tsx`, `OptionRows.tsx`, `DeltaText.tsx` | Create | the local survivors, on package parts |
@@ -477,6 +477,7 @@ The change is released as v2.1.0 and the documents say what the code now does.
   maintainer (task 1.13). Not needed for CI if `GITHUB_TOKEN` is
   accepted (task 1.8).
 - Docker and Go locally for the e2e and visual suites.
+- #254 (the unit suite no longer depends on test file order) merged.
 - Not a dependency: renovate-config#18.
 
 ## Open Questions

@@ -2,14 +2,14 @@
 import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
-import { render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
 import { type Column, DataTable } from "./data-table";
 import { GridChildRows, type GridColumn, type GridRow, GroupGrid, heatStyle, share, shareText } from "./group-grid";
 
-withDOM();
+withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 interface Row {

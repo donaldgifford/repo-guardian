@@ -2,14 +2,14 @@
 import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AppHarness, testConfig, testMe } from "../../../testing/app";
 import { SidebarNav } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
-withDOM();
+withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 describe("SidebarNav", () => {

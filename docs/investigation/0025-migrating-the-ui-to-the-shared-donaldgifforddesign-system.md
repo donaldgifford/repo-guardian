@@ -41,7 +41,7 @@ created: 2026-11-16
 ## Question
 
 What exactly has to change in `ui/` to replace its own design tokens and
-components with `@donaldgifford/design-system` (0.2.0 or later), so that
+components with `@donaldgifford/design-system` (0.2.1 or later), so that
 `ui/web/src` keeps no local copy of anything the package provides and `radix-ui`
 leaves `ui/package.json`, with the UI looking the same apart from differences a
 design doc lists and accepts?
@@ -166,7 +166,7 @@ Measured on `main` at `fe48e6c` (2026-11-16).
 
 | Component                      | Version / Value                                                                                        |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `@donaldgifford/design-system` | 0.2.0 or later (not installed); F6 read 0.1.1 |
+| `@donaldgifford/design-system` | 0.2.1 or later (not installed; the spike ran 0.2.0); F6 read 0.1.1 |
 | Bun                            | 1.3.14                                                                                                 |
 | TypeScript                     | 5.9.3, with `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax` |
 | React                          | 19.3.0                                                                                                 |
@@ -431,12 +431,15 @@ to adopt `listSearchSchema` or its `page`/`size` params, and with
 `manual` and no `total` the footer and pager do not render. The 14
 embedded tables are the same call without `manual`.
 
-One trap: an unbound `manual` table still renders a sort button on any
-sortable column. It keeps its own sort state and shows the arrow, but
-`manualSorting` means the rows do not move. Columns for these lists
-must be display columns or set `enableSorting: false`. Embedded tables
-gain a working client-side header sort unless the same is done there;
-whether that is wanted is a design decision.
+One trap, found in 0.2.0 and fixed in **0.2.1**: an unbound `manual`
+table rendered a sort button on any sortable column, which flipped its
+arrow while the rows stayed put. Reported on design-system#11; 0.2.1
+turns sorting off when the table is `manual` and has no
+`onSearchChange` (`enableSorting: !(manual && onSearchChangeProp ===
+undefined)`, read at `v0.2.1`, `2328b3b`), so the call above needs no
+per-column setting. Embedded tables, which are not `manual`, gain a
+working client-side header sort; whether that is wanted is a design
+decision.
 
 Call-site changes, not gaps: `Column<T>` becomes
 `dataTableColumns<T>()` definitions; `rowKey`/`selectedKey`/`onActivate`
@@ -460,7 +463,7 @@ become `getRowId`/`selectedId`/`onRowClick`; the focus-return lookup
 
 ## Conclusion
 
-**Answer:** Yes. With `@donaldgifford/design-system` 0.2.0 the UI can
+**Answer:** Yes. With `@donaldgifford/design-system` 0.2.1 the UI can
 drop its local tokens, `components/ui`, `components/charts`, the shell
 and `radix-ui`, and nothing found blocks it.
 
@@ -487,7 +490,7 @@ change.
 
 ## Recommendation
 
-Write the design doc for the migration against 0.2.0, starting from
+Write the design doc for the migration against 0.2.1, starting from
 the issue's seven stages with these changes:
 
 1. Pin `@donaldgifford/design-system` exactly, as a `devDependency`,

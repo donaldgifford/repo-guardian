@@ -2,13 +2,13 @@
 import { withDOM } from "../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 
 import { AppHarness } from "../../testing/app";
 import { NOT_ENABLED } from "../components/GatedPanel";
 import { OpenPRsPanel, ThroughputPanel } from "./fleet";
 
-withDOM();
+withDOM(cleanup);
 
 const buckets = [
   { bucket: "<1d", count: 1 },

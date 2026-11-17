@@ -3,7 +3,7 @@ import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
 import { RouterProvider } from "@tanstack/react-router";
-import { render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { testRouter } from "../../../testing/app";
@@ -11,7 +11,7 @@ import { KindBadge } from "../badges";
 import { BreadcrumbList, crumbsFor } from "./Breadcrumbs";
 import { PageHeader } from "./PageHeader";
 
-withDOM();
+withDOM(cleanup);
 
 describe("crumbsFor", () => {
   test.each([

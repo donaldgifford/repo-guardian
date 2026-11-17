@@ -2,12 +2,12 @@
 import { withDOM } from "../../testing/dom";
 
 import { expect, test } from "bun:test";
-import { render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ExportButton } from "./ExportButton";
 
-withDOM();
+withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 const columns = { head: ["org", "tracked"], row: (o: { org: string; tracked: number }) => [o.org, o.tracked] };

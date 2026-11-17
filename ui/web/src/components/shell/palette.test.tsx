@@ -4,7 +4,7 @@ import { withDOM } from "../../../testing/dom";
 import { describe, expect, test } from "bun:test";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
@@ -12,7 +12,7 @@ import type { Schemas } from "../../api/client";
 import { seededClient, testRouter } from "../../../testing/app";
 import { CommandPalette, paletteGroups } from "./CommandPalette";
 
-withDOM();
+withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 const controls = [

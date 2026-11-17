@@ -3,7 +3,7 @@ import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
@@ -14,7 +14,7 @@ import { Pill, PillGroup } from "./pill";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { nextTab, SearchTabs, Tabs } from "./tabs";
 
-withDOM();
+withDOM(cleanup);
 
 // Radix sets pointer-events: none on the body behind a modal; happy-dom
 // has no layout, so the check is switched off rather than modelled.

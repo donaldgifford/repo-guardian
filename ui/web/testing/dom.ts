@@ -44,9 +44,18 @@ await import("radix-ui");
 // this module is evaluated once per process: a second DOM test file
 // finds the import-time registration already undone by the first's
 // afterAll.
-export function withDOM(): void {
+//
+// A file that renders with testing-library passes its `cleanup`:
+// `withDOM(cleanup)`. Bun exposes no global afterEach, so the library's
+// automatic cleanup never registers, and a tree left mounted outlives
+// its document: the next file to unmount it fails on removeChild, in
+// whichever file the directory order puts next. The function is passed
+// in, not imported here, because testing-library binds to the window
+// present when it loads (see above).
+export function withDOM(unmount?: () => void): void {
   beforeAll(register);
   afterEach(() => {
+    unmount?.();
     document.body.innerHTML = "";
   });
   afterAll(async () => {

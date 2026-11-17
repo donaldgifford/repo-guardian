@@ -1,7 +1,7 @@
 // The DOM must exist before user-event loads: keep this first.
 import { withDOM } from "../../../testing/dom";
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -11,11 +11,7 @@ import { NOT_ENABLED } from "../GatedPanel";
 import { disabledReason, FilterChips } from "./FilterChips";
 import { chipsFromSearch, FILTER_KEYS, FILTER_OPTIONS, type FilterValues, patchFor, searchFromChips } from "./model";
 
-// Roots left mounted by one case would try to remove nodes the DOM reset
-// already dropped (happy-dom throws on removeChild), so unmount them
-// first: hooks run in registration order.
-afterEach(cleanup);
-withDOM();
+withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
 
 describe("filter model", () => {

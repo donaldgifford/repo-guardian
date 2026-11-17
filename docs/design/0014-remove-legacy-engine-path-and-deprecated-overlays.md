@@ -14,6 +14,8 @@ created: 2026-05-28
 **Date:** 2026-05-28
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
   - [Goals](#goals)
@@ -30,6 +32,7 @@ created: 2026-05-28
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Resolved Decisions](#resolved-decisions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Overview

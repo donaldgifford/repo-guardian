@@ -11,6 +11,8 @@ created: 2026-10-16
 # IMPL-0031: Frontend design refresh for the v2 UI
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -55,6 +57,7 @@ created: 2026-10-16
   - [OQ8: Phase 2 e2e breakage window](#oq8-phase-2-e2e-breakage-window)
   - [OQ9: Sidebar collapse breakpoint](#oq9-sidebar-collapse-breakpoint)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

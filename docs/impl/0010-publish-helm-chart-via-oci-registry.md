@@ -104,6 +104,8 @@ Process notes:
   pattern for any workflow that publishes artifacts.
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -141,6 +143,7 @@ Process notes:
 - [Dependencies](#dependencies)
 - [Resolved Questions](#resolved-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

@@ -14,12 +14,14 @@ created: 2026-07-20
 **Date:** 2026-07-20
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
-  - [Phase 0: Wire autoclosepr through the HCL loader](#phase-0-wire-autoclosepr-through-the-hcl-loader)
+  - [Phase 0: Wire auto_close_pr through the HCL loader](#phase-0-wire-auto_close_pr-through-the-hcl-loader)
     - [Tasks](#tasks)
     - [Success Criteria](#success-criteria)
   - [Phase 1: Chart render-time guard for cross-mode existingSecret](#phase-1-chart-render-time-guard-for-cross-mode-existingsecret)
@@ -34,6 +36,7 @@ created: 2026-07-20
 - [Rollback](#rollback)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

@@ -15,6 +15,8 @@ created: 2026-10-07
 **Date:** 2026-10-07
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Scope](#scope)
   - [In Scope](#in-scope)
@@ -45,6 +47,15 @@ created: 2026-10-07
   - [Phase 7: Documentation, verification and the release candidate](#phase-7-documentation-verification-and-the-release-candidate)
     - [Tasks](#tasks-7)
     - [Success Criteria](#success-criteria-7)
+  - [Phase 8: First install through Argo CD (chart 2.0.0-rc.6)](#phase-8-first-install-through-argo-cd-chart-200-rc6)
+    - [Tasks](#tasks-8)
+    - [Success Criteria](#success-criteria-8)
+  - [Phase 9: Drop Evaluation App deliveries until the switch-over (chart 2.0.0-rc.7)](#phase-9-drop-evaluation-app-deliveries-until-the-switch-over-chart-200-rc7)
+    - [Tasks](#tasks-9)
+    - [Success Criteria](#success-criteria-9)
+  - [Phase 10: Fleet history refetch loop (chart 2.0.0-rc.8)](#phase-10-fleet-history-refetch-loop-chart-200-rc8)
+    - [Tasks](#tasks-10)
+    - [Success Criteria](#success-criteria-10)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
@@ -60,7 +71,10 @@ created: 2026-10-07
   - [OQ9: How many PRs?](#oq9-how-many-prs)
   - [OQ10: Does all topology carry both Apps' keys?](#oq10-does-all-topology-carry-both-apps-keys)
   - [OQ11: Where does the controls chain live?](#oq11-where-does-the-controls-chain-live)
+  - [OQ12: Which sync-wave ladder?](#oq12-which-sync-wave-ladder)
+  - [OQ13: Does re-activating the current policy version change anything?](#oq13-does-re-activating-the-current-policy-version-change-anything)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

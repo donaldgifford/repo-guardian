@@ -14,6 +14,8 @@ created: 2026-06-23
 **Date:** 2026-06-23
 
 <!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
 - [Objective](#objective)
 - [Sequencing](#sequencing)
 - [Scope](#scope)
@@ -28,6 +30,7 @@ created: 2026-06-23
 - [Dependencies](#dependencies)
 - [Open Questions](#open-questions)
 - [References](#references)
+<!-- markdownlint-restore -->
 <!--toc:end-->
 
 ## Objective

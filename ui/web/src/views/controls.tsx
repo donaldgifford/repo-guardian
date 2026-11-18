@@ -3,7 +3,8 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useControl, useControls, useResults } from "../api/queries";
-import { BarList, type BarListItem, ChartCard, TrendChart, trendTable } from "../components/charts";
+import { BarList, type BarListItem, TrendChart, trendTable } from "../components/charts";
+import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
@@ -120,7 +121,7 @@ export function ControlView() {
           <div className="space-y-4 lg:col-span-2">
             <ChartCard
               title={`Compliance (${days}d)`}
-              subtitle={
+              description={
                 <>
                   <code>aggregate=control</code> over the orgs in scope.
                 </>

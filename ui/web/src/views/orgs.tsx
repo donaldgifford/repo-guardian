@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
-import { ChartCard, TrendChart, trendTable } from "../components/charts";
+import { TrendChart, trendTable } from "../components/charts";
+import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { GatedPanel, NOT_ENABLED } from "../components/GatedPanel";
@@ -342,7 +343,7 @@ export function OrgView() {
         </div>
         <ChartCard
           title={`Compliance (${days}d)`}
-          subtitle={
+          description={
             <>
               <code>aggregate=org</code>, every control in {o.org}.
             </>

@@ -3,7 +3,8 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { useComplianceHistory, useControls, useOrg, useOrgs, useRemediationActivity, useRemediationEnabled, useSummary } from "../api/queries";
-import { BarBuckets, BarList, bucketsTable, ChartCard, DistBar, PairBars, pairTable, Sparkline, TrendChart, trendTable } from "../components/charts";
+import { BarBuckets, BarList, bucketsTable, DistBar, PairBars, pairTable, Sparkline, TrendChart, trendTable } from "../components/charts";
+import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { gatedContent, NOT_ENABLED } from "../components/GatedPanel";
@@ -88,12 +89,12 @@ export function FleetView() {
           <ChartCard
             className="lg:col-span-2"
             title={`Compliance (${days}d)`}
-            subtitle={
+            description={
               <>
                 <code>/compliance/history?aggregate=fleet</code>: compliant ÷ (compliant + non_compliant), summed per day in SQL.
               </>
             }
-            right={
+            action={
               <Link to="/history" className="text-xs text-primary hover:underline">
                 full history
               </Link>
@@ -317,7 +318,7 @@ export function OpenPRsPanel({ enabled, buckets, org, className }: { enabled: bo
   return (
     <ChartCard
       title="Open PRs by age"
-      subtitle={
+      description={
         <>
           Open pull-request remediations by <code>created_at</code>; {STALE_BUCKET} is stale.
         </>
@@ -339,7 +340,7 @@ export function ThroughputPanel({ enabled, days, className }: { enabled: boolean
   return (
     <ChartCard
       title="PR throughput (14d)"
-      subtitle={
+      description={
         <>
           Pull-request remediations opened vs closed per day (<code>/remediations/activity</code>).
         </>

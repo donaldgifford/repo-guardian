@@ -374,7 +374,7 @@ The frame becomes the package's: a full-height collapsible sidebar with the app 
 - [x] 6.12 Rewrite `shell.test.tsx`, `nav.test.ts` consumers and `page.test.tsx` against roles. In e2e, replace `b[aria-current=page]` with `[aria-current="page"]` inside the Breadcrumb nav, and the "Open navigation" flow with the trigger; show each changed selector failing first. *Note: the e2e selectors changed with the frame (6.1–6.7) and each was run against the new frame first and failed: the account trigger is now named by its visible identity after a hidden "Account menu:" (axe's `label-content-name-mismatch` refused an `aria-label` hiding the name), nav counts are read from the entry's `sidebar-menu-badge`, the leaf is `[aria-current="page"]` inside the Breadcrumb nav, and the Tab order now runs header link, nav, account menu, trigger, search. `shell.test.tsx` covers the sidebar (one `aria-current`, Docs group, header link, account menu and the POST sign-out) and the Shell's collapse and its persistence, which fails with the `localStorage` write removed. `ui/behaviour.test.tsx` went with the local drawer and command it tested; the palette suite and the e2e drawer-focus test cover that behaviour now.*
 - [x] 6.13 Add e2e for what is new: the sidebar collapses to the rail and stays collapsed after a reload; below 768px the trigger opens the sheet and choosing an entry closes it; `⌘K` still opens the palette. *Note: three tests in `ui.spec.ts`; the collapse test fails with the `localStorage` write removed and the sheet test with the close-on-choose removed. On the sheet, sign-in waits on the trigger, since the account menu is inside the closed sheet.*
 - [x] 6.14 Run `a11y.spec.ts` on the new frame, including the collapsed rail and the open sheet. Fix findings in local code; a finding inside a package component is an upstream issue (OQ3). *Note: three new audits — the collapsed rail (and again with a rail tooltip open, reached by Tab: Base UI opens tooltips on keyboard focus, not on a scripted `.focus()`), the open sheet at 600px, and the account menu then the palette. No rule disabled, no exclusion, no finding in local or package code. The palette first failed `color-contrast` on its muted text (2.99:1), but only because axe read the colours mid fade-in; once the overlay's animations finish it passes, so the audits wait on them (`settled`, scoped to the overlay because the page's infinite animations never finish).*
-- [ ] 6.15 Regenerate the four visual baselines with `make test-ui-e2e-update-snapshots` and review each image against the mockup.
+- [x] 6.15 Regenerate the four visual baselines with `make test-ui-e2e-update-snapshots` and review each image against the mockup. *Note: regenerated once in the pinned image and reviewed: Findings, Orgs and Remediations show the new frame (identity, groups with the 13 and 6 counts, account menu at the foot, trigger, breadcrumbs, search, time zone) and the Phase 4–5 badge and row-height changes; Status is the public page, outside the frame, and moves only by the outline badges. This absorbs the 1–3% differences deferred from Phases 3–5.*
 
 <!--docz:tasks:end-->
 
@@ -388,6 +388,14 @@ The frame becomes the package's: a full-height collapsible sidebar with the app 
 - The four baselines are regenerated once, in the pinned image, and reviewed.
 
 <!--docz:criteria:end-->
+**Phase 6 result (2026-11-18):** met. `make lint-ui`, `make test-ui` (361)
+and `make test-ui-e2e` (48 across both projects, the two-org visibility
+assertions unedited) pass; no file under `web/src` imports `radix-ui`
+(the test harness's radix preload goes with the dependency in 7.2).
+`components/ui/` is empty and gone. The four baselines were regenerated
+once in the pinned image and pass. Upstream note for the package: the
+`TabsTrigger` focus outline is 1px against the global 2px ring (worked
+around locally in `SegmentedTabs`).
 <!--docz:phase:end-->
 
 ---

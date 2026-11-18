@@ -9,6 +9,7 @@
     "check:dist": "bun scripts/check-dist.ts",
     "gen:changelog": "bun scripts/gen-changelog.ts",
     "check:changelog": "bun scripts/check-changelog.ts",
+    "check:tokens": "bun scripts/check-tokens.ts",
     "dev:server": "bun --watch server/main.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
@@ -19,25 +20,19 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@fontsource/ibm-plex-sans": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0",
     "@tabler/icons-react": "^3.49.0",
     "@tanstack/react-query": "^5.103.2",
     "@tanstack/react-router": "^1.170.39",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "hono": "^4.13.9",
     "jose": "^6.2.12",
     "openapi-fetch": "^0.17.0",
     "openid-client": "^6.8.8",
-    "radix-ui": "^1.8.1",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "recharts": "^3.10.1",
-    "tailwind-merge": "^3.7.0"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@donaldgifford/design-system": "0.3.1",
     "@eslint/js": "^10.0.1",
     "@happy-dom/global-registrator": "^21.0.3",
     "@playwright/test": "^1.63.0",

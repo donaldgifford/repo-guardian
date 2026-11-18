@@ -3,17 +3,18 @@ import type { ReactNode } from "react";
 import type { Schemas } from "../api/client";
 import { useStatus, useUIConfig } from "../api/queries";
 import { StateBadge } from "../components/badges";
-import { Badge } from "../components/ui/badge";
-import { Sparkline } from "../components/charts";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { Sparkline } from "@donaldgifford/design-system/blocks/sparkline";
 import { Icon } from "../components/icons";
-import { Time } from "../components/time";
-import { Card } from "../components/ui/card";
-import { Meter } from "../components/ui/meter";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { Panel } from "../components/Panel";
+import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import changelog from "../generated/changelog.json";
-import { formatPercent, toneFor } from "../lib/format";
-import { cn } from "../lib/utils";
+import { toneFor } from "../lib/format";
+import { cn } from "@donaldgifford/design-system/lib/utils";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
-export type StatusTone = "ok" | "warn" | "bad" | "mute";
+export type StatusTone = "success" | "warning" | "destructive" | "muted";
 
 // statusHeadline maps the overall state onto the banner's fixed
 // headline and tone (DESIGN-0036 §Status page). These four strings and
@@ -21,28 +22,28 @@ export type StatusTone = "ok" | "warn" | "bad" | "mute";
 export function statusHeadline(state: string): { headline: string; tone: StatusTone } {
   switch (state) {
     case "operational":
-      return { headline: "All systems operational", tone: "ok" };
+      return { headline: "All systems operational", tone: "success" };
     case "degraded":
-      return { headline: "Degraded performance", tone: "warn" };
+      return { headline: "Degraded performance", tone: "warning" };
     case "unknown":
-      return { headline: "Status not yet available", tone: "mute" };
+      return { headline: "Status not yet available", tone: "muted" };
     default:
-      return { headline: "Service disruption", tone: "bad" };
+      return { headline: "Service disruption", tone: "destructive" };
   }
 }
 
 const toneVar: Record<StatusTone, string> = {
-  ok: "var(--color-ok)",
-  warn: "var(--color-warn)",
-  bad: "var(--color-bad)",
-  mute: "var(--color-muted-foreground)",
+  success: "var(--color-success)",
+  warning: "var(--color-warning)",
+  destructive: "var(--color-destructive)",
+  muted: "var(--color-muted-foreground)",
 };
 
 const dotClass: Record<StatusTone, string> = {
-  ok: "bg-ok",
-  warn: "bg-warn",
-  bad: "bg-bad",
-  mute: "bg-muted-foreground",
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+  muted: "bg-muted-foreground",
 };
 
 // StatusView is the public status page: outside the shell, no session,
@@ -57,7 +58,7 @@ export function StatusView() {
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Icon name="shield" className="size-5 text-accent" />
+          <Icon name="shield" className="size-5 text-primary" />
           Repo Guardian status
         </h1>
         <p className="text-xs text-muted-foreground">
@@ -65,19 +66,19 @@ export function StatusView() {
         </p>
       </header>
 
-      <Card aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
+      <Panel aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
         <div className="flex flex-wrap items-center gap-3">
-          <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "mute" && "animate-pulse")} />
+          <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "muted" && "animate-pulse")} />
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-semibold">{headline}</h2>
             <p className="text-xs text-muted-foreground">Public, aggregate-only. No org, repository or rule names appear here.</p>
           </div>
           <StateBadge state={s.state} />
         </div>
-      </Card>
+      </Panel>
 
       <div className="grid gap-4 md:grid-cols-5">
-        <Card title="Components" bodyClassName="p-0" className="md:col-span-3">
+        <Panel title="Components" bodyClassName="p-0" className="md:col-span-3">
           {s.components.length === 0 ? (
             <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No components reported yet.</p>
           ) : (
@@ -90,12 +91,12 @@ export function StatusView() {
           {s.components.some((c) => c.name === "webhooks") ? (
             <p className="border-t border-border px-3.5 py-2 text-xs text-muted-foreground">webhooks is informational: it reports deliveries but never moves the overall state.</p>
           ) : null}
-        </Card>
-        <Card title="Fleet compliance" className="md:col-span-2">
+        </Panel>
+        <Panel title="Fleet compliance" className="md:col-span-2">
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
             {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
           </div>
-          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
+          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="success" showValue={false} size="md" label="Fleet compliance" className="mt-3" />
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
           </p>
@@ -103,7 +104,7 @@ export function StatusView() {
             coverage {formatPercent(s.compliance.coverage)}
           </p>
           <ComplianceTrend history={s.compliance.history} />
-        </Card>
+        </Panel>
       </div>
 
       <OperationsStrip ops={s.operations} remediation={s.apps.some((a) => a.app === "remediate")} />
@@ -159,7 +160,7 @@ function ComplianceTrend({ history }: { history: Schemas["CompliancePoint"][] })
           </span>
         ) : null}
       </span>
-      <Sparkline values={values} width={180} height={28} color="var(--color-ok)" />
+      <Sparkline values={values} width={180} height={28} color="var(--color-success)" />
     </div>
   );
 }
@@ -182,7 +183,7 @@ export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; 
 export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOperations"]; remediation: boolean }) {
   const rollout = rolloutLabel(ops);
   return (
-    <Card className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
+    <Panel className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
       <OperationsCell label="Repositories evaluated in the last 24h">
         {ops.evaluated_24h.toLocaleString()}
         <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
@@ -192,7 +193,7 @@ export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOper
       <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
       {/* The backlog cell only with a Remediation App (IMPL-0032 6.7): an aggregate count, so the privacy guard holds. */}
       {remediation ? <OperationsCell label="Remediation backlog">{ops.remediation_backlog.toLocaleString()}</OperationsCell> : null}
-    </Card>
+    </Panel>
   );
 }
 
@@ -212,7 +213,7 @@ const appLabels: Record<string, string> = { eval: "Evaluation App", remediate: "
 // backlog_remediation).
 function Deployment({ topology, apps }: { topology: string; apps: Schemas["StatusApp"][] }) {
   return (
-    <Card title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
+    <Panel title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
       {apps.length === 0 ? (
         <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No App installation recorded yet.</p>
       ) : (
@@ -228,7 +229,7 @@ function Deployment({ topology, apps }: { topology: string; apps: Schemas["Statu
           ))}
         </ul>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -243,7 +244,7 @@ export const changelogShown = 5;
 export function Changelog({ bundle = changelog }: { bundle?: { running: string; entries: { version: string; date: string; title: string; summary: string; tags: string[] }[] } }) {
   const entries = bundle.entries.slice(0, changelogShown);
   return (
-    <Card
+    <Panel
       title="Changelog"
       right={
         <a href={releasesURL} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
@@ -261,7 +262,7 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
             <li key={e.version} className="space-y-1 px-3.5 py-2.5 text-[13px]" data-version={e.version} data-running={e.version === bundle.running}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono font-medium">{e.version}</span>
-                {e.version === bundle.running ? <Badge tone="ok">running</Badge> : null}
+                {e.version === bundle.running ? <Badge variant="success">running</Badge> : null}
                 <time dateTime={e.date} className="text-xs text-muted-foreground">
                   {e.date}
                 </time>
@@ -270,7 +271,7 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
               <p className="text-muted-foreground">{e.summary}</p>
               <div className="flex flex-wrap gap-1">
                 {e.tags.map((t) => (
-                  <Badge key={t} tone={toneFor("tag", t)}>
+                  <Badge key={t} variant={toneFor("tag", t)}>
                     {t}
                   </Badge>
                 ))}
@@ -279,6 +280,6 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
           ))}
         </ol>
       )}
-    </Card>
+    </Panel>
   );
 }

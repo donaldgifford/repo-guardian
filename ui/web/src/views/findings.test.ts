@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
+import { DataTable } from "@donaldgifford/design-system/blocks/data-table";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { Schemas } from "../api/client";
 import { NOT_ENABLED } from "../components/GatedPanel";
+
 import { controlRules, defaultSort, findingColumns, parseFindingsSearch, resultsFilter } from "./findings";
 import { evidenceGroups, findingKey, parseOpenKey, reassignedEvents, timelineEvents } from "./findings/drawer";
 
@@ -60,7 +63,9 @@ test("timelineEvents keeps the control's events and the repository's parks and r
 
 test("the Remediation column is a gated dash without the App and the badge with it", () => {
   const row = { repository_id: 1, org: "acme", repository: "r", control_id: "c", control_version: 1, decision: "baseline", status: "fail", bucket: "non_compliant", failing_rules: ["x"], last_changed_at: "2026-01-01T00:00:00Z", remediation: { kind: "pull_request", state: "open", pr_number: 7, pr_url: "https://github.com/acme/r/pull/7", created_at: "2026-01-01T00:00:00Z", age_days: 3 } } as Schemas["ResultRow"];
-  const cell = (enabled: boolean | undefined) => renderToStaticMarkup(findingColumns(enabled).find((c) => c.key === "remediation")?.cell(row));
+  // The column rendered through the real table, alone.
+  const cell = (enabled: boolean | undefined) =>
+    renderToStaticMarkup(createElement(DataTable<Schemas["ResultRow"]>, { columns: findingColumns(enabled).filter((c) => c.id === "remediation"), data: [row], sortable: false }));
   expect(cell(false)).toContain(`title="${NOT_ENABLED}"`);
   expect(cell(false)).toContain('data-gated="not_enabled"');
   expect(cell(false)).not.toContain("pull/7");

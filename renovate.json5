@@ -6,7 +6,8 @@
     "github>donaldgifford/renovate-config:docker",
     "github>donaldgifford/renovate-config:mise",
     "github>donaldgifford/renovate-config:helm",
-    "github>donaldgifford/renovate-config:ci"
+    "github>donaldgifford/renovate-config:ci",
+    "github>donaldgifford/renovate-config:node"
   ],
   "packageRules": [
     {
@@ -15,6 +16,14 @@
       // (closed PR #106). See CLAUDE.md § Release.
       "matchPackageNames": ["slsa-framework/slsa-github-generator"],
       "pinDigests": false
+    },
+    {
+      // The shared design system moves every page at once: its own pull
+      // request, never grouped with other npm updates, never automerged
+      // (IMPL-0037, DESIGN-0039).
+      "matchPackageNames": ["@donaldgifford/design-system"],
+      "groupName": null,
+      "automerge": false
     }
   ]
 }

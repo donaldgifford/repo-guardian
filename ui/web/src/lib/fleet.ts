@@ -1,9 +1,9 @@
 import type { Schemas } from "../api/client";
-import type { Delta } from "../components/ui/kpi";
+import type { Delta } from "../components/DeltaText";
 import { trend } from "./format";
 import { historySeries, type Posture } from "./posture";
 import type { ScopeSearch } from "./scope";
-import type { SeriesPoint } from "./viewmodel";
+import type { TrendPoint } from "@donaldgifford/design-system/blocks/trend-chart";
 
 // The fleet compliance card's series pills (DESIGN-0037 §Fleet panels
 // 1): what the area chart draws from aggregate=fleet history.
@@ -21,10 +21,10 @@ export interface SeriesSpec {
 }
 
 export const SERIES: Record<FleetSeries, SeriesSpec> = {
-  percent: { label: "compliance %", unit: "%", color: "var(--color-accent)", pick: (p) => p.percent },
-  non_compliant: { label: "findings", unit: "count", color: "var(--color-bad)", pick: (p) => p.non_compliant },
+  percent: { label: "compliance %", unit: "%", color: "var(--color-primary)", pick: (p) => p.percent },
+  non_compliant: { label: "findings", unit: "count", color: "var(--color-destructive)", pick: (p) => p.non_compliant },
   not_applicable: { label: "not applicable", unit: "count", color: "var(--color-muted-foreground)", pick: (p) => p.not_applicable },
-  unknown: { label: "unknown", unit: "count", color: "var(--color-warn)", pick: (p) => p.unknown },
+  unknown: { label: "unknown", unit: "count", color: "var(--color-warning)", pick: (p) => p.unknown },
 };
 
 export function isFleetSeries(v: unknown): v is FleetSeries {
@@ -48,28 +48,28 @@ export function parseFleetSearch(s: Record<string, unknown>): FleetSearch {
 // rangeDelta is the move over the range: the last measured snapshot
 // against the first, in points; null with fewer than two measured
 // points, which renders no delta.
-export function rangeDelta(series: readonly SeriesPoint[]): Delta | null {
-  const measured = series.filter((p) => p.percent !== null);
+export function rangeDelta(series: readonly TrendPoint[]): Delta | null {
+  const measured = series.filter((p) => p.value !== null);
   const first = measured[0];
   const last = measured[measured.length - 1];
   if (!first || !last || first === last) return null;
-  const value = trend(last.percent, first.percent);
+  const value = trend(last.value, first.value);
   return value === null ? null : { value, goodUp: true, unit: " pts" };
 }
 
 // pickSeries draws one of the pills from the fleet history: each day's
 // rows summed into a posture, then the pill's field.
-export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: FleetSeries): SeriesPoint[] {
+export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: FleetSeries): TrendPoint[] {
   if (series === "percent") return historySeries(points);
   const spec = SERIES[series];
   const byAt = new Map<string, number>();
   for (const p of points) byAt.set(p.snapshot_at, (byAt.get(p.snapshot_at) ?? 0) + (spec.pick(p.compliance) ?? 0));
-  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, v]) => ({ at, percent: v }));
+  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, v]) => ({ at, value: v }));
 }
 
 // byControl splits one aggregate=control history into a series per
 // control, so the fleet asks for the history once, not once per row.
-export function byControl(points: readonly Schemas["HistoryPoint"][]): Map<string, SeriesPoint[]> {
+export function byControl(points: readonly Schemas["HistoryPoint"][]): Map<string, TrendPoint[]> {
   const groups = new Map<string, Schemas["HistoryPoint"][]>();
   for (const p of points) {
     const id = p.control_id ?? "";

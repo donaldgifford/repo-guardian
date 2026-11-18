@@ -7,9 +7,15 @@ import { readFileSync } from "node:fs";
 
 // signIn runs the real code flow: the BFF redirects to the mock
 // issuer, which approves at once and sends the browser back.
+// navCount is a sidebar entry's count, beside its link in the entry.
+function navCount(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  return nav.getByRole("listitem").filter({ has: page.getByRole("link", { name: label, exact: true }) }).locator('[data-slot="sidebar-menu-badge"]');
+}
+
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toBeVisible();
 }
 
 test("an app path without a session goes through login and comes back", async ({ page }) => {
@@ -20,7 +26,7 @@ test("an app path without a session goes through login and comes back", async ({
   await expect(page.getByRole("alert")).toHaveCount(0);
   // The API names the caller by preferred_username (OIDC_NAME_CLAIM);
   // the name lives in the avatar menu.
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("button", { name: /^Account menu/ }).click();
   await expect(page.getByRole("menu").getByText("ada", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 });
@@ -77,7 +83,15 @@ test("the status page is public", async ({ browser }) => {
 
 test("signing out ends the session", async ({ page, context }) => {
   await signIn(page);
-  await page.getByRole("button", { name: "Account menu" }).click();
+  // The menu opens from the keyboard and Escape returns focus to it.
+  const account = page.getByRole("button", { name: /^Account menu/ });
+  await account.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
+  await expect(account).toBeFocused();
+  await account.click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect.poll(async () => (await context.cookies()).filter((c) => c.name.startsWith("__Host-rg_session"))).toHaveLength(0);
 });
@@ -108,7 +122,7 @@ test("Fleet totals the caller's orgs and links to controls and orgs", async ({ p
   // The fleet panels (IMPL-0032 Phase 5): the compliance card's strip
   // and pills, finding age, worst controls, parked by reason and the
   // two gated PR panels, all on the seed.
-  const strip = page.getByRole("heading", { name: /^Compliance \(30d\)/ }).locator("..").locator("..").locator("..");
+  const strip = page.getByRole("heading", { name: /^Compliance \(30d\)/ }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
   await expect(strip).toContainText("Tracked");
   await expect(strip).toContainText("Snapshots");
   await page.getByRole("radio", { name: /^findings/ }).click();
@@ -124,7 +138,7 @@ test("Fleet totals the caller's orgs and links to controls and orgs", async ({ p
   // The e2e deployment has the Remediation App and seeded pull requests:
   // both PR panels show data, never "not enabled".
   for (const name of [/^Open PRs by age/, /^PR throughput/]) {
-    const card = page.getByRole("heading", { name }).locator("..").locator("..").locator("..");
+    const card = page.getByRole("heading", { name }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
     await expect(card.locator("[data-gated]")).toHaveAttribute("data-gated", "content");
   }
   await expect(page.getByText("Remediation is not enabled on this deployment")).toHaveCount(0);
@@ -160,7 +174,7 @@ test("an org shows baseline against org-added, its worst controls and exclusions
   await expect(page.getByRole("heading", { level: 1, name: "acme" })).toBeVisible();
   await expect(page.getByText("Baseline compliance")).toBeVisible();
   // acme adds labels (IMPL-0032 8.1), so org-added is measured.
-  await expect(page.getByText("Org-added compliance").locator("..")).toContainText(/\d+(\.\d)?%/);
+  await expect(page.locator("[data-slot=kpi]", { hasText: "Org-added compliance" })).toContainText(/\d+(\.\d)?%/);
   await expect(page.getByRole("table", { name: "Exclusions" })).toContainText("api pins its dependencies");
   await expect(page.getByRole("table", { name: "Worst controls" }).getByRole("link", { name: "renovate" })).toBeVisible();
   // An org outside the caller's scope reads as not found.
@@ -179,11 +193,11 @@ test("a repository shows its controls with evidence, the evaluation log and even
 
   // INV-0023 F2: the crumb names the repository, never its id.
   const crumb = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumb.locator('b[aria-current="page"]')).toHaveText("acme/web");
+  await expect(crumb.locator('[aria-current="page"]')).toHaveText("acme/web");
 
-  // INV-0023 F1: a failing rule carries the bad tone, not mute.
+  // INV-0023 F1: a failing rule carries the destructive tone, not muted.
   const failing = page.getByRole("table", { name: "renovate rules" }).getByText("fail", { exact: true });
-  await expect(failing).toHaveClass(/--color-bad/);
+  await expect(failing).toHaveAttribute("data-variant", "destructive");
 
   // No Temporal client on the e2e api: the POST answers 501 and the
   // button goes away.
@@ -266,18 +280,18 @@ test("Remediations views and filters round-trip, the drawer deep link works, and
   await expect(page.locator("[data-gated='content']").first()).toBeVisible();
   await expect(page.getByText("Remediation is not enabled on this deployment")).toHaveCount(0);
   const status = (await (await page.request.get("/api/v1/status")).json()) as { operations: { remediation_backlog: number } };
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Remediations/ }).locator("em")).toHaveText(String(status.operations.remediation_backlog));
+  await expect(navCount(page, "Remediations")).toHaveText(String(status.operations.remediation_backlog));
 
   // KPIs: three open PRs (one past 30 days), one recommendation, five
   // holds (one per reason), two failed applies.
   const kpis = page.locator("[data-gated='content'] > div").first();
-  await expect(kpis.getByText("Open PRs", { exact: true }).locator("..")).toContainText("3");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Open PRs", { exact: true }) })).toContainText("3");
   await expect(kpis.getByText("1 stale (30d+)")).toBeVisible();
-  await expect(kpis.getByText("Recommendations", { exact: true }).locator("..")).toContainText("1");
-  const held = kpis.getByText("Held", { exact: true }).locator("..");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Recommendations", { exact: true }) })).toContainText("1");
+  const held = kpis.locator("[data-slot=kpi]", { has: page.getByText("Held", { exact: true }) });
   await expect(held).toContainText("5");
   for (const reason of ["conflict 1", "foreign branch 1", "permission 1", "pr cap 1", "stale branch 1"]) await expect(held).toContainText(reason);
-  await expect(kpis.getByText("Failed applies", { exact: true }).locator("..")).toContainText("2");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Failed applies", { exact: true }) })).toContainText("2");
 
   // All: the eight remediation rows; held results list only under a hold.
   const rows = page.getByRole("table", { name: "Remediations" }).locator("tbody tr");
@@ -327,7 +341,7 @@ test("Remediations views and filters round-trip, the drawer deep link works, and
   await expect(drawer.getByRole("list", { name: "Proposal" })).toContainText("labels/bug");
   await expect(drawer).toContainText("recommended");
   // A CSS locator: the modal drawer aria-hides the rest of the page.
-  await expect(page.locator('nav[aria-label="Breadcrumb"] b[aria-current="page"]')).toHaveText("acme/mobile · labels");
+  await expect(page.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]')).toHaveText("acme/mobile · labels");
   await expect(drawer.getByRole("link", { name: "Open finding →" })).toHaveAttribute("href", /\/findings\?control=labels&open=\d+(%2F|\/)labels/);
   await expect(drawer.getByRole("link", { name: "Open repository →" })).toHaveAttribute("href", /\/repositories\/\d+/);
   await page.reload();
@@ -366,7 +380,7 @@ test("Tab walks Fleet in reading order with a visible ring, and Escape closes th
       }),
     );
   }
-  const expected = [/^Search/, /^Account menu$/, /^Fleet$/, /^Status page$/, /^Repo Guardian$/, /^Org scope/, /^30d$/];
+  const expected = [/^Repo Guardian/, /^Fleet$/, /^Status page$/, /^Account menu/, /^Toggle Sidebar$/, /^Search/, /^Org scope/, /^30d$/];
   let at = 0;
   for (const want of expected) {
     const i = seen.findIndex((s, j) => j >= at && want.test(s));
@@ -416,8 +430,7 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   const count = page.getByText(/^\d+ loaded of \d+$/);
   await expect(count).toBeVisible();
   const m = /of (\d+)$/.exec((await count.textContent()) ?? "")?.[1];
-  const nav = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Findings/ });
-  await expect(nav.locator("em")).toHaveText(m ?? "");
+  await expect(navCount(page, "Findings")).toHaveText(m ?? "");
 
   // The filter chips write the URL.
   await page.getByRole("button", { name: "Add filter" }).click();
@@ -444,6 +457,8 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   await expect(page).toHaveURL(/open=\d+%2Frenovate|open=\d+\/renovate/);
   const drawer = page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ });
   await expect(drawer).toBeVisible();
+  // Focus moves into the drawer on open.
+  await expect.poll(() => drawer.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   await expect(drawer.getByRole("table", { name: "renovate rules" })).toContainText("fail");
   await expect(drawer).toContainText("path: renovate.json");
   await page.reload();
@@ -457,6 +472,8 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: /^Finding:/ })).toHaveCount(0);
   await expect(page).not.toHaveURL(/open=/);
+  // Escape hands focus back to the row that opened it.
+  await expect(row).toBeFocused();
   await expectNoGlobex(page);
 });
 
@@ -479,7 +496,7 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   // compliance (meter and percentage), open PRs, parked.
   await expect(acme.locator("td").nth(4)).toContainText(/\d+(\.\d)?%/);
   // The footer sums the visible org rows: ada sees acme alone.
-  const footer = grid.locator("tr[data-row=__footer]");
+  const footer = grid.locator("tr[data-row=footer]");
   await expect(footer).toContainText("1 orgs");
   const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { org: string; tracked: number; parked: number; compliance: { assigned: number; compliant: number; non_compliant: number } }[] };
   const acmeApi = orgs.items.find((o) => o.org === "acme")!;
@@ -526,4 +543,55 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   await page.getByRole("tab", { name: "PR activity" }).click();
   await expect(page.getByRole("table", { name: "PR activity" })).toContainText("acme");
   await expectNoGlobex(page);
+});
+
+// The frame (IMPL-0037 Phase 6): the sidebar collapses to a rail whose
+// labels are tooltips and stays collapsed across a reload; the sheet
+// below 768px closes when an entry is chosen; ⌘K opens the palette.
+test("the sidebar collapses to the rail and stays collapsed after a reload", async ({ page }) => {
+  await signIn(page, "/controls");
+  const sidebar = page.locator('[data-slot="sidebar"][data-state]');
+  const trigger = page.locator('[data-slot="sidebar-trigger"]');
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await trigger.click();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  // The rail keeps every entry reachable, by name.
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Findings" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  // ⌘B toggles it from the keyboard, and that is kept too.
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+});
+
+test("below 768px the trigger opens the sheet and choosing an entry closes it", async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 900 });
+  // The account menu lives in the sheet here, so sign-in waits on the
+  // trigger rather than on it.
+  await page.goto("/");
+  const trigger = page.locator('[data-slot="sidebar-trigger"]');
+  await expect(trigger).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toHaveCount(0);
+  await trigger.click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("link", { name: "Controls" }).click();
+  await expect(page).toHaveURL(/\/controls$/);
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
+});
+
+test("⌘K opens the palette and Enter goes to the chosen control", async ({ page }) => {
+  await signIn(page, "/");
+  await page.keyboard.press("ControlOrMeta+k");
+  const input = page.getByRole("combobox");
+  await expect(input).toBeFocused();
+  await input.fill("renovate");
+  await expect(page.getByRole("option", { name: /renovate/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/controls\/renovate$/);
+  await expect(page.getByRole("combobox")).toHaveCount(0);
 });

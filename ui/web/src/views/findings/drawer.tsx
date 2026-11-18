@@ -6,10 +6,11 @@ import { RemediationBadge, RuleStatusBadge, StatusBadge } from "../../components
 import { Loading } from "../../components/common";
 import { GatedPanel } from "../../components/GatedPanel";
 import { BucketBadge, EvidenceText, ExternalLink } from "../../components/posture";
-import { Time } from "../../components/time";
-import { Button } from "../../components/ui/button";
-import { type Column, DataTable } from "../../components/ui/data-table";
-import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
+import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { openSearch } from "../remediations/model";
@@ -107,14 +108,17 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
   const href = r && config.data ? `https://${config.data.github_host}/${r.org}/${r.name}` : undefined;
   const missing = (repository.isError || controls.isError || (controls.data && !control)) ?? false;
   return (
-    <DetailDrawer
+    <DetailPanel
       open
       inline={inline}
-      onClose={onClose}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      subject={open}
       {...(returnFocusTo === undefined ? {} : { returnFocusTo })}
-      aria-label={`Finding: ${title} ${key.control}`}
+      label={`Finding: ${title} ${key.control}`}
       title={href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
-      subtitle={
+      description={
         control ? (
           <span>
             {control.control_id} v{control.version} · {humanize(control.decision)}
@@ -132,10 +136,8 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
       footer={
         <>
           <span className="flex items-center gap-2">{r?.active ? <EvaluateButton id={r.id} /> : null}</span>
-          <Link to="/repositories/$id" params={{ id: String(key.repositoryId) }}>
-            <Button variant="outline" size="sm" tabIndex={-1}>
+          <Link to="/repositories/$id" params={{ id: String(key.repositoryId) }} className={buttonVariants({ variant: "outline", size: "sm" })}>
               Open repository →
-            </Button>
           </Link>
         </>
       }
@@ -147,14 +149,14 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
       ) : (
         <Loading />
       )}
-    </DetailDrawer>
+    </DetailPanel>
   );
 }
 
-const ruleColumns: Column<Schemas["RuleResult"]>[] = [
-  { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
-  { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
-  { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), numeric: true },
+const ruleColumns: DataTableColumn<Schemas["RuleResult"]>[] = [
+  { id: "rule", header: "Rule", cell: ({ row: { original: r } }) => <span className="font-mono">{r.rule_id}</span> },
+  { id: "status", header: "Status", cell: ({ row: { original: r } }) => <RuleStatusBadge status={r.status} /> },
+  { id: "remediate", header: "Remediable rule", cell: ({ row: { original: r } }) => (r.remediate ? "yes" : "no"), meta: { numeric: true } },
 ];
 
 // remediationOf lifts a RepositoryControl's latest remediation into the
@@ -172,7 +174,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
   const failing = c.rules.filter(isFailing);
   const rows = [
     {
-      key: "status",
+      label: "status",
       value: (
         <span className="inline-flex items-center gap-2">
           {c.status ? <StatusBadge status={c.status} /> : null}
@@ -181,14 +183,14 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
       ),
     },
     {
-      key: "remediation",
+      label: "remediation",
       value: (
         <GatedPanel isEmpty={false} empty={null} className="text-sm text-muted-foreground">
           <span className="inline-flex flex-wrap items-center gap-2">
             <RemediationBadge remediation={remediationOf(c)} />
             {c.hold ? <span className="text-xs text-muted-foreground">{holdSentence(c.hold)}</span> : null}
             {c.remediation ? (
-              <Link to="/remediations" search={{ open: openSearch(c.remediation) }} className="text-xs text-accent hover:underline">
+              <Link to="/remediations" search={{ open: openSearch(c.remediation) }} className="text-xs text-primary hover:underline">
                 Open remediation →
               </Link>
             ) : null}
@@ -196,17 +198,17 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
         </GatedPanel>
       ),
     },
-    { key: "last evaluated", value: c.evaluated_at ? <Time iso={c.evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span> },
+    { label: "last evaluated", value: c.evaluated_at ? <Time iso={c.evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span> },
   ];
   const timeline = timelineEvents(events.data?.items ?? [], c.control_id);
   const reassigned = reassignedEvents(events.data?.items ?? []);
   const recent = (evaluations.data?.items ?? []).slice(0, 2);
   return (
     <>
-      <DetailKV rows={rows} />
+      <DetailsGrid layout="list" items={rows} />
       <DetailSection title="Rules">
         <div className="rounded-lg border border-border">
-          <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />
+          <DataTable sortable={false} bare columns={ruleColumns} data={c.rules} getRowId={(r) => r.rule_id} empty="Not evaluated yet." label={`${c.control_id} rules`} />
         </div>
       </DetailSection>
       {failing.length > 0 ? (

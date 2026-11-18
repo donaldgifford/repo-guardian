@@ -1,5 +1,7 @@
 import type { Schemas } from "../api/client";
-import type { DistSegment } from "../components/charts";
+import type { Segment as DistSegment } from "@donaldgifford/design-system/blocks/dist-bar";
+import type { TrendPoint } from "@donaldgifford/design-system/blocks/trend-chart";
+import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type Posture = Schemas["Posture"];
 
@@ -8,10 +10,10 @@ export type Posture = Schemas["Posture"];
 // legend adds up to the assignments.
 export function postureSegments(p: Posture): DistSegment[] {
   return [
-    { label: "compliant", value: p.compliant, color: "var(--color-ok)" },
-    { label: "non-compliant", value: p.non_compliant, color: "var(--color-bad)" },
+    { label: "compliant", value: p.compliant, color: "var(--color-success)" },
+    { label: "non-compliant", value: p.non_compliant, color: "var(--color-destructive)" },
     { label: "pending", value: p.pending, color: "var(--color-info)" },
-    { label: "stale", value: p.stale, color: "var(--color-warn)" },
+    { label: "stale", value: p.stale, color: "var(--color-warning)" },
     { label: "unmeasurable", value: p.unmeasurable_access_denied + p.unmeasurable_suspended + p.unmeasurable_conflict, color: "var(--color-muted-foreground)" },
     { label: "n/a", value: p.not_applicable + p.unknown + p.excluded, color: "var(--color-border)" },
   ];
@@ -34,12 +36,6 @@ export function emptyPosture(): Posture {
     percent: null,
     coverage: null,
   };
-}
-
-// floorPercent is the floor_percent SQL function: num / den floored to
-// one decimal in integer arithmetic, null on an empty denominator.
-export function floorPercent(num: number, den: number): number | null {
-  return den <= 0 ? null : Math.floor((num * 1000) / den) / 10;
 }
 
 // addPosture sums two postures and recomputes both percentages from the
@@ -67,12 +63,12 @@ export function addPosture(a: Posture, b: Posture): Posture {
 
 // historySeries sums history points per snapshot into one fleet line,
 // oldest first.
-export function historySeries(points: readonly Schemas["HistoryPoint"][]): { at: string; percent: number | null }[] {
+export function historySeries(points: readonly Schemas["HistoryPoint"][]): TrendPoint[] {
   const byAt = new Map<string, Posture>();
   for (const p of points) {
     byAt.set(p.snapshot_at, addPosture(byAt.get(p.snapshot_at) ?? emptyPosture(), p.compliance));
   }
-  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, posture]) => ({ at, percent: posture.percent }));
+  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, posture]) => ({ at, value: posture.percent }));
 }
 
 // postureCsvHead and postureCsvRow are a posture's CSV cells, shared by

@@ -3,29 +3,31 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
-import { ChartCard, TrendChart, trendTable } from "../components/charts";
+import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
+import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { GatedPanel, NOT_ENABLED } from "../components/GatedPanel";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
-import { Time } from "../components/time";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-import { type Column, DataTable } from "../components/ui/data-table";
-import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "../components/ui/group-grid";
-import { Kpi } from "../components/ui/kpi";
-import { SearchTabs } from "../components/ui/tabs";
-import type { CsvColumns } from "../lib/csv";
-import { formatPercent, humanize } from "../lib/format";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { Button } from "@donaldgifford/design-system/components/button";
+import { Panel } from "../components/Panel";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
+import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "@donaldgifford/design-system/blocks/group-grid";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
+import { SearchTabs } from "../components/SegmentedTabs";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
+import { humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";
 import { historySeries, type Posture, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
 import { orgsCsv } from "./fleet";
 import { countByRepository, joinOpen, matchesFilter, measuredOf, openOrgs, type OrgPRActivity, ORGS_TABS, type OrgsTab, prActivity, staleAfterDays, sumOrgs, toggleOpen } from "./orgs/tree";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 const listRoute = getRouteApi("/app/orgs");
 
@@ -48,19 +50,19 @@ function gatedCount(n: number, remediation: boolean | undefined): GridCell {
 // meter and its percentage. A cell with a count and a share side by side
 // read as two unlabelled numbers.
 const complianceColumns: GridColumn[] = [
-  { key: "assigned", header: "Assigned", tone: "mute" },
-  { key: "compliant", header: "Compliant", tone: "ok" },
-  { key: "non_compliant", header: "Non-compliant", tone: "bad" },
-  { key: "compliance", header: "Compliance", tone: "mute", align: "left" },
+  { key: "assigned", header: "Assigned", tone: "muted" },
+  { key: "compliant", header: "Compliant", tone: "success" },
+  { key: "non_compliant", header: "Non-compliant", tone: "destructive" },
+  { key: "compliance", header: "Compliance", tone: "muted", align: "left" },
   { key: "open_prs", header: "Open PRs", tone: "info" },
-  { key: "parked", header: "Parked", tone: "warn" },
+  { key: "parked", header: "Parked", tone: "warning" },
 ];
 
 // CountText is a count cell: zero muted, a non-zero non-compliant count
 // in the bad tone so the rows that need work stand out.
 function CountText({ n, bad = false }: { n: number; bad?: boolean }) {
   if (n === 0) return <span className="text-muted-foreground">0</span>;
-  return <span className={bad ? "text-bad" : undefined}>{n.toLocaleString()}</span>;
+  return <span className={bad ? "text-destructive" : undefined}>{n.toLocaleString()}</span>;
 }
 
 // postureRow is a row's compliance columns. Nothing measured reads "no
@@ -82,8 +84,8 @@ function postureRow(p: Posture): Record<string, GridCell> {
 }
 
 const parkedColumns: GridColumn[] = [
-  { key: "reason", header: "Reason", tone: "warn", align: "left" },
-  { key: "parked_at", header: "Parked", tone: "mute", align: "left" },
+  { key: "reason", header: "Reason", tone: "warning", align: "left" },
+  { key: "parked_at", header: "Parked", tone: "muted", align: "left" },
 ];
 
 // OrgsView is the orgs tree (DESIGN-0037 OQ4): each org a row that
@@ -115,28 +117,28 @@ export function OrgsView() {
     <>
       <PageHeader
         title="Orgs"
-        subtitle={
+        description={
           <>
             Each org expands to its repositories. Assigned, compliant and non-compliant count control assignments (repository × control); compliance is compliant ÷ (compliant + non-compliant), and the footer sums the rows · <code>GET /orgs</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
-            <ExportButton page="orgs" filter={{ org: scope }} columns={orgsCsv} rows={orgs.data ? visible : undefined} />
+            <ExportButton name="orgs" filename="repo-guardian-orgs" filter={{ org: scope }} columns={orgsCsv} rows={orgs.data ? visible : undefined} />
           </>
         }
       />
-      <Card bodyClassName="p-0">
+      <Panel bodyClassName="p-0">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5" aria-label="Orgs toolbar" role="toolbar">
           <span className="text-xs text-muted-foreground">Repositories</span>
-          <Badge tone="mute">{compact(total.tracked)}</Badge>
+          <Badge variant="muted">{compact(total.tracked)}</Badge>
           <span className="text-xs text-muted-foreground">Non-compliant</span>
-          <Badge tone="bad">{compact(total.compliance.non_compliant)}</Badge>
+          <Badge variant="destructive">{compact(total.compliance.non_compliant)}</Badge>
           <span className="text-xs text-muted-foreground">Parked</span>
-          <Badge tone="warn">{compact(total.parked)}</Badge>
+          <Badge variant="warning">{compact(total.parked)}</Badge>
           <span className="flex-1" />
-          {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-panel px-2.5 text-xs" /> : null}
+          {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-card px-2.5 text-xs" /> : null}
           <SearchTabs param="tab" defaultValue="compliance" options={ORGS_TABS} label="Orgs tabs" />
           {tab !== "pr" ? (
             <Button variant="outline" size="sm" onClick={() => patch({ open: joinOpen(allOpen ? [] : visible.map((o) => o.org)) })} disabled={visible.length === 0}>
@@ -150,20 +152,20 @@ export function OrgsView() {
           <PRActivity orgs={visible} />
         ) : tab === "parked" ? (
           <GroupGrid
-            label="Org / repository"
+            heading="Org / repository"
             columns={parkedColumns}
             rows={visible.map((o) => ({ key: o.org, label: orgLink(o.org), sub: `${compact(o.parked)} parked`, cells: {} }))}
             heat={[]}
             open={open}
             onToggle={(k) => patch({ open: joinOpen(toggleOpen(open, k)) })}
             footer={{ label: `${visible.length} orgs`, cells: { reason: `${compact(total.parked)} parked` } }}
-            aria-label="Parked repositories by org"
+            label="Parked repositories by org"
           >
             {(row) => <ParkedChildren key={`${row.key}/children`} org={row.key} total={visible.find((o) => o.org === row.key)?.parked ?? 0} filter={filter} />}
           </GroupGrid>
         ) : (
           <GroupGrid
-            label="Org / repository"
+            heading="Org / repository"
             columns={complianceColumns}
             rows={visible.map((o) => ({
               key: o.org,
@@ -178,24 +180,24 @@ export function OrgsView() {
               label: `${visible.length} orgs`,
               cells: { ...postureRow(total.compliance), open_prs: gatedCount(total.open_prs, remediation), parked: total.parked },
             }}
-            aria-label="Orgs"
+            label="Orgs"
           >
             {(row) => <ComplianceChildren key={`${row.key}/children`} org={row.key} total={visible.find((o) => o.org === row.key)?.tracked ?? 0} filter={filter} remediation={remediation} />}
           </GroupGrid>
         )}
-      </Card>
+      </Panel>
     </>
   );
 }
 
 const orgLink = (org: string) => (
-  <Link to="/orgs/$org" params={{ org }} className="hover:text-accent">
+  <Link to="/orgs/$org" params={{ org }} className="hover:text-primary">
     {org}
   </Link>
 );
 
 const repoLink = (r: Schemas["Repository"]) => (
-  <Link to="/repositories/$id" params={{ id: String(r.id) }} className="hover:text-accent">
+  <Link to="/repositories/$id" params={{ id: String(r.id) }} className="hover:text-primary">
     {r.name}
   </Link>
 );
@@ -242,7 +244,7 @@ function ComplianceChildren({ org, total, filter, remediation }: { org: string; 
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        badge: r.policy_state && r.policy_state !== "managed" ? <Badge tone="mute">{humanize(r.policy_state)}</Badge> : undefined,
+        badge: r.policy_state && r.policy_state !== "managed" ? <Badge variant="muted">{humanize(r.policy_state)}</Badge> : undefined,
         cells: { ...postureRow(r.compliance), open_prs: remediation ? (prs.data ? byRepo.get(r.id) ?? 0 : "…") : gatedCount(0, remediation), parked: "" },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
@@ -264,26 +266,26 @@ function ParkedChildren({ org, total, filter }: { org: string; total: number; fi
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        cells: { reason: <Badge tone="warn">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
+        cells: { reason: <Badge variant="warning">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
     />
   );
 }
 
-const prColumns: Column<OrgPRActivity>[] = [
+const prColumns: DataTableColumn<OrgPRActivity>[] = [
   {
-    key: "org",
+    id: "org",
     header: "Org",
-    cell: (r) => (
-      <Link to="/findings" search={{ org: r.org, pr_stale: true }} className="font-mono font-medium hover:text-accent">
+    cell: ({ row: { original: r } }) => (
+      <Link to="/findings" search={{ org: r.org, pr_stale: true }} className="font-mono font-medium hover:text-primary">
         {r.org}
       </Link>
     ),
   },
-  { key: "open", header: "Open PRs", cell: (r) => compact(r.open), numeric: true },
-  { key: "stale", header: `Stale (${staleAfterDays}d+)`, cell: (r) => compact(r.stale), numeric: true },
-  { key: "oldest", header: "Oldest", cell: (r) => (r.oldestDays === null ? <span className="text-muted-foreground">—</span> : `${r.oldestDays}d`), numeric: true },
+  { id: "open", header: "Open PRs", cell: ({ row: { original: r } }) => compact(r.open), meta: { numeric: true } },
+  { id: "stale", header: `Stale (${staleAfterDays}d+)`, cell: ({ row: { original: r } }) => compact(r.stale), meta: { numeric: true } },
+  { id: "oldest", header: "Oldest", cell: ({ row: { original: r } }) => (r.oldestDays === null ? <span className="text-muted-foreground">—</span> : `${r.oldestDays}d`), meta: { numeric: true } },
 ];
 
 // PRActivity is the PR activity tab: open pull requests per org with
@@ -295,7 +297,7 @@ function PRActivity({ orgs }: { orgs: readonly Schemas["OrgSummary"][] }) {
   const rows = prActivity(orgs, prs.data?.rows ?? []);
   return (
     <GatedPanel isEmpty={prs.data !== undefined && prs.data.rows.length === 0} empty={<Empty>No open pull requests.</Empty>}>
-      {prs.data ? <DataTable columns={prColumns} rows={rows} rowKey={(r) => r.org} empty="No org is visible to you." aria-label="PR activity" /> : <Loading />}
+      {prs.data ? <DataTable sortable={false} bare columns={prColumns} data={rows} getRowId={(r) => r.org} empty="No org is visible to you." label="PR activity" /> : <Loading />}
     </GatedPanel>
   );
 }
@@ -318,15 +320,15 @@ export function OrgView() {
     <>
       <PageHeader
         title={o.org}
-        subtitle={
+        description={
           <>
             {o.tracked.toLocaleString()} repositories · {o.parked.toLocaleString()} parked · <code>GET /orgs/{o.org}</code>
           </>
         }
-        controls={
+        actions={
           <>
             <RangeTabs />
-            <Link to="/repositories" search={{ org: o.org }} className="text-xs text-accent hover:underline">
+            <Link to="/repositories" search={{ org: o.org }} className="text-xs text-primary hover:underline">
               Repositories →
             </Link>
           </>
@@ -334,51 +336,51 @@ export function OrgView() {
       />
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Baseline compliance" value={formatPercent(o.baseline.percent)} subline={`coverage ${formatPercent(o.baseline.coverage)}`} />
-          <Kpi label="Org-added compliance" value={formatPercent(o.org_added.percent)} subline={`coverage ${formatPercent(o.org_added.coverage)}`} />
+          <Kpi label="Baseline compliance" value={formatPercent(o.baseline.percent)} hint={`coverage ${formatPercent(o.baseline.coverage)}`} />
+          <Kpi label="Org-added compliance" value={formatPercent(o.org_added.percent)} hint={`coverage ${formatPercent(o.org_added.coverage)}`} />
           <Kpi label="Baseline assignments" value={o.baseline.assigned.toLocaleString()} />
           <Kpi label="Org-added assignments" value={o.org_added.assigned.toLocaleString()} />
         </div>
         <ChartCard
           title={`Compliance (${days}d)`}
-          subtitle={
+          description={
             <>
               <code>aggregate=org</code>, every control in {o.org}.
             </>
           }
-          table={trendTable(series, "compliance %")}
+          table={trendTable(series, "compliance %", { head: "Snapshot", noun: "snapshots" })}
         >
-          {history.data ? <TrendChart series={series} rangeDays={days} height={180} aria-label={`${o.org} compliance over time`} /> : <Loading />}
+          {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${o.org} compliance over time`} /> : <Loading />}
         </ChartCard>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card
+          <Panel
             title="Controls"
             subtitle="Baseline, replaced and org-added."
             bodyClassName="p-0"
             className="lg:col-span-2"
-            right={<ExportButton page="org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
+            right={<ExportButton name="org controls" filename="repo-guardian-org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
           >
-            <DataTable columns={controlColumns} rows={o.controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="No control is assigned here." aria-label="Org controls" />
-          </Card>
-          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton page="worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
-            <DataTable columns={worstColumns} rows={o.worst_controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="Nothing measured yet." aria-label="Worst controls" />
-          </Card>
+            <DataTable sortable={false} bare columns={controlColumns} data={o.controls} getRowId={(c) => `${c.control_id}/${c.decision}`} empty="No control is assigned here." label="Org controls" />
+          </Panel>
+          <Panel title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton name="worst controls" filename="repo-guardian-worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
+            <DataTable sortable={false} bare columns={worstColumns} data={o.worst_controls} getRowId={(c) => `${c.control_id}/${c.decision}`} empty="Nothing measured yet." label="Worst controls" />
+          </Panel>
         </div>
-        <Card
+        <Panel
           title="Exclusions"
           subtitle="Repositories or controls the policy leaves out, and why."
           bodyClassName="p-0"
-          right={<ExportButton page="exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
+          right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
         >
-          <DataTable columns={exclusionColumns} rows={o.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} empty="No exclusions." aria-label="Exclusions" />
-        </Card>
+          <DataTable sortable={false} bare columns={exclusionColumns} data={o.exclusions} getRowId={(e) => `${e.repository}/${e.control_id ?? ""}`} empty="No exclusions." label="Exclusions" />
+        </Panel>
       </div>
     </>
   );
 }
 
 const controlLink = (c: Schemas["OrgControl"]) => (
-  <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono font-medium hover:text-accent">
+  <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono font-medium hover:text-primary">
     {c.control_id}
   </Link>
 );
@@ -393,22 +395,22 @@ export const exclusionsCsv: CsvColumns<Schemas["Exclusion"]> = {
   row: (e) => [e.repository, e.control_id ?? "", e.state, e.reason, e.excluded_by ?? ""],
 };
 
-const controlColumns: Column<Schemas["OrgControl"]>[] = [
-  { key: "control", header: "Control", cell: controlLink },
-  { key: "decision", header: "Decision", cell: (c) => <DecisionBadge decision={c.decision} /> },
-  { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.control_id} compliance`} />, width: "35%" },
-  { key: "coverage", header: "Coverage", cell: (c) => <CoverageText posture={c.compliance} />, numeric: true },
+const controlColumns: DataTableColumn<Schemas["OrgControl"]>[] = [
+  { id: "control", header: "Control", cell: ({ row }) => controlLink(row.original) },
+  { id: "decision", header: "Decision", cell: ({ row: { original: c } }) => <DecisionBadge decision={c.decision} /> },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: c } }) => <PostureMeter posture={c.compliance} label={`${c.control_id} compliance`} />, meta: { className: "w-[35%]" } },
+  { id: "coverage", header: "Coverage", cell: ({ row: { original: c } }) => <CoverageText posture={c.compliance} />, meta: { numeric: true } },
 ];
 
-const worstColumns: Column<Schemas["OrgControl"]>[] = [
-  { key: "control", header: "Control", cell: controlLink },
-  { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.control_id} compliance`} />, width: "55%" },
+const worstColumns: DataTableColumn<Schemas["OrgControl"]>[] = [
+  { id: "control", header: "Control", cell: ({ row }) => controlLink(row.original) },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: c } }) => <PostureMeter posture={c.compliance} label={`${c.control_id} compliance`} />, meta: { className: "w-[55%]" } },
 ];
 
-export const exclusionColumns: Column<Schemas["Exclusion"]>[] = [
-  { key: "repository", header: "Repository", cell: (e) => <span className="font-mono">{e.repository}</span> },
-  { key: "control", header: "Control", cell: (e) => (e.control_id ? <span className="font-mono">{e.control_id}</span> : <span className="text-muted-foreground">every control</span>) },
-  { key: "state", header: "State", cell: (e) => <Badge tone="mute">{humanize(e.state)}</Badge> },
-  { key: "reason", header: "Reason", cell: (e) => e.reason },
-  { key: "by", header: "Excluded by", cell: (e) => <span className="font-mono text-xs">{e.excluded_by ?? "—"}</span>, hideBelow: "md" },
+export const exclusionColumns: DataTableColumn<Schemas["Exclusion"]>[] = [
+  { id: "repository", header: "Repository", cell: ({ row: { original: e } }) => <span className="font-mono">{e.repository}</span> },
+  { id: "control", header: "Control", cell: ({ row: { original: e } }) => (e.control_id ? <span className="font-mono">{e.control_id}</span> : <span className="text-muted-foreground">every control</span>) },
+  { id: "state", header: "State", cell: ({ row: { original: e } }) => <Badge variant="muted">{humanize(e.state)}</Badge> },
+  { id: "reason", header: "Reason", cell: ({ row: { original: e } }) => e.reason },
+  { id: "by", header: "Excluded by", cell: ({ row: { original: e } }) => <span className="font-mono text-xs">{e.excluded_by ?? "—"}</span>, meta: { hideBelow: "md" } },
 ];

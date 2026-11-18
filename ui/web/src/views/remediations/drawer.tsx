@@ -7,10 +7,11 @@ import { HoldBadge, RemediationStateBadge } from "../../components/badges";
 import { Loading } from "../../components/common";
 import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
-import { Time } from "../../components/time";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
+import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { reassignedEvents, StatusMove, timelineEvents } from "../findings/drawer";
@@ -56,14 +57,17 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
   if (!key) return null;
   const title = r ? `${r.org}/${r.repository}` : `remediation ${open}`;
   return (
-    <DetailDrawer
+    <DetailPanel
       open
       inline={inline}
-      onClose={onClose}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      subject={open}
       {...(returnFocusTo === undefined ? {} : { returnFocusTo })}
-      aria-label={`Remediation: ${title}${r ? ` ${r.control_id}` : ""}`}
+      label={`Remediation: ${title}${r ? ` ${r.control_id}` : ""}`}
       title={title}
-      subtitle={
+      description={
         r ? (
           <span>
             {r.control_id} · {humanize(r.kind)} · opened <Time iso={r.created_at} style="date" />
@@ -73,22 +77,18 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
       footer={
         r ? (
           <>
-            <Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }}>
-              <Button variant="outline" size="sm" tabIndex={-1}>
-                Open finding →
-              </Button>
+            <Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Open finding →
             </Link>
-            <Link to="/repositories/$id" params={{ id: String(r.repository_id) }}>
-              <Button variant="outline" size="sm" tabIndex={-1}>
-                Open repository →
-              </Button>
+            <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Open repository →
             </Link>
           </>
         ) : undefined
       }
     >
       {r ? <RemediationBody remediation={r} /> : lookup.isFetched || lookup.isError ? <p className="text-sm text-muted-foreground">This remediation is not visible: it is outside your orgs, past the listing cap, or gone.</p> : <Loading />}
-    </DetailDrawer>
+    </DetailPanel>
   );
 }
 
@@ -97,18 +97,18 @@ export function remediationRows(r: Schemas["Remediation"]) {
   const age = remediationAge(r);
   return [
     {
-      key: "state",
+      label: "state",
       value: (
         <span className="inline-flex flex-wrap items-center gap-2">
-          {r.state ? <RemediationStateBadge state={r.state} /> : <Badge tone="mute">held</Badge>}
-          {isStale(r) ? <Badge tone="warn">stale</Badge> : null}
+          {r.state ? <RemediationStateBadge state={r.state} /> : <Badge variant="muted">held</Badge>}
+          {isStale(r) ? <Badge variant="warning">stale</Badge> : null}
         </span>
       ),
     },
     ...(r.pr_number !== undefined
       ? [
           {
-            key: "pull request",
+            label: "pull request",
             value: (
               <span className="inline-flex flex-wrap items-center gap-2">
                 {r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono">#{r.pr_number}</span>}
@@ -119,7 +119,7 @@ export function remediationRows(r: Schemas["Remediation"]) {
         ]
       : []),
     {
-      key: "hold",
+      label: "hold",
       value: r.hold ? (
         <span className="inline-flex flex-wrap items-center gap-2">
           <HoldBadge hold={r.hold} />
@@ -129,8 +129,8 @@ export function remediationRows(r: Schemas["Remediation"]) {
         <span className="text-muted-foreground">—</span>
       ),
     },
-    { key: "age", value: `${age} ${age === 1 ? "day" : "days"}` },
-    ...(r.closed_at ? [{ key: "closed", value: <span><Time iso={r.closed_at} style="relative" />{r.close_reason ? ` · ${humanize(r.close_reason)}` : ""}</span> }] : []),
+    { label: "age", value: `${age} ${age === 1 ? "day" : "days"}` },
+    ...(r.closed_at ? [{ label: "closed", value: <span><Time iso={r.closed_at} style="relative" />{r.close_reason ? ` · ${humanize(r.close_reason)}` : ""}</span> }] : []),
   ];
 }
 
@@ -144,11 +144,11 @@ export function StepsJournal({ steps }: { steps: readonly Schemas["RemediationSt
         <li key={st.seq} className="flex flex-wrap items-baseline gap-2">
           <span className="text-muted-foreground">{st.seq}.</span>
           <span>{st.kind}</span>
-          <Badge tone={st.status === "failed" ? "bad" : "ok"}>{st.status}</Badge>
+          <Badge variant={st.status === "failed" ? "destructive" : "success"}>{st.status}</Badge>
           {st.resource_key ? <span className="text-muted-foreground">{st.resource_key}</span> : null}
           {st.pr_number !== undefined ? <span className="text-muted-foreground">#{st.pr_number}</span> : null}
           {st.committed_sha ? <span className="text-muted-foreground">{st.committed_sha.slice(0, 12)}</span> : null}
-          {st.error ? <span className="break-all text-bad">{st.error}</span> : null}
+          {st.error ? <span className="break-all text-destructive">{st.error}</span> : null}
         </li>
       ))}
     </ol>
@@ -161,7 +161,7 @@ function RemediationBody({ remediation: r }: { remediation: Schemas["Remediation
   const reassigned = reassignedEvents(events.data?.items ?? []);
   return (
     <>
-      <DetailKV rows={remediationRows(r)} />
+      <DetailsGrid layout="list" items={remediationRows(r)} />
       {r.proposal && r.proposal.length > 0 ? (
         <DetailSection title={r.state === "recommended" ? "Proposal (recommend: a human applies it)" : "Proposal"}>
           <ul className="space-y-1 font-mono text-xs" aria-label="Proposal">

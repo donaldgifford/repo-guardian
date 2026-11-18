@@ -61,22 +61,32 @@ host to the UI. The webhook route stays yours; see
 
 ## The shell
 
-Every signed-in page shares one frame (DESIGN-0036):
+Every signed-in page shares one frame (DESIGN-0036, rebuilt on the
+shared design system by DESIGN-0039):
 
-- **Sidebar.** *Business* holds Fleet, Findings (with the count of
-  non-compliant results in scope), Controls, Orgs, Repositories,
-  Remediations (with the outstanding count; blank without the
-  Remediation App), History and Policy. *Public* holds the status page. A *Docs* group
-  with one Documentation link appears only when `ui.docsUrl` is set.
-  Below 900px the sidebar collapses behind a menu button in the top
-  bar.
+- **Sidebar.** At the top, *Repo Guardian* links home. *Business* holds
+  Fleet, Findings (with the count of non-compliant results in scope),
+  Controls, Orgs, Repositories, Remediations (with the outstanding
+  count; blank without the Remediation App), History and Policy.
+  *Public* holds the status page. A *Docs* group with one Documentation
+  link appears only when `ui.docsUrl` is set.
+- **Collapsing it.** The button at the left of the top bar, or `⌘B`
+  (`Ctrl+B`), collapses the sidebar to a rail of icons; each names
+  itself in a tooltip on hover or keyboard focus. The choice is kept in
+  the browser (`localStorage` key `rg.sidebar`) and holds across
+  reloads. Below 768px the same button opens the sidebar as a sheet over
+  the page, and choosing an entry closes it.
+- **Account menu.** At the foot of the sidebar, your initials, name and
+  subject open a menu with Documentation (when set) and **Sign out**.
+- **Breadcrumbs** in the top bar, ending at the control, org or
+  repository you are on. A repository reads `org/name` (`…` for the
+  moment it is loading), never its numeric id.
+- **Search.** The top bar's *Search* button, or `⌘K` (`Ctrl+K`), opens
+  a palette over repositories, controls and orgs; the arrow keys wrap
+  and Enter goes to the result, keeping the org scope.
 - **Time zone.** The *Local* / *UTC* toggle in the top bar sets how
   every timestamp prints. The choice is kept in the browser
   (`localStorage` key `rg.tz`), never sent to the server.
-- **Account menu.** The avatar names you and holds **Sign out**.
-- **Breadcrumbs** above every page title, ending at the control, org or
-  repository you are on. A repository reads `org/name` (`…` for the
-  moment it is loading), never its numeric id.
 
 ## Views
 

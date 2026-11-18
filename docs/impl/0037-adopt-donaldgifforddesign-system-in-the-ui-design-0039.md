@@ -1,7 +1,7 @@
 ---
 id: IMPL-0037
 title: "Adopt @donaldgifford/design-system in the UI (DESIGN-0039)"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-11-17
 ---
@@ -139,20 +139,20 @@ The package is installable everywhere this repository installs, and nothing impo
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 Create the branch `feat/ui-design-system` from `main` once the documents PR is merged (OQ1).
-- [ ] 1.2 Add `ui/.npmrc` with the `@donaldgifford` scope registry and `_authToken=${NPM_TOKEN}`. Confirm `ui/.dockerignore` does not exclude it.
-- [ ] 1.3 `Makefile`: `ui-install` and `docker-build-ui` export `NPM_TOKEN` from the environment when set and from `gh auth token` otherwise. The fallback must not print the token and must fail with a message naming `ui/README.md` when neither is available.
-- [ ] 1.4 Add `@donaldgifford/design-system` at exactly `0.3.0` to `devDependencies` and commit `bun.lock`. Confirm the installed package has `src/` (a `dist/` with no `src/` is the stale-cache case from design-system#11).
-- [ ] 1.5 `ui/Dockerfile`, build stage only: `COPY package.json bun.lock .npmrc ./` and `RUN --mount=type=secret,id=NPM_TOKEN NPM_TOKEN="$(cat /run/secrets/NPM_TOKEN)" bun install --frozen-lockfile`. Leave the deps stage and the `# syntax` line alone.
-- [ ] 1.6 `docker-bake.hcl`: `secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]` on `_ui`. `make docker-build-ui` builds; `docker history --no-trunc` on the result shows no token; the runtime image has no `node_modules/@donaldgifford`.
-- [ ] 1.7 `ci.yml`: the `ui` and `ui-e2e` jobs get `permissions: { contents: read, packages: read }` and `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the install step's `env`. No other job changes.
-- [ ] 1.8 Push and confirm both jobs install with `GITHUB_TOKEN`. If the registry refuses it, switch the two jobs to the repository secret from OQ2 and record which was needed in this plan.
-- [ ] 1.9 `ghcr.yml`: `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the `env` of the `ui-image` bake step. Diff `ghcr.yml` against `ecr.yml` and confirm `ecr.yml` needs nothing. Run `actionlint`.
-- [ ] 1.10 Dispatch `ghcr.yml` on the branch with `dry_run: true` and a tag input, and confirm the `ui-image` job builds both platforms. *deferred - human required* if the dispatch needs the maintainer.
-- [ ] 1.11 `renovate.json5`: add `github>donaldgifford/renovate-config:node` to `extends`, a `hostRules` entry for `npm.pkg.github.com` reading the Renovate secret, and a `packageRules` entry that keeps `@donaldgifford/design-system` in its own pull request, out of the non-major group and never automerged.
-- [ ] 1.12 `.github/dependabot.yml`: a `registries` entry for `npm.pkg.github.com` and a reference to it from the `bun` update for `/ui`.
-- [ ] 1.13 Create the `read:packages` token and store it as the Renovate secret and the Dependabot secret named in OQ2. *deferred - human required*
-- [ ] 1.14 `ui/README.md`: a "Registry token" section (the scope, why a public package needs one, the `gh` fallback, the Docker secret).
+- [x] 1.1 Create the branch `feat/ui-design-system` from `main` once the documents PR is merged (OQ1).
+- [x] 1.2 Add `ui/.npmrc` with the `@donaldgifford` scope registry and `_authToken=${NPM_TOKEN}`. Confirm `ui/.dockerignore` does not exclude it.
+- [x] 1.3 `Makefile`: `ui-install` and `docker-build-ui` export `NPM_TOKEN` from the environment when set and from `gh auth token` otherwise. The fallback must not print the token and must fail with a message naming `ui/README.md` when neither is available.
+- [x] 1.4 Add `@donaldgifford/design-system` at exactly `0.3.0` to `devDependencies` and commit `bun.lock`. Confirm the installed package has `src/` (a `dist/` with no `src/` is the stale-cache case from design-system#11).
+- [x] 1.5 `ui/Dockerfile`, build stage only: `COPY package.json bun.lock .npmrc ./` and `RUN --mount=type=secret,id=NPM_TOKEN NPM_TOKEN="$(cat /run/secrets/NPM_TOKEN)" bun install --frozen-lockfile`. Leave the deps stage and the `# syntax` line alone.
+- [x] 1.6 `docker-bake.hcl`: `secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]` on `_ui`. `make docker-build-ui` builds; `docker history --no-trunc` on the result shows no token; the runtime image has no `node_modules/@donaldgifford`.
+- [x] 1.7 `ci.yml`: the `ui` and `ui-e2e` jobs get `permissions: { contents: read, packages: read }` and `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the install step's `env`. No other job changes.
+- [x] 1.8 Push and confirm both jobs install with `GITHUB_TOKEN`. If the registry refuses it, switch the two jobs to the repository secret from OQ2 and record which was needed in this plan. **Result:** `GITHUB_TOKEN` with `packages: read` was enough; both jobs installed and passed on #255. No Actions secret is needed for CI.
+- [x] 1.9 `ghcr.yml`: `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the `env` of the `ui-image` bake step. Diff `ghcr.yml` against `ecr.yml` and confirm `ecr.yml` needs nothing. Run `actionlint`.
+- [ ] 1.10 Dispatch `ghcr.yml` on the branch with `dry_run: true` and a tag input, and confirm the `ui-image` job builds both platforms. *deferred - human required* if the dispatch needs the maintainer. **Deferred - human required:** as written this cannot exercise the change. `ui-image` checks out `inputs.tag`, not the dispatched branch, and its bake step is skipped when `dry_run` is true. The first real proof is the release run (task 8.9); a pre-merge check would need an rc tag on this branch (rule 6) and a non-dry dispatch, which is the maintainer's call.
+- [ ] 1.11 `renovate.json5`: add `github>donaldgifford/renovate-config:node` to `extends`, a `hostRules` entry for `npm.pkg.github.com` reading the Renovate secret, and a `packageRules` entry that keeps `@donaldgifford/design-system` in its own pull request, out of the non-major group and never automerged. **Partly done:** `:node` and the package rule are in. The `hostRules` entry waits on the maintainer: whether boop-bot (which runs Renovate here) already reads GitHub Packages, or needs `GH_PACKAGES_READ_TOKEN` exposed where it runs.
+- [x] 1.12 `.github/dependabot.yml`: a `registries` entry for `npm.pkg.github.com` and a reference to it from the `bun` update for `/ui`.
+- [ ] 1.13 Create the `read:packages` token and store it as the Renovate secret and the Dependabot secret named in OQ2. *deferred - human required* **Partly done (2026-11-18):** `GH_PACKAGES_READ_TOKEN` is set in the Actions and Dependabot stores; the Renovate side waits on 1.11.
+- [x] 1.14 `ui/README.md`: a "Registry token" section (the scope, why a public package needs one, the `gh` fallback, the Docker secret).
 
 <!--docz:tasks:end-->
 
@@ -178,17 +178,17 @@ The app takes its Tailwind entry, tokens, fonts, focus outline and reduced-motio
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 2.1 Classify the 40 `accent` uses (33 utilities, 7 `var()`), file by file, with the D§3 rule: brand blue becomes `primary`, a focus ring becomes `ring`, a selected tint becomes `primary` at the same opacity, a hover surface stays `accent`. Record the table in the pull request description before editing.
-- [ ] 2.2 `web/src/index.css` becomes the single `@import "@donaldgifford/design-system/globals.css";`. Delete the `@theme`, the `:root` and `body` rules, the `:focus-visible` rule, the reduced-motion block, the `rg-*` keyframes and the `animate-*` utilities.
-- [ ] 2.3 The four local animation utilities are used by `components/ui/dialog.tsx` and `drawer.tsx`, which survive until Phases 4 and 6. Point them at `tw-animate-css` classes (`animate-in`, `fade-in-0`, `slide-in-from-right`, `slide-in-from-left`) so overlays still animate in between.
-- [ ] 2.4 `--breakpoint-nav` goes with the `@theme`. The local sidebar and top bar use `nav:` until Phase 6: change their two uses to `md:` now, which is the package shell's breakpoint.
-- [ ] 2.5 `web/index.html`: `class="dark"` on `<html>`.
-- [ ] 2.6 `web/src/main.tsx`: remove the five `@fontsource` imports.
-- [ ] 2.7 Rename utilities: `panel` to `card`, `panel-2` to `muted`, `ok`/`warn`/`bad` to `success`/`warning`/`destructive`, and `accent` per 2.1.
-- [ ] 2.8 Rename the inline `var(--color-…)` references the same way, including `toneVar` and chart colour constants. Meaningless series colours read `--chart-1` to `--chart-5`.
-- [ ] 2.9 `lib/format.ts`: `Tone` becomes `success | warning | destructive | info | muted | outline`; update `toneFor` and every tone literal and test.
-- [ ] 2.10 Add `ui/scripts/check-tokens.ts` and a `check:tokens` script that fail on `-panel`, `-panel-2`, `-ok`, `-warn`, `-bad` utilities and `--color-panel`, `--color-ok`, `--color-warn`, `--color-bad` under `web/src`. Add a test that proves it fires, as `scripts/eslint-ban.test.ts` does for the markup ban. Wire it into `lint-ui` in the `Makefile`.
-- [ ] 2.11 Run `make test-ui-e2e-visual`. If the four baselines differ beyond the threshold, regenerate them once with `make test-ui-e2e-update-snapshots` and review the images: the only visible changes should be colour.
+- [x] 2.1 Classify the 40 `accent` uses (33 utilities, 7 `var()`), file by file, with the D§3 rule: brand blue becomes `primary`, a focus ring becomes `ring`, a selected tint becomes `primary` at the same opacity, a hover surface stays `accent`. Record the table in the pull request description before editing.
+- [x] 2.2 `web/src/index.css` becomes the single `@import "@donaldgifford/design-system/globals.css";`. Delete the `@theme`, the `:root` and `body` rules, the `:focus-visible` rule, the reduced-motion block, the `rg-*` keyframes and the `animate-*` utilities.
+- [x] 2.3 The four local animation utilities are used by `components/ui/dialog.tsx` and `drawer.tsx`, which survive until Phases 4 and 6. Point them at `tw-animate-css` classes (`animate-in`, `fade-in-0`, `slide-in-from-right`, `slide-in-from-left`) so overlays still animate in between.
+- [x] 2.4 `--breakpoint-nav` goes with the `@theme`. The local sidebar and top bar use `nav:` until Phase 6: change their two uses to `md:` now, which is the package shell's breakpoint.
+- [x] 2.5 `web/index.html`: `class="dark"` on `<html>`.
+- [x] 2.6 `web/src/main.tsx`: remove the five `@fontsource` imports.
+- [x] 2.7 Rename utilities: `panel` to `card`, `panel-2` to `muted`, `ok`/`warn`/`bad` to `success`/`warning`/`destructive`, and `accent` per 2.1.
+- [x] 2.8 Rename the inline `var(--color-…)` references the same way, including `toneVar` and chart colour constants. Meaningless series colours read `--chart-1` to `--chart-5`.
+- [x] 2.9 `lib/format.ts`: `Tone` becomes `success | warning | destructive | info | muted | outline`; update `toneFor` and every tone literal and test.
+- [x] 2.10 Add `ui/scripts/check-tokens.ts` and a `check:tokens` script that fail on `-panel`, `-panel-2`, `-ok`, `-warn`, `-bad` utilities and `--color-panel`, `--color-ok`, `--color-warn`, `--color-bad` under `web/src`. Add a test that proves it fires, as `scripts/eslint-ban.test.ts` does for the markup ban. Wire it into `lint-ui` in the `Makefile`.
+- [x] 2.11 Run `make test-ui-e2e-visual`. If the four baselines differ beyond the threshold, regenerate them once with `make test-ui-e2e-update-snapshots` and review the images: the only visible changes should be colour.
 
 <!--docz:tasks:end-->
 
@@ -214,20 +214,20 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 3.1 `lib/utils.ts` (`cn`), `lib/use-media-query.ts`, `lib/csv.ts`, `lib/time.ts`, `charts/scale.ts`: replace every import with the package module and delete the files and their tests. `SIDE_BY_SIDE` becomes `DETAIL_INLINE_QUERY` from `shell/detail-panel`.
-- [ ] 3.2 `floorPercent`, `formatPercent`, `heatOpacity`: import from `lib/percent`; delete the local definitions in `lib/posture.ts`, `lib/format.ts` and `lib/viewmodel.ts`. `compliantPercent` stays. `api/testdata/compliant_percent.json` must still drive the SPA's test.
-- [ ] 3.3 `components/time.tsx` to `blocks/time`: `TimeZoneProvider storageKey="rg.tz"`. Rewrite the toggle's test for pressed buttons. Confirm a stored `rg.tz` from the old build is honoured.
-- [ ] 3.4 `components/ExportButton.tsx` to `blocks/export-button`: pass `name` for the accessible name and `filename="repo-guardian-<page>"` so file names do not change. The e2e download assertions must pass unedited.
-- [ ] 3.5 `components/LoadMore.tsx` to `blocks/load-more`.
-- [ ] 3.6 `ui/meter` to `blocks/meter` (`size`, required `label`); `ui/chip` to `blocks/filter-chip`; `ui/pill` to `blocks/series-pills`, including the fleet's hand-rolled series picker.
-- [ ] 3.7 `ui/kpi` to `blocks/kpi`. Move `DeltaText` and `Delta` to `components/DeltaText.tsx`, pass it as `hint`, and update `lib/fleet.ts`'s type import.
-- [ ] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
-- [ ] 3.9 `charts/ChartCard` and `tooltip` to `blocks/chart-card` (`description`, `action`, `strip`). The fleet card's strip must stay visible in table view.
-- [ ] 3.10 `charts/TrendChart` to `blocks/trend-chart`: `points: {at, value}[]`, `series`, and `trendTable(points, series, { head: "Snapshot", noun: "snapshots" })`.
-- [ ] 3.11 `BarBuckets`, `PairBars`, `BarList`, `StackedBars`, `Sparkline` to their blocks. Check each chart with a null in its series: `Sparkline` now breaks the line.
-- [ ] 3.12 `charts/DistBar` to `blocks/dist-bar` with `size="sm"` and `label`; rebuild `PostureBar` on it. The accessible name becomes `<label>: <summary>`; confirm the e2e `getByRole("img", { name: … })` still matches.
-- [ ] 3.13 `ui/group-grid` to `blocks/group-grid` (`heading`, `label`, string headers). The footer row is `data-row="footer"`: update `e2e/ui.spec.ts` and the orgs tests.
-- [ ] 3.14 Delete `components/charts/` (including its barrel and `charts.test.tsx`) and the leaf files replaced above. Remove `recharts` from `package.json` and confirm one copy remains in the lockfile.
+- [x] 3.1 `lib/utils.ts` (`cn`), `lib/use-media-query.ts`, `lib/csv.ts`, `lib/time.ts`, `charts/scale.ts`: replace every import with the package module and delete the files and their tests. `SIDE_BY_SIDE` becomes `DETAIL_INLINE_QUERY` from `shell/detail-panel`.
+- [x] 3.2 `floorPercent`, `formatPercent`, `heatOpacity`: import from `lib/percent`; delete the local definitions in `lib/posture.ts`, `lib/format.ts` and `lib/viewmodel.ts`. `compliantPercent` stays. `api/testdata/compliant_percent.json` must still drive the SPA's test.
+- [x] 3.3 `components/time.tsx` to `blocks/time`: `TimeZoneProvider storageKey="rg.tz"`. Rewrite the toggle's test for pressed buttons. Confirm a stored `rg.tz` from the old build is honoured.
+- [x] 3.4 `components/ExportButton.tsx` to `blocks/export-button`: pass `name` for the accessible name and `filename="repo-guardian-<page>"` so file names do not change. The e2e download assertions must pass unedited.
+- [x] 3.5 `components/LoadMore.tsx` to `blocks/load-more`.
+- [x] 3.6 `ui/meter` to `blocks/meter` (`size`, required `label`); `ui/chip` to `blocks/filter-chip`; `ui/pill` to `blocks/series-pills`, including the fleet's hand-rolled series picker.
+- [x] 3.7 `ui/kpi` to `blocks/kpi`. Move `DeltaText` and `Delta` to `components/DeltaText.tsx`, pass it as `hint`, and update `lib/fleet.ts`'s type import.
+- [x] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
+- [x] 3.9 `charts/ChartCard` and `tooltip` to `blocks/chart-card` (`description`, `action`, `strip`). The fleet card's strip must stay visible in table view.
+- [x] 3.10 `charts/TrendChart` to `blocks/trend-chart`: `points: {at, value}[]`, `series`, and `trendTable(points, series, { head: "Snapshot", noun: "snapshots" })`.
+- [x] 3.11 `BarBuckets`, `PairBars`, `BarList`, `StackedBars`, `Sparkline` to their blocks. Check each chart with a null in its series: `Sparkline` now breaks the line.
+- [x] 3.12 `charts/DistBar` to `blocks/dist-bar` with `size="sm"` and `label`; rebuild `PostureBar` on it. The accessible name becomes `<label>: <summary>`; confirm the e2e `getByRole("img", { name: … })` still matches.
+- [x] 3.13 `ui/group-grid` to `blocks/group-grid` (`heading`, `label`, string headers). The footer row is `data-row="footer"`: update `e2e/ui.spec.ts` and the orgs tests.
+- [x] 3.14 Delete `components/charts/` (including its barrel and `charts.test.tsx`) and the leaf files replaced above. Remove `recharts` from `package.json` and confirm one copy remains in the lockfile.
 
 <!--docz:tasks:end-->
 
@@ -238,6 +238,17 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - `recharts` is not a direct dependency.
 - CSV file names, the stored time zone and every chart's table view are unchanged, shown by the existing e2e passing.
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass. `make test-ui-e2e-visual` passes against the Phase 2 baselines; a diff here is a regression to fix, not to re-baseline.
+
+
+**Phase 3 result (2026-11-18):** met except the visual criterion. Status,
+Findings and Remediations match the Phase 2 baselines; Orgs differs by 2%
+of pixels, all from the package `GroupGrid` (41px rows against 38, a
+chevron icon for the disclosure triangle) and the package `ExportButton`
+(a download icon). Those are the package's design, not a local
+regression, and cannot be undone without restyling package internals,
+which this plan rules out; the Orgs baseline moves with the others in
+task 6.15. Four e2e selectors that walked a fixed number of parents now
+find the card or KPI by component.
 
 <!--docz:criteria:end-->
 <!--docz:phase:end-->
@@ -252,18 +263,24 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 4.1 `web/testing/preload.ts` (the bunfig preload from #254): load `@base-ui/react` and `cmdk` under the temporary document, beside `radix-ui`, and drop `radix-ui` from it in Phase 7. Rendering test files keep `withDOM(cleanup)`. Run the unit suite in CI's file order and in 20 shuffled orders to show no overlay test depends on which file loads first.
-- [ ] 4.2 `ui/button` to `components/button`. Give the three calls with no `variant` (`LoadMore`'s former call site if any remains, `OrgScope`, `views/repositories.tsx`) `variant="outline"`. Replace the four `<Link><Button tabIndex={-1}>` nestings with `render={<Link …/>}`.
-- [ ] 4.3 `ui/badge` to `components/badge` with `variant`; rebuild every badge in `components/badges.tsx` on it. `HoldBadge` keeps its sentence as the title.
-- [ ] 4.4 `ui/avatar` to `components/avatar` at its current call site (it moves again in Phase 6).
-- [ ] 4.5 Add `components/Panel.tsx`: the `title`/`subtitle`/`right`/`bodyClassName` API on `Card render` as a `section` and `CardTitle render` as an `h3` (function form, to satisfy the heading lint rule). Move the roughly 40 `Card` call sites to it. The three bare-surface uses get explicit class resets; the status page's two labelled cards keep a region role.
-- [ ] 4.6 Add `components/SegmentedTabs.tsx`: `Tabs({label, options, value, onChange})` and `SearchTabs` on the package's tabs. Verify with a test that it works with no panel and that unselected tabs are out of the tab order; if Base UI does not allow it, keep the roving-tabindex implementation local and note it here. Rebuild `RangeTabs` on it.
-- [ ] 4.7 `ui/popover` to `components/popover`; move `PopoverHeading`, `PopoverItem` and `PopoverSeparator` to `components/OptionRows.tsx`. Call sites pass `align="start"`, `sideOffset={6}` and their width classes; `asChild` becomes `render`. `filters/FilterChips.tsx` and `page/OrgScope.tsx` are the consumers.
-- [ ] 4.8 `ui/dropdown-menu` to `components/dropdown-menu` in `TopBar`: `onSelect` becomes `onClick` on Sign out, the label goes inside a `DropdownMenuGroup`, the Documentation item uses `render={<a …/>}`.
-- [ ] 4.9 `ui/detail-drawer` to `shell/detail-panel` in both drawers: `onOpenChange`, `description`, `label` (the existing "Finding: …" and "Remediation: …" strings), `subject={open}`, and the page grid's second column as `var(--sheet-width-wide)`.
-- [ ] 4.10 `DetailKV` to `DetailsGrid layout="list"` in `views/policy.tsx`, `views/repositories.tsx` and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
-- [ ] 4.11 Rewrite `components/ui/behaviour.test.tsx` and `primitives.test.tsx` cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
-- [ ] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
+- [x] 4.1 `web/testing/preload.ts` (the bunfig preload from #254): load `@base-ui/react` and `cmdk` under the temporary document, beside `radix-ui`, and drop `radix-ui` from it in Phase 7. Rendering test files keep `withDOM(cleanup)`. Run the unit suite in CI's file order and in 20 shuffled orders to show no overlay test depends on which file loads first.
+- [x] 4.2 `ui/button` to `components/button`. Give the three calls with no `variant` (`LoadMore`'s former call site if any remains, `OrgScope`, `views/repositories.tsx`) `variant="outline"`. Replace the four `<Link><Button tabIndex={-1}>` nestings with `render={<Link …/>}`.
+  Changed in 4.12: `render` with `nativeButton={false}` gives the `<a>` `role="button"`, which the e2e link assertions caught. The four are plain `Link`s styled with `buttonVariants({ variant: "outline", size: "sm" })`.
+- [x] 4.3 `ui/badge` to `components/badge` with `variant`; rebuild every badge in `components/badges.tsx` on it. `HoldBadge` keeps its sentence as the title.
+- [x] 4.4 `ui/avatar` to `components/avatar` at its current call site (it moves again in Phase 6).
+- [x] 4.5 Add `components/Panel.tsx`: the `title`/`subtitle`/`right`/`bodyClassName` API on `Card render` as a `section` and `CardTitle render` as an `h3` (function form, to satisfy the heading lint rule). Move the roughly 40 `Card` call sites to it. The three bare-surface uses get explicit class resets; the status page's two labelled cards keep a region role.
+  Done with one change: the bare-surface reset (`block flex-row gap-0 py-0`) lives in `Panel` itself, not at the call sites, because the package card's `flex-col` survived a caller's `flex flex-wrap` (five bare uses, not three). `Panel` also zeroes the card's gap and padding and pads header and body itself, so `bodyClassName="p-0"` stays flush. `PanelBody` replaces `CardBody` for the two bare panels with a padded body.
+- [x] 4.6 Add `components/SegmentedTabs.tsx`: `Tabs({label, options, value, onChange})` and `SearchTabs` on the package's tabs. Verify with a test that it works with no panel and that unselected tabs are out of the tab order; if Base UI does not allow it, keep the roving-tabindex implementation local and note it here. Rebuild `RangeTabs` on it.
+  Done: Base UI allows both. `SegmentedTabs.test.tsx` renders a list with no panel and checks only the selected tab is in the Tab order (`tabindex` -1/0/-1, one Tab stop between two buttons); the arrow/Home/End case passes unedited on Base UI, so `nextTab` is gone.
+- [x] 4.7 `ui/popover` to `components/popover`; move `PopoverHeading`, `PopoverItem` and `PopoverSeparator` to `components/OptionRows.tsx`. Call sites pass `align="start"`, `sideOffset={6}` and their width classes; `asChild` becomes `render`. `filters/FilterChips.tsx` and `page/OrgScope.tsx` are the consumers.
+- [x] 4.8 `ui/dropdown-menu` to `components/dropdown-menu` in `TopBar`: `onSelect` becomes `onClick` on Sign out, the label goes inside a `DropdownMenuGroup`, the Documentation item uses `render={<a …/>}`.
+- [x] 4.9 `ui/detail-drawer` to `shell/detail-panel` in both drawers: `onOpenChange`, `description`, `label` (the existing "Finding: …" and "Remediation: …" strings), `subject={open}`, and the page grid's second column as `var(--sheet-width-wide)`.
+- [x] 4.10 `DetailKV` to `DetailsGrid layout="list"` in `views/policy.tsx`, `views/repositories.tsx` and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
+  Checked in Chromium at 700px with a throwaway spec: no `details-grid` overflows on Policy, a repository, or either drawer, and a 300-character unbroken pull request URL and a long evidence line injected into a `dd` wrap (100px and 80px tall) with `scrollWidth` equal to `clientWidth`.
+- [x] 4.11 Rewrite `components/ui/behaviour.test.tsx` and `primitives.test.tsx` cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
+  Done: each deleted primitive's case went with it (Button, Avatar, Card → `Panel.test.tsx`, Tabs → `SegmentedTabs.test.tsx` with the keyboard and search-param cases). `behaviour.test.tsx` now covers only survivors (the shell's Drawer focus trap, Escape and focus return; Command), and the DeltaText cases moved to `components/DeltaText.test.tsx`.
+- [x] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
+  Done. No selector named local markup. The one changed assertion (`toHaveClass(/--color-destructive/)` → `toHaveAttribute("data-variant", "destructive")`, 4.3) cannot pass on the pre-change build, whose badge rendered no `data-variant`. Added: focus moves into the findings drawer and Escape returns it to the row (shown to fail with `returnFocusTo` removed), and the account menu opens from the keyboard and Escape returns focus to its trigger.
 
 <!--docz:tasks:end-->
 
@@ -276,6 +293,18 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass; `a11y.spec.ts` passes unchanged. Visual diffs are limited to overlay width and motion.
 
 <!--docz:criteria:end-->
+
+**Phase 4 result (2026-11-18):** met except the visual criterion, as in
+Phase 3. `make lint-ui`, `make test-ui` (353) and `make test-ui-e2e`
+(42, `a11y.spec.ts` unchanged) pass; only `command.tsx`, `dialog.tsx`
+and `drawer.tsx` import `radix-ui`. The e2e run found two regressions,
+both fixed: the four Link buttons announced as buttons (4.2 note), and
+the package tab trigger's 1px focus outline under the global 2px rule
+(`SegmentedTabs` puts it back; worth raising upstream). Findings matches
+its baseline; Status and Remediations differ by 1% of pixels from the
+package outline badge (`px-1.5 py-1` against 7px/5px), which shortens
+the changelog tag rows and narrows the auto-width Kind column; Orgs is
+unchanged from Phase 3. These move with the 6.15 re-baseline.
 <!--docz:phase:end-->
 
 ---
@@ -288,14 +317,18 @@ Every table renders through the package's `DataTable`: the 14 embedded tables as
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 Add a unit test that a `DataTable` with `sortable={false}` renders plain-text headers (no button, no `aria-sort`) for a representative embedded table, and run it against the first converted table.
-- [ ] 5.2 Convert the embedded tables' column definitions to `dataTableColumns<T>()`: `views/policy.tsx`, `controls.tsx` (two), `orgs.tsx` (four), `fleet.tsx` (three), `repositories.tsx` (three embedded), `findings/drawer.tsx`. `width` and `className` become `meta.className`; `numeric` and `hideBelow` move to `meta`.
-- [ ] 5.3 Render them as `<DataTable sortable={false} bare label=… columns data getRowId empty />`. Each keeps its accessible name and its empty text.
-- [ ] 5.4 Convert the three lists (`findings.tsx`, `remediations.tsx`, the repositories list) to `<DataTable manual bare label=… selectedId onRowClick compact />` followed by the package's `LoadMore`. No `search` or `onSearchChange` is passed.
-- [ ] 5.5 Change the focus-return lookup in `findings.tsx` and `remediations.tsx` from `tr[data-key=…]` to `tr[data-row-id=…]`.
-- [ ] 5.6 Verify row activation on the lists: a click on the repository or pull-request link inside a row follows the link and does not open the drawer; Enter and Space on the row open it; a key pressed inside the row does not.
-- [ ] 5.7 Verify the side-by-side layout still drops `hideBelow: "compact"` columns at 1600px with the drawer open.
-- [ ] 5.8 Delete `components/ui/data-table.tsx`, `table.tsx` and the table cases in `tables.test.tsx`; keep or move the cases that cover view columns.
+- [x] 5.1 Add a unit test that a `DataTable` with `sortable={false}` renders plain-text headers (no button, no `aria-sort`) for a representative embedded table, and run it against the first converted table.
+  Done in `components/DataTable.test.tsx` against fleet's `controlColumns`. The view columns are display columns (no accessor), which TanStack never sorts, so `sortable={false}` changes nothing for them today; the test is two-sided on an accessor column (a sort button by default, none with `sortable={false}`) so it cannot pass vacuously.
+- [x] 5.2 Convert the embedded tables' column definitions to `dataTableColumns<T>()`: `views/policy.tsx`, `controls.tsx` (two), `orgs.tsx` (four), `fleet.tsx` (three), `repositories.tsx` (three embedded), `findings/drawer.tsx`. `width` and `className` become `meta.className`; `numeric` and `hideBelow` move to `meta`.
+  Done as plain display-column objects (`{ id, header, cell: ({ row: { original } }) => …, meta }`) typed `DataTableColumn<T>[]`, not `dataTableColumns<T>().display(…)`: contextual typing gives the cell its row type either way, and the plain form keeps each column's comments and layout. `width` became `w-[…]` in `meta.className`. The repositories list has no row action, so it is `manual bare` without `selectedId`/`onRowClick`.
+- [x] 5.3 Render them as `<DataTable sortable={false} bare label=… columns data getRowId empty />`. Each keeps its accessible name and its empty text.
+- [x] 5.4 Convert the three lists (`findings.tsx`, `remediations.tsx`, the repositories list) to `<DataTable manual bare label=… selectedId onRowClick compact />` followed by the package's `LoadMore`. No `search` or `onSearchChange` is passed.
+- [x] 5.5 Change the focus-return lookup in `findings.tsx` and `remediations.tsx` from `tr[data-key=…]` to `tr[data-row-id=…]`.
+- [x] 5.6 Verify row activation on the lists: a click on the repository or pull-request link inside a row follows the link and does not open the drawer; Enter and Space on the row open it; a key pressed inside the row does not.
+  Verified in Chromium at 1600px with a throwaway spec on Findings and Remediations (and in `DataTable.test.tsx`): Enter and Space on a row open the drawer; Space on the repository link inside the row does not; a click on the repository or pull request link follows it with no `?open=`.
+- [x] 5.7 Verify the side-by-side layout still drops `hideBelow: "compact"` columns at 1600px with the drawer open.
+  Verified in the same spec: Since (Findings) and Updated (Remediations) are dropped while the inline panel is open and come back on Escape.
+- [x] 5.8 Delete `components/ui/data-table.tsx`, `table.tsx` and the table cases in `tables.test.tsx`; keep or move the cases that cover view columns.
 
 <!--docz:tasks:end-->
 
@@ -308,6 +341,13 @@ Every table renders through the package's `DataTable`: the 14 embedded tables as
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass. Visual diffs are table row and head heights only.
 
 <!--docz:criteria:end-->
+
+**Phase 5 result (2026-11-18):** met. `make lint-ui`, `make test-ui` (356)
+and `make test-ui-e2e` (42, the findings and remediations flows
+unedited) pass. Findings and Remediations differ from their baselines by
+3% of pixels, all row and head height (the package `h-table-row` against
+9px cell padding, accumulating down the table); Status and Orgs are as
+after Phase 4.
 <!--docz:phase:end-->
 
 ---
@@ -320,21 +360,21 @@ The frame becomes the package's: a full-height collapsible sidebar with the app 
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 6.1 `Shell.tsx`: `SidebarProvider` (controlled) and `SidebarInset` around the main column. Keep the `/me` gate and `AccessView` outside the frame, the 1400px content width and the page padding.
-- [ ] 6.2 Persist the collapsed state in `localStorage` under `rg.sidebar`, read once at start with a safe default when storage is unavailable; unit-test read, write and the default.
-- [ ] 6.3 `AppSidebar.tsx` on `ShellSidebar`: the header is a link to `/` built from `SidebarMenuButton` and `AppMark` with "Repo Guardian" and "compliance · read-only", without `ShellSidebarIdentity`.
-- [ ] 6.4 Navigation from `shell/nav.ts`, unchanged: `ShellSidebarGroup` per group, `SidebarMenuButton render={<Link/>}` with `isActive`, `aria-current="page"` and `tooltip`; counts in `SidebarMenuBadge` from the same hooks; the Documentation entry as an external anchor. Icons are passed as nodes from the local `Icon`.
-- [ ] 6.5 The footer: the account menu on `DropdownMenu` with `AvatarMark` and `initialsOf`, name and subject, Documentation, and Sign out submitting the hidden POST form with `onClick`.
-- [ ] 6.6 `AppTopBar.tsx` on `TopBarLayout`: `SidebarTrigger`, a separator and the breadcrumbs in `start`; the Search button with `Kbd` and `TimeZoneToggle` in `end`. Remove the `data-slot="app-switcher"` element.
-- [ ] 6.7 `Breadcrumbs.tsx` on `components/breadcrumb`, labelled "Breadcrumb", links through `BreadcrumbLink render={<Link/>}`, the leaf with `aria-current="page"`. `crumbsFor` and the label provider are untouched.
-- [ ] 6.8 `CommandPalette.tsx` on `CommandDialog` with `commandProps={{ shouldFilter: false, loop: true }}`. `palette.test.tsx` keeps its matching cases (a control matches on its title) and the wrap-around case.
-- [ ] 6.9 `page/PageHeader` to `blocks/page-header` (`meta`, `description`, `actions`); adjust padding through `className` so the page's spacing is the mockup's.
-- [ ] 6.10 `components/problem.tsx`: `ProblemView` builds the package's `ApiError` from a `ProblemError` and renders `ErrorState`; `ErrorBoundary` stays and renders it. The request id shows for a body carrying `request_id`.
-- [ ] 6.11 Delete `shell/Sidebar.tsx`, `shell/TopBar.tsx`, `MobileSidebar`, and `components/ui/command.tsx`, `dialog.tsx`, `drawer.tsx`, `avatar.tsx`.
-- [ ] 6.12 Rewrite `shell.test.tsx`, `nav.test.ts` consumers and `page.test.tsx` against roles. In e2e, replace `b[aria-current=page]` with `[aria-current="page"]` inside the Breadcrumb nav, and the "Open navigation" flow with the trigger; show each changed selector failing first.
-- [ ] 6.13 Add e2e for what is new: the sidebar collapses to the rail and stays collapsed after a reload; below 768px the trigger opens the sheet and choosing an entry closes it; `⌘K` still opens the palette.
-- [ ] 6.14 Run `a11y.spec.ts` on the new frame, including the collapsed rail and the open sheet. Fix findings in local code; a finding inside a package component is an upstream issue (OQ3).
-- [ ] 6.15 Regenerate the four visual baselines with `make test-ui-e2e-update-snapshots` and review each image against the mockup.
+- [x] 6.1 `Shell.tsx`: `SidebarProvider` (controlled) and `SidebarInset` around the main column. Keep the `/me` gate and `AccessView` outside the frame, the 1400px content width and the page padding.
+- [x] 6.2 Persist the collapsed state in `localStorage` under `rg.sidebar`, read once at start with a safe default when storage is unavailable; unit-test read, write and the default.
+- [x] 6.3 `AppSidebar.tsx` on `ShellSidebar`: the header is a link to `/` built from `SidebarMenuButton` and `AppMark` with "Repo Guardian" and "compliance · read-only", without `ShellSidebarIdentity`.
+- [x] 6.4 Navigation from `shell/nav.ts`, unchanged: `ShellSidebarGroup` per group, `SidebarMenuButton render={<Link/>}` with `isActive`, `aria-current="page"` and `tooltip`; counts in `SidebarMenuBadge` from the same hooks; the Documentation entry as an external anchor. Icons are passed as nodes from the local `Icon`.
+- [x] 6.5 The footer: the account menu on `DropdownMenu` with `AvatarMark` and `initialsOf`, name and subject, Documentation, and Sign out submitting the hidden POST form with `onClick`.
+- [x] 6.6 `AppTopBar.tsx` on `TopBarLayout`: `SidebarTrigger`, a separator and the breadcrumbs in `start`; the Search button with `Kbd` and `TimeZoneToggle` in `end`. Remove the `data-slot="app-switcher"` element.
+- [x] 6.7 `Breadcrumbs.tsx` on `components/breadcrumb`, labelled "Breadcrumb", links through `BreadcrumbLink render={<Link/>}`, the leaf with `aria-current="page"`. `crumbsFor` and the label provider are untouched. *Note: section crumbs are a local `CrumbLink` (an anchor whose `href` comes from `router.buildLocation`, navigating on a plain primary click) inside `BreadcrumbItem`, not `BreadcrumbLink render={<Link/>}`: TanStack's `Link` sets `aria-current="page"` on any fuzzy match after `activeProps`, so on `/status/...` the "Status" crumb marked itself current beside the leaf. `page.test.tsx` asserts exactly one `aria-current` in the nav. The sidebar's Fleet link takes `activeOptions={{ exact: true }}` for the same reason.*
+- [x] 6.8 `CommandPalette.tsx` on `CommandDialog` with `commandProps={{ shouldFilter: false, loop: true }}`. `palette.test.tsx` keeps its matching cases (a control matches on its title) and the wrap-around case.
+- [x] 6.9 `page/PageHeader` to `blocks/page-header` (`meta`, `description`, `actions`); adjust padding through `className` so the page's spacing is the mockup's. *Note: `page/PageHeader` stays as a one-line wrapper that passes the package's props through and sets the page spacing once (`p-0`, `mb-3.5`, actions on the baseline, a 13px description with mono `<code>`), rather than the same `className` at eleven call sites. The badge now sits beside the `h1`, so a heading's accessible name is its title alone.*
+- [x] 6.10 `components/problem.tsx`: `ProblemView` builds the package's `ApiError` from a `ProblemError` and renders `ErrorState`; `ErrorBoundary` stays and renders it. The request id shows for a body carrying `request_id`.
+- [x] 6.11 Delete `shell/Sidebar.tsx`, `shell/TopBar.tsx`, `MobileSidebar`, and `components/ui/command.tsx`, `dialog.tsx`, `drawer.tsx`, `avatar.tsx`.
+- [x] 6.12 Rewrite `shell.test.tsx`, `nav.test.ts` consumers and `page.test.tsx` against roles. In e2e, replace `b[aria-current=page]` with `[aria-current="page"]` inside the Breadcrumb nav, and the "Open navigation" flow with the trigger; show each changed selector failing first. *Note: the e2e selectors changed with the frame (6.1–6.7) and each was run against the new frame first and failed: the account trigger is now named by its visible identity after a hidden "Account menu:" (axe's `label-content-name-mismatch` refused an `aria-label` hiding the name), nav counts are read from the entry's `sidebar-menu-badge`, the leaf is `[aria-current="page"]` inside the Breadcrumb nav, and the Tab order now runs header link, nav, account menu, trigger, search. `shell.test.tsx` covers the sidebar (one `aria-current`, Docs group, header link, account menu and the POST sign-out) and the Shell's collapse and its persistence, which fails with the `localStorage` write removed. `ui/behaviour.test.tsx` went with the local drawer and command it tested; the palette suite and the e2e drawer-focus test cover that behaviour now.*
+- [x] 6.13 Add e2e for what is new: the sidebar collapses to the rail and stays collapsed after a reload; below 768px the trigger opens the sheet and choosing an entry closes it; `⌘K` still opens the palette. *Note: three tests in `ui.spec.ts`; the collapse test fails with the `localStorage` write removed and the sheet test with the close-on-choose removed. On the sheet, sign-in waits on the trigger, since the account menu is inside the closed sheet.*
+- [x] 6.14 Run `a11y.spec.ts` on the new frame, including the collapsed rail and the open sheet. Fix findings in local code; a finding inside a package component is an upstream issue (OQ3). *Note: three new audits — the collapsed rail (and again with a rail tooltip open, reached by Tab: Base UI opens tooltips on keyboard focus, not on a scripted `.focus()`), the open sheet at 600px, and the account menu then the palette. No rule disabled, no exclusion, no finding in local or package code. The palette first failed `color-contrast` on its muted text (2.99:1), but only because axe read the colours mid fade-in; once the overlay's animations finish it passes, so the audits wait on them (`settled`, scoped to the overlay because the page's infinite animations never finish).*
+- [x] 6.15 Regenerate the four visual baselines with `make test-ui-e2e-update-snapshots` and review each image against the mockup. *Note: regenerated once in the pinned image and reviewed: Findings, Orgs and Remediations show the new frame (identity, groups with the 13 and 6 counts, account menu at the foot, trigger, breadcrumbs, search, time zone) and the Phase 4–5 badge and row-height changes; Status is the public page, outside the frame, and moves only by the outline badges. This absorbs the 1–3% differences deferred from Phases 3–5.*
 
 <!--docz:tasks:end-->
 
@@ -348,6 +388,14 @@ The frame becomes the package's: a full-height collapsible sidebar with the app 
 - The four baselines are regenerated once, in the pinned image, and reviewed.
 
 <!--docz:criteria:end-->
+**Phase 6 result (2026-11-18):** met. `make lint-ui`, `make test-ui` (361)
+and `make test-ui-e2e` (48 across both projects, the two-org visibility
+assertions unedited) pass; no file under `web/src` imports `radix-ui`
+(the test harness's radix preload goes with the dependency in 7.2).
+`components/ui/` is empty and gone. The four baselines were regenerated
+once in the pinned image and pass. Upstream note for the package: the
+`TabsTrigger` focus outline is 1px against the global 2px ring (worked
+around locally in `SegmentedTabs`).
 <!--docz:phase:end-->
 
 ---
@@ -360,14 +408,18 @@ What the migration made unnecessary is deleted, and the rules that keep it from 
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 7.1 Delete `components/ui/` (whatever remains, with its test files) and confirm `components/charts/` is gone.
-- [ ] 7.2 Remove from `ui/package.json` whatever nothing imports: `radix-ui`, `clsx`, `tailwind-merge`, `class-variance-authority`, `@fontsource/ibm-plex-sans`, `@fontsource/jetbrains-mono`. Check each with a search before removing it, and run `bun install` to settle the lockfile.
-- [ ] 7.3 `eslint.config.js`: `no-restricted-imports` for `radix-ui` and `@radix-ui/*` under `web/`, with a case in `scripts/eslint-ban.test.ts` proving it fires.
-- [ ] 7.4 Check the layering rules of D§1 by search: no local barrel re-exporting package modules, no CSS targeting a package `data-slot`.
-- [ ] 7.5 Give each local survivor (`Panel`, `SegmentedTabs`, `OptionRows`, `DeltaText`, `common`, `problem`, `icons`) a header comment stating why it is not in the package. Use the `todo-comments` format for any note left behind.
-- [ ] 7.6 `THIRD_PARTY_NOTICES.md`: add the package (Apache-2.0) and the libraries now bundled through it; note that the fonts arrive through the package.
-- [ ] 7.7 Measure the bundle (`bun run build`) and record JS and CSS sizes here beside `main`'s 989 kB and 31 kB.
-- [ ] 7.8 Confirm issue #252's "done when" list item by item and record the result here.
+- [x] 7.1 Delete `components/ui/` (whatever remains, with its test files) and confirm `components/charts/` is gone. *Note: nothing left to do: the last of `components/ui/` (command, dialog, drawer and their behaviour test) went in 6.11 and `components/charts/` in Phase 5.*
+- [x] 7.2 Remove from `ui/package.json` whatever nothing imports: `radix-ui`, `clsx`, `tailwind-merge`, `class-variance-authority`, `@fontsource/ibm-plex-sans`, `@fontsource/jetbrains-mono`. Check each with a search before removing it, and run `bun install` to settle the lockfile. *Note: each searched for outside `node_modules`, `dist` and the lockfile: only the test harness (`web/testing/dom.ts`, `preload.ts`) imported `radix-ui`, for its load-under-a-document preload; it now preloads the package's `components/dialog` and `components/command` (Base UI and cmdk), through the package because neither is our dependency. The other five are the package's own dependencies; the fonts still ship in `dist/` (Plex Sans 400/500/600, JetBrains Mono 400/500). Removed with `bun remove`.*
+- [x] 7.3 `eslint.config.js`: `no-restricted-imports` for `radix-ui` and `@radix-ui/*` under `web/`, with a case in `scripts/eslint-ban.test.ts` proving it fires.
+- [x] 7.4 Check the layering rules of D§1 by search: no local barrel re-exporting package modules, no CSS targeting a package `data-slot`. *Note: searched `web/` for `export … from "@donaldgifford…"` and for `data-slot` in CSS and class strings. One re-export, `lib/viewmodel.ts`'s `TrendPoint as SeriesPoint`, is gone: its three users import `TrendPoint` from the package. No CSS or class targets a package slot (the only `data-slot` selectors are in tests). The local `initials`, unused since the account menu took the package's `initialsOf`, went with its test; the package gives a one-word name two letters ("ada" → "AD", was "A").*
+- [x] 7.5 Give each local survivor (`Panel`, `SegmentedTabs`, `OptionRows`, `DeltaText`, `common`, `problem`, `icons`) a header comment stating why it is not in the package. Use the `todo-comments` format for any note left behind. *Note: each opens with a "Local, not in the design system:" block after its imports, the shape `DeltaText` already had. Two dead pieces went: `common.tsx`'s `Section` (nothing imported it) and the `menu` icon (only the old top bar used it). No note was left behind, so no todo-comment.*
+- [x] 7.6 `THIRD_PARTY_NOTICES.md`: add the package (Apache-2.0) and the libraries now bundled through it; note that the fonts arrive through the package. *Note: the list is measured, not guessed: a sourcemapped build's `sources` give the packages in the bundle, and walking `package.json` dependencies keeps those reached from the design system but not from the UI's own dependencies (Recharts added by hand, since its sources map outside `node_modules`). 57 packages plus the design system: MIT, ISC (d3), 0BSD (`tslib`) and Apache-2.0 (the package, `class-variance-authority`); one table with copyright lines and each licence text once. `sonner` is a package dependency but not in the bundle, so not listed.*
+- [x] 7.7 Measure the bundle (`bun run build`) and record JS and CSS sizes here beside `main`'s 989 kB and 31 kB. *Result (both built here, same Vite): JS 1,271.55 kB (385.34 kB gzip) against `main`'s 988.58 kB (295.25 kB gzip), +283 kB / +90 kB gzip; CSS 103.34 kB (17.57 kB gzip) against 30.97 kB (6.86 kB gzip), +72 kB / +10.7 kB gzip. Well under the spike's 1,761 kB. By unminified source, the growth is Base UI with its utils (~606 kB, replacing ~140 kB of radix popover, menu, popper and collection), TanStack Table (~171 kB, replacing the hand-rolled table), zod (361 kB) and cmdk with radix's Dialog under it (a second overlay stack beside Base UI); Recharts is one copy at the package's 3.8.0. zod is reached only through the package's `lib/errors`, whose module-level `problemSchema` cannot be tree-shaken, so any `ErrorState` brings it; that is an upstream lead (a lazily built schema, or `ApiError` in a zod-free module), not something to work around here. The CSS is the package's component styles and `tw-animate-css`. **0.3.1 (2026-11-18):** the package fixed both upstream notes (design-system#11): the tab trigger takes the global 2px ring, so `SegmentedTabs` drops its override (the e2e Tab walk still measures `solid 2px` on a range tab), and `lib/errors` no longer imports zod. zod stays in the bundle all the same (1,272.11 kB JS, 385.09 kB gzip): `blocks/data-table` imports `parseSort`/`formatSort` from `lib/list-search`, which builds `listSearchSchema` at load, the same shape on a second module.*
+- [x] 7.8 Confirm issue #252's "done when" list item by item and record the result here. *Result (2026-11-18):*
+  - *No local copies, `radix-ui` gone:* met. `components/ui/` is deleted, and `radix-ui` is out of `package.json` and banned by ESLint under `web/`. Each survivor states why it is local (7.5). The search for this item also turned up the local `relativeTime`, a dead copy of the package's `lib/time`; it was deleted, with the unused `humanizeDuration`.
+  - *No old token names:* met. `check:tokens` passes in `make lint-ui`, and its test fails on a planted `bg-panel`.
+  - *`lint-ui`, `test-ui`, e2e, `check:dist` and the Docker build pass in CI:* met for the UI jobs on #255 (UI, UI e2e). The UI job first failed on a harness race (React work queued after `withDOM` removed the document), fixed in `web/testing/dom.ts`. CI's Docker job built only the Go image, so `ci.yml` gains a `docker-build-ui` job (the `ui-ci` bake target, both platforms, cache only, `GITHUB_TOKEN` with `packages: read` as the `NPM_TOKEN` build secret, gated on the `ui`, `docker` and `workflows` filters and required by `CI OK`): a broken UI image now fails the pull request, not the release. #255's Security Scan fails on two new govulncheck findings in Go and `klauspost/compress`, unrelated to this plan and fixed separately in #256.
+  - *Looks the same apart from accepted differences:* met. The baselines were regenerated in Phases 2 and 6 and reviewed against the mockup, which DESIGN-0039 updated for the new frame.
 
 <!--docz:tasks:end-->
 
@@ -392,17 +444,17 @@ The change is released as v2.1.0 and the documents say what the code now does.
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 8.1 `charts/repo-guardian/Chart.yaml`: `appVersion` to `2.1.0` and `version` to `2.1.0` (OQ5). Bump the `appVersion` pins in `charts/repo-guardian/tests/` in the same commit and run `make helm-docs`.
-- [ ] 8.2 `ui/CHANGELOG.yaml`: a 2.1.0 entry at the top (tags `improved`, `ui`), then `cd ui && bun run gen:changelog`; commit the YAML, the generated JSON and `Chart.yaml` together. `check:changelog` passes.
-- [ ] 8.3 `CLAUDE.md` §The UI: the package and its pin, the registry token on every install path, the local survivors, the Base UI preload in `web/testing/dom.ts`, the old-token check, and the corrected breakpoint. Remove what describes the deleted components.
-- [ ] 8.4 `ui/README.md`: the design-language section points at the package and its Storybook; the make-target table and the token section are current.
-- [ ] 8.5 `docs/usage/ui.md` §The shell: the collapsible sidebar, the account menu, 768px, the `rg.sidebar` key. Re-render `docs/usage/img/ui/status.png` in the pinned Playwright image.
-- [ ] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.
-- [ ] 8.7 Open the pull request with the `minor` label. State in the description that the label cuts `v2.1.0`, and include the `accent` table from 2.1 and the bundle sizes from 7.7.
+- [x] 8.1 `charts/repo-guardian/Chart.yaml`: `appVersion` to `2.1.0` and `version` to `2.1.0` (OQ5). Bump the `appVersion` pins in `charts/repo-guardian/tests/` in the same commit and run `make helm-docs`. *Note: no test pins the chart's own version (each sets `appVersion` in its suite, and the snapshots carry none); `make helm-unittest` passes 257/257. The latest GA tag reachable from `main` is `v2.0.0`, so `minor` cuts `v2.1.0`.*
+- [x] 8.2 `ui/CHANGELOG.yaml`: a 2.1.0 entry at the top (tags `improved`, `ui`), then `cd ui && bun run gen:changelog`; commit the YAML, the generated JSON and `Chart.yaml` together. `check:changelog` passes. *Note: the Status visual baseline shows the newest changelog entry, so it was regenerated for 2.1.0 alone (the other three are unchanged) — a third regeneration beyond Phases 2 and 6 that the release bump forces.*
+- [x] 8.3 `CLAUDE.md` §The UI: the package and its pin, the registry token on every install path, the local survivors, the Base UI preload in `web/testing/dom.ts`, the old-token check, and the corrected breakpoint. Remove what describes the deleted components.
+- [x] 8.4 `ui/README.md`: the design-language section points at the package and its Storybook; the make-target table and the token section are current.
+- [x] 8.5 `docs/usage/ui.md` §The shell: the collapsible sidebar, the account menu, 768px, the `rg.sidebar` key. Re-render `docs/usage/img/ui/status.png` in the pinned Playwright image.
+- [x] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.
+- [x] 8.7 Open the pull request with the `minor` label. State in the description that the label cuts `v2.1.0`, and include the `accent` table from 2.1 and the bundle sizes from 7.7. *Note: #255, opened as a draft in Phase 1 for CI, now carries `minor`, the release statement, both tables, the hand-verified items and the upstream notes.*
 - [ ] 8.8 Merge. *deferred - human required*
 - [ ] 8.9 Confirm the push-triggered `release.yml` run created jobs, tagged `v2.1.0`, and that `ghcr.yml`'s `ui-image` and `ui-image-slsa` jobs succeeded with the build secret. *deferred - human required*
 - [ ] 8.10 Dispatch `changelog-update.yml` with `-f tag=v2.1.0` and merge its pull request. *deferred - human required*
-- [ ] 8.11 Set DESIGN-0039 to Implemented and this plan to Completed with `docz status set`, and close issue #252.
+- [x] 8.11 Set DESIGN-0039 to Implemented and this plan to Completed with `docz status set`, and close issue #252. *Note: the statuses are set in this pull request so they land with the merge; #255's `Closes #252` closes the issue when it merges.*
 
 <!--docz:tasks:end-->
 
@@ -453,15 +505,15 @@ The change is released as v2.1.0 and the documents say what the code now does.
 <!--docz:testing:start-->
 ## Testing Plan
 
-- [ ] `make lint-ui` (typecheck of app and package source, ESLint, API drift, changelog, `check:tokens`, `check:dist`) passes at the end of every phase.
-- [ ] `make test-ui` passes at the end of every phase; tests of deleted components are deleted with them, tests of local behaviour are rewritten against roles.
-- [ ] `make test-ui-e2e` passes at the end of every phase on both Playwright projects, with the two-org visibility assertions intact.
-- [ ] `a11y.spec.ts` passes at every phase with no rule disabled and no new exclusion, and covers the collapsed rail and the open sheet from Phase 6.
-- [ ] `make test-ui-e2e-visual`: baselines regenerated at most in Phases 2 and 6, in the pinned image, each reviewed against the mockup.
-- [ ] Keyboard paths checked explicitly in Phases 4 to 6: overlay focus in and out, Escape, row activation with Enter and Space, `⌘K`, `⌘B`.
-- [ ] The two new guards (`check:tokens`, the Radix import ban) each have a test that fails on a planted violation.
-- [ ] `make docker-build-ui` in Phases 1 and 7; the `ghcr.yml` dry-run dispatch in Phase 1; the real release run in Phase 8.
-- [ ] Things with no automated check, verified by hand and noted in the pull request: the stored `rg.tz` survives the upgrade, CSV file names are unchanged, Sign out works.
+- [x] `make lint-ui` (typecheck of app and package source, ESLint, API drift, changelog, `check:tokens`, `check:dist`) passes at the end of every phase.
+- [x] `make test-ui` passes at the end of every phase; tests of deleted components are deleted with them, tests of local behaviour are rewritten against roles.
+- [x] `make test-ui-e2e` passes at the end of every phase on both Playwright projects, with the two-org visibility assertions intact.
+- [x] `a11y.spec.ts` passes at every phase with no rule disabled and no new exclusion, and covers the collapsed rail and the open sheet from Phase 6.
+- [x] `make test-ui-e2e-visual`: baselines regenerated at most in Phases 2 and 6, in the pinned image, each reviewed against the mockup. *Note: one exception, forced by the release: the Status baseline shows the newest changelog entry and was regenerated for 2.1.0 alone in Phase 8 (8.2).*
+- [x] Keyboard paths checked explicitly in Phases 4 to 6: overlay focus in and out, Escape, row activation with Enter and Space, `⌘K`, `⌘B`.
+- [x] The two new guards (`check:tokens`, the Radix import ban) each have a test that fails on a planted violation.
+- [ ] `make docker-build-ui` in Phases 1 and 7; the `ghcr.yml` dry-run dispatch in Phase 1; the real release run in Phase 8. *Note: both local builds pass (Phase 7's with no token in the image history or the saved image), and every pull request touching `ui/` now builds the UI image for both platforms in `ci.yml`'s `docker-build-ui`; the dry-run dispatch (1.10) and the release run (8.9) are deferred - human required.*
+- [x] Things with no automated check, verified by hand and noted in the pull request: the stored `rg.tz` survives the upgrade, CSV file names are unchanged, Sign out works.
 
 <!--docz:testing:end-->
 

@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 
 import type { Schemas } from "../api/client";
 import { describeEvidence } from "../lib/evidence";
-import { formatPercent, humanize, toneFor } from "../lib/format";
+import { humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
-import { DistBar } from "./charts";
-import { Badge } from "./ui/badge";
-import { Kpi } from "./ui/kpi";
-import { Meter } from "./ui/meter";
+import { DistBar } from "@donaldgifford/design-system/blocks/dist-bar";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
+import { Meter } from "@donaldgifford/design-system/blocks/meter";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // The controls views' shared pieces: a posture as a meter, a KPI or a
 // distribution, and evidence as text. A null percent is "no data".
@@ -15,7 +16,7 @@ import { Meter } from "./ui/meter";
 // PostureMeter is a compliance meter; showValue false drops the
 // trailing percentage where the row already prints it.
 export function PostureMeter({ posture, label = "Compliance", showValue = true }: { posture: Posture; label?: string; showValue?: boolean }) {
-  return <Meter percent={posture.percent} aria-label={label} showValue={showValue} />;
+  return <Meter percent={posture.percent} label={label} showValue={showValue} />;
 }
 
 export function CoverageText({ posture }: { posture: Posture }) {
@@ -25,25 +26,25 @@ export function CoverageText({ posture }: { posture: Posture }) {
 export function PostureKpis({ posture, children }: { posture: Posture; children?: ReactNode }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Kpi label="Compliance" value={formatPercent(posture.percent)} subline="compliant ÷ (compliant + non-compliant)" />
-      <Kpi label="Coverage" value={formatPercent(posture.coverage)} subline={`measured of ${posture.assigned.toLocaleString()} assigned`} />
+      <Kpi label="Compliance" value={formatPercent(posture.percent)} hint="compliant ÷ (compliant + non-compliant)" />
+      <Kpi label="Coverage" value={formatPercent(posture.coverage)} hint={`measured of ${posture.assigned.toLocaleString()} assigned`} />
       {children}
     </div>
   );
 }
 
 export function PostureBar({ posture, label }: { posture: Posture; label: string }) {
-  return <DistBar segments={postureSegments(posture)} aria-label={label} />;
+  return <DistBar segments={postureSegments(posture)} size="sm" label={label} />;
 }
 
 // BucketBadge is an assignment's posture bucket; the enum is open, so a
 // bucket the table does not know is mute.
 export function BucketBadge({ bucket }: { bucket: string }) {
-  return <Badge tone={toneFor("bucket", bucket)}>{humanize(bucket)}</Badge>;
+  return <Badge variant={toneFor("bucket", bucket)}>{humanize(bucket)}</Badge>;
 }
 
 export function DecisionBadge({ decision }: { decision: string }) {
-  return <Badge tone={toneFor("decision", decision)}>{humanize(decision)}</Badge>;
+  return <Badge variant={toneFor("decision", decision)}>{humanize(decision)}</Badge>;
 }
 
 // EvidenceText is a rule result's evidence as text, never markup.
@@ -63,7 +64,7 @@ export function EvidenceText({ evidence }: { evidence: Schemas["Evidence"] }) {
 
 export function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
       {children} ↗
     </a>
   );

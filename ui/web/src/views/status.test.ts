@@ -11,11 +11,11 @@ import { Changelog, changelogShown, OperationsStrip, releasesURL, rolloutLabel, 
 withDOM();
 
 test.each<[string, string, StatusTone]>([
-  ["operational", "All systems operational", "ok"],
-  ["degraded", "Degraded performance", "warn"],
-  ["down", "Service disruption", "bad"],
-  ["on_fire", "Service disruption", "bad"],
-  ["unknown", "Status not yet available", "mute"],
+  ["operational", "All systems operational", "success"],
+  ["degraded", "Degraded performance", "warning"],
+  ["down", "Service disruption", "destructive"],
+  ["on_fire", "Service disruption", "destructive"],
+  ["unknown", "Status not yet available", "muted"],
 ])("statusHeadline(%p)", (state, headline, tone) => {
   expect(statusHeadline(state)).toEqual({ headline, tone });
 });

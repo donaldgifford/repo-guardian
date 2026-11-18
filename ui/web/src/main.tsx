@@ -1,20 +1,17 @@
-// Fonts are bundled (DESIGN-0036 § Fonts under the CSP): Vite emits the
-// woff2 files as hashed assets, so the CSP's implicit font-src 'self'
-// holds and no request leaves the origin. Latin subsets only.
-import "@fontsource/ibm-plex-sans/latin-400.css";
-import "@fontsource/ibm-plex-sans/latin-500.css";
-import "@fontsource/ibm-plex-sans/latin-600.css";
-import "@fontsource/jetbrains-mono/latin-400.css";
-import "@fontsource/jetbrains-mono/latin-500.css";
+// index.css is the design system's stylesheet, which also bundles the
+// fonts (latin subsets): Vite emits the woff2 files as hashed assets, so
+// the CSP's implicit font-src 'self' holds and no request leaves the origin.
 import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
+import { TimeZoneProvider } from "@donaldgifford/design-system/blocks/time";
 import { createRoot } from "react-dom/client";
 
 import { ProblemError } from "./api/client";
 import { ErrorBoundary } from "./components/problem";
+import { ZONE_STORAGE_KEY } from "./lib/zone";
 import { router } from "./router";
 
 const queryClient = new QueryClient({
@@ -39,7 +36,9 @@ createRoot(root).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <TimeZoneProvider storageKey={ZONE_STORAGE_KEY}>
+          <RouterProvider router={router} />
+        </TimeZoneProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,

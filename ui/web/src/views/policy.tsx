@@ -2,11 +2,11 @@ import type { Schemas } from "../api/client";
 import { usePolicies } from "../api/queries";
 import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
-import { Time } from "../components/time";
-import { Badge } from "../components/ui/badge";
-import { Card } from "../components/ui/card";
-import { type Column, DataTable } from "../components/ui/data-table";
-import { DetailKV } from "../components/ui/detail-drawer";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { Panel } from "../components/Panel";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 
 // PolicyView is the active policy as the caller may see it: the
 // enterprise baseline (all-org callers only), each visible org's layer,
@@ -21,7 +21,7 @@ export function PolicyView() {
     <>
       <PageHeader
         title="Policy"
-        subtitle={
+        description={
           <>
             The active policy version · <code>GET /policies</code>
           </>
@@ -29,34 +29,36 @@ export function PolicyView() {
       />
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Version">
-            <DetailKV
-              rows={[
-                { key: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
-                { key: "first seen", value: <Time iso={p.first_seen_at} /> },
-                { key: "activated", value: <Time iso={p.activated_at} /> },
-                { key: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
+          <Panel title="Version">
+            <DetailsGrid
+              layout="list"
+              items={[
+                { label: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
+                { label: "first seen", value: <Time iso={p.first_seen_at} /> },
+                { label: "activated", value: <Time iso={p.activated_at} /> },
+                { label: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
               ]}
             />
-          </Card>
+          </Panel>
           {p.enterprise ? (
-            <Card title="Enterprise baseline">
-              <DetailKV
-                rows={[
-                  { key: "mode", value: <Badge tone="outline">{p.enterprise.mode}</Badge> },
-                  { key: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
-                  { key: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
+            <Panel title="Enterprise baseline">
+              <DetailsGrid
+                layout="list"
+                items={[
+                  { label: "mode", value: <Badge variant="outline">{p.enterprise.mode}</Badge> },
+                  { label: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
+                  { label: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
                 ]}
               />
-            </Card>
+            </Panel>
           ) : null}
         </div>
         {p.orgs.map((o) => (
           <OrgLayer key={o.org} org={o} />
         ))}
-        <Card title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
-          <DataTable columns={catalogueColumns} rows={p.controls} rowKey={(c) => c.id} empty="No control is referenced." aria-label="Catalogue" />
-        </Card>
+        <Panel title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
+          <DataTable sortable={false} bare columns={catalogueColumns} data={p.controls} getRowId={(c) => c.id} empty="No control is referenced." label="Catalogue" />
+        </Panel>
       </div>
     </>
   );
@@ -79,14 +81,15 @@ function changes(list: readonly Schemas["PolicyChange"][]) {
 
 function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
   return (
-    <Card title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge tone="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
-      <DetailKV
-        rows={[
-          { key: "added", value: changes(o.added) },
-          { key: "replaced", value: changes(o.replaced) },
-          { key: "excluded", value: changes(o.excluded) },
+    <Panel title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge variant="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
+      <DetailsGrid
+        layout="list"
+        items={[
+          { label: "added", value: changes(o.added) },
+          { label: "replaced", value: changes(o.replaced) },
+          { label: "excluded", value: changes(o.excluded) },
           {
-            key: "excluded repos",
+            label: "excluded repos",
             value:
               o.excluded_repos.length === 0 ? (
                 <span className="text-muted-foreground">—</span>
@@ -101,7 +104,7 @@ function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
               ),
           },
           {
-            key: "repo groups",
+            label: "repo groups",
             value:
               o.repos.length === 0 ? (
                 <span className="text-muted-foreground">—</span>
@@ -118,13 +121,13 @@ function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
           },
         ]}
       />
-    </Card>
+    </Panel>
   );
 }
 
-const catalogueColumns: Column<Schemas["PolicyControl"]>[] = [
-  { key: "id", header: "Control", cell: (c) => <span className="font-mono font-medium">{c.id}</span> },
-  { key: "title", header: "Title", cell: (c) => c.title ?? "" },
-  { key: "type", header: "Type", cell: (c) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span> },
-  { key: "revision", header: "Revision", cell: (c) => <span className="font-mono text-xs">{c.revision.slice(0, 12)}</span>, hideBelow: "md" },
+const catalogueColumns: DataTableColumn<Schemas["PolicyControl"]>[] = [
+  { id: "id", header: "Control", cell: ({ row: { original: c } }) => <span className="font-mono font-medium">{c.id}</span> },
+  { id: "title", header: "Title", cell: ({ row: { original: c } }) => c.title ?? "" },
+  { id: "type", header: "Type", cell: ({ row: { original: c } }) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span> },
+  { id: "revision", header: "Revision", cell: ({ row: { original: c } }) => <span className="font-mono text-xs">{c.revision.slice(0, 12)}</span>, meta: { hideBelow: "md" } },
 ];

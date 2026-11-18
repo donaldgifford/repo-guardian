@@ -1,4 +1,4 @@
-// The DOM must exist before radix and user-event load: keep this first.
+// The DOM must exist before the overlays and user-event load: keep this first.
 import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";
@@ -49,20 +49,21 @@ describe("crumbsFor with a view label (INV-0023 F2)", () => {
   });
 });
 
-test("PageHeader renders title, badge, subtitle code and controls", () => {
+test("PageHeader renders title, meta badge, description code and actions", () => {
   const html = renderToStaticMarkup(
     <PageHeader
       title="renovate"
-      badge={<KindBadge kind="file" />}
-      subtitle={
+      meta={<KindBadge kind="file" />}
+      description={
         <>
           From <code>/rules/file/renovate</code>.
         </>
       }
-      controls={<button type="button">Export</button>}
+      actions={<button type="button">Export</button>}
     />,
   );
-  expect(html).toMatch(/<h1[^>]*><span[^>]*>renovate<\/span><span[^>]*>file<\/span><\/h1>/);
+  // The heading is the title alone; the badge sits beside it.
+  expect(html).toMatch(/<h1[^>]*>renovate<\/h1><span[^>]*>file<\/span>/);
   expect(html).toContain("<code>/rules/file/renovate</code>");
   expect(html).toContain(">Export</button>");
 });
@@ -73,6 +74,10 @@ test("BreadcrumbList marks the leaf current and links the rest", async () => {
   const nav = await findByRole("navigation", { name: "Breadcrumb" });
   expect(nav).toBeTruthy();
   expect(getByRole("link", { name: "Repo Guardian" }).getAttribute("href")).toBe("/");
-  const leaf = nav.querySelector("b[aria-current=page]");
-  expect(leaf?.textContent).toBe("renovate");
+  // Exactly one aria-current, on the leaf: a section link must not mark
+  // itself current while its detail page is open.
+  const current = nav.querySelectorAll("[aria-current=page]");
+  expect(current.length).toBe(1);
+  expect(current[0]?.textContent).toBe("renovate");
+  expect(getByRole("link", { name: "Status" }).hasAttribute("aria-current")).toBe(false);
 });

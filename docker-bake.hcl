@@ -97,6 +97,9 @@ target "_ui" {
   inherits   = ["_common"]
   context    = "ui"
   dockerfile = "Dockerfile"
+  # The GitHub Packages token for @donaldgifford/*, read from the caller's
+  # environment and mounted only into the build stage's install (IMPL-0037).
+  secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]
 }
 
 target "ui-dev" {

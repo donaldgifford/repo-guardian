@@ -45,6 +45,21 @@ export default tseslint.config(
     },
   },
   {
+    // The UI's primitives are @donaldgifford/design-system's, on Base UI
+    // (DESIGN-0039). A radix import would bring a second overlay stack
+    // beside the package's, with its own focus and portal handling.
+    files: ["web/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "radix-ui", message: "Use @donaldgifford/design-system's components (Base UI), not radix (DESIGN-0039)." }],
+          patterns: [{ group: ["@radix-ui/*"], message: "Use @donaldgifford/design-system's components (Base UI), not radix (DESIGN-0039)." }],
+        },
+      ],
+    },
+  },
+  {
     files: ["server/**/*.ts", "scripts/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"],
     languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
   },

@@ -3,21 +3,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { KindBadge, ReasonBadge, RemediationBadge, RemediationStateBadge, RuleStatusBadge, StateBadge, StatusBadge } from "./badges";
 
-// A tone is visible in the markup as the --tone variable it sets, or as
-// the border for outline.
+// A tone is visible in the markup as the badge's data-variant.
 function toneOf(html: string): string {
-  const m = /\[--tone:var\(--color-([a-z-]+)\)\]/.exec(html);
-  if (m?.[1]) return m[1];
-  return html.includes("border-border") ? "outline" : "?";
+  return /data-variant="([a-z-]+)"/.exec(html)?.[1] ?? "?";
 }
 
 describe("StatusBadge", () => {
   test.each([
-    ["compliant", "ok", "compliant"],
-    ["non_compliant", "bad", "non compliant"],
-    ["not_applicable", "muted-foreground", "n/a"],
-    ["unknown", "warn", "unknown"],
-    ["quarantined", "muted-foreground", "quarantined"],
+    ["compliant", "success", "compliant"],
+    ["non_compliant", "destructive", "non compliant"],
+    ["not_applicable", "muted", "n/a"],
+    ["unknown", "warning", "unknown"],
+    ["quarantined", "muted", "quarantined"],
   ])("%s → %s, labelled %p", (status, tone, label) => {
     const html = renderToStaticMarkup(<StatusBadge status={status} />);
     expect(toneOf(html)).toBe(tone);
@@ -29,11 +26,11 @@ describe("RuleStatusBadge", () => {
   // INV-0023 F1: a failing rule must read bad, not the mute that the
   // control status row gave it.
   test.each([
-    ["pass", "ok", "pass"],
-    ["fail", "bad", "fail"],
-    ["error", "bad", "error"],
-    ["unknown", "warn", "unknown"],
-    ["not_applicable", "muted-foreground", "n/a"],
+    ["pass", "success", "pass"],
+    ["fail", "destructive", "fail"],
+    ["error", "destructive", "error"],
+    ["unknown", "warning", "unknown"],
+    ["not_applicable", "muted", "n/a"],
   ])("%s → %s, labelled %p", (status, tone, label) => {
     const html = renderToStaticMarkup(<RuleStatusBadge status={status} />);
     expect(toneOf(html)).toBe(tone);
@@ -47,17 +44,17 @@ describe("RemediationBadge", () => {
   // waits for a human, failed is bad, anything else is over and mute.
   test.each([
     ["open", "info", "pr open"],
-    ["merged", "ok", "merged"],
-    ["closed_compliant", "ok", "closed compliant"],
-    ["resolved", "ok", "resolved"],
-    ["applied", "ok", "applied"],
-    ["recommended", "warn", "recommended"],
-    ["failed", "bad", "failed"],
-    ["reserved", "muted-foreground", "reserved"],
-    ["closed_by_user", "muted-foreground", "closed by user"],
-    ["superseded", "muted-foreground", "superseded"],
-    ["withdrawn", "muted-foreground", "withdrawn"],
-    ["teleported", "muted-foreground", "teleported"],
+    ["merged", "success", "merged"],
+    ["closed_compliant", "success", "closed compliant"],
+    ["resolved", "success", "resolved"],
+    ["applied", "success", "applied"],
+    ["recommended", "warning", "recommended"],
+    ["failed", "destructive", "failed"],
+    ["reserved", "muted", "reserved"],
+    ["closed_by_user", "muted", "closed by user"],
+    ["superseded", "muted", "superseded"],
+    ["withdrawn", "muted", "withdrawn"],
+    ["teleported", "muted", "teleported"],
   ])("%s → %s, labelled %p", (state, tone, label) => {
     const html = renderToStaticMarkup(<RemediationStateBadge state={state} />);
     expect(toneOf(html)).toBe(tone);
@@ -90,10 +87,10 @@ describe("RemediationBadge", () => {
 
 describe("ReasonBadge", () => {
   test.each([
-    ["non_compliant", "warn"],
-    ["compliant", "muted-foreground"],
-    ["unknown", "muted-foreground"],
-    ["quarantined", "muted-foreground"],
+    ["non_compliant", "warning"],
+    ["compliant", "muted"],
+    ["unknown", "muted"],
+    ["quarantined", "muted"],
   ])("under %s → %s", (status, tone) => {
     const html = renderToStaticMarkup(<ReasonBadge reason="file_missing" status={status} />);
     expect(toneOf(html)).toBe(tone);
@@ -111,11 +108,11 @@ describe("KindBadge", () => {
 
 describe("StateBadge", () => {
   test.each([
-    ["operational", "ok"],
-    ["degraded", "warn"],
-    ["down", "bad"],
-    ["unknown", "bad"],
-    ["on_fire", "bad"],
+    ["operational", "success"],
+    ["degraded", "warning"],
+    ["down", "destructive"],
+    ["unknown", "destructive"],
+    ["on_fire", "destructive"],
   ])("%s → %s", (state, tone) => {
     expect(toneOf(renderToStaticMarkup(<StateBadge state={state} />))).toBe(tone);
   });

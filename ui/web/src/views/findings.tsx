@@ -5,22 +5,23 @@ import type { Schemas } from "../api/client";
 import { exportCap, fetchAllResults, pageItems, type ResultsFilter, useControls, useOrgs, useRemediationEnabled, useResults } from "../api/queries";
 import { RemediationBadge } from "../components/badges";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { FilterChips, type FilterValues } from "../components/filters";
 import { NOT_ENABLED } from "../components/GatedPanel";
-import { LoadMore } from "../components/LoadMore";
+import { LoadMore } from "@donaldgifford/design-system/blocks/load-more";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
-import { Time } from "../components/time";
-import { Badge } from "../components/ui/badge";
-import { Card } from "../components/ui/card";
-import { type Column, DataTable } from "../components/ui/data-table";
-import { Tabs } from "../components/ui/tabs";
-import type { CsvColumns } from "../lib/csv";
+import { Time } from "@donaldgifford/design-system/blocks/time";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { Panel } from "../components/Panel";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
+import { Tabs } from "../components/SegmentedTabs";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
 import { patchSearch } from "../lib/search";
-import { SIDE_BY_SIDE, useMediaQuery } from "../lib/use-media-query";
-import { cn } from "../lib/utils";
+import { DETAIL_INLINE_QUERY } from "@donaldgifford/design-system/shell/detail-panel";
+import { useMediaQuery } from "@donaldgifford/design-system/hooks/use-media-query";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { FindingDrawer, findingKey } from "./findings/drawer";
 
 export type FindingsSort = NonNullable<ResultsFilter["sort"]>;
@@ -84,14 +85,14 @@ export const findingsCsv: CsvColumns<Schemas["ResultRow"]> = {
 // findingColumns is the findings table (DESIGN-0037 §Findings). The
 // Remediation column reads "—" with the not-enabled reason without the
 // Remediation App. Since hides when the drawer shares the row.
-export function findingColumns(remediation: boolean | undefined): Column<Schemas["ResultRow"]>[] {
+export function findingColumns(remediation: boolean | undefined): DataTableColumn<Schemas["ResultRow"]>[] {
   return [
     {
-      key: "repository",
+      id: "repository",
       header: "Repository",
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <>
-          <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-accent">
+          <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-primary">
             {r.repository}
           </Link>
           <span className="block text-xs text-muted-foreground">{r.org}</span>
@@ -99,9 +100,9 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "control",
+      id: "control",
       header: "Control",
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <>
           <span className="font-mono">{r.control_id}</span>
           <span className="block text-xs text-muted-foreground">
@@ -112,15 +113,15 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "rules",
+      id: "rules",
       header: "Failing rules",
       // `reason` is the first failing rule's evidence headline, as
       // describeEvidence would print it; ResultRow carries no evidence.
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <div className="max-w-[380px] space-y-1 whitespace-normal">
           <div className="flex flex-wrap gap-1">
             {r.failing_rules.map((rule) => (
-              <Badge key={rule} tone="bad">
+              <Badge key={rule} variant="destructive">
                 {rule}
               </Badge>
             ))}
@@ -130,9 +131,9 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "remediation",
+      id: "remediation",
       header: "Remediation",
-      cell: (r) =>
+      cell: ({ row: { original: r } }) =>
         remediation === false ? (
           <span className="text-muted-foreground" title={NOT_ENABLED} data-gated="not_enabled">
             —
@@ -141,7 +142,7 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
           <RemediationBadge remediation={r.remediation} />
         ),
     },
-    { key: "since", header: "Since", cell: (r) => <Time iso={r.last_changed_at} style="relative" />, hideBelow: "compact", className: "whitespace-nowrap" },
+    { id: "since", header: "Since", cell: ({ row: { original: r } }) => <Time iso={r.last_changed_at} style="relative" />, meta: { hideBelow: "compact", className: "whitespace-nowrap" } },
   ];
 }
 
@@ -169,10 +170,10 @@ export function FindingsView() {
   const columns = findingColumns(remediation);
   const patch = (p: Record<string, string | boolean | undefined>) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => patchSearch(prev, p) });
   const openFinding = (key: string | undefined) => patch({ open: key });
-  const sideBySide = useMediaQuery(SIDE_BY_SIDE);
+  const sideBySide = useMediaQuery(DETAIL_INLINE_QUERY);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
-  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));
+  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-row-id="${CSS.escape(key)}"]`));
   const { open: _o, ...filterValues } = search;
   const sort = search.sort ?? defaultSort;
 
@@ -180,37 +181,37 @@ export function FindingsView() {
     <>
       <PageHeader
         title="Findings"
-        subtitle={
+        description={
           <>
             Non-compliant results: a control that failed on a repository. Filters map 1:1 to <code>GET /results</code>.
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
-            <ExportButton page="findings" filter={{ control: filter.control, org: filter.org, rule: filter.rule }} columns={findingsCsv} rows={items} all={{ fetch: () => fetchAllResults(filter), cap: exportCap }} />
+            <ExportButton name="findings" filename="repo-guardian-findings" filter={{ control: filter.control, org: filter.org, rule: filter.rule }} columns={findingsCsv} rows={items} all={{ fetch: () => fetchAllResults(filter), cap: exportCap }} />
           </>
         }
       />
-      <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
+      <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_var(--sheet-width-wide)]")} data-layout={inline ? "side-by-side" : "stacked"}>
         <div ref={tableRef} className="min-w-0 space-y-3">
-          <Card className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+          <Panel className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
             <FilterChips values={filterValues} onChange={patch} options={{ controls: (controls.data?.items ?? []).map((c) => c.id), rules: controlRules(items ?? [], search.control), orgs: (orgs.data?.items ?? []).map((o) => o.org) }} remediation={remediation} />
             <span className="flex-1" />
             <Tabs label="Sort" options={sortOptions(remediation)} value={sort} onChange={(next) => patch({ sort: next === defaultSort ? undefined : next })} />
-          </Card>
-          <Card bodyClassName="p-0" title="Findings" subtitle={total !== undefined ? `${(items ?? []).length.toLocaleString()} loaded of ${total.toLocaleString()}` : undefined}>
+          </Panel>
+          <Panel bodyClassName="p-0" title="Findings" subtitle={total !== undefined ? `${(items ?? []).length.toLocaleString()} loaded of ${total.toLocaleString()}` : undefined}>
             {!items ? (
               <Loading />
             ) : items.length === 0 ? (
               <Empty>No findings match.</Empty>
             ) : (
               <>
-                <DataTable columns={columns} rows={items} rowKey={findingKey} {...(open === undefined ? {} : { selectedKey: open })} onActivate={(r) => openFinding(findingKey(r))} compact={inline} aria-label="Findings" />
+                <DataTable manual bare columns={columns} data={items} getRowId={findingKey} selectedId={open} onRowClick={(r) => openFinding(findingKey(r))} compact={inline} label="Findings" />
                 <LoadMore loaded={items.length} total={total} hasMore={results.hasNextPage} loading={results.isFetchingNextPage} onMore={() => void results.fetchNextPage()} noun="findings" />
               </>
             )}
-          </Card>
+          </Panel>
         </div>
         {open !== undefined ? <FindingDrawer open={open} inline={inline} onClose={() => openFinding(undefined)} returnFocusTo={() => rowFor(open)} /> : null}
       </div>

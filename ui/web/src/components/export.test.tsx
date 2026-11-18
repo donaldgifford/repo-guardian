@@ -5,7 +5,7 @@ import { expect, test } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { ExportButton } from "./ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 
 withDOM(cleanup);
 const user = () => userEvent.setup({ pointerEventsCheck: 0, document });
@@ -15,7 +15,7 @@ const columns = { head: ["org", "tracked"], row: (o: { org: string; tracked: num
 test("ExportButton downloads the rows as CSV, named for the page, filter and day", async () => {
   const saved: [string, string][] = [];
   const { findByRole } = render(
-    <ExportButton page="orgs" filter={{ org: "acme" }} columns={columns} rows={[{ org: "acme", tracked: 3 }, { org: "=evil", tracked: 1 }]} download={(n, t) => saved.push([n, t])} />,
+    <ExportButton name="orgs" filename="repo-guardian-orgs" filter={{ org: "acme" }} columns={columns} rows={[{ org: "acme", tracked: 3 }, { org: "=evil", tracked: 1 }]} download={(n, t) => saved.push([n, t])} />,
   );
   await user().click(await findByRole("button", { name: "Export orgs as CSV" }));
   expect(saved).toHaveLength(1);
@@ -24,10 +24,10 @@ test("ExportButton downloads the rows as CSV, named for the page, filter and day
 });
 
 test("ExportButton is disabled until rows load and when there are none", async () => {
-  const loading = render(<ExportButton page="orgs" columns={columns} rows={undefined} download={() => {}} />);
+  const loading = render(<ExportButton name="orgs" filename="repo-guardian-orgs" columns={columns} rows={undefined} download={() => {}} />);
   expect((await loading.findByRole("button")).hasAttribute("disabled")).toBe(true);
   loading.unmount();
-  const empty = render(<ExportButton page="orgs" columns={columns} rows={[]} download={() => {}} />);
+  const empty = render(<ExportButton name="orgs" filename="repo-guardian-orgs" columns={columns} rows={[]} download={() => {}} />);
   expect((await empty.findByRole("button")).hasAttribute("disabled")).toBe(true);
 });
 
@@ -35,7 +35,7 @@ test("with `all`, ExportButton pages the whole set and says when the cap cut it 
   const saved: string[] = [];
   const { findByRole, findByText } = render(
     <ExportButton
-      page="findings"
+      name="findings" filename="repo-guardian-findings"
       columns={columns}
       rows={[{ org: "acme", tracked: 1 }]}
       all={{ cap: 2, fetch: async () => ({ rows: [{ org: "a", tracked: 1 }, { org: "b", tracked: 2 }], truncated: true }) }}

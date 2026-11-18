@@ -11,9 +11,15 @@ const NOT_ENABLED = "Remediation is not enabled on this deployment";
 // signIn's Account-menu assertion is also the client_secret_basic
 // sign-in check: this project's BFF authenticates to the token endpoint
 // with HTTP Basic (e2e/stack.ts, IMPL-0033 2.5).
+// navCount is a sidebar entry's count, beside its link in the entry.
+function navCount(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  return nav.getByRole("listitem").filter({ has: page.getByRole("link", { name: label, exact: true }) }).locator('[data-slot="sidebar-menu-badge"]');
+}
+
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toBeVisible();
 }
 
 async function expectNoGlobex(page: Page) {
@@ -24,11 +30,11 @@ test("Fleet's PR panels read not enabled", async ({ page }) => {
   await signIn(page);
   await expect(page.getByRole("heading", { level: 1, name: "Fleet" })).toBeVisible();
   for (const name of [/^Open PRs by age/, /^PR throughput/]) {
-    const card = page.getByRole("heading", { name }).locator("..").locator("..").locator("..");
+    const card = page.getByRole("heading", { name }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
     await expect(card.locator("[data-gated]")).toHaveAttribute("data-gated", "not_enabled");
     await expect(card).toContainText(NOT_ENABLED);
   }
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Remediations/ }).locator("em")).toHaveCount(0);
+  await expect(navCount(page, "Remediations")).toHaveCount(0);
   await expectNoGlobex(page);
 });
 
@@ -68,7 +74,7 @@ test("the Remediations page is the not-enabled state and its nav count is blank"
   await expect(page.getByRole("heading", { level: 1, name: "Remediations" })).toBeVisible();
   await expect(page.locator('[data-gated="not_enabled"]')).toContainText(NOT_ENABLED);
   await expect(page.getByRole("table", { name: "Remediations" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Remediations/ }).locator("em")).toHaveCount(0);
+  await expect(navCount(page, "Remediations")).toHaveCount(0);
   await expectNoGlobex(page);
 });
 

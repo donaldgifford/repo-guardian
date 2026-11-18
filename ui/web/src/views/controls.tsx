@@ -3,24 +3,28 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useControl, useControls, useResults } from "../api/queries";
-import { BarList, type BarListItem, ChartCard, TrendChart, trendTable } from "../components/charts";
+import { BarList, type BarListItem } from "@donaldgifford/design-system/blocks/bar-list";
+import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
+import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureMeter } from "../components/posture";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-import { type Column, DataTable } from "../components/ui/data-table";
-import { Kpi } from "../components/ui/kpi";
-import type { CsvColumns } from "../lib/csv";
+import { Badge } from "@donaldgifford/design-system/components/badge";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
+import { Panel } from "../components/Panel";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
+import { DeltaText } from "../components/DeltaText";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { rangeDelta } from "../lib/fleet";
-import { ageDays, formatPercent } from "../lib/format";
+import { ageDays } from "../lib/format";
 import { addPosture, emptyPosture, historySeries, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { findingKey } from "./findings/drawer";
 import { controlColumns, controlsCsv } from "./fleet";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // ControlsView lists every control assigned in the caller's orgs.
 export function ControlsView() {
@@ -30,16 +34,16 @@ export function ControlsView() {
     <>
       <PageHeader
         title="Controls"
-        subtitle={
+        description={
           <>
             {org ? `Every control assigned in ${org}` : "Every control assigned in the orgs you can see"} · <code>GET /controls</code>
           </>
         }
-        controls={<OrgScope />}
+        actions={<OrgScope />}
       />
-      <Card bodyClassName="p-0" title="Controls" right={<ExportButton page="controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
-        {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
-      </Card>
+      <Panel bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
+        {controls.data ? <DataTable sortable={false} bare columns={controlColumns} data={controls.data.items} getRowId={(c) => c.id} empty="No control is assigned yet." label="Controls" /> : <Loading />}
+      </Panel>
     </>
   );
 }
@@ -88,78 +92,76 @@ export function ControlView() {
     <>
       <PageHeader
         title={c.id}
-        badge={<Badge tone="outline">{c.type}</Badge>}
-        subtitle={
+        meta={<Badge variant="outline">{c.type}</Badge>}
+        description={
           <>
             {c.title ? `${c.title} · ` : ""}
             <code>GET /controls/{c.id}</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <RangeTabs />
-            <Link to="/findings" search={findingsSearch}>
-              <Button variant="outline" size="sm" tabIndex={-1}>
+            <Link to="/findings" search={findingsSearch} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Findings for this control
-              </Button>
             </Link>
           </>
         }
       />
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Compliance" value={formatPercent(posture.percent)} {...(history.data ? { delta: rangeDelta(series), subline: `over ${days}d` } : {})} />
-          <Kpi label="Compliant" value={posture.compliant.toLocaleString()} subline="assignments" />
-          <Kpi label="Non-compliant" value={posture.non_compliant.toLocaleString()} {...(first ? { subline: `oldest: ${ageDays(first.last_changed_at)} days` } : findings.data ? { subline: "no findings in scope" } : {})} />
-          <Kpi label="Coverage" value={formatPercent(posture.coverage)} subline={`${posture.not_applicable.toLocaleString()} n/a · ${posture.unknown.toLocaleString()} unknown`} />
+          <Kpi label="Compliance" value={formatPercent(posture.percent)} {...(history.data ? { hint: <><DeltaText delta={rangeDelta(series)} /> over {days}d</> } : {})} />
+          <Kpi label="Compliant" value={posture.compliant.toLocaleString()} hint="assignments" />
+          <Kpi label="Non-compliant" value={posture.non_compliant.toLocaleString()} {...(first ? { hint: `oldest: ${ageDays(first.last_changed_at)} days` } : findings.data ? { hint: "no findings in scope" } : {})} />
+          <Kpi label="Coverage" value={formatPercent(posture.coverage)} hint={`${posture.not_applicable.toLocaleString()} n/a · ${posture.unknown.toLocaleString()} unknown`} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             <ChartCard
               title={`Compliance (${days}d)`}
-              subtitle={
+              description={
                 <>
                   <code>aggregate=control</code> over the orgs in scope.
                 </>
               }
-              table={trendTable(series, "compliance %")}
+              table={trendTable(series, "compliance %", { head: "Snapshot", noun: "snapshots" })}
             >
-              {history.data ? <TrendChart series={series} rangeDays={days} height={180} aria-label={`${c.id} compliance over time`} /> : <Loading />}
+              {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${c.id} compliance over time`} /> : <Loading />}
             </ChartCard>
-            <Card
+            <Panel
               title="By org"
               subtitle="Each org and lineage, with the versions it carries."
               bodyClassName="p-0"
-              right={<ExportButton page="control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
+              right={<ExportButton name="control orgs" filename="repo-guardian-control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
             >
-              <DataTable columns={orgColumns} rows={orgRows} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
-            </Card>
-            <Card title="Assignments" subtitle="By bucket, now.">
+              <DataTable sortable={false} bare columns={orgColumns} data={orgRows} getRowId={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." label="Orgs" />
+            </Panel>
+            <Panel title="Assignments" subtitle="By bucket, now.">
               <PostureBar posture={posture} label={`${c.id} assignments by bucket`} />
-            </Card>
+            </Panel>
           </div>
           <div className="space-y-4">
-            <Card title="Top failing rules" subtitle={total > rows.length ? `Findings by failing rule over the ${rows.length} oldest of ${total.toLocaleString()}. A row filters the findings page.` : "Findings by failing rule. A row filters the findings page."}>
+            <Panel title="Top failing rules" subtitle={total > rows.length ? `Findings by failing rule over the ${rows.length} oldest of ${total.toLocaleString()}. A row filters the findings page.` : "Findings by failing rule. A row filters the findings page."}>
               {!findings.data ? (
                 <Loading />
               ) : rows.length === 0 ? (
                 <Empty>No findings in scope.</Empty>
               ) : (
                 <BarList
-                  aria-label={`${c.id} findings by failing rule`}
+                  label={`${c.id} findings by failing rule`}
                   items={ruleCounts(rows).map((it) => ({
                     ...it,
                     render: (label) => (
-                      <Link to="/findings" search={{ ...findingsSearch, rule: label }} className="hover:text-accent">
+                      <Link to="/findings" search={{ ...findingsSearch, rule: label }} className="hover:text-primary">
                         {label}
                       </Link>
                     ),
                   }))}
                 />
               )}
-            </Card>
-            <Card title="Oldest findings" subtitle="Longest failing first; a row opens the finding." bodyClassName="p-0">
+            </Panel>
+            <Panel title="Oldest findings" subtitle="Longest failing first; a row opens the finding." bodyClassName="p-0">
               {!findings.data ? (
                 <Loading />
               ) : oldest.length === 0 ? (
@@ -168,7 +170,7 @@ export function ControlView() {
                 <ul className="divide-y divide-border text-[13px]" aria-label="Oldest findings">
                   {oldest.map((f) => (
                     <li key={findingKey(f)}>
-                      <Link to="/findings" search={{ ...findingsSearch, open: findingKey(f) }} className="flex items-baseline justify-between gap-3 px-3.5 py-1.5 hover:bg-panel-2">
+                      <Link to="/findings" search={{ ...findingsSearch, open: findingKey(f) }} className="flex items-baseline justify-between gap-3 px-3.5 py-1.5 hover:bg-muted">
                         <span className="min-w-0">
                           <span className="block truncate font-mono">
                             {f.org}/{f.repository}
@@ -181,7 +183,7 @@ export function ControlView() {
                   ))}
                 </ul>
               )}
-            </Card>
+            </Panel>
           </div>
         </div>
       </div>
@@ -194,21 +196,21 @@ const controlOrgsCsv: CsvColumns<Schemas["ControlOrg"]> = {
   row: (o) => [o.org, o.decision, o.versions.map((v) => `v${v.version} ${v.revision.slice(0, 12)} (${v.repositories})`).join("; "), ...postureCsvRow(o.compliance)],
 };
 
-const orgColumns: Column<Schemas["ControlOrg"]>[] = [
+const orgColumns: DataTableColumn<Schemas["ControlOrg"]>[] = [
   {
-    key: "org",
+    id: "org",
     header: "Org",
-    cell: (o) => (
-      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-accent">
+    cell: ({ row: { original: o } }) => (
+      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-primary">
         {o.org}
       </Link>
     ),
   },
-  { key: "decision", header: "Decision", cell: (o) => <DecisionBadge decision={o.decision} /> },
+  { id: "decision", header: "Decision", cell: ({ row: { original: o } }) => <DecisionBadge decision={o.decision} /> },
   {
-    key: "versions",
+    id: "versions",
     header: "Versions",
-    cell: (o) =>
+    cell: ({ row: { original: o } }) =>
       o.versions.length === 0 ? (
         <span className="text-muted-foreground">—</span>
       ) : (
@@ -221,6 +223,6 @@ const orgColumns: Column<Schemas["ControlOrg"]>[] = [
         </ul>
       ),
   },
-  { key: "compliance", header: "Compliance", cell: (o) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, width: "30%" },
-  { key: "coverage", header: "Coverage", cell: (o) => <CoverageText posture={o.compliance} />, numeric: true },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: o } }) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, meta: { className: "w-[30%]" } },
+  { id: "coverage", header: "Coverage", cell: ({ row: { original: o } }) => <CoverageText posture={o.compliance} />, meta: { numeric: true } },
 ];

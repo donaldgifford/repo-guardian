@@ -9,10 +9,10 @@ test("every hold has a sentence and a tone; an unknown hold is its code", () => 
     expect(HOLD_SENTENCES[h]).toBeTruthy();
     expect(holdSentence(h)).toBe(HOLD_SENTENCES[h]!);
     expect(holdSentence(h)).not.toBe(h);
-    expect(toneFor("hold", h)).not.toBe("mute" as never);
+    expect(toneFor("hold", h)).not.toBe("muted" as never);
   }
   expect(holdSentence("teleported")).toBe("teleported");
-  expect(toneFor("hold", "teleported")).toBe("mute");
+  expect(toneFor("hold", "teleported")).toBe("muted");
 });
 
 test("the sentences are DESIGN-0037's", () => {

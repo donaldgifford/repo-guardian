@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 
 import type { Schemas } from "../src/api/client";
 import type { UIConfig } from "../src/api/queries";
-import { TimeZoneProvider } from "../src/components/time";
+import { TimeZoneProvider } from "@donaldgifford/design-system/blocks/time";
+import { ZONE_STORAGE_KEY } from "../src/lib/zone";
 
 // Test doubles for the shell's data: the query cache is seeded, so no
 // request leaves the test, and the router is a memory router whose
@@ -49,7 +50,7 @@ export function AppHarness({ children, seed, initial, zone = "utc" }: { children
   const router = testRouter(children, initial);
   return (
     <QueryClientProvider client={seededClient(seed)}>
-      <TimeZoneProvider initial={zone}>
+      <TimeZoneProvider initial={zone} storageKey={ZONE_STORAGE_KEY}>
         <RouterProvider router={router} />
       </TimeZoneProvider>
     </QueryClientProvider>

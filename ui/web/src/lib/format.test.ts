@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import golden from "../../../../api/testdata/compliant_percent.json";
-import { ageDays, compliantPercent, formatPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
+import { ageDays, compliantPercent, toneFor, trend } from "./format";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 describe("compliantPercent", () => {
   // The same table drives internal/store's TestCompliantPercent_Golden,
@@ -35,14 +36,6 @@ test("trend is the change against the previous snapshot, or null", () => {
   expect(trend(70, undefined)).toBeNull();
 });
 
-test("relativeTime", () => {
-  const now = new Date("2026-09-25T12:00:00Z");
-  expect(relativeTime("2026-09-25T09:00:00Z", now)).toBe("3 hours ago");
-  expect(relativeTime("2026-09-23T12:00:00Z", now)).toBe("2 days ago");
-  expect(relativeTime("2026-09-25T11:59:30Z", now)).toBe("30 seconds ago");
-  expect(relativeTime(undefined, now)).toBe("never");
-});
-
 test("ageDays counts whole days", () => {
   expect(ageDays("2026-09-16T13:00:00Z", new Date("2026-09-25T12:00:00Z"))).toBe(8);
 });
@@ -51,68 +44,57 @@ describe("toneFor", () => {
   // Every documented value of each open enum, plus one the table has
   // never heard of (DESIGN-0036 §Badges).
   test.each([
-    ["status", "compliant", "ok"],
-    ["status", "non_compliant", "bad"],
-    ["status", "not_applicable", "mute"],
-    ["status", "unknown", "warn"],
-    ["status", "quarantined", "mute"],
-    ["rule", "pass", "ok"],
-    ["rule", "fail", "bad"],
-    ["rule", "error", "bad"],
-    ["rule", "unknown", "warn"],
-    ["rule", "not_applicable", "mute"],
-    ["rule", "skipped", "mute"],
-    ["bucket", "compliant", "ok"],
-    ["bucket", "non_compliant", "bad"],
+    ["status", "compliant", "success"],
+    ["status", "non_compliant", "destructive"],
+    ["status", "not_applicable", "muted"],
+    ["status", "unknown", "warning"],
+    ["status", "quarantined", "muted"],
+    ["rule", "pass", "success"],
+    ["rule", "fail", "destructive"],
+    ["rule", "error", "destructive"],
+    ["rule", "unknown", "warning"],
+    ["rule", "not_applicable", "muted"],
+    ["rule", "skipped", "muted"],
+    ["bucket", "compliant", "success"],
+    ["bucket", "non_compliant", "destructive"],
     ["bucket", "pending", "info"],
-    ["bucket", "stale", "warn"],
-    ["bucket", "unmeasurable_access_denied", "warn"],
-    ["bucket", "unmeasurable_suspended", "warn"],
-    ["bucket", "unmeasurable_conflict", "warn"],
-    ["bucket", "excluded", "mute"],
+    ["bucket", "stale", "warning"],
+    ["bucket", "unmeasurable_access_denied", "warning"],
+    ["bucket", "unmeasurable_suspended", "warning"],
+    ["bucket", "unmeasurable_conflict", "warning"],
+    ["bucket", "excluded", "muted"],
     ["decision", "baseline", "outline"],
     ["decision", "org_added", "outline"],
     ["remediation", "open", "info"],
-    ["remediation", "merged", "ok"],
-    ["remediation", "applied", "ok"],
-    ["remediation", "recommended", "warn"],
-    ["remediation", "failed", "bad"],
-    ["remediation", "none", "mute"],
-    ["remediation", "teleported", "mute"],
-    ["reason", "non_compliant", "warn"],
-    ["reason", "compliant", "mute"],
-    ["reason", "not_applicable", "mute"],
-    ["reason", "unknown", "mute"],
-    ["reason", "quarantined", "mute"],
-    ["state", "operational", "ok"],
-    ["state", "degraded", "warn"],
-    ["state", "down", "bad"],
-    ["state", "unknown", "bad"],
-    ["state", "on_fire", "bad"],
+    ["remediation", "merged", "success"],
+    ["remediation", "applied", "success"],
+    ["remediation", "recommended", "warning"],
+    ["remediation", "failed", "destructive"],
+    ["remediation", "none", "muted"],
+    ["remediation", "teleported", "muted"],
+    ["reason", "non_compliant", "warning"],
+    ["reason", "compliant", "muted"],
+    ["reason", "not_applicable", "muted"],
+    ["reason", "unknown", "muted"],
+    ["reason", "quarantined", "muted"],
+    ["state", "operational", "success"],
+    ["state", "degraded", "warning"],
+    ["state", "down", "destructive"],
+    ["state", "unknown", "destructive"],
+    ["state", "on_fire", "destructive"],
     ["kind", "file", "outline"],
     ["kind", "setting", "outline"],
     ["kind", "branch_protection", "outline"],
     ["kind", "webhook", "outline"],
-    ["tag", "new", "ok"],
+    ["tag", "new", "success"],
     ["tag", "improved", "info"],
-    ["tag", "fixed", "warn"],
-    ["tag", "breaking", "bad"],
+    ["tag", "fixed", "warning"],
+    ["tag", "breaking", "destructive"],
     ["tag", "ui", "outline"],
     ["tag", "chart", "outline"],
-    ["tag", "backend", "mute"],
+    ["tag", "backend", "muted"],
   ] as const)("%s %s → %s", (field, value, want) => {
     expect(toneFor(field, value)).toBe(want);
   });
 });
 
-test.each([
-  ["720h", "30d"],
-  ["720h0m0s", "30d"],
-  ["24h", "1d"],
-  ["36h", "36h"],
-  ["0h", "0h"],
-  ["90m", "90m"],
-  ["", ""],
-])("humanizeDuration(%p) → %p", (input, want) => {
-  expect(humanizeDuration(input)).toBe(want);
-});

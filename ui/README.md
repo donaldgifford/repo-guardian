@@ -16,11 +16,14 @@ ui/
 
 | Make target | Does |
 | --- | --- |
-| `make ui-install` | `bun install --frozen-lockfile` |
+| `make ui-install` | `bun install --frozen-lockfile`, with the registry token (see below) |
 | `make generate-ui-api` | regenerate `web/src/api/schema.gen.ts` from `api/openapi.yaml` |
-| `make lint-ui` | typecheck, lint, and fail if the generated types or changelog are stale (`check:api`, `check:changelog`), the newest changelog entry is not the chart `appVersion`, or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
-| `make test-ui` | `bun test` |
-| `make docker-build-ui` | build `ghcr.io/donaldgifford/repo-guardian-ui:dev` |
+| `make lint-ui` | typecheck and ESLint (the markup and radix bans), and fail if the generated types or changelog are stale (`check:api`, `check:changelog`), the newest changelog entry is not the chart `appVersion`, `web/src` names a removed colour token (`check:tokens`), or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
+| `make test-ui` | `bun test` over `server`, `web` and `scripts` |
+| `make test-ui-e2e` | the Playwright suite, both projects, with the axe audit (needs Docker and Go) |
+| `make test-ui-e2e-visual` | compare the screenshots in the pinned Playwright image |
+| `make test-ui-e2e-update-snapshots` | regenerate `e2e/__screenshots__/` in the pinned image |
+| `make docker-build-ui` | build `ghcr.io/donaldgifford/repo-guardian-ui:dev`, with the registry token as a build secret |
 
 `CHANGELOG.yaml` is the status page's Changelog card: newest first,
 tags from `new | improved | fixed | breaking` plus the areas
@@ -45,29 +48,65 @@ runs through `make test-ui-e2e-visual`, which renders in the pinned
 `mcr.microsoft.com/playwright` image; `make test-ui-e2e-update-snapshots`
 regenerates `e2e/__screenshots__/`.
 
+## Registry token
+
+`@donaldgifford/design-system` is published to GitHub Packages
+(`npm.pkg.github.com`), which asks for a token even to read a public
+package. `ui/.npmrc` maps the `@donaldgifford` scope there and holds only
+the reference `${NPM_TOKEN}`; the value is never stored in the
+repository or an image.
+
+| Where | Where the token comes from |
+| --- | --- |
+| Your machine | `NPM_TOKEN` if set, else `gh auth token` (the Make targets do this). The token needs `read:packages`: `gh auth refresh -s read:packages` adds it. |
+| CI (`ci.yml`) | `secrets.GITHUB_TOKEN`, with `packages: read` on the `ui` and `ui-e2e` jobs |
+| Image build | a build secret: `docker-bake.hcl` mounts `NPM_TOKEN` from the caller's environment into the build stage's `bun install` only. The package is a devDependency, so the production stage installs without it. `ghcr.yml` passes `secrets.GITHUB_TOKEN`. |
+| Dependabot | the `github-packages-npm` registry in `.github/dependabot.yml`, reading the Dependabot secret `GH_PACKAGES_READ_TOKEN` |
+
+Calling `bun install` directly, outside Make, needs
+`NPM_TOKEN=$(gh auth token) bun install`. A cached install that produced
+a `dist/` directory and no `src/` under
+`node_modules/@donaldgifford/design-system` is stale: delete the cache
+entry and install again.
+
 ## Design
 
-- **The mockup is the reference.** `design/repo-guardian-mockup.html`
-  (DESIGN-0036) is the source of every panel, label and breakpoint.
-  Change it in the same PR as the UI, so it never drifts.
-- **Tokens.** One dark theme, declared once in `web/src/index.css`
-  `@theme`: surfaces, `foreground`/`muted-foreground`, `accent`, and the
-  status tones `ok`, `warn`, `bad`, `info`. Components read tokens and
-  carry no colour of their own. Badges tint their tone at 18% and pull
-  the text 65% toward white, which keeps every tone at WCAG AA.
-- **Primitives.** `web/src/components/ui/` holds shadcn-style
-  primitives on `radix-ui`. They know nothing of findings or rules;
-  domain components (`badges`, `timeline`, `filters`, `charts`) build
-  on them, and views compose those.
-- **Fonts** are bundled from `@fontsource` (IBM Plex Sans, JetBrains
-  Mono), never fetched from a CDN, because the CSP allows only
-  `'self'`. `check:dist` fails the build when Vite inlines a `data:`
-  URL or references Google Fonts; `vite.config.ts` sets
-  `assetsInlineLimit: 0` for that reason.
+- **The design system is the component library.** Every component,
+  block and the shell (sidebar, top bar, drawers, palette) come from
+  `@donaldgifford/design-system` (DESIGN-0039), built on Base UI; its
+  [Storybook](https://donaldgifford.github.io/design-system/) is the
+  catalog. A component that is generic belongs there: open an issue or
+  pull request on the package rather than patching around it here.
+  What stays in `web/src/components/` knows this app (rules, findings,
+  posture, the router, the API client) and says why in a
+  `// Local, not in the design system:` comment.
+- **The mockup is the reference for pages.** `design/repo-guardian-mockup.html`
+  (DESIGN-0036, frame and tokens updated by DESIGN-0039) shows how the
+  package's parts compose into each page. Change it in the same PR as
+  the UI, so it never drifts.
+- **Tokens** are the package's: `web/src/index.css` is one import of
+  its `globals.css` and declares nothing of its own. Use `card`, `muted`, `success`,
+  `warning`, `destructive`, `info`; `check:tokens` fails on the old
+  `panel`, `panel-2`, `ok`, `warn`, `bad`, which Tailwind would
+  otherwise drop silently. Badges are the package's `Badge` with a
+  `variant` chosen by meaning (`toneFor` in `lib/format.ts`).
+- **Breakpoints.** The sidebar becomes a sheet below 768px (Tailwind
+  `md`). Collapsed, it is an icon rail kept in `localStorage` under
+  `rg.sidebar`; `⌘B` toggles it and `⌘K` opens the search palette.
+- **Fonts** (IBM Plex Sans, JetBrains Mono) arrive bundled through the
+  package's `@fontsource` dependencies, never fetched from a CDN,
+  because the CSP allows only `'self'`. `check:dist` fails the build
+  when Vite inlines a `data:` URL or references Google Fonts;
+  `vite.config.ts` sets `assetsInlineLimit: 0` for that reason.
+- **No radix.** ESLint bans `radix-ui` and `@radix-ui/*` under `web/`,
+  so the package's overlays are the only ones.
 - **`UI_DOCS_URL`** (chart `ui.docsUrl`) adds the sidebar Docs group.
   The BFF serves it to the SPA as `docs_url` on `/ui/config`.
 - **Component tests** run under happy-dom: import `web/testing/dom.ts`
-  first, before anything that loads radix.
+  first, before anything that loads an overlay. It and
+  `web/testing/preload.ts` load the package's Base UI and cmdk modules
+  under a document, because both decide at module load whether one
+  exists.
 
 TypeScript is pinned to 5.x: `openapi-typescript` needs the compiler
 API that TypeScript 7's native compiler does not ship.

@@ -313,9 +313,17 @@ lint-api: ## Lint the OpenAPI spec and fail if the generated server is stale
 
 ## UI (IMPL-0025 Phase 20): the Bun BFF and React SPA under ui/.
 
+# @donaldgifford/* is on GitHub Packages, which needs a token even for a
+# public package (ui/README.md, "Registry token"). NPM_TOKEN wins, else the
+# gh CLI's token; read per command, never printed or stored.
+UI_NPM_TOKEN = NPM_TOKEN="$${NPM_TOKEN:-$$(gh auth token 2>/dev/null)}"; \
+	if [ -z "$$NPM_TOKEN" ]; then \
+		echo "NPM_TOKEN is unset and 'gh auth token' gave nothing: see ui/README.md, Registry token" >&2; exit 1; \
+	fi; export NPM_TOKEN
+
 ui-install: ## Install the UI's dependencies from the lockfile
 	@ $(MAKE) --no-print-directory log-$@
-	@cd ui && bun install --frozen-lockfile
+	@$(UI_NPM_TOKEN); cd ui && bun install --frozen-lockfile
 
 generate-ui-api: ## Regenerate the UI's API types from api/openapi.yaml
 	@ $(MAKE) --no-print-directory log-$@
@@ -440,7 +448,7 @@ docker-push: ## Build and push multi-arch image to registry
 
 docker-build-ui: ## Build local UI dev image (single-arch)
 	@ $(MAKE) --no-print-directory log-$@
-	@docker buildx bake -f docker-bake.hcl ui-dev
+	@$(UI_NPM_TOKEN); docker buildx bake -f docker-bake.hcl ui-dev
 
 ###############
 ##@ Compose

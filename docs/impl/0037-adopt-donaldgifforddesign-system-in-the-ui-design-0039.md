@@ -445,7 +445,7 @@ The change is released as v2.1.0 and the documents say what the code now does.
 - [x] 8.3 `CLAUDE.md` §The UI: the package and its pin, the registry token on every install path, the local survivors, the Base UI preload in `web/testing/dom.ts`, the old-token check, and the corrected breakpoint. Remove what describes the deleted components.
 - [x] 8.4 `ui/README.md`: the design-language section points at the package and its Storybook; the make-target table and the token section are current.
 - [x] 8.5 `docs/usage/ui.md` §The shell: the collapsible sidebar, the account menu, 768px, the `rg.sidebar` key. Re-render `docs/usage/img/ui/status.png` in the pinned Playwright image.
-- [ ] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.
+- [x] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.
 - [ ] 8.7 Open the pull request with the `minor` label. State in the description that the label cuts `v2.1.0`, and include the `accent` table from 2.1 and the bundle sizes from 7.7.
 - [ ] 8.8 Merge. *deferred - human required*
 - [ ] 8.9 Confirm the push-triggered `release.yml` run created jobs, tagged `v2.1.0`, and that `ghcr.yml`'s `ui-image` and `ui-image-slsa` jobs succeeded with the build secret. *deferred - human required*

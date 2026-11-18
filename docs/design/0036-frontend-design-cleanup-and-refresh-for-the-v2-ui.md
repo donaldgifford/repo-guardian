@@ -13,6 +13,15 @@ created: 2026-10-15
 > **Approved 2026-10-16.** Implemented by
 > [IMPL-0031](../impl/0031-frontend-design-refresh-for-the-v2-ui.md); the
 > mockup `ui/design/repo-guardian-mockup.html` is kept in step with it.
+>
+> **Partly superseded by
+> [DESIGN-0039](0039-adopting-donaldgifforddesign-system-in-the-ui.md)
+> (2026-11-18).** The UI now takes its tokens, fonts, components and
+> shell from `@donaldgifford/design-system`. [Design
+> language](#design-language), [Fonts under the CSP](#fonts-under-the-csp),
+> [Shell](#shell), [Component inventory](#component-inventory) and
+> [Charts](#charts) describe the hand-built 2.0 UI and are history; the
+> page designs stand, composed from the package's parts.
 
 <!--toc:start-->
 <!-- markdownlint-capture -->

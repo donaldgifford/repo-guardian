@@ -239,6 +239,17 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - CSV file names, the stored time zone and every chart's table view are unchanged, shown by the existing e2e passing.
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass. `make test-ui-e2e-visual` passes against the Phase 2 baselines; a diff here is a regression to fix, not to re-baseline.
 
+
+**Phase 3 result (2026-11-18):** met except the visual criterion. Status,
+Findings and Remediations match the Phase 2 baselines; Orgs differs by 2%
+of pixels, all from the package `GroupGrid` (41px rows against 38, a
+chevron icon for the disclosure triangle) and the package `ExportButton`
+(a download icon). Those are the package's design, not a local
+regression, and cannot be undone without restyling package internals,
+which this plan rules out; the Orgs baseline moves with the others in
+task 6.15. Four e2e selectors that walked a fixed number of parents now
+find the card or KPI by component.
+
 <!--docz:criteria:end-->
 <!--docz:phase:end-->
 

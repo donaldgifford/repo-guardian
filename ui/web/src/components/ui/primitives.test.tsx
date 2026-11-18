@@ -4,10 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Avatar } from "./avatar";
 import { Button } from "./button";
 import { Card } from "./card";
-import { Chip } from "./chip";
 import { DeltaText, Kpi } from "./kpi";
-import { Meter, meterTone } from "./meter";
-import { Pill, PillGroup } from "./pill";
 import { StatStrip } from "./stat-strip";
 import { Tabs } from "./tabs";
 
@@ -58,19 +55,6 @@ describe("Kpi and DeltaText", () => {
   });
 });
 
-test("Pill is a radio in its group with aria-checked", () => {
-  const html = renderToStaticMarkup(
-    <PillGroup label="Series">
-      <Pill color="var(--color-success)" label="compliant" value="87%" checked onSelect={() => {}} />
-      <Pill color="var(--color-destructive)" label="failing" checked={false} onSelect={() => {}} />
-    </PillGroup>,
-  );
-  expect(html).toContain('role="radiogroup" aria-label="Series"');
-  expect(html).toMatch(/role="radio" aria-checked="true" tabindex="0"/);
-  expect(html).toMatch(/role="radio" aria-checked="false" tabindex="-1"/);
-  expect(html).toContain(">87%</b>");
-});
-
 test("Tabs marks the selected tab", () => {
   const html = renderToStaticMarkup(
     <Tabs
@@ -86,37 +70,6 @@ test("Tabs marks the selected tab", () => {
   expect(html).toContain('role="tablist" aria-label="Range"');
   expect(html).toMatch(/aria-selected="false"[^>]*>7d</);
   expect(html).toMatch(/aria-selected="true"[^>]*>30d</);
-});
-
-test("Chip renders key = value, or the dashed add chip", () => {
-  expect(renderToStaticMarkup(<Chip name="status" value="non_compliant" />)).toMatch(/status = <b[^>]*>non_compliant<\/b>/);
-  const add = renderToStaticMarkup(<Chip />);
-  expect(add).toContain("border-dashed");
-  expect(add).toContain("+ filter");
-});
-
-describe("Meter", () => {
-  test.each([
-    [null, "muted"],
-    [0, "destructive"],
-    [69.9, "destructive"],
-    [70, "warning"],
-    [89.9, "warning"],
-    [90, "success"],
-    [100, "success"],
-  ] as const)("%p → %s", (percent, tone) => {
-    expect(meterTone(percent)).toBe(tone);
-    expect(renderToStaticMarkup(<Meter percent={percent} />)).toContain(`data-tone="${tone}"`);
-  });
-
-  test("prints the percent and exposes it as a meter", () => {
-    const html = renderToStaticMarkup(<Meter percent={87.5} />);
-    expect(html).toContain('role="meter"');
-    expect(html).toContain('aria-valuenow="87.5"');
-    expect(html).toContain("width:87.5%");
-    expect(html).toContain(">87.5%</b>");
-    expect(renderToStaticMarkup(<Meter percent={null} />)).toContain('aria-valuetext="no data"');
-  });
 });
 
 test("Avatar is a 20px square with the initials", () => {

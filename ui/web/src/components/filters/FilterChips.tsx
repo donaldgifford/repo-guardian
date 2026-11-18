@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { NOT_ENABLED } from "../GatedPanel";
-import { Chip } from "../ui/chip";
+import { FilterChip as Chip } from "@donaldgifford/design-system/blocks/filter-chip";
 import { Popover, PopoverContent, PopoverHeading, PopoverItem, PopoverSeparator, PopoverTrigger } from "../ui/popover";
 import { chipsFromSearch, FILTER_KEYS, FILTER_OPTIONS, type FilterKey, type FilterValues, patchFor } from "./model";
 

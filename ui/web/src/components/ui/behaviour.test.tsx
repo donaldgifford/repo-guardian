@@ -7,11 +7,8 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
-import { Chip } from "./chip";
 import { Command } from "./command";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTrigger } from "./drawer";
-import { Pill, PillGroup } from "./pill";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { nextTab, SearchTabs, Tabs } from "./tabs";
 
 withDOM(cleanup);
@@ -64,25 +61,6 @@ describe("Drawer", () => {
     await u.click(getByLabelText("Close"));
     await waitFor(() => expect(queryByRole("dialog")).toBeNull());
   });
-});
-
-test("Pill toggles aria-checked", async () => {
-  const u = user();
-  function Harness() {
-    const [sel, setSel] = useState("a");
-    return (
-      <PillGroup label="Series">
-        <Pill color="red" label="A" checked={sel === "a"} onSelect={() => setSel("a")} />
-        <Pill color="blue" label="B" checked={sel === "b"} onSelect={() => setSel("b")} />
-      </PillGroup>
-    );
-  }
-  const { getByRole } = render(<Harness />);
-  expect(getByRole("radio", { name: "A" }).getAttribute("aria-checked")).toBe("true");
-  expect(getByRole("radio", { name: "B" }).getAttribute("aria-checked")).toBe("false");
-  await u.click(getByRole("radio", { name: "B" }));
-  expect(getByRole("radio", { name: "A" }).getAttribute("aria-checked")).toBe("false");
-  expect(getByRole("radio", { name: "B" }).getAttribute("aria-checked")).toBe("true");
 });
 
 test("SearchTabs write the search param and drop it for the default", async () => {
@@ -149,21 +127,6 @@ test("Tabs are one Tab stop: arrows move selection and focus along the row, Home
   await waitFor(() => expect(getByRole("tab", { name: "1d" }).getAttribute("aria-selected")).toBe("true"));
   expect(nextTab([{ value: "a", label: "a" }], "a", "ArrowRight")).toBe("a");
   expect(nextTab([{ value: "a", label: "a" }], "a", "Enter")).toBeUndefined();
-});
-
-test("Chip opens its popover editor", async () => {
-  const u = user();
-  const { getByRole, queryByText, findByText } = render(
-    <Popover>
-      <PopoverTrigger asChild>
-        <Chip name="status" value="non_compliant" />
-      </PopoverTrigger>
-      <PopoverContent>editor</PopoverContent>
-    </Popover>,
-  );
-  expect(queryByText("editor")).toBeNull();
-  await u.click(getByRole("button", { name: "status = non_compliant" }));
-  expect(await findByText("editor")).toBeTruthy();
 });
 
 test("Command moves the active row with arrows and selects on Enter", async () => {

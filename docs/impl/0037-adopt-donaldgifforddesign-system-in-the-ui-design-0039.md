@@ -219,7 +219,7 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - [x] 3.3 `components/time.tsx` to `blocks/time`: `TimeZoneProvider storageKey="rg.tz"`. Rewrite the toggle's test for pressed buttons. Confirm a stored `rg.tz` from the old build is honoured.
 - [x] 3.4 `components/ExportButton.tsx` to `blocks/export-button`: pass `name` for the accessible name and `filename="repo-guardian-<page>"` so file names do not change. The e2e download assertions must pass unedited.
 - [x] 3.5 `components/LoadMore.tsx` to `blocks/load-more`.
-- [ ] 3.6 `ui/meter` to `blocks/meter` (`size`, required `label`); `ui/chip` to `blocks/filter-chip`; `ui/pill` to `blocks/series-pills`, including the fleet's hand-rolled series picker.
+- [x] 3.6 `ui/meter` to `blocks/meter` (`size`, required `label`); `ui/chip` to `blocks/filter-chip`; `ui/pill` to `blocks/series-pills`, including the fleet's hand-rolled series picker.
 - [ ] 3.7 `ui/kpi` to `blocks/kpi`. Move `DeltaText` and `Delta` to `components/DeltaText.tsx`, pass it as `hint`, and update `lib/fleet.ts`'s type import.
 - [ ] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
 - [ ] 3.9 `charts/ChartCard` and `tooltip` to `blocks/chart-card` (`description`, `action`, `strip`). The fleet card's strip must stay visible in table view.

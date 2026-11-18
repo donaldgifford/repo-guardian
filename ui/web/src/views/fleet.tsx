@@ -17,13 +17,13 @@ import { type Column, DataTable } from "../components/ui/data-table";
 import { DeltaText } from "../components/ui/kpi";
 import { StatStrip } from "../components/ui/stat-strip";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
-import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, pickSeries, rangeDelta, SERIES, STALE_BUCKET, underDays, worstControls } from "../lib/fleet";
+import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, isFleetSeries, pickSeries, rangeDelta, SERIES, STALE_BUCKET, underDays, worstControls } from "../lib/fleet";
 import { humanize } from "../lib/format";
 import { postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
-import { cn } from "@donaldgifford/design-system/lib/utils";
 import type { SeriesPoint } from "../lib/viewmodel";
 import { exclusionColumns, exclusionsCsv } from "./orgs";
+import { SeriesPills } from "@donaldgifford/design-system/blocks/series-pills";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 const route = getRouteApi("/app/");
@@ -115,14 +115,20 @@ export function FleetView() {
             }
             table={trendTable(points, spec.label, spec.unit)}
           >
-            <div role="radiogroup" aria-label="Series" className="mb-2 flex flex-wrap gap-1.5">
-              {FLEET_SERIES.map((k) => (
-                <button key={k} type="button" role="radio" aria-checked={series === k} onClick={() => setSeries(k)} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", series === k ? "border-primary bg-primary/12 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
-                  <i aria-hidden="true" className="inline-block h-2 w-2 rounded-full" style={{ background: SERIES[k].color }} />
-                  {SERIES[k].label}: <b className="font-medium tabular-nums">{k === "percent" ? formatPercent(posture.percent) : posture[k].toLocaleString()}</b>
-                </button>
-              ))}
-            </div>
+            <SeriesPills
+              label="Series"
+              className="mb-2"
+              value={series}
+              onValueChange={(k) => {
+                if (isFleetSeries(k)) setSeries(k);
+              }}
+              items={FLEET_SERIES.map((k) => ({
+                key: k,
+                label: SERIES[k].label,
+                color: SERIES[k].color,
+                value: k === "percent" ? formatPercent(posture.percent) : posture[k].toLocaleString(),
+              }))}
+            />
             {fleetHistory.data ? <TrendChart series={points} unit={spec.unit} color={spec.color} label={spec.label} rangeDays={days} height={200} aria-label={`${spec.label} over the last ${days} days`} /> : <Loading />}
           </ChartCard>
           <Card

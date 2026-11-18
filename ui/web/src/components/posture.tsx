@@ -7,7 +7,7 @@ import { postureSegments, type Posture } from "../lib/posture";
 import { DistBar } from "./charts";
 import { Badge } from "./ui/badge";
 import { Kpi } from "./ui/kpi";
-import { Meter } from "./ui/meter";
+import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // The controls views' shared pieces: a posture as a meter, a KPI or a
@@ -16,7 +16,7 @@ import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 // PostureMeter is a compliance meter; showValue false drops the
 // trailing percentage where the row already prints it.
 export function PostureMeter({ posture, label = "Compliance", showValue = true }: { posture: Posture; label?: string; showValue?: boolean }) {
-  return <Meter percent={posture.percent} aria-label={label} showValue={showValue} />;
+  return <Meter percent={posture.percent} label={label} showValue={showValue} />;
 }
 
 export function CoverageText({ posture }: { posture: Posture }) {

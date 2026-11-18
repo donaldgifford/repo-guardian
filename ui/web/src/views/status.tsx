@@ -8,7 +8,7 @@ import { Sparkline } from "../components/charts";
 import { Icon } from "../components/icons";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Card } from "../components/ui/card";
-import { Meter } from "../components/ui/meter";
+import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import changelog from "../generated/changelog.json";
 import { toneFor } from "../lib/format";
 import { cn } from "@donaldgifford/design-system/lib/utils";
@@ -96,7 +96,7 @@ export function StatusView() {
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
             {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
           </div>
-          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="success" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
+          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="success" showValue={false} size="md" label="Fleet compliance" className="mt-3" />
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
           </p>

@@ -233,6 +233,10 @@ jobs:
         id: bake
         if: inputs.dry_run != true
         uses: docker/bake-action@v7
+        # The GitHub Packages token for @donaldgifford/*, which the bake
+        # target mounts as the NPM_TOKEN build secret (IMPL-0037).
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           targets: ui-release
           source: .

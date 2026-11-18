@@ -147,7 +147,7 @@ The package is installable everywhere this repository installs, and nothing impo
 - [x] 1.6 `docker-bake.hcl`: `secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]` on `_ui`. `make docker-build-ui` builds; `docker history --no-trunc` on the result shows no token; the runtime image has no `node_modules/@donaldgifford`.
 - [x] 1.7 `ci.yml`: the `ui` and `ui-e2e` jobs get `permissions: { contents: read, packages: read }` and `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the install step's `env`. No other job changes.
 - [ ] 1.8 Push and confirm both jobs install with `GITHUB_TOKEN`. If the registry refuses it, switch the two jobs to the repository secret from OQ2 and record which was needed in this plan.
-- [ ] 1.9 `ghcr.yml`: `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the `env` of the `ui-image` bake step. Diff `ghcr.yml` against `ecr.yml` and confirm `ecr.yml` needs nothing. Run `actionlint`.
+- [x] 1.9 `ghcr.yml`: `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the `env` of the `ui-image` bake step. Diff `ghcr.yml` against `ecr.yml` and confirm `ecr.yml` needs nothing. Run `actionlint`.
 - [ ] 1.10 Dispatch `ghcr.yml` on the branch with `dry_run: true` and a tag input, and confirm the `ui-image` job builds both platforms. *deferred - human required* if the dispatch needs the maintainer.
 - [ ] 1.11 `renovate.json5`: add `github>donaldgifford/renovate-config:node` to `extends`, a `hostRules` entry for `npm.pkg.github.com` reading the Renovate secret, and a `packageRules` entry that keeps `@donaldgifford/design-system` in its own pull request, out of the non-major group and never automerged.
 - [ ] 1.12 `.github/dependabot.yml`: a `registries` entry for `npm.pkg.github.com` and a reference to it from the `bun` update for `/ui`.

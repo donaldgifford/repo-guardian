@@ -16,7 +16,7 @@ import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { DetailKV } from "../components/ui/detail-drawer";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { SearchTabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { useDebounced } from "../lib/hooks";
@@ -214,12 +214,12 @@ export function EvaluateButton({ id }: { id: number }) {
 
 function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
   const rows = [
-    { key: "state", value: r.active ? <Badge variant="success">active</Badge> : <Badge variant="warning">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
-    { key: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
-    ...(r.policy_reason ? [{ key: "policy reason", value: r.policy_reason }] : []),
-    { key: "evaluable", value: r.evaluable ? "yes" : "no" },
+    { label: "state", value: r.active ? <Badge variant="success">active</Badge> : <Badge variant="warning">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
+    { label: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
+    ...(r.policy_reason ? [{ label: "policy reason", value: r.policy_reason }] : []),
+    { label: "evaluable", value: r.evaluable ? "yes" : "no" },
     {
-      key: "remediable",
+      label: "remediable",
       // INV-0023 F4: "no" here is about App access, while a rule's
       // "Remediable rule" is about the rule, so say which one this is.
       value: r.remediable ? (
@@ -230,10 +230,10 @@ function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
         </span>
       ),
     },
-    { key: "discovered", value: <Time iso={r.discovered_at} style="date" /> },
-    { key: "next due", value: r.next_due_at ? <Time iso={r.next_due_at} style="relative" /> : "—" },
+    { label: "discovered", value: <Time iso={r.discovered_at} style="date" /> },
+    { label: "next due", value: r.next_due_at ? <Time iso={r.next_due_at} style="relative" /> : "—" },
   ];
-  return <DetailKV rows={rows} />;
+  return <DetailsGrid layout="list" items={rows} />;
 }
 
 function Controls({ id }: { id: number }) {

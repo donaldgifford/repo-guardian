@@ -11,7 +11,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
-import { DetailKV } from "../../components/ui/detail-drawer";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { reassignedEvents, StatusMove, timelineEvents } from "../findings/drawer";
@@ -97,7 +97,7 @@ export function remediationRows(r: Schemas["Remediation"]) {
   const age = remediationAge(r);
   return [
     {
-      key: "state",
+      label: "state",
       value: (
         <span className="inline-flex flex-wrap items-center gap-2">
           {r.state ? <RemediationStateBadge state={r.state} /> : <Badge variant="muted">held</Badge>}
@@ -108,7 +108,7 @@ export function remediationRows(r: Schemas["Remediation"]) {
     ...(r.pr_number !== undefined
       ? [
           {
-            key: "pull request",
+            label: "pull request",
             value: (
               <span className="inline-flex flex-wrap items-center gap-2">
                 {r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono">#{r.pr_number}</span>}
@@ -119,7 +119,7 @@ export function remediationRows(r: Schemas["Remediation"]) {
         ]
       : []),
     {
-      key: "hold",
+      label: "hold",
       value: r.hold ? (
         <span className="inline-flex flex-wrap items-center gap-2">
           <HoldBadge hold={r.hold} />
@@ -129,8 +129,8 @@ export function remediationRows(r: Schemas["Remediation"]) {
         <span className="text-muted-foreground">—</span>
       ),
     },
-    { key: "age", value: `${age} ${age === 1 ? "day" : "days"}` },
-    ...(r.closed_at ? [{ key: "closed", value: <span><Time iso={r.closed_at} style="relative" />{r.close_reason ? ` · ${humanize(r.close_reason)}` : ""}</span> }] : []),
+    { label: "age", value: `${age} ${age === 1 ? "day" : "days"}` },
+    ...(r.closed_at ? [{ label: "closed", value: <span><Time iso={r.closed_at} style="relative" />{r.close_reason ? ` · ${humanize(r.close_reason)}` : ""}</span> }] : []),
   ];
 }
 
@@ -161,7 +161,7 @@ function RemediationBody({ remediation: r }: { remediation: Schemas["Remediation
   const reassigned = reassignedEvents(events.data?.items ?? []);
   return (
     <>
-      <DetailKV rows={remediationRows(r)} />
+      <DetailsGrid layout="list" items={remediationRows(r)} />
       {r.proposal && r.proposal.length > 0 ? (
         <DetailSection title={r.state === "recommended" ? "Proposal (recommend: a human applies it)" : "Proposal"}>
           <ul className="space-y-1 font-mono text-xs" aria-label="Proposal">

@@ -6,7 +6,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { DetailKV } from "../components/ui/detail-drawer";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 
 // PolicyView is the active policy as the caller may see it: the
 // enterprise baseline (all-org callers only), each visible org's layer,
@@ -30,22 +30,24 @@ export function PolicyView() {
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-2">
           <Panel title="Version">
-            <DetailKV
-              rows={[
-                { key: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
-                { key: "first seen", value: <Time iso={p.first_seen_at} /> },
-                { key: "activated", value: <Time iso={p.activated_at} /> },
-                { key: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
+            <DetailsGrid
+              layout="list"
+              items={[
+                { label: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
+                { label: "first seen", value: <Time iso={p.first_seen_at} /> },
+                { label: "activated", value: <Time iso={p.activated_at} /> },
+                { label: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
               ]}
             />
           </Panel>
           {p.enterprise ? (
             <Panel title="Enterprise baseline">
-              <DetailKV
-                rows={[
-                  { key: "mode", value: <Badge variant="outline">{p.enterprise.mode}</Badge> },
-                  { key: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
-                  { key: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
+              <DetailsGrid
+                layout="list"
+                items={[
+                  { label: "mode", value: <Badge variant="outline">{p.enterprise.mode}</Badge> },
+                  { label: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
+                  { label: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
                 ]}
               />
             </Panel>
@@ -80,13 +82,14 @@ function changes(list: readonly Schemas["PolicyChange"][]) {
 function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
   return (
     <Panel title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge variant="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
-      <DetailKV
-        rows={[
-          { key: "added", value: changes(o.added) },
-          { key: "replaced", value: changes(o.replaced) },
-          { key: "excluded", value: changes(o.excluded) },
+      <DetailsGrid
+        layout="list"
+        items={[
+          { label: "added", value: changes(o.added) },
+          { label: "replaced", value: changes(o.replaced) },
+          { label: "excluded", value: changes(o.excluded) },
           {
-            key: "excluded repos",
+            label: "excluded repos",
             value:
               o.excluded_repos.length === 0 ? (
                 <span className="text-muted-foreground">—</span>
@@ -101,7 +104,7 @@ function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
               ),
           },
           {
-            key: "repo groups",
+            label: "repo groups",
             value:
               o.repos.length === 0 ? (
                 <span className="text-muted-foreground">—</span>

@@ -10,7 +10,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { type Column, DataTable } from "../../components/ui/data-table";
 import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
-import { DetailKV } from "../../components/ui/detail-drawer";
+import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { openSearch } from "../remediations/model";
@@ -174,7 +174,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
   const failing = c.rules.filter(isFailing);
   const rows = [
     {
-      key: "status",
+      label: "status",
       value: (
         <span className="inline-flex items-center gap-2">
           {c.status ? <StatusBadge status={c.status} /> : null}
@@ -183,7 +183,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
       ),
     },
     {
-      key: "remediation",
+      label: "remediation",
       value: (
         <GatedPanel isEmpty={false} empty={null} className="text-sm text-muted-foreground">
           <span className="inline-flex flex-wrap items-center gap-2">
@@ -198,14 +198,14 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
         </GatedPanel>
       ),
     },
-    { key: "last evaluated", value: c.evaluated_at ? <Time iso={c.evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span> },
+    { label: "last evaluated", value: c.evaluated_at ? <Time iso={c.evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span> },
   ];
   const timeline = timelineEvents(events.data?.items ?? [], c.control_id);
   const reassigned = reassignedEvents(events.data?.items ?? []);
   const recent = (evaluations.data?.items ?? []).slice(0, 2);
   return (
     <>
-      <DetailKV rows={rows} />
+      <DetailsGrid layout="list" items={rows} />
       <DetailSection title="Rules">
         <div className="rounded-lg border border-border">
           <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />

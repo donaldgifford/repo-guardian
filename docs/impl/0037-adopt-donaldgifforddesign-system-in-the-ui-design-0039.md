@@ -274,7 +274,7 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 - [x] 4.7 `ui/popover` to `components/popover`; move `PopoverHeading`, `PopoverItem` and `PopoverSeparator` to `components/OptionRows.tsx`. Call sites pass `align="start"`, `sideOffset={6}` and their width classes; `asChild` becomes `render`. `filters/FilterChips.tsx` and `page/OrgScope.tsx` are the consumers.
 - [x] 4.8 `ui/dropdown-menu` to `components/dropdown-menu` in `TopBar`: `onSelect` becomes `onClick` on Sign out, the label goes inside a `DropdownMenuGroup`, the Documentation item uses `render={<a …/>}`.
 - [x] 4.9 `ui/detail-drawer` to `shell/detail-panel` in both drawers: `onOpenChange`, `description`, `label` (the existing "Finding: …" and "Remediation: …" strings), `subject={open}`, and the page grid's second column as `var(--sheet-width-wide)`.
-- [ ] 4.10 `DetailKV` to `DetailsGrid layout="list"` in `views/policy.tsx`, `views/repositories.tsx` and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
+- [x] 4.10 `DetailKV` to `DetailsGrid layout="list"` in `views/policy.tsx`, `views/repositories.tsx` and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
 - [ ] 4.11 Rewrite `components/ui/behaviour.test.tsx` and `primitives.test.tsx` cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
 - [ ] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
 

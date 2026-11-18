@@ -227,7 +227,7 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - [x] 3.11 `BarBuckets`, `PairBars`, `BarList`, `StackedBars`, `Sparkline` to their blocks. Check each chart with a null in its series: `Sparkline` now breaks the line.
 - [x] 3.12 `charts/DistBar` to `blocks/dist-bar` with `size="sm"` and `label`; rebuild `PostureBar` on it. The accessible name becomes `<label>: <summary>`; confirm the e2e `getByRole("img", { name: … })` still matches.
 - [x] 3.13 `ui/group-grid` to `blocks/group-grid` (`heading`, `label`, string headers). The footer row is `data-row="footer"`: update `e2e/ui.spec.ts` and the orgs tests.
-- [ ] 3.14 Delete `components/charts/` (including its barrel and `charts.test.tsx`) and the leaf files replaced above. Remove `recharts` from `package.json` and confirm one copy remains in the lockfile.
+- [x] 3.14 Delete `components/charts/` (including its barrel and `charts.test.tsx`) and the leaf files replaced above. Remove `recharts` from `package.json` and confirm one copy remains in the lockfile.
 
 <!--docz:tasks:end-->
 

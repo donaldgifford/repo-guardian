@@ -77,7 +77,15 @@ test("the status page is public", async ({ browser }) => {
 
 test("signing out ends the session", async ({ page, context }) => {
   await signIn(page);
-  await page.getByRole("button", { name: "Account menu" }).click();
+  // The menu opens from the keyboard and Escape returns focus to it.
+  const account = page.getByRole("button", { name: "Account menu" });
+  await account.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
+  await expect(account).toBeFocused();
+  await account.click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect.poll(async () => (await context.cookies()).filter((c) => c.name.startsWith("__Host-rg_session"))).toHaveLength(0);
 });
@@ -444,6 +452,8 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   await expect(page).toHaveURL(/open=\d+%2Frenovate|open=\d+\/renovate/);
   const drawer = page.getByRole("dialog", { name: /^Finding: acme\/web renovate/ });
   await expect(drawer).toBeVisible();
+  // Focus moves into the drawer on open.
+  await expect.poll(() => drawer.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   await expect(drawer.getByRole("table", { name: "renovate rules" })).toContainText("fail");
   await expect(drawer).toContainText("path: renovate.json");
   await page.reload();
@@ -457,6 +467,8 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: /^Finding:/ })).toHaveCount(0);
   await expect(page).not.toHaveURL(/open=/);
+  // Escape hands focus back to the row that opened it.
+  await expect(row).toBeFocused();
   await expectNoGlobex(page);
 });
 

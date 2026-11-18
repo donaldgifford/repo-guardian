@@ -265,6 +265,7 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 
 - [x] 4.1 `web/testing/preload.ts` (the bunfig preload from #254): load `@base-ui/react` and `cmdk` under the temporary document, beside `radix-ui`, and drop `radix-ui` from it in Phase 7. Rendering test files keep `withDOM(cleanup)`. Run the unit suite in CI's file order and in 20 shuffled orders to show no overlay test depends on which file loads first.
 - [x] 4.2 `ui/button` to `components/button`. Give the three calls with no `variant` (`LoadMore`'s former call site if any remains, `OrgScope`, `views/repositories.tsx`) `variant="outline"`. Replace the four `<Link><Button tabIndex={-1}>` nestings with `render={<Link …/>}`.
+  Changed in 4.12: `render` with `nativeButton={false}` gives the `<a>` `role="button"`, which the e2e link assertions caught. The four are plain `Link`s styled with `buttonVariants({ variant: "outline", size: "sm" })`.
 - [x] 4.3 `ui/badge` to `components/badge` with `variant`; rebuild every badge in `components/badges.tsx` on it. `HoldBadge` keeps its sentence as the title.
 - [x] 4.4 `ui/avatar` to `components/avatar` at its current call site (it moves again in Phase 6).
 - [x] 4.5 Add `components/Panel.tsx`: the `title`/`subtitle`/`right`/`bodyClassName` API on `Card render` as a `section` and `CardTitle render` as an `h3` (function form, to satisfy the heading lint rule). Move the roughly 40 `Card` call sites to it. The three bare-surface uses get explicit class resets; the status page's two labelled cards keep a region role.
@@ -275,9 +276,11 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 - [x] 4.8 `ui/dropdown-menu` to `components/dropdown-menu` in `TopBar`: `onSelect` becomes `onClick` on Sign out, the label goes inside a `DropdownMenuGroup`, the Documentation item uses `render={<a …/>}`.
 - [x] 4.9 `ui/detail-drawer` to `shell/detail-panel` in both drawers: `onOpenChange`, `description`, `label` (the existing "Finding: …" and "Remediation: …" strings), `subject={open}`, and the page grid's second column as `var(--sheet-width-wide)`.
 - [x] 4.10 `DetailKV` to `DetailsGrid layout="list"` in `views/policy.tsx`, `views/repositories.tsx` and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
+  Checked in Chromium at 700px with a throwaway spec: no `details-grid` overflows on Policy, a repository, or either drawer, and a 300-character unbroken pull request URL and a long evidence line injected into a `dd` wrap (100px and 80px tall) with `scrollWidth` equal to `clientWidth`.
 - [x] 4.11 Rewrite `components/ui/behaviour.test.tsx` and `primitives.test.tsx` cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
   Done: each deleted primitive's case went with it (Button, Avatar, Card → `Panel.test.tsx`, Tabs → `SegmentedTabs.test.tsx` with the keyboard and search-param cases). `behaviour.test.tsx` now covers only survivors (the shell's Drawer focus trap, Escape and focus return; Command), and the DeltaText cases moved to `components/DeltaText.test.tsx`.
-- [ ] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
+- [x] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
+  Done. No selector named local markup. The one changed assertion (3.x's `toHaveClass(/--color-destructive/)` → `toHaveAttribute("data-variant", "destructive")`, 4.3) cannot pass on the pre-change build, whose badge rendered no `data-variant`. Added: focus moves into the findings drawer and Escape returns it to the row (shown to fail with `returnFocusTo` removed), and the account menu opens from the keyboard and Escape returns focus to its trigger.
 
 <!--docz:tasks:end-->
 
@@ -290,6 +293,18 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass; `a11y.spec.ts` passes unchanged. Visual diffs are limited to overlay width and motion.
 
 <!--docz:criteria:end-->
+
+**Phase 4 result (2026-11-18):** met except the visual criterion, as in
+Phase 3. `make lint-ui`, `make test-ui` (355) and `make test-ui-e2e`
+(42, `a11y.spec.ts` unchanged) pass; only `command.tsx`, `dialog.tsx`
+and `drawer.tsx` import `radix-ui`. The e2e run found two regressions,
+both fixed: the four Link buttons announced as buttons (4.2 note), and
+the package tab trigger's 1px focus outline under the global 2px rule
+(`SegmentedTabs` puts it back; worth raising upstream). Findings matches
+its baseline; Status and Remediations differ by 1% of pixels from the
+package outline badge (`px-1.5 py-1` against 7px/5px), which shortens
+the changelog tag rows and narrows the auto-width Kind column; Orgs is
+unchanged from Phase 3. These move with the 6.15 re-baseline.
 <!--docz:phase:end-->
 
 ---

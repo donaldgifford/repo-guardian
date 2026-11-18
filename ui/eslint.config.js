@@ -48,12 +48,20 @@ export default tseslint.config(
     // The UI's primitives are @donaldgifford/design-system's, on Base UI
     // (DESIGN-0039). A radix import would bring a second overlay stack
     // beside the package's, with its own focus and portal handling.
+    // zod (about 85 kB) reaches the bundle only through the package's
+    // lib/problem and lib/list-search, or through zod itself; the SPA
+    // validates nothing with it, so all three stay out.
     files: ["web/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: [{ name: "radix-ui", message: "Use @donaldgifford/design-system's components (Base UI), not radix (DESIGN-0039)." }],
+          paths: [
+            { name: "radix-ui", message: "Use @donaldgifford/design-system's components (Base UI), not radix (DESIGN-0039)." },
+            { name: "zod", message: "zod is kept out of the SPA bundle (design-system#11)." },
+            { name: "@donaldgifford/design-system/lib/problem", message: "This module imports zod; use lib/errors (ApiError, parseProblem) instead (design-system#11)." },
+            { name: "@donaldgifford/design-system/lib/list-search", message: "This module imports zod; use lib/list-params instead (design-system#11)." },
+          ],
           patterns: [{ group: ["@radix-ui/*"], message: "Use @donaldgifford/design-system's components (Base UI), not radix (DESIGN-0039)." }],
         },
       ],

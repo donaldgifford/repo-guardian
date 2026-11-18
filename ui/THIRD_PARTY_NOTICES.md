@@ -34,7 +34,7 @@ SOFTWARE.
 ## The design system and the libraries bundled through it
 
 The UI's components come from `@donaldgifford/design-system`
-0.3.1 (DESIGN-0039), licensed under the Apache License 2.0
+0.3.2 (DESIGN-0039), licensed under the Apache License 2.0
 (Copyright (c) Donald Gifford). The libraries below reach the bundle through it,
 as measured from the production build's source map (IMPL-0037 7.6);
 each is used under the licence named, whose text follows the table.
@@ -97,7 +97,6 @@ each is used under the licence named, whose text follows the table.
 | `use-callback-ref` | 1.3.3 | MIT | Copyright (c) 2017 Anton Korzunov |
 | `use-sidecar` | 1.1.3 | MIT | Copyright (c) 2017 Anton Korzunov |
 | `victory-vendor` | 37.3.6 | MIT AND ISC | Copyright (c) Formidable (d3 modules re-packaged; the d3 notices below apply) |
-| `zod` | 4.6.7 | MIT | Copyright (c) 2025 Colin McDonnell |
 
 ### MIT License
 

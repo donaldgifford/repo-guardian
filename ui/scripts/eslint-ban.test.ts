@@ -38,3 +38,20 @@ export const used = [Dialog, Popover];
   const [server] = await eslint.lintText(probe, { filePath: "server/probe.ts" });
   expect((server?.messages ?? []).filter((m) => m.ruleId === "no-restricted-imports")).toHaveLength(0);
 });
+
+// The zod ban (design-system#11): zod and the two package modules that
+// import it stay out of the SPA, while their zod-free siblings stay open.
+test("ESLint bans zod and the package modules that import it under web/", async () => {
+  const eslint = new ESLint({ cwd: new URL("..", import.meta.url).pathname });
+  const probe = `
+import { z } from "zod";
+import { problemSchema } from "@donaldgifford/design-system/lib/problem";
+import { listSearchSchema } from "@donaldgifford/design-system/lib/list-search";
+import { parseSort } from "@donaldgifford/design-system/lib/list-params";
+import { ApiError } from "@donaldgifford/design-system/lib/errors";
+export const used = [z, problemSchema, listSearchSchema, parseSort, ApiError];
+`;
+  const [result] = await eslint.lintText(probe, { filePath: "web/src/probe.tsx" });
+  const banned = (result?.messages ?? []).filter((m) => m.ruleId === "no-restricted-imports");
+  expect(banned.map((m) => m.line)).toEqual([2, 3, 4]);
+});

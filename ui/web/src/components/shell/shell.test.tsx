@@ -1,4 +1,4 @@
-// The DOM must exist before radix and user-event load: keep this first.
+// The DOM must exist before the overlays and user-event load: keep this first.
 import { withDOM } from "../../../testing/dom";
 
 import { describe, expect, test } from "bun:test";

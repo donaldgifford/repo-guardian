@@ -4,7 +4,7 @@ import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
 
@@ -29,7 +29,7 @@ export function PolicyView() {
       />
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Version">
+          <Panel title="Version">
             <DetailKV
               rows={[
                 { key: "version", value: <span className="font-mono text-xs break-all">{p.version}</span> },
@@ -38,9 +38,9 @@ export function PolicyView() {
                 { key: "rollout", value: p.rollout_completed_at ? <>complete <Time iso={p.rollout_completed_at} style="relative" /></> : "in progress" },
               ]}
             />
-          </Card>
+          </Panel>
           {p.enterprise ? (
-            <Card title="Enterprise baseline">
+            <Panel title="Enterprise baseline">
               <DetailKV
                 rows={[
                   { key: "mode", value: <Badge variant="outline">{p.enterprise.mode}</Badge> },
@@ -48,15 +48,15 @@ export function PolicyView() {
                   { key: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
                 ]}
               />
-            </Card>
+            </Panel>
           ) : null}
         </div>
         {p.orgs.map((o) => (
           <OrgLayer key={o.org} org={o} />
         ))}
-        <Card title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
+        <Panel title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
           <DataTable columns={catalogueColumns} rows={p.controls} rowKey={(c) => c.id} empty="No control is referenced." aria-label="Catalogue" />
-        </Card>
+        </Panel>
       </div>
     </>
   );
@@ -79,7 +79,7 @@ function changes(list: readonly Schemas["PolicyChange"][]) {
 
 function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
   return (
-    <Card title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge variant="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
+    <Panel title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge variant="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
       <DetailKV
         rows={[
           { key: "added", value: changes(o.added) },
@@ -118,7 +118,7 @@ function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
           },
         ]}
       />
-    </Card>
+    </Panel>
   );
 }
 

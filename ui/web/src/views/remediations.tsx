@@ -13,7 +13,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { ExternalLink } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { SearchTabs } from "../components/ui/tabs";
@@ -137,9 +137,9 @@ export function RemediationsView() {
         }
       />
       {state !== "content" ? (
-        <Card>
+        <Panel>
           <div data-gated={state}>{state === "loading" ? <Loading /> : <Empty>{NOT_ENABLED}</Empty>}</div>
-        </Card>
+        </Panel>
       ) : (
         <div className="space-y-4" data-gated="content">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -150,7 +150,7 @@ export function RemediationsView() {
           </div>
           <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
             <div ref={tableRef} className="min-w-0 space-y-3">
-              <Card className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+              <Panel className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
                 <SearchTabs param="view" defaultValue="all" options={VIEWS} label="Remediation views" />
                 <Chip label="kind" value={search.kind ?? ""} options={KINDS} onChange={(v) => patch({ kind: v || undefined })} />
                 <Chip label="state" value={search.state ?? ""} options={STATES} onChange={(v) => patch({ state: v || undefined })} />
@@ -164,8 +164,8 @@ export function RemediationsView() {
                 </label>
                 <span className="flex-1" />
                 {overview.data?.truncated ? <span className="text-xs text-muted-foreground">KPIs count the first {openPullRequestsCap.toLocaleString()} rows</span> : null}
-              </Card>
-              <Card bodyClassName="p-0" title="Remediations">
+              </Panel>
+              <Panel bodyClassName="p-0" title="Remediations">
                 {!items ? (
                   <Loading />
                 ) : items.length === 0 ? (
@@ -176,7 +176,7 @@ export function RemediationsView() {
                     <LoadMore loaded={items.length} hasMore={rows.hasNextPage} loading={rows.isFetchingNextPage} onMore={() => void rows.fetchNextPage()} noun="remediations" />
                   </>
                 )}
-              </Card>
+              </Panel>
             </div>
             {open !== undefined ? <RemediationDrawer open={open} loaded={items ?? []} inline={inline} onClose={() => openRow(undefined)} returnFocusTo={() => rowFor(open)} /> : null}
           </div>

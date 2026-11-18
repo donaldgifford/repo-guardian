@@ -14,7 +14,7 @@ import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureMeter } from "../components/posture";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { DeltaText } from "../components/DeltaText";
@@ -41,9 +41,9 @@ export function ControlsView() {
         }
         controls={<OrgScope />}
       />
-      <Card bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
+      <Panel bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
         {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
-      </Card>
+      </Panel>
     </>
   );
 }
@@ -129,20 +129,20 @@ export function ControlView() {
             >
               {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${c.id} compliance over time`} /> : <Loading />}
             </ChartCard>
-            <Card
+            <Panel
               title="By org"
               subtitle="Each org and lineage, with the versions it carries."
               bodyClassName="p-0"
               right={<ExportButton name="control orgs" filename="repo-guardian-control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
             >
               <DataTable columns={orgColumns} rows={orgRows} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
-            </Card>
-            <Card title="Assignments" subtitle="By bucket, now.">
+            </Panel>
+            <Panel title="Assignments" subtitle="By bucket, now.">
               <PostureBar posture={posture} label={`${c.id} assignments by bucket`} />
-            </Card>
+            </Panel>
           </div>
           <div className="space-y-4">
-            <Card title="Top failing rules" subtitle={total > rows.length ? `Findings by failing rule over the ${rows.length} oldest of ${total.toLocaleString()}. A row filters the findings page.` : "Findings by failing rule. A row filters the findings page."}>
+            <Panel title="Top failing rules" subtitle={total > rows.length ? `Findings by failing rule over the ${rows.length} oldest of ${total.toLocaleString()}. A row filters the findings page.` : "Findings by failing rule. A row filters the findings page."}>
               {!findings.data ? (
                 <Loading />
               ) : rows.length === 0 ? (
@@ -160,8 +160,8 @@ export function ControlView() {
                   }))}
                 />
               )}
-            </Card>
-            <Card title="Oldest findings" subtitle="Longest failing first; a row opens the finding." bodyClassName="p-0">
+            </Panel>
+            <Panel title="Oldest findings" subtitle="Longest failing first; a row opens the finding." bodyClassName="p-0">
               {!findings.data ? (
                 <Loading />
               ) : oldest.length === 0 ? (
@@ -183,7 +183,7 @@ export function ControlView() {
                   ))}
                 </ul>
               )}
-            </Card>
+            </Panel>
           </div>
         </div>
       </div>

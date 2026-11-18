@@ -18,7 +18,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, PostureBar, PostureMeter } from "../components/posture";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DeltaText } from "../components/DeltaText";
 import { StatStrip } from "@donaldgifford/design-system/blocks/stat-strip";
@@ -137,7 +137,7 @@ export function FleetView() {
             />
             {fleetHistory.data ? <TrendChart points={points} unit={spec.unit} color={spec.color} series={spec.label} rangeDays={days} height={200} label={`${spec.label} over the last ${days} days`} /> : <Loading />}
           </ChartCard>
-          <Card
+          <Panel
             title="Finding age"
             subtitle={
               <>
@@ -154,10 +154,10 @@ export function FleetView() {
                 oldest findings first →
               </Link>
             </p>
-          </Card>
+          </Panel>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="Worst controls" subtitle="Lowest measured compliance; delta over the range.">
+          <Panel title="Worst controls" subtitle="Lowest measured compliance; delta over the range.">
             {!worst ? (
               <Loading />
             ) : worst.length === 0 ? (
@@ -192,8 +192,8 @@ export function FleetView() {
                 })}
               </ol>
             )}
-          </Card>
-          <Card
+          </Panel>
+          <Panel
             title="Parked by reason"
             subtitle={
               <>
@@ -203,13 +203,13 @@ export function FleetView() {
             }
           >
             {s.parked_by_reason.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList label="Parked repositories by reason" color="var(--color-warning)" items={s.parked_by_reason.map((p) => ({ label: humanize(p.reason), value: p.count }))} />}
-          </Card>
-          <Card title="Assignments" subtitle="Every assignment lands in exactly one bucket.">
+          </Panel>
+          <Panel title="Assignments" subtitle="Every assignment lands in exactly one bucket.">
             <PostureBar posture={posture} label="Fleet assignments by bucket" />
-          </Card>
+          </Panel>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card
+          <Panel
             title="Compliance by control"
             subtitle={
               <>
@@ -220,9 +220,9 @@ export function FleetView() {
             right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}
           >
             {controls.data ? <DataTable columns={byControlColumns(perControl)} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
-          </Card>
+          </Panel>
           {org ? (
-            <Card
+            <Panel
               title="Exclusions by reason"
               subtitle={
                 <>
@@ -233,9 +233,9 @@ export function FleetView() {
               right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org }} columns={exclusionsCsv} rows={orgDetail.data?.exclusions} />}
             >
               {!orgDetail.data ? <Loading /> : orgDetail.data.exclusions.length === 0 ? <Empty>Nothing excluded in {org}.</Empty> : <DataTable columns={exclusionColumns} rows={orgDetail.data.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} aria-label="Exclusions" />}
-            </Card>
+            </Panel>
           ) : (
-            <Card
+            <Panel
               title="Orgs"
               subtitle={
                 <>
@@ -246,7 +246,7 @@ export function FleetView() {
               right={<ExportButton name="orgs" filename="repo-guardian-orgs" columns={orgsCsv} rows={orgs.data?.items} />}
             >
               {orgs.data ? <DataTable columns={orgColumns} rows={[...orgs.data.items].sort((a, b) => b.tracked - a.tracked)} rowKey={(o) => o.org} empty="No org is visible to you." aria-label="Orgs" /> : <Loading />}
-            </Card>
+            </Panel>
           )}
         </div>
         <div className="grid gap-4 lg:grid-cols-3">

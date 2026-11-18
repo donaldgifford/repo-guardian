@@ -13,7 +13,7 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Tabs } from "../components/ui/tabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
@@ -195,12 +195,12 @@ export function FindingsView() {
       />
       <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
         <div ref={tableRef} className="min-w-0 space-y-3">
-          <Card className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+          <Panel className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
             <FilterChips values={filterValues} onChange={patch} options={{ controls: (controls.data?.items ?? []).map((c) => c.id), rules: controlRules(items ?? [], search.control), orgs: (orgs.data?.items ?? []).map((o) => o.org) }} remediation={remediation} />
             <span className="flex-1" />
             <Tabs label="Sort" options={sortOptions(remediation)} value={sort} onChange={(next) => patch({ sort: next === defaultSort ? undefined : next })} />
-          </Card>
-          <Card bodyClassName="p-0" title="Findings" subtitle={total !== undefined ? `${(items ?? []).length.toLocaleString()} loaded of ${total.toLocaleString()}` : undefined}>
+          </Panel>
+          <Panel bodyClassName="p-0" title="Findings" subtitle={total !== undefined ? `${(items ?? []).length.toLocaleString()} loaded of ${total.toLocaleString()}` : undefined}>
             {!items ? (
               <Loading />
             ) : items.length === 0 ? (
@@ -211,7 +211,7 @@ export function FindingsView() {
                 <LoadMore loaded={items.length} total={total} hasMore={results.hasNextPage} loading={results.isFetchingNextPage} onMore={() => void results.fetchNextPage()} noun="findings" />
               </>
             )}
-          </Card>
+          </Panel>
         </div>
         {open !== undefined ? <FindingDrawer open={open} inline={inline} onClose={() => openFinding(undefined)} returnFocusTo={() => rowFor(open)} /> : null}
       </div>

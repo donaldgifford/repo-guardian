@@ -14,7 +14,7 @@ import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../compo
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
 import { SearchTabs } from "../components/ui/tabs";
@@ -97,7 +97,7 @@ export function RepositoriesView() {
           </>
         }
       />
-      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton name="repositories" filename="repo-guardian-repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
+      <Panel title="Repositories" bodyClassName="p-0" right={<ExportButton name="repositories" filename="repo-guardian-repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
         {items ? (
           <>
             <DataTable columns={repositoryColumns} rows={items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" />
@@ -106,7 +106,7 @@ export function RepositoriesView() {
         ) : (
           <Loading />
         )}
-      </Card>
+      </Panel>
     </>
   );
 }
@@ -183,9 +183,9 @@ export function RepositoryView() {
           <SearchTabs param="tab" defaultValue="controls" options={tabs} label="Repository sections" />
           {current === "controls" ? <Controls id={repoId} /> : current === "evaluations" ? <Evaluations id={repoId} /> : <Events id={repoId} />}
         </div>
-        <Card title="Repository">
+        <Panel title="Repository">
           <Facts repository={r} />
-        </Card>
+        </Panel>
       </div>
     </>
   );
@@ -253,7 +253,7 @@ function Controls({ id }: { id: number }) {
 
 function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) {
   return (
-    <Card
+    <Panel
       title={
         <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono hover:text-primary">
           {c.control_id}
@@ -276,7 +276,7 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
       ) : null}
       <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />
       <RemediationPanel control={c} />
-    </Card>
+    </Panel>
   );
 }
 
@@ -347,9 +347,9 @@ const evaluationsCsv: CsvColumns<Schemas["Evaluation"]> = {
 function Evaluations({ id }: { id: number }) {
   const evaluations = useRepositoryEvaluations(id);
   return (
-    <Card title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton name="evaluations" filename="repo-guardian-evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
+    <Panel title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton name="evaluations" filename="repo-guardian-evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
       {evaluations.data ? <DataTable columns={evaluationColumns} rows={evaluations.data.items} rowKey={(e) => String(e.id)} empty="No evaluation yet." aria-label="Evaluation log" /> : <Loading />}
-    </Card>
+    </Panel>
   );
 }
 
@@ -395,8 +395,8 @@ const eventsCsv: CsvColumns<Schemas["Event"]> = {
 function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);
   return (
-    <Card title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton name="events" filename="repo-guardian-events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
+    <Panel title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton name="events" filename="repo-guardian-events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
       {events.data ? <DataTable columns={eventColumns} rows={events.data.items} rowKey={(e) => `${e.source}/${e.id}`} empty="No events yet." aria-label="Events" /> : <Loading />}
-    </Card>
+    </Panel>
   );
 }

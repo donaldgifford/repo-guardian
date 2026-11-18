@@ -1,25 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Card } from "./card";
 import { DeltaText } from "../DeltaText";
 import { Tabs } from "./tabs";
-
-describe("Card", () => {
-  test("with a title renders header, strip and body in order", () => {
-    const html = renderToStaticMarkup(
-      <Card title="Compliance" subtitle="over 30d" right={<span>R</span>} strip={<div>strip</div>}>
-        body
-      </Card>,
-    );
-    expect(html).toMatch(/<header[^>]*><div[^>]*><h3[^>]*>Compliance<\/h3><p[^>]*>over 30d<\/p><\/div><div[^>]*><span>R<\/span><\/div><\/header><div>strip<\/div><div[^>]*>body<\/div>/);
-    expect(html).toContain("bg-card");
-  });
-
-  test("without a title is the bare surface", () => {
-    expect(renderToStaticMarkup(<Card>raw</Card>)).toBe('<section class="rounded-lg border border-border bg-card">raw</section>');
-  });
-});
 
 describe("DeltaText", () => {
   test("an upward good delta is ok, a downward one is bad", () => {

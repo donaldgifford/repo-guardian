@@ -1,13 +1,13 @@
 import type { Schemas } from "../api/client";
-import { Card, CardBody } from "../components/ui/card";
+import { Panel, PanelBody } from "../components/Panel";
 
 // AccessView is shown to a signed-in caller who may see no org: /me
 // says who they are, so they can quote it when asking for access.
 export function AccessView({ me }: { me: Schemas["Me"] }) {
   return (
-    <Card className="mx-auto mt-16 max-w-lg">
+    <Panel className="mx-auto mt-16 max-w-lg">
       <h1 className="px-3.5 pt-3 text-lg font-semibold">You don't have access to any organization yet</h1>
-      <CardBody className="space-y-3 text-sm">
+      <PanelBody className="space-y-3 text-sm">
         <p>
           You are signed in, but none of your groups is mapped to an organization in repo-guardian. Ask an administrator to add one of your
           groups to the API's authorization config, quoting the identity below.
@@ -23,7 +23,7 @@ export function AccessView({ me }: { me: Schemas["Me"] }) {
             Sign out
           </button>
         </form>
-      </CardBody>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }

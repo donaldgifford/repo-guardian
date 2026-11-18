@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { type Problem, ProblemError } from "../api/client";
-import { Card, CardBody } from "./ui/card";
+import { Panel, PanelBody } from "./Panel";
 
 // ProblemView renders an RFC 9457 problem, or any other error as one.
 // Every field is text: a problem's detail can echo request input.
@@ -12,15 +12,15 @@ export function ProblemView({ error }: { error: unknown }) {
       : { type: "about:blank", title: "Something went wrong", status: 500, detail: error instanceof Error ? error.message : String(error) };
 
   return (
-    <Card className="mx-auto mt-8 max-w-xl" role="alert">
+    <Panel className="mx-auto mt-8 max-w-xl" role="alert">
       <h2 className="px-3.5 pt-3 text-lg font-semibold">
         {p.status} · {p.title}
       </h2>
-      <CardBody className="space-y-2 text-sm">
+      <PanelBody className="space-y-2 text-sm">
         {p.detail ? <p>{p.detail}</p> : null}
         {p.request_id ? <p className="text-muted-foreground">Request ID: {p.request_id}</p> : null}
-      </CardBody>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }
 

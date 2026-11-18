@@ -15,7 +15,7 @@ import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "@donaldgifford/design-system/blocks/group-grid";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
@@ -129,7 +129,7 @@ export function OrgsView() {
           </>
         }
       />
-      <Card bodyClassName="p-0">
+      <Panel bodyClassName="p-0">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5" aria-label="Orgs toolbar" role="toolbar">
           <span className="text-xs text-muted-foreground">Repositories</span>
           <Badge variant="muted">{compact(total.tracked)}</Badge>
@@ -185,7 +185,7 @@ export function OrgsView() {
             {(row) => <ComplianceChildren key={`${row.key}/children`} org={row.key} total={visible.find((o) => o.org === row.key)?.tracked ?? 0} filter={filter} remediation={remediation} />}
           </GroupGrid>
         )}
-      </Card>
+      </Panel>
     </>
   );
 }
@@ -353,7 +353,7 @@ export function OrgView() {
           {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${o.org} compliance over time`} /> : <Loading />}
         </ChartCard>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card
+          <Panel
             title="Controls"
             subtitle="Baseline, replaced and org-added."
             bodyClassName="p-0"
@@ -361,19 +361,19 @@ export function OrgView() {
             right={<ExportButton name="org controls" filename="repo-guardian-org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
           >
             <DataTable columns={controlColumns} rows={o.controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="No control is assigned here." aria-label="Org controls" />
-          </Card>
-          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton name="worst controls" filename="repo-guardian-worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
+          </Panel>
+          <Panel title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton name="worst controls" filename="repo-guardian-worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
             <DataTable columns={worstColumns} rows={o.worst_controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="Nothing measured yet." aria-label="Worst controls" />
-          </Card>
+          </Panel>
         </div>
-        <Card
+        <Panel
           title="Exclusions"
           subtitle="Repositories or controls the policy leaves out, and why."
           bodyClassName="p-0"
           right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
         >
           <DataTable columns={exclusionColumns} rows={o.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} empty="No exclusions." aria-label="Exclusions" />
-        </Card>
+        </Panel>
       </div>
     </>
   );

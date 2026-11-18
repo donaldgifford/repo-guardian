@@ -7,7 +7,7 @@ import { Loading } from "../components/common";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { historySeries } from "../lib/posture";
 import { parseScopeSearch, type ScopeSearch } from "../lib/scope";
 import { patchSearch } from "../lib/search";
@@ -68,9 +68,9 @@ export function HistoryView() {
           </>
         }
       />
-      <Card title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.value)}` : "No snapshot in range."}>
+      <Panel title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.value)}` : "No snapshot in range."}>
         {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} label="Compliance over time" /> : <Loading />}
-      </Card>
+      </Panel>
     </>
   );
 }

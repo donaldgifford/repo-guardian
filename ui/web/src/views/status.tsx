@@ -7,7 +7,7 @@ import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Sparkline } from "@donaldgifford/design-system/blocks/sparkline";
 import { Icon } from "../components/icons";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Card } from "../components/ui/card";
+import { Panel } from "../components/Panel";
 import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import changelog from "../generated/changelog.json";
 import { toneFor } from "../lib/format";
@@ -66,7 +66,7 @@ export function StatusView() {
         </p>
       </header>
 
-      <Card aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
+      <Panel aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
         <div className="flex flex-wrap items-center gap-3">
           <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "muted" && "animate-pulse")} />
           <div className="min-w-0 flex-1">
@@ -75,10 +75,10 @@ export function StatusView() {
           </div>
           <StateBadge state={s.state} />
         </div>
-      </Card>
+      </Panel>
 
       <div className="grid gap-4 md:grid-cols-5">
-        <Card title="Components" bodyClassName="p-0" className="md:col-span-3">
+        <Panel title="Components" bodyClassName="p-0" className="md:col-span-3">
           {s.components.length === 0 ? (
             <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No components reported yet.</p>
           ) : (
@@ -91,8 +91,8 @@ export function StatusView() {
           {s.components.some((c) => c.name === "webhooks") ? (
             <p className="border-t border-border px-3.5 py-2 text-xs text-muted-foreground">webhooks is informational: it reports deliveries but never moves the overall state.</p>
           ) : null}
-        </Card>
-        <Card title="Fleet compliance" className="md:col-span-2">
+        </Panel>
+        <Panel title="Fleet compliance" className="md:col-span-2">
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
             {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
           </div>
@@ -104,7 +104,7 @@ export function StatusView() {
             coverage {formatPercent(s.compliance.coverage)}
           </p>
           <ComplianceTrend history={s.compliance.history} />
-        </Card>
+        </Panel>
       </div>
 
       <OperationsStrip ops={s.operations} remediation={s.apps.some((a) => a.app === "remediate")} />
@@ -183,7 +183,7 @@ export function rolloutLabel(ops: Schemas["StatusOperations"]): { text: string; 
 export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOperations"]; remediation: boolean }) {
   const rollout = rolloutLabel(ops);
   return (
-    <Card className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
+    <Panel className={cn("grid grid-cols-1 divide-y divide-border md:divide-x md:divide-y-0", remediation ? "md:grid-cols-5" : "md:grid-cols-4")} aria-label="Operations">
       <OperationsCell label="Repositories evaluated in the last 24h">
         {ops.evaluated_24h.toLocaleString()}
         <span className="text-sm font-normal text-muted-foreground"> / {ops.tracked.toLocaleString()}</span>
@@ -193,7 +193,7 @@ export function OperationsStrip({ ops, remediation }: { ops: Schemas["StatusOper
       <OperationsCell label="Last snapshot">{ops.last_snapshot_at ? <Time iso={ops.last_snapshot_at} style="relative" /> : "—"}</OperationsCell>
       {/* The backlog cell only with a Remediation App (IMPL-0032 6.7): an aggregate count, so the privacy guard holds. */}
       {remediation ? <OperationsCell label="Remediation backlog">{ops.remediation_backlog.toLocaleString()}</OperationsCell> : null}
-    </Card>
+    </Panel>
   );
 }
 
@@ -213,7 +213,7 @@ const appLabels: Record<string, string> = { eval: "Evaluation App", remediate: "
 // backlog_remediation).
 function Deployment({ topology, apps }: { topology: string; apps: Schemas["StatusApp"][] }) {
   return (
-    <Card title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
+    <Panel title="Deployment" right={<span className="font-mono text-xs text-muted-foreground" data-testid="status-topology">topology {topology}</span>} bodyClassName="p-0">
       {apps.length === 0 ? (
         <p className="px-3.5 py-2.5 text-sm text-muted-foreground">No App installation recorded yet.</p>
       ) : (
@@ -229,7 +229,7 @@ function Deployment({ topology, apps }: { topology: string; apps: Schemas["Statu
           ))}
         </ul>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -244,7 +244,7 @@ export const changelogShown = 5;
 export function Changelog({ bundle = changelog }: { bundle?: { running: string; entries: { version: string; date: string; title: string; summary: string; tags: string[] }[] } }) {
   const entries = bundle.entries.slice(0, changelogShown);
   return (
-    <Card
+    <Panel
       title="Changelog"
       right={
         <a href={releasesURL} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
@@ -280,6 +280,6 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
           ))}
         </ol>
       )}
-    </Card>
+    </Panel>
   );
 }

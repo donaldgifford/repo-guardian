@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useControl, useControls, useResults } from "../api/queries";
-import { BarList, type BarListItem } from "../components/charts";
+import { BarList, type BarListItem } from "@donaldgifford/design-system/blocks/bar-list";
 import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
 import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
@@ -151,7 +151,7 @@ export function ControlView() {
                 <Empty>No findings in scope.</Empty>
               ) : (
                 <BarList
-                  aria-label={`${c.id} findings by failing rule`}
+                  label={`${c.id} findings by failing rule`}
                   items={ruleCounts(rows).map((it) => ({
                     ...it,
                     render: (label) => (

@@ -3,7 +3,11 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { useComplianceHistory, useControls, useOrg, useOrgs, useRemediationActivity, useRemediationEnabled, useSummary } from "../api/queries";
-import { BarBuckets, BarList, bucketsTable, DistBar, PairBars, pairTable, Sparkline } from "../components/charts";
+import { DistBar } from "../components/charts";
+import { BarBuckets, bucketsTable } from "@donaldgifford/design-system/blocks/bar-buckets";
+import { BarList } from "@donaldgifford/design-system/blocks/bar-list";
+import { PairBars, pairTable } from "@donaldgifford/design-system/blocks/pair-bars";
+import { Sparkline } from "@donaldgifford/design-system/blocks/sparkline";
 import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
 import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
@@ -198,7 +202,7 @@ export function FleetView() {
               </>
             }
           >
-            {s.parked_by_reason.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList aria-label="Parked repositories by reason" color="var(--color-warning)" items={s.parked_by_reason.map((p) => ({ label: humanize(p.reason), value: p.count }))} />}
+            {s.parked_by_reason.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList label="Parked repositories by reason" color="var(--color-warning)" items={s.parked_by_reason.map((p) => ({ label: humanize(p.reason), value: p.count }))} />}
           </Card>
           <Card title="Assignments" subtitle="Every assignment lands in exactly one bucket.">
             <PostureBar posture={posture} label="Fleet assignments by bucket" />
@@ -307,7 +311,7 @@ export function OpenPRsPanel({ enabled, buckets, org, className }: { enabled: bo
   const state = gatedContent(enabled, total === 0);
   const content = (
     <>
-      <BarBuckets buckets={buckets.map((b) => ({ label: b.bucket, value: b.count }))} label="open PRs" height={160} aria-label="Open pull requests by age" />
+      <BarBuckets buckets={buckets.map((b) => ({ label: b.bucket, value: b.count }))} series="open PRs" height={160} label="Open pull requests by age" />
       <p className="mt-2 text-xs text-muted-foreground">
         {stale.toLocaleString()} over threshold →{" "}
         <Link to="/findings" search={{ pr_stale: true, ...(org ? { org } : {}) }} className="text-primary hover:underline">
@@ -350,7 +354,7 @@ export function ThroughputPanel({ enabled, days, className }: { enabled: boolean
       {...(className === undefined ? {} : { className })}
     >
       <div data-gated={state}>
-        {state === "content" ? days ? <PairBars days={pairs} labels={labels} height={160} aria-label="Pull requests opened and closed per day" /> : <Loading /> : state === "loading" ? <Loading /> : <Empty>{state === "not_enabled" ? NOT_ENABLED : "No pull request activity in 14 days."}</Empty>}
+        {state === "content" ? days ? <PairBars days={pairs} series={labels} height={160} label="Pull requests opened and closed per day" /> : <Loading /> : state === "loading" ? <Loading /> : <Empty>{state === "not_enabled" ? NOT_ENABLED : "No pull request activity in 14 days."}</Empty>}
       </div>
     </ChartCard>
   );

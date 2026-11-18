@@ -4,7 +4,7 @@ import type { Schemas } from "../api/client";
 import { useStatus, useUIConfig } from "../api/queries";
 import { StateBadge } from "../components/badges";
 import { Badge } from "../components/ui/badge";
-import { Sparkline } from "../components/charts";
+import { Sparkline } from "@donaldgifford/design-system/blocks/sparkline";
 import { Icon } from "../components/icons";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Card } from "../components/ui/card";

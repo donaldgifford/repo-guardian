@@ -9,6 +9,7 @@
     "check:dist": "bun scripts/check-dist.ts",
     "gen:changelog": "bun scripts/gen-changelog.ts",
     "check:changelog": "bun scripts/check-changelog.ts",
+    "check:tokens": "bun scripts/check-tokens.ts",
     "dev:server": "bun --watch server/main.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",

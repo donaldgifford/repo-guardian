@@ -139,7 +139,7 @@ The package is installable everywhere this repository installs, and nothing impo
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 1.1 Create the branch `feat/ui-design-system` from `main` once the documents PR is merged (OQ1).
+- [x] 1.1 Create the branch `feat/ui-design-system` from `main` once the documents PR is merged (OQ1).
 - [ ] 1.2 Add `ui/.npmrc` with the `@donaldgifford` scope registry and `_authToken=${NPM_TOKEN}`. Confirm `ui/.dockerignore` does not exclude it.
 - [ ] 1.3 `Makefile`: `ui-install` and `docker-build-ui` export `NPM_TOKEN` from the environment when set and from `gh auth token` otherwise. The fallback must not print the token and must fail with a message naming `ui/README.md` when neither is available.
 - [ ] 1.4 Add `@donaldgifford/design-system` at exactly `0.3.0` to `devDependencies` and commit `bun.lock`. Confirm the installed package has `src/` (a `dist/` with no `src/` is the stale-cache case from design-system#11).

@@ -124,12 +124,12 @@ export function RemediationsView() {
     <>
       <PageHeader
         title="Remediations"
-        subtitle={
+        description={
           <>
             Pull requests and API changes repo-guardian makes to bring results to compliant. Filters map 1:1 to <code>GET /remediations</code>.
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             {state === "content" ? <ExportButton name="remediations" filename="repo-guardian-remediations" filter={{ view: search.view, org: filter.org, control: filter.control, state: filter.state }} columns={remediationsCsv} rows={items} all={{ fetch: () => fetchAllRemediations(filter, exportCap), cap: exportCap }} /> : null}

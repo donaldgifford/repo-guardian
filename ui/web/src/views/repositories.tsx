@@ -65,13 +65,13 @@ export function RepositoriesView() {
     <>
       <PageHeader
         title="Repositories"
-        subtitle={
+        description={
           <>
             {search.org ? `In ${search.org} · ` : ""}
             <code>GET /repositories</code>
           </>
         }
-        controls={
+        actions={
           <>
             <input
               aria-label="Search repositories"
@@ -165,13 +165,13 @@ export function RepositoryView() {
     <>
       <PageHeader
         title={`${r.org}/${r.name}`}
-        badge={policyStateBadge(r)}
-        subtitle={
+        meta={policyStateBadge(r)}
+        description={
           <>
             evaluated {r.last_evaluated_at ? <Time iso={r.last_evaluated_at} style="relative" /> : "never"} · <code>GET /repositories/{r.id}</code>
           </>
         }
-        controls={
+        actions={
           <>
             {r.active ? <EvaluateButton id={r.id} /> : null}
             {href ? <ExternalLink href={href}>Open on GitHub</ExternalLink> : null}

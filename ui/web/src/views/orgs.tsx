@@ -117,12 +117,12 @@ export function OrgsView() {
     <>
       <PageHeader
         title="Orgs"
-        subtitle={
+        description={
           <>
             Each org expands to its repositories. Assigned, compliant and non-compliant count control assignments (repository × control); compliance is compliant ÷ (compliant + non-compliant), and the footer sums the rows · <code>GET /orgs</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <ExportButton name="orgs" filename="repo-guardian-orgs" filter={{ org: scope }} columns={orgsCsv} rows={orgs.data ? visible : undefined} />
@@ -320,12 +320,12 @@ export function OrgView() {
     <>
       <PageHeader
         title={o.org}
-        subtitle={
+        description={
           <>
             {o.tracked.toLocaleString()} repositories · {o.parked.toLocaleString()} parked · <code>GET /orgs/{o.org}</code>
           </>
         }
-        controls={
+        actions={
           <>
             <RangeTabs />
             <Link to="/repositories" search={{ org: o.org }} className="text-xs text-primary hover:underline">

@@ -43,12 +43,12 @@ export function HistoryView() {
     <>
       <PageHeader
         title="History"
-        subtitle={
+        description={
           <>
             Each UTC day's last snapshot · <code>GET /compliance/history</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <select

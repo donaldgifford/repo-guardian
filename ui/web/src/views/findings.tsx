@@ -181,12 +181,12 @@ export function FindingsView() {
     <>
       <PageHeader
         title="Findings"
-        subtitle={
+        description={
           <>
             Non-compliant results: a control that failed on a repository. Filters map 1:1 to <code>GET /results</code>.
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <ExportButton name="findings" filename="repo-guardian-findings" filter={{ control: filter.control, org: filter.org, rule: filter.rule }} columns={findingsCsv} rows={items} all={{ fetch: () => fetchAllResults(filter), cap: exportCap }} />

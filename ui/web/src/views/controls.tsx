@@ -34,12 +34,12 @@ export function ControlsView() {
     <>
       <PageHeader
         title="Controls"
-        subtitle={
+        description={
           <>
             {org ? `Every control assigned in ${org}` : "Every control assigned in the orgs you can see"} · <code>GET /controls</code>
           </>
         }
-        controls={<OrgScope />}
+        actions={<OrgScope />}
       />
       <Panel bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
         {controls.data ? <DataTable sortable={false} bare columns={controlColumns} data={controls.data.items} getRowId={(c) => c.id} empty="No control is assigned yet." label="Controls" /> : <Loading />}
@@ -92,14 +92,14 @@ export function ControlView() {
     <>
       <PageHeader
         title={c.id}
-        badge={<Badge variant="outline">{c.type}</Badge>}
-        subtitle={
+        meta={<Badge variant="outline">{c.type}</Badge>}
+        description={
           <>
             {c.title ? `${c.title} · ` : ""}
             <code>GET /controls/{c.id}</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <RangeTabs />

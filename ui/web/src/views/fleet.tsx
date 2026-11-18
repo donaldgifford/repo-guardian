@@ -77,12 +77,12 @@ export function FleetView() {
     <>
       <PageHeader
         title="Fleet"
-        subtitle={
+        description={
           <>
             Compliance over every assignment in the orgs you can see · <code>GET /summary</code>
           </>
         }
-        controls={
+        actions={
           <>
             <OrgScope />
             <RangeTabs />

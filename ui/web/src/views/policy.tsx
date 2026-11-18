@@ -21,7 +21,7 @@ export function PolicyView() {
     <>
       <PageHeader
         title="Policy"
-        subtitle={
+        description={
           <>
             The active policy version · <code>GET /policies</code>
           </>

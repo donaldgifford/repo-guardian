@@ -1,22 +1,12 @@
-import type { ReactNode } from "react";
+import { PageHeader as PackageHeader } from "@donaldgifford/design-system/blocks/page-header";
+import type { ComponentProps } from "react";
 
 import { cn } from "@donaldgifford/design-system/lib/utils";
 
-// PageHeader is the block under the breadcrumbs on every authenticated
-// page (DESIGN-0036 §Page anatomy): a 20px title with an optional
-// outline badge, a one-line muted subtitle (endpoint names in <code>),
-// and right-aligned controls.
-export function PageHeader({ title, badge, subtitle, controls, className }: { title: ReactNode; badge?: ReactNode; subtitle?: ReactNode; controls?: ReactNode; className?: string }) {
-  return (
-    <div className={cn("mb-3.5 flex flex-wrap items-end justify-between gap-4", className)}>
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-2.5 text-xl font-semibold">
-          <span className="truncate">{title}</span>
-          {badge}
-        </h1>
-        {subtitle !== undefined ? <p className="mt-[3px] text-[13px] text-muted-foreground [&_code]:font-mono [&_code]:text-xs">{subtitle}</p> : null}
-      </div>
-      {controls !== undefined ? <div className="flex flex-wrap items-center gap-2">{controls}</div> : null}
-    </div>
-  );
+// PageHeader is the design system's page header with this app's page
+// spacing (DESIGN-0036 §Page anatomy): no padding of its own, since the
+// frame pads the content, the actions sitting on the title's baseline,
+// and endpoint names in the description set in mono.
+export function PageHeader({ className, ...props }: ComponentProps<typeof PackageHeader>) {
+  return <PackageHeader {...props} className={cn("mb-3.5 items-end p-0 [&_p]:text-[13px] [&_p_code]:font-mono [&_p_code]:text-xs", className)} />;
 }

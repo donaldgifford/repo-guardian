@@ -11,9 +11,13 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 // machine: a new CI runner image turned twelve overlay tests red with no
 // change to the code.
 //
-// So radix is loaded here, under a document that is removed again before
+// So radix (and, with the design system, Base UI and cmdk) is loaded here, under a document that is removed again before
 // the first test file: the registrator also replaces fetch, Request and
 // Response, and the server tests need Bun's own.
 GlobalRegistrator.register({ url: "http://localhost/" });
 await import("radix-ui");
+// The design system's overlays are Base UI, and its command palette is
+// cmdk: both make the same module-load decision.
+await import("@base-ui/react");
+await import("cmdk");
 await GlobalRegistrator.unregister();

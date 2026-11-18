@@ -5,7 +5,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 
 // PolicyView is the active policy as the caller may see it: the
@@ -57,7 +57,7 @@ export function PolicyView() {
           <OrgLayer key={o.org} org={o} />
         ))}
         <Panel title="Catalogue" subtitle="The controls this policy references." bodyClassName="p-0">
-          <DataTable columns={catalogueColumns} rows={p.controls} rowKey={(c) => c.id} empty="No control is referenced." aria-label="Catalogue" />
+          <DataTable sortable={false} bare columns={catalogueColumns} data={p.controls} getRowId={(c) => c.id} empty="No control is referenced." label="Catalogue" />
         </Panel>
       </div>
     </>
@@ -125,9 +125,9 @@ function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
   );
 }
 
-const catalogueColumns: Column<Schemas["PolicyControl"]>[] = [
-  { key: "id", header: "Control", cell: (c) => <span className="font-mono font-medium">{c.id}</span> },
-  { key: "title", header: "Title", cell: (c) => c.title ?? "" },
-  { key: "type", header: "Type", cell: (c) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span> },
-  { key: "revision", header: "Revision", cell: (c) => <span className="font-mono text-xs">{c.revision.slice(0, 12)}</span>, hideBelow: "md" },
+const catalogueColumns: DataTableColumn<Schemas["PolicyControl"]>[] = [
+  { id: "id", header: "Control", cell: ({ row: { original: c } }) => <span className="font-mono font-medium">{c.id}</span> },
+  { id: "title", header: "Title", cell: ({ row: { original: c } }) => c.title ?? "" },
+  { id: "type", header: "Type", cell: ({ row: { original: c } }) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span> },
+  { id: "revision", header: "Revision", cell: ({ row: { original: c } }) => <span className="font-mono text-xs">{c.revision.slice(0, 12)}</span>, meta: { hideBelow: "md" } },
 ];

@@ -15,7 +15,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { SearchTabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
@@ -100,7 +100,7 @@ export function RepositoriesView() {
       <Panel title="Repositories" bodyClassName="p-0" right={<ExportButton name="repositories" filename="repo-guardian-repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
         {items ? (
           <>
-            <DataTable columns={repositoryColumns} rows={items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" />
+            <DataTable manual bare columns={repositoryColumns} data={items} getRowId={(r) => String(r.id)} empty="No repository matches." label="Repositories" />
             <LoadMore loaded={items.length} hasMore={repos.hasNextPage} loading={repos.isFetchingNextPage} onMore={() => void repos.fetchNextPage()} noun="repositories" />
           </>
         ) : (
@@ -121,18 +121,18 @@ const repositoriesCsv: CsvColumns<Schemas["Repository"]> = {
   row: (r) => [r.org, r.name, r.active, r.park_reason ?? "", r.policy_state ?? "", r.last_evaluated_at ?? ""],
 };
 
-const repositoryColumns: Column<Schemas["Repository"]>[] = [
+const repositoryColumns: DataTableColumn<Schemas["Repository"]>[] = [
   {
-    key: "name",
+    id: "name",
     header: "Repository",
-    cell: (r) => (
+    cell: ({ row: { original: r } }) => (
       <Link to="/repositories/$id" params={{ id: String(r.id) }} className="font-mono font-medium hover:text-primary">
         {r.org}/{r.name}
       </Link>
     ),
   },
-  { key: "state", header: "Policy", cell: policyStateBadge },
-  { key: "evaluated", header: "Last evaluated", cell: (r) => (r.last_evaluated_at ? <Time iso={r.last_evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span>), hideBelow: "md" },
+  { id: "state", header: "Policy", cell: ({ row }) => policyStateBadge(row.original) },
+  { id: "evaluated", header: "Last evaluated", cell: ({ row: { original: r } }) => (r.last_evaluated_at ? <Time iso={r.last_evaluated_at} style="relative" /> : <span className="text-muted-foreground">never</span>), meta: { hideBelow: "md" } },
 ];
 
 const route = getRouteApi("/app/repositories/$id");
@@ -274,7 +274,7 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
           {[c.reason, c.error, c.hold ? `hold: ${c.hold}` : undefined].filter(Boolean).join(" · ")}
         </p>
       ) : null}
-      <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />
+      <DataTable sortable={false} bare columns={ruleColumns} data={c.rules} getRowId={(r) => r.rule_id} empty="Not evaluated yet." label={`${c.control_id} rules`} />
       <RemediationPanel control={c} />
     </Panel>
   );
@@ -318,11 +318,11 @@ function RemediationPanel({ control: c }: { control: Schemas["RepositoryControl"
   );
 }
 
-const ruleColumns: Column<Schemas["RuleResult"]>[] = [
-  { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
-  { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
-  { key: "evidence", header: "Evidence", cell: (r) => <EvidenceText evidence={r.evidence} /> },
-  { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
+const ruleColumns: DataTableColumn<Schemas["RuleResult"]>[] = [
+  { id: "rule", header: "Rule", cell: ({ row: { original: r } }) => <span className="font-mono">{r.rule_id}</span> },
+  { id: "status", header: "Status", cell: ({ row: { original: r } }) => <RuleStatusBadge status={r.status} /> },
+  { id: "evidence", header: "Evidence", cell: ({ row: { original: r } }) => <EvidenceText evidence={r.evidence} /> },
+  { id: "remediate", header: "Remediable rule", cell: ({ row: { original: r } }) => (r.remediate ? "yes" : "no"), meta: { hideBelow: "md" } },
 ];
 
 function outcomeTone(outcome: string): "success" | "destructive" | "muted" {
@@ -331,12 +331,12 @@ function outcomeTone(outcome: string): "success" | "destructive" | "muted" {
   return "muted";
 }
 
-const evaluationColumns: Column<Schemas["Evaluation"]>[] = [
-  { key: "time", header: "Time", cell: (e) => <Time iso={e.started_at} style="relative" />, className: "whitespace-nowrap" },
-  { key: "trigger", header: "Trigger", cell: (e) => humanize(e.trigger) },
-  { key: "outcome", header: "Outcome", cell: (e) => <Badge variant={outcomeTone(e.outcome)}>{e.outcome}</Badge> },
-  { key: "duration", header: "Duration", cell: (e) => (e.duration_seconds === undefined ? "" : `${e.duration_seconds.toFixed(1)}s`), numeric: true },
-  { key: "error", header: "Error", cell: (e) => (e.error ? <span className="font-mono text-xs break-all">{e.error}</span> : <span className="text-muted-foreground">—</span>), hideBelow: "md" },
+const evaluationColumns: DataTableColumn<Schemas["Evaluation"]>[] = [
+  { id: "time", header: "Time", cell: ({ row: { original: e } }) => <Time iso={e.started_at} style="relative" />, meta: { className: "whitespace-nowrap" } },
+  { id: "trigger", header: "Trigger", cell: ({ row: { original: e } }) => humanize(e.trigger) },
+  { id: "outcome", header: "Outcome", cell: ({ row: { original: e } }) => <Badge variant={outcomeTone(e.outcome)}>{e.outcome}</Badge> },
+  { id: "duration", header: "Duration", cell: ({ row: { original: e } }) => (e.duration_seconds === undefined ? "" : `${e.duration_seconds.toFixed(1)}s`), meta: { numeric: true } },
+  { id: "error", header: "Error", cell: ({ row: { original: e } }) => (e.error ? <span className="font-mono text-xs break-all">{e.error}</span> : <span className="text-muted-foreground">—</span>), meta: { hideBelow: "md" } },
 ];
 
 const evaluationsCsv: CsvColumns<Schemas["Evaluation"]> = {
@@ -348,17 +348,17 @@ function Evaluations({ id }: { id: number }) {
   const evaluations = useRepositoryEvaluations(id);
   return (
     <Panel title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton name="evaluations" filename="repo-guardian-evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
-      {evaluations.data ? <DataTable columns={evaluationColumns} rows={evaluations.data.items} rowKey={(e) => String(e.id)} empty="No evaluation yet." aria-label="Evaluation log" /> : <Loading />}
+      {evaluations.data ? <DataTable sortable={false} bare columns={evaluationColumns} data={evaluations.data.items} getRowId={(e) => String(e.id)} empty="No evaluation yet." label="Evaluation log" /> : <Loading />}
     </Panel>
   );
 }
 
-const eventColumns: Column<Schemas["Event"]>[] = [
-  { key: "time", header: "Time", cell: (e) => <Time iso={e.occurred_at} style="relative" />, className: "whitespace-nowrap" },
+const eventColumns: DataTableColumn<Schemas["Event"]>[] = [
+  { id: "time", header: "Time", cell: ({ row: { original: e } }) => <Time iso={e.occurred_at} style="relative" />, meta: { className: "whitespace-nowrap" } },
   {
-    key: "what",
+    id: "what",
     header: "Event",
-    cell: (e) =>
+    cell: ({ row: { original: e } }) =>
       e.kind ? (
         <span className="font-mono">{humanize(e.kind)}</span>
       ) : (
@@ -369,9 +369,9 @@ const eventColumns: Column<Schemas["Event"]>[] = [
       ),
   },
   {
-    key: "change",
+    id: "change",
     header: "Change",
-    cell: (e) =>
+    cell: ({ row: { original: e } }) =>
       e.to_status || e.from_status ? (
         <span className="inline-flex items-center gap-1.5">
           {e.from_status ? <EventStatus event={e} status={e.from_status} /> : <span className="text-muted-foreground">new</span>}→
@@ -396,7 +396,7 @@ function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);
   return (
     <Panel title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton name="events" filename="repo-guardian-events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
-      {events.data ? <DataTable columns={eventColumns} rows={events.data.items} rowKey={(e) => `${e.source}/${e.id}`} empty="No events yet." aria-label="Events" /> : <Loading />}
+      {events.data ? <DataTable sortable={false} bare columns={eventColumns} data={events.data.items} getRowId={(e) => `${e.source}/${e.id}`} empty="No events yet." label="Events" /> : <Loading />}
     </Panel>
   );
 }

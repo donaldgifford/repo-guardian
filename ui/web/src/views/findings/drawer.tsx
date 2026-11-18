@@ -8,7 +8,7 @@ import { GatedPanel } from "../../components/GatedPanel";
 import { BucketBadge, EvidenceText, ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { buttonVariants } from "@donaldgifford/design-system/components/button";
-import { type Column, DataTable } from "../../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
 import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
@@ -153,10 +153,10 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
   );
 }
 
-const ruleColumns: Column<Schemas["RuleResult"]>[] = [
-  { key: "rule", header: "Rule", cell: (r) => <span className="font-mono">{r.rule_id}</span> },
-  { key: "status", header: "Status", cell: (r) => <RuleStatusBadge status={r.status} /> },
-  { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), numeric: true },
+const ruleColumns: DataTableColumn<Schemas["RuleResult"]>[] = [
+  { id: "rule", header: "Rule", cell: ({ row: { original: r } }) => <span className="font-mono">{r.rule_id}</span> },
+  { id: "status", header: "Status", cell: ({ row: { original: r } }) => <RuleStatusBadge status={r.status} /> },
+  { id: "remediate", header: "Remediable rule", cell: ({ row: { original: r } }) => (r.remediate ? "yes" : "no"), meta: { numeric: true } },
 ];
 
 // remediationOf lifts a RepositoryControl's latest remediation into the
@@ -208,7 +208,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
       <DetailsGrid layout="list" items={rows} />
       <DetailSection title="Rules">
         <div className="rounded-lg border border-border">
-          <DataTable columns={ruleColumns} rows={c.rules} rowKey={(r) => r.rule_id} empty="Not evaluated yet." aria-label={`${c.control_id} rules`} />
+          <DataTable sortable={false} bare columns={ruleColumns} data={c.rules} getRowId={(r) => r.rule_id} empty="Not evaluated yet." label={`${c.control_id} rules`} />
         </div>
       </DetailSection>
       {failing.length > 0 ? (

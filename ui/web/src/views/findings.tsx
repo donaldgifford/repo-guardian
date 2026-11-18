@@ -14,7 +14,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { Tabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
@@ -85,12 +85,12 @@ export const findingsCsv: CsvColumns<Schemas["ResultRow"]> = {
 // findingColumns is the findings table (DESIGN-0037 §Findings). The
 // Remediation column reads "—" with the not-enabled reason without the
 // Remediation App. Since hides when the drawer shares the row.
-export function findingColumns(remediation: boolean | undefined): Column<Schemas["ResultRow"]>[] {
+export function findingColumns(remediation: boolean | undefined): DataTableColumn<Schemas["ResultRow"]>[] {
   return [
     {
-      key: "repository",
+      id: "repository",
       header: "Repository",
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <>
           <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-primary">
             {r.repository}
@@ -100,9 +100,9 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "control",
+      id: "control",
       header: "Control",
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <>
           <span className="font-mono">{r.control_id}</span>
           <span className="block text-xs text-muted-foreground">
@@ -113,11 +113,11 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "rules",
+      id: "rules",
       header: "Failing rules",
       // `reason` is the first failing rule's evidence headline, as
       // describeEvidence would print it; ResultRow carries no evidence.
-      cell: (r) => (
+      cell: ({ row: { original: r } }) => (
         <div className="max-w-[380px] space-y-1 whitespace-normal">
           <div className="flex flex-wrap gap-1">
             {r.failing_rules.map((rule) => (
@@ -131,9 +131,9 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       ),
     },
     {
-      key: "remediation",
+      id: "remediation",
       header: "Remediation",
-      cell: (r) =>
+      cell: ({ row: { original: r } }) =>
         remediation === false ? (
           <span className="text-muted-foreground" title={NOT_ENABLED} data-gated="not_enabled">
             —
@@ -142,7 +142,7 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
           <RemediationBadge remediation={r.remediation} />
         ),
     },
-    { key: "since", header: "Since", cell: (r) => <Time iso={r.last_changed_at} style="relative" />, hideBelow: "compact", className: "whitespace-nowrap" },
+    { id: "since", header: "Since", cell: ({ row: { original: r } }) => <Time iso={r.last_changed_at} style="relative" />, meta: { hideBelow: "compact", className: "whitespace-nowrap" } },
   ];
 }
 
@@ -173,7 +173,7 @@ export function FindingsView() {
   const sideBySide = useMediaQuery(DETAIL_INLINE_QUERY);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
-  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));
+  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-row-id="${CSS.escape(key)}"]`));
   const { open: _o, ...filterValues } = search;
   const sort = search.sort ?? defaultSort;
 
@@ -207,7 +207,7 @@ export function FindingsView() {
               <Empty>No findings match.</Empty>
             ) : (
               <>
-                <DataTable columns={columns} rows={items} rowKey={findingKey} {...(open === undefined ? {} : { selectedKey: open })} onActivate={(r) => openFinding(findingKey(r))} compact={inline} aria-label="Findings" />
+                <DataTable manual bare columns={columns} data={items} getRowId={findingKey} selectedId={open} onRowClick={(r) => openFinding(findingKey(r))} compact={inline} label="Findings" />
                 <LoadMore loaded={items.length} total={total} hasMore={results.hasNextPage} loading={results.isFetchingNextPage} onMore={() => void results.fetchNextPage()} noun="findings" />
               </>
             )}

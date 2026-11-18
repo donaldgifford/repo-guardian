@@ -317,14 +317,18 @@ Every table renders through the package's `DataTable`: the 14 embedded tables as
 <!--docz:tasks:start-->
 #### Tasks
 
-- [ ] 5.1 Add a unit test that a `DataTable` with `sortable={false}` renders plain-text headers (no button, no `aria-sort`) for a representative embedded table, and run it against the first converted table.
-- [ ] 5.2 Convert the embedded tables' column definitions to `dataTableColumns<T>()`: `views/policy.tsx`, `controls.tsx` (two), `orgs.tsx` (four), `fleet.tsx` (three), `repositories.tsx` (three embedded), `findings/drawer.tsx`. `width` and `className` become `meta.className`; `numeric` and `hideBelow` move to `meta`.
-- [ ] 5.3 Render them as `<DataTable sortable={false} bare label=… columns data getRowId empty />`. Each keeps its accessible name and its empty text.
-- [ ] 5.4 Convert the three lists (`findings.tsx`, `remediations.tsx`, the repositories list) to `<DataTable manual bare label=… selectedId onRowClick compact />` followed by the package's `LoadMore`. No `search` or `onSearchChange` is passed.
-- [ ] 5.5 Change the focus-return lookup in `findings.tsx` and `remediations.tsx` from `tr[data-key=…]` to `tr[data-row-id=…]`.
-- [ ] 5.6 Verify row activation on the lists: a click on the repository or pull-request link inside a row follows the link and does not open the drawer; Enter and Space on the row open it; a key pressed inside the row does not.
-- [ ] 5.7 Verify the side-by-side layout still drops `hideBelow: "compact"` columns at 1600px with the drawer open.
-- [ ] 5.8 Delete `components/ui/data-table.tsx`, `table.tsx` and the table cases in `tables.test.tsx`; keep or move the cases that cover view columns.
+- [x] 5.1 Add a unit test that a `DataTable` with `sortable={false}` renders plain-text headers (no button, no `aria-sort`) for a representative embedded table, and run it against the first converted table.
+  Done in `components/DataTable.test.tsx` against fleet's `controlColumns`. The view columns are display columns (no accessor), which TanStack never sorts, so `sortable={false}` changes nothing for them today; the test is two-sided on an accessor column (a sort button by default, none with `sortable={false}`) so it cannot pass vacuously.
+- [x] 5.2 Convert the embedded tables' column definitions to `dataTableColumns<T>()`: `views/policy.tsx`, `controls.tsx` (two), `orgs.tsx` (four), `fleet.tsx` (three), `repositories.tsx` (three embedded), `findings/drawer.tsx`. `width` and `className` become `meta.className`; `numeric` and `hideBelow` move to `meta`.
+  Done as plain display-column objects (`{ id, header, cell: ({ row: { original } }) => …, meta }`) typed `DataTableColumn<T>[]`, not `dataTableColumns<T>().display(…)`: contextual typing gives the cell its row type either way, and the plain form keeps each column's comments and layout. `width` became `w-[…]` in `meta.className`. The repositories list has no row action, so it is `manual bare` without `selectedId`/`onRowClick`.
+- [x] 5.3 Render them as `<DataTable sortable={false} bare label=… columns data getRowId empty />`. Each keeps its accessible name and its empty text.
+- [x] 5.4 Convert the three lists (`findings.tsx`, `remediations.tsx`, the repositories list) to `<DataTable manual bare label=… selectedId onRowClick compact />` followed by the package's `LoadMore`. No `search` or `onSearchChange` is passed.
+- [x] 5.5 Change the focus-return lookup in `findings.tsx` and `remediations.tsx` from `tr[data-key=…]` to `tr[data-row-id=…]`.
+- [x] 5.6 Verify row activation on the lists: a click on the repository or pull-request link inside a row follows the link and does not open the drawer; Enter and Space on the row open it; a key pressed inside the row does not.
+  Verified in Chromium at 1600px with a throwaway spec on Findings and Remediations (and in `DataTable.test.tsx`): Enter and Space on a row open the drawer; Space on the repository link inside the row does not; a click on the repository or pull request link follows it with no `?open=`.
+- [x] 5.7 Verify the side-by-side layout still drops `hideBelow: "compact"` columns at 1600px with the drawer open.
+  Verified in the same spec: Since (Findings) and Updated (Remediations) are dropped while the inline panel is open and come back on Escape.
+- [x] 5.8 Delete `components/ui/data-table.tsx`, `table.tsx` and the table cases in `tables.test.tsx`; keep or move the cases that cover view columns.
 
 <!--docz:tasks:end-->
 
@@ -337,6 +341,13 @@ Every table renders through the package's `DataTable`: the 14 embedded tables as
 - `make lint-ui`, `make test-ui`, `make test-ui-e2e` pass. Visual diffs are table row and head heights only.
 
 <!--docz:criteria:end-->
+
+**Phase 5 result (2026-11-18):** met. `make lint-ui`, `make test-ui` (356)
+and `make test-ui-e2e` (42, the findings and remediations flows
+unedited) pass. Findings and Remediations differ from their baselines by
+3% of pixels, all row and head height (the package `h-table-row` against
+9px cell padding, accumulating down the table); Status and Orgs are as
+after Phase 4.
 <!--docz:phase:end-->
 
 ---

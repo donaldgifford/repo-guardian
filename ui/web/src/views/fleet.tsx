@@ -19,7 +19,7 @@ import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, PostureBar, PostureMeter } from "../components/posture";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { DeltaText } from "../components/DeltaText";
 import { StatStrip } from "@donaldgifford/design-system/blocks/stat-strip";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
@@ -219,7 +219,7 @@ export function FleetView() {
             bodyClassName="p-0"
             right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}
           >
-            {controls.data ? <DataTable columns={byControlColumns(perControl)} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
+            {controls.data ? <DataTable sortable={false} bare columns={byControlColumns(perControl)} data={controls.data.items} getRowId={(c) => c.id} empty="No control is assigned yet." label="Controls" /> : <Loading />}
           </Panel>
           {org ? (
             <Panel
@@ -232,7 +232,7 @@ export function FleetView() {
               bodyClassName="p-0"
               right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org }} columns={exclusionsCsv} rows={orgDetail.data?.exclusions} />}
             >
-              {!orgDetail.data ? <Loading /> : orgDetail.data.exclusions.length === 0 ? <Empty>Nothing excluded in {org}.</Empty> : <DataTable columns={exclusionColumns} rows={orgDetail.data.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} aria-label="Exclusions" />}
+              {!orgDetail.data ? <Loading /> : orgDetail.data.exclusions.length === 0 ? <Empty>Nothing excluded in {org}.</Empty> : <DataTable sortable={false} bare columns={exclusionColumns} data={orgDetail.data.exclusions} getRowId={(e) => `${e.repository}/${e.control_id ?? ""}`} label="Exclusions" />}
             </Panel>
           ) : (
             <Panel
@@ -245,7 +245,7 @@ export function FleetView() {
               bodyClassName="p-0"
               right={<ExportButton name="orgs" filename="repo-guardian-orgs" columns={orgsCsv} rows={orgs.data?.items} />}
             >
-              {orgs.data ? <DataTable columns={orgColumns} rows={[...orgs.data.items].sort((a, b) => b.tracked - a.tracked)} rowKey={(o) => o.org} empty="No org is visible to you." aria-label="Orgs" /> : <Loading />}
+              {orgs.data ? <DataTable sortable={false} bare columns={orgColumns} data={[...orgs.data.items].sort((a, b) => b.tracked - a.tracked)} getRowId={(o) => o.org} empty="No org is visible to you." label="Orgs" /> : <Loading />}
             </Panel>
           )}
         </div>
@@ -283,21 +283,21 @@ function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["comp
 // No Type (the Controls page has it, and it mostly repeats the id) and
 // no N/A (the Assignments panel has it): the card is half the page and
 // must never scroll sideways.
-export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>): Column<Schemas["ControlSummary"]>[] {
+export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>): DataTableColumn<Schemas["ControlSummary"]>[] {
   return [
     {
-      key: "id",
+      id: "id",
       header: "Control",
-      cell: (c) => (
+      cell: ({ row: { original: c } }) => (
         <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-primary">
           {c.id}
         </Link>
       ),
     },
-    { key: "results", header: "Results", cell: (c) => <ResultBadges posture={c.compliance} /> },
+    { id: "results", header: "Results", cell: ({ row: { original: c } }) => <ResultBadges posture={c.compliance} /> },
     // The percentage is the row's answer, in the heaviest weight.
-    { key: "percent", header: "%", cell: (c) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, numeric: true },
-    { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.value)} /> },
+    { id: "percent", header: "%", cell: ({ row: { original: c } }) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, meta: { numeric: true } },
+    { id: "trend", header: "Trend", cell: ({ row: { original: c } }) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.value)} /> },
   ];
 }
 
@@ -360,19 +360,19 @@ export function ThroughputPanel({ enabled, days, className }: { enabled: boolean
   );
 }
 
-export const controlColumns: Column<Schemas["ControlSummary"]>[] = [
+export const controlColumns: DataTableColumn<Schemas["ControlSummary"]>[] = [
   {
-    key: "id",
+    id: "id",
     header: "Control",
-    cell: (c) => (
+    cell: ({ row: { original: c } }) => (
       <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-primary">
         {c.id}
       </Link>
     ),
   },
-  { key: "type", header: "Type", cell: (c) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span>, hideBelow: "md" },
-  { key: "compliance", header: "Compliance", cell: (c) => <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />, width: "40%" },
-  { key: "coverage", header: "Coverage", cell: (c) => <CoverageText posture={c.compliance} />, numeric: true },
+  { id: "type", header: "Type", cell: ({ row: { original: c } }) => <span className="font-mono text-xs text-muted-foreground">{c.type}</span>, meta: { hideBelow: "md" } },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: c } }) => <PostureMeter posture={c.compliance} label={`${c.id} compliance`} showValue={false} />, meta: { className: "w-[40%]" } },
+  { id: "coverage", header: "Coverage", cell: ({ row: { original: c } }) => <CoverageText posture={c.compliance} />, meta: { numeric: true } },
 ];
 
 export const controlsCsv: CsvColumns<Schemas["ControlSummary"]> = {
@@ -385,16 +385,16 @@ export const orgsCsv: CsvColumns<Schemas["OrgSummary"]> = {
   row: (o) => [o.org, o.tracked, o.parked, o.open_prs, ...postureCsvRow(o.compliance)],
 };
 
-const orgColumns: Column<Schemas["OrgSummary"]>[] = [
+const orgColumns: DataTableColumn<Schemas["OrgSummary"]>[] = [
   {
-    key: "org",
+    id: "org",
     header: "Org",
-    cell: (o) => (
+    cell: ({ row: { original: o } }) => (
       <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-primary">
         {o.org}
       </Link>
     ),
   },
-  { key: "tracked", header: "Repos", cell: (o) => o.tracked.toLocaleString(), numeric: true },
-  { key: "compliance", header: "Compliance", cell: (o) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, width: "45%" },
+  { id: "tracked", header: "Repos", cell: ({ row: { original: o } }) => o.tracked.toLocaleString(), meta: { numeric: true } },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: o } }) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, meta: { className: "w-[45%]" } },
 ];

@@ -14,7 +14,7 @@ import { ExternalLink } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { SearchTabs } from "../components/SegmentedTabs";
 import { humanize } from "../lib/format";
@@ -31,11 +31,11 @@ const route = getRouteApi("/app/remediations");
 // remediationColumns is the table (DESIGN-0037 §Remediations view):
 // Repository, Control, Kind, State (a pull request links its number),
 // Hold with its sentence, Age with the stale badge, Updated.
-export const remediationColumns: Column<Schemas["Remediation"]>[] = [
+export const remediationColumns: DataTableColumn<Schemas["Remediation"]>[] = [
   {
-    key: "repository",
+    id: "repository",
     header: "Repository",
-    cell: (r) => (
+    cell: ({ row: { original: r } }) => (
       <>
         <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-primary">
           {r.repository}
@@ -44,12 +44,12 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
       </>
     ),
   },
-  { key: "control", header: "Control", cell: (r) => <span className="font-mono">{r.control_id}</span> },
-  { key: "kind", header: "Kind", cell: (r) => <Badge variant="outline">{humanize(r.kind)}</Badge>, hideBelow: "md" },
+  { id: "control", header: "Control", cell: ({ row: { original: r } }) => <span className="font-mono">{r.control_id}</span> },
+  { id: "kind", header: "Kind", cell: ({ row: { original: r } }) => <Badge variant="outline">{humanize(r.kind)}</Badge>, meta: { hideBelow: "md" } },
   {
-    key: "state",
+    id: "state",
     header: "State",
-    cell: (r) => (
+    cell: ({ row: { original: r } }) => (
       <span className="inline-flex items-center gap-1.5">
         {r.state ? <RemediationStateBadge state={r.state} /> : <Badge variant="muted">held</Badge>}
         {r.pr_number !== undefined ? r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono text-xs">#{r.pr_number}</span> : null}
@@ -57,9 +57,9 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     ),
   },
   {
-    key: "hold",
+    id: "hold",
     header: "Hold",
-    cell: (r) =>
+    cell: ({ row: { original: r } }) =>
       r.hold ? (
         <span className="block max-w-[320px] whitespace-normal">
           <HoldBadge hold={r.hold} />
@@ -70,16 +70,16 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
       ),
   },
   {
-    key: "age",
+    id: "age",
     header: "Age",
-    cell: (r) => (
+    cell: ({ row: { original: r } }) => (
       <span className="inline-flex items-center gap-1.5 font-mono">
         {remediationAge(r)}d{isStale(r) ? <Badge variant="warning">stale</Badge> : null}
       </span>
     ),
-    numeric: true,
+    meta: { numeric: true },
   },
-  { key: "updated", header: "Updated", cell: (r) => <Time iso={r.last_run_at ?? r.created_at} style="relative" />, hideBelow: "compact", className: "whitespace-nowrap" },
+  { id: "updated", header: "Updated", cell: ({ row: { original: r } }) => <Time iso={r.last_run_at ?? r.created_at} style="relative" />, meta: { hideBelow: "compact", className: "whitespace-nowrap" } },
 ];
 
 // A chip is a select bound to one /remediations parameter.
@@ -117,7 +117,7 @@ export function RemediationsView() {
   const sideBySide = useMediaQuery(DETAIL_INLINE_QUERY);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
-  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));
+  const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-row-id="${CSS.escape(key)}"]`));
   const state = gatedContent(remediation, false);
   const k = overview.data ? kpis(overview.data.rows, overview.data.held) : undefined;
   return (
@@ -172,7 +172,7 @@ export function RemediationsView() {
                   <Empty>No remediations match.</Empty>
                 ) : (
                   <>
-                    <DataTable columns={remediationColumns} rows={items} rowKey={remediationKey} {...(open === undefined ? {} : { selectedKey: open })} onActivate={(r) => openRow(r)} compact={inline} aria-label="Remediations" />
+                    <DataTable manual bare columns={remediationColumns} data={items} getRowId={remediationKey} selectedId={open} onRowClick={(r) => openRow(r)} compact={inline} label="Remediations" />
                     <LoadMore loaded={items.length} hasMore={rows.hasNextPage} loading={rows.isFetchingNextPage} onMore={() => void rows.fetchNextPage()} noun="remediations" />
                   </>
                 )}

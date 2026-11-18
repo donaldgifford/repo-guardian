@@ -15,7 +15,7 @@ import { CoverageText, DecisionBadge, PostureBar, PostureMeter } from "../compon
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { buttonVariants } from "@donaldgifford/design-system/components/button";
 import { Panel } from "../components/Panel";
-import { type Column, DataTable } from "../components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@donaldgifford/design-system/blocks/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { DeltaText } from "../components/DeltaText";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
@@ -42,7 +42,7 @@ export function ControlsView() {
         controls={<OrgScope />}
       />
       <Panel bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
-        {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
+        {controls.data ? <DataTable sortable={false} bare columns={controlColumns} data={controls.data.items} getRowId={(c) => c.id} empty="No control is assigned yet." label="Controls" /> : <Loading />}
       </Panel>
     </>
   );
@@ -135,7 +135,7 @@ export function ControlView() {
               bodyClassName="p-0"
               right={<ExportButton name="control orgs" filename="repo-guardian-control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
             >
-              <DataTable columns={orgColumns} rows={orgRows} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
+              <DataTable sortable={false} bare columns={orgColumns} data={orgRows} getRowId={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." label="Orgs" />
             </Panel>
             <Panel title="Assignments" subtitle="By bucket, now.">
               <PostureBar posture={posture} label={`${c.id} assignments by bucket`} />
@@ -196,21 +196,21 @@ const controlOrgsCsv: CsvColumns<Schemas["ControlOrg"]> = {
   row: (o) => [o.org, o.decision, o.versions.map((v) => `v${v.version} ${v.revision.slice(0, 12)} (${v.repositories})`).join("; "), ...postureCsvRow(o.compliance)],
 };
 
-const orgColumns: Column<Schemas["ControlOrg"]>[] = [
+const orgColumns: DataTableColumn<Schemas["ControlOrg"]>[] = [
   {
-    key: "org",
+    id: "org",
     header: "Org",
-    cell: (o) => (
+    cell: ({ row: { original: o } }) => (
       <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-primary">
         {o.org}
       </Link>
     ),
   },
-  { key: "decision", header: "Decision", cell: (o) => <DecisionBadge decision={o.decision} /> },
+  { id: "decision", header: "Decision", cell: ({ row: { original: o } }) => <DecisionBadge decision={o.decision} /> },
   {
-    key: "versions",
+    id: "versions",
     header: "Versions",
-    cell: (o) =>
+    cell: ({ row: { original: o } }) =>
       o.versions.length === 0 ? (
         <span className="text-muted-foreground">—</span>
       ) : (
@@ -223,6 +223,6 @@ const orgColumns: Column<Schemas["ControlOrg"]>[] = [
         </ul>
       ),
   },
-  { key: "compliance", header: "Compliance", cell: (o) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, width: "30%" },
-  { key: "coverage", header: "Coverage", cell: (o) => <CoverageText posture={o.compliance} />, numeric: true },
+  { id: "compliance", header: "Compliance", cell: ({ row: { original: o } }) => <PostureMeter posture={o.compliance} label={`${o.org} compliance`} />, meta: { className: "w-[30%]" } },
+  { id: "coverage", header: "Coverage", cell: ({ row: { original: o } }) => <CoverageText posture={o.compliance} />, meta: { numeric: true } },
 ];

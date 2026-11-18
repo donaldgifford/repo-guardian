@@ -84,7 +84,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 // Sidebar is the 220px column from the nav breakpoint (900px) up.
 export function Sidebar({ className }: { className?: string }) {
   return (
-    <aside className={cn("hidden w-[220px] flex-none flex-col overflow-y-auto border-r border-border bg-panel px-2 py-2.5 text-[13px] nav:flex", className)}>
+    <aside className={cn("hidden w-[220px] flex-none flex-col overflow-y-auto border-r border-border bg-panel px-2 py-2.5 text-[13px] md:flex", className)}>
       <SidebarNav />
     </aside>
   );

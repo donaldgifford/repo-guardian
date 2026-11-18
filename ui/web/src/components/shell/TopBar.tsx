@@ -20,7 +20,7 @@ export function TopBar({ me, onMenu, onSearch }: { me: Schemas["Me"]; onMenu: ()
   const docsUrl = config.data?.docs_url;
   return (
     <header className="flex h-10 flex-none items-center gap-3 border-b border-border bg-panel px-3.5 text-[13px]">
-      <Button variant="ghost" size="sm" aria-label="Open navigation" className="nav:hidden" onClick={onMenu}>
+      <Button variant="ghost" size="sm" aria-label="Open navigation" className="md:hidden" onClick={onMenu}>
         <Icon name="menu" />
       </Button>
       {/* Reserved for a portal's app switcher; empty on purpose. */}

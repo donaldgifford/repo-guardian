@@ -24,7 +24,7 @@ test("Fleet's PR panels read not enabled", async ({ page }) => {
   await signIn(page);
   await expect(page.getByRole("heading", { level: 1, name: "Fleet" })).toBeVisible();
   for (const name of [/^Open PRs by age/, /^PR throughput/]) {
-    const card = page.getByRole("heading", { name }).locator("..").locator("..").locator("..");
+    const card = page.getByRole("heading", { name }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
     await expect(card.locator("[data-gated]")).toHaveAttribute("data-gated", "not_enabled");
     await expect(card).toContainText(NOT_ENABLED);
   }

@@ -108,7 +108,7 @@ test("Fleet totals the caller's orgs and links to controls and orgs", async ({ p
   // The fleet panels (IMPL-0032 Phase 5): the compliance card's strip
   // and pills, finding age, worst controls, parked by reason and the
   // two gated PR panels, all on the seed.
-  const strip = page.getByRole("heading", { name: /^Compliance \(30d\)/ }).locator("..").locator("..").locator("..");
+  const strip = page.getByRole("heading", { name: /^Compliance \(30d\)/ }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
   await expect(strip).toContainText("Tracked");
   await expect(strip).toContainText("Snapshots");
   await page.getByRole("radio", { name: /^findings/ }).click();
@@ -124,7 +124,7 @@ test("Fleet totals the caller's orgs and links to controls and orgs", async ({ p
   // The e2e deployment has the Remediation App and seeded pull requests:
   // both PR panels show data, never "not enabled".
   for (const name of [/^Open PRs by age/, /^PR throughput/]) {
-    const card = page.getByRole("heading", { name }).locator("..").locator("..").locator("..");
+    const card = page.getByRole("heading", { name }).locator("xpath=ancestor::*[@data-slot='chart-card' or @data-slot='card'][1]");
     await expect(card.locator("[data-gated]")).toHaveAttribute("data-gated", "content");
   }
   await expect(page.getByText("Remediation is not enabled on this deployment")).toHaveCount(0);
@@ -160,7 +160,7 @@ test("an org shows baseline against org-added, its worst controls and exclusions
   await expect(page.getByRole("heading", { level: 1, name: "acme" })).toBeVisible();
   await expect(page.getByText("Baseline compliance")).toBeVisible();
   // acme adds labels (IMPL-0032 8.1), so org-added is measured.
-  await expect(page.getByText("Org-added compliance").locator("..")).toContainText(/\d+(\.\d)?%/);
+  await expect(page.locator("[data-slot=kpi]", { hasText: "Org-added compliance" })).toContainText(/\d+(\.\d)?%/);
   await expect(page.getByRole("table", { name: "Exclusions" })).toContainText("api pins its dependencies");
   await expect(page.getByRole("table", { name: "Worst controls" }).getByRole("link", { name: "renovate" })).toBeVisible();
   // An org outside the caller's scope reads as not found.
@@ -271,13 +271,13 @@ test("Remediations views and filters round-trip, the drawer deep link works, and
   // KPIs: three open PRs (one past 30 days), one recommendation, five
   // holds (one per reason), two failed applies.
   const kpis = page.locator("[data-gated='content'] > div").first();
-  await expect(kpis.getByText("Open PRs", { exact: true }).locator("..")).toContainText("3");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Open PRs", { exact: true }) })).toContainText("3");
   await expect(kpis.getByText("1 stale (30d+)")).toBeVisible();
-  await expect(kpis.getByText("Recommendations", { exact: true }).locator("..")).toContainText("1");
-  const held = kpis.getByText("Held", { exact: true }).locator("..");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Recommendations", { exact: true }) })).toContainText("1");
+  const held = kpis.locator("[data-slot=kpi]", { has: page.getByText("Held", { exact: true }) });
   await expect(held).toContainText("5");
   for (const reason of ["conflict 1", "foreign branch 1", "permission 1", "pr cap 1", "stale branch 1"]) await expect(held).toContainText(reason);
-  await expect(kpis.getByText("Failed applies", { exact: true }).locator("..")).toContainText("2");
+  await expect(kpis.locator("[data-slot=kpi]", { has: page.getByText("Failed applies", { exact: true }) })).toContainText("2");
 
   // All: the eight remediation rows; held results list only under a hold.
   const rows = page.getByRole("table", { name: "Remediations" }).locator("tbody tr");

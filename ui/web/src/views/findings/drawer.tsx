@@ -188,7 +188,7 @@ function FindingBody({ repositoryId, control: c }: { repositoryId: number; contr
             <RemediationBadge remediation={remediationOf(c)} />
             {c.hold ? <span className="text-xs text-muted-foreground">{holdSentence(c.hold)}</span> : null}
             {c.remediation ? (
-              <Link to="/remediations" search={{ open: openSearch(c.remediation) }} className="text-xs text-accent hover:underline">
+              <Link to="/remediations" search={{ open: openSearch(c.remediation) }} className="text-xs text-primary hover:underline">
                 Open remediation →
               </Link>
             ) : null}

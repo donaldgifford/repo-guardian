@@ -23,7 +23,7 @@ export function DialogContent({ className, children, ...props }: ComponentProps<
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-panel p-4 text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none",
+          "fixed top-1/2 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-4 text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
           className,
         )}

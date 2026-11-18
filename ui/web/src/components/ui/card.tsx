@@ -18,7 +18,7 @@ interface CardProps extends Omit<ComponentProps<"section">, "title"> {
 // the optional strip and a padded body; without one it is the bare
 // surface and children lay themselves out.
 export function Card({ title, subtitle, right, strip, bodyClassName, className, children, ...props }: CardProps) {
-  const surface = cn("rounded-lg border border-border bg-panel", className);
+  const surface = cn("rounded-lg border border-border bg-card", className);
   if (title === undefined) {
     return (
       <section className={surface} {...props}>

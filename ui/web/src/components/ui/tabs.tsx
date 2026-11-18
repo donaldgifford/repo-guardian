@@ -69,7 +69,7 @@ export function Tabs<V extends string>({
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={cn("px-2.5 py-[5px]", selected ? "bg-panel-2 text-foreground" : "text-muted-foreground hover:text-foreground")}
+            className={cn("px-2.5 py-[5px]", selected ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
             {o.label}
           </button>

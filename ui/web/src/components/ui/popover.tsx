@@ -18,7 +18,7 @@ export function PopoverContent({ className, align = "start", sideOffset = 6, ...
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-[200px] rounded-lg border border-border bg-panel p-1.5 text-[13px] text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none",
+          "z-50 min-w-[200px] rounded-lg border border-border bg-card p-1.5 text-[13px] text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
           className,
         )}
@@ -40,7 +40,7 @@ export function PopoverItem({ className, current = false, detail, children, ...p
     <button
       type="button"
       aria-current={current || undefined}
-      className={cn("flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-panel-2", current && "bg-panel-2", className)}
+      className={cn("flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-muted", current && "bg-muted", className)}
       {...props}
     >
       <span className="min-w-0 truncate">{children}</span>

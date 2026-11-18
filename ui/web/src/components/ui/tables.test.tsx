@@ -50,9 +50,9 @@ describe("DataTable", () => {
   test("the selected row carries the accent tint and aria-selected; compact drops hideBelow columns", () => {
     const { getAllByRole, rerender, queryByRole } = render(<DataTable columns={columns} rows={rows} rowKey={(r) => r.id} selectedKey="b" onActivate={() => {}} />);
     const [first, second] = getAllByRole("row").slice(1);
-    expect(second?.className).toContain("bg-accent/12");
+    expect(second?.className).toContain("bg-primary/12");
     expect(second?.getAttribute("aria-selected")).toBe("true");
-    expect(first?.className).not.toContain("bg-accent/12");
+    expect(first?.className).not.toContain("bg-primary/12");
     expect(first?.getAttribute("aria-selected")).toBe("false");
     expect(queryByRole("columnheader", { name: "Age" })).not.toBeNull();
 

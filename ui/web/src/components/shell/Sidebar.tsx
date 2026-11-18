@@ -47,7 +47,7 @@ function NavCount({ badge }: { badge: NavBadge }) {
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const config = useUIConfig();
   const groups = navGroups(navItems(config.data?.docs_url));
-  const item = "flex items-center gap-2.5 rounded-lg border-l-2 border-transparent px-2.5 py-1.5 text-muted-foreground hover:bg-panel-2 hover:text-foreground";
+  const item = "flex items-center gap-2.5 rounded-lg border-l-2 border-transparent px-2.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground";
   return (
     <nav aria-label="Primary" className="flex-1">
         {groups.map(([group, items]) => (
@@ -59,7 +59,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   key={n.label}
                   to={n.to}
                   className={item}
-                  activeProps={{ className: "bg-panel-2 text-foreground border-accent", "aria-current": "page" }}
+                  activeProps={{ className: "bg-muted text-foreground border-primary", "aria-current": "page" }}
                   activeOptions={{ exact: n.to === "/" }}
                   onClick={onNavigate}
                 >
@@ -84,7 +84,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 // Sidebar is the 220px column from the nav breakpoint (900px) up.
 export function Sidebar({ className }: { className?: string }) {
   return (
-    <aside className={cn("hidden w-[220px] flex-none flex-col overflow-y-auto border-r border-border bg-panel px-2 py-2.5 text-[13px] md:flex", className)}>
+    <aside className={cn("hidden w-[220px] flex-none flex-col overflow-y-auto border-r border-border bg-card px-2 py-2.5 text-[13px] md:flex", className)}>
       <SidebarNav />
     </aside>
   );

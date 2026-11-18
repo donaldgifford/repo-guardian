@@ -36,7 +36,7 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     header: "Repository",
     cell: (r) => (
       <>
-        <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-accent">
+        <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-primary">
           {r.repository}
         </Link>
         <span className="block text-xs text-muted-foreground">{r.org}</span>
@@ -84,7 +84,7 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
 // A chip is a select bound to one /remediations parameter.
 function Chip({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (v: string) => void }) {
   return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="h-7 rounded-lg border border-border bg-panel px-2 font-mono text-xs">
+    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="h-7 rounded-lg border border-border bg-card px-2 font-mono text-xs">
       <option value="">{label}: any</option>
       {options.map((o) => (
         <option key={o} value={o}>
@@ -158,7 +158,7 @@ export function RemediationsView() {
                 <Chip label="hold" value={search.hold ?? ""} options={HOLDS} onChange={(v) => patch({ hold: v || undefined })} />
                 <label className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground">
                   older than
-                  <input aria-label="older than days" type="number" min={1} value={search.older_than ?? ""} onChange={(e) => patch({ older_than: e.target.value || undefined })} className="h-7 w-16 rounded-lg border border-border bg-panel px-2 text-xs text-foreground" />
+                  <input aria-label="older than days" type="number" min={1} value={search.older_than ?? ""} onChange={(e) => patch({ older_than: e.target.value || undefined })} className="h-7 w-16 rounded-lg border border-border bg-card px-2 text-xs text-foreground" />
                   d
                 </label>
                 <span className="flex-1" />

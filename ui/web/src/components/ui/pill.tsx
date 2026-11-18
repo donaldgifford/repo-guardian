@@ -29,7 +29,7 @@ export function Pill({
       onClick={onSelect}
       className={cn(
         "inline-flex items-center gap-[7px] rounded-lg border px-[9px] py-1 text-xs",
-        checked ? "border-accent/50 bg-panel-2 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+        checked ? "border-primary/50 bg-muted text-foreground" : "border-border text-muted-foreground hover:text-foreground",
         className,
       )}
     >

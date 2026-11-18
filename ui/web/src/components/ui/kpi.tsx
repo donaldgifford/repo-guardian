@@ -15,7 +15,7 @@ export interface Delta {
 // arrow (DESIGN-0036 §Component inventory).
 export function Kpi({ label, value, subline, delta, className }: { label: ReactNode; value: ReactNode; subline?: ReactNode; delta?: Delta | null; className?: string }) {
   return (
-    <div className={cn("rounded-lg border border-border bg-panel px-3.5 py-2.5", className)}>
+    <div className={cn("rounded-lg border border-border bg-card px-3.5 py-2.5", className)}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-[22px] leading-tight font-semibold tabular-nums">{value}</div>
       {subline !== undefined || delta !== undefined ? (
@@ -42,7 +42,7 @@ export function DeltaText({ delta }: { delta: Delta | null }) {
   const up = delta.value > 0;
   const good = delta.goodUp ? up : !up;
   return (
-    <span className={cn("tabular-nums", good ? "text-ok" : "text-bad")} data-direction={up ? "up" : "down"}>
+    <span className={cn("tabular-nums", good ? "text-success" : "text-destructive")} data-direction={up ? "up" : "down"}>
       {up ? "▲" : "▼"} {Math.abs(delta.value)}
       {unit}
     </span>

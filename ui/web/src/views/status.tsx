@@ -39,9 +39,9 @@ const toneVar: Record<StatusTone, string> = {
 };
 
 const dotClass: Record<StatusTone, string> = {
-  ok: "bg-ok",
-  warn: "bg-warn",
-  bad: "bg-bad",
+  ok: "bg-success",
+  warn: "bg-warning",
+  bad: "bg-destructive",
   mute: "bg-muted-foreground",
 };
 
@@ -57,7 +57,7 @@ export function StatusView() {
     <main className="mx-auto max-w-[760px] space-y-5 px-4 py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Icon name="shield" className="size-5 text-accent" />
+          <Icon name="shield" className="size-5 text-primary" />
           Repo Guardian status
         </h1>
         <p className="text-xs text-muted-foreground">

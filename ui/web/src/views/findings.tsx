@@ -91,7 +91,7 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
       header: "Repository",
       cell: (r) => (
         <>
-          <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-accent">
+          <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className="font-mono font-medium hover:text-primary">
             {r.repository}
           </Link>
           <span className="block text-xs text-muted-foreground">{r.org}</span>

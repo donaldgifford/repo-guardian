@@ -151,7 +151,7 @@ export function ControlView() {
                   items={ruleCounts(rows).map((it) => ({
                     ...it,
                     render: (label) => (
-                      <Link to="/findings" search={{ ...findingsSearch, rule: label }} className="hover:text-accent">
+                      <Link to="/findings" search={{ ...findingsSearch, rule: label }} className="hover:text-primary">
                         {label}
                       </Link>
                     ),
@@ -168,7 +168,7 @@ export function ControlView() {
                 <ul className="divide-y divide-border text-[13px]" aria-label="Oldest findings">
                   {oldest.map((f) => (
                     <li key={findingKey(f)}>
-                      <Link to="/findings" search={{ ...findingsSearch, open: findingKey(f) }} className="flex items-baseline justify-between gap-3 px-3.5 py-1.5 hover:bg-panel-2">
+                      <Link to="/findings" search={{ ...findingsSearch, open: findingKey(f) }} className="flex items-baseline justify-between gap-3 px-3.5 py-1.5 hover:bg-muted">
                         <span className="min-w-0">
                           <span className="block truncate font-mono">
                             {f.org}/{f.repository}
@@ -199,7 +199,7 @@ const orgColumns: Column<Schemas["ControlOrg"]>[] = [
     key: "org",
     header: "Org",
     cell: (o) => (
-      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-accent">
+      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-primary">
         {o.org}
       </Link>
     ),

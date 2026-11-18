@@ -148,7 +148,7 @@ export function StepsJournal({ steps }: { steps: readonly Schemas["RemediationSt
           {st.resource_key ? <span className="text-muted-foreground">{st.resource_key}</span> : null}
           {st.pr_number !== undefined ? <span className="text-muted-foreground">#{st.pr_number}</span> : null}
           {st.committed_sha ? <span className="text-muted-foreground">{st.committed_sha.slice(0, 12)}</span> : null}
-          {st.error ? <span className="break-all text-bad">{st.error}</span> : null}
+          {st.error ? <span className="break-all text-destructive">{st.error}</span> : null}
         </li>
       ))}
     </ol>

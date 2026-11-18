@@ -110,8 +110,8 @@ export function DataTable<T>({
                 onKeyDown={interactive ? keyActivate(row) : undefined}
                 className={cn(
                   "border-b border-border align-middle last:border-0",
-                  interactive && "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-inset",
-                  selected ? "bg-accent/12" : "hover:bg-panel-2",
+                  interactive && "cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
+                  selected ? "bg-primary/12" : "hover:bg-muted",
                 )}
               >
                 {shown.map((c) => (

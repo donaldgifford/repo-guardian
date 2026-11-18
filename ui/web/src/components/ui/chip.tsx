@@ -11,7 +11,7 @@ export function Chip({ name, value, className, children, ...props }: ComponentPr
     <button
       type="button"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 font-mono text-[11.5px] text-muted-foreground hover:bg-panel-2",
+        "inline-flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 font-mono text-[11.5px] text-muted-foreground hover:bg-muted",
         add && "border-dashed",
         className,
       )}

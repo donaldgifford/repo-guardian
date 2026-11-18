@@ -60,7 +60,7 @@ const complianceColumns: GridColumn[] = [
 // in the bad tone so the rows that need work stand out.
 function CountText({ n, bad = false }: { n: number; bad?: boolean }) {
   if (n === 0) return <span className="text-muted-foreground">0</span>;
-  return <span className={bad ? "text-bad" : undefined}>{n.toLocaleString()}</span>;
+  return <span className={bad ? "text-destructive" : undefined}>{n.toLocaleString()}</span>;
 }
 
 // postureRow is a row's compliance columns. Nothing measured reads "no
@@ -136,7 +136,7 @@ export function OrgsView() {
           <span className="text-xs text-muted-foreground">Parked</span>
           <Badge tone="warn">{compact(total.parked)}</Badge>
           <span className="flex-1" />
-          {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-panel px-2.5 text-xs" /> : null}
+          {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-card px-2.5 text-xs" /> : null}
           <SearchTabs param="tab" defaultValue="compliance" options={ORGS_TABS} label="Orgs tabs" />
           {tab !== "pr" ? (
             <Button variant="outline" size="sm" onClick={() => patch({ open: joinOpen(allOpen ? [] : visible.map((o) => o.org)) })} disabled={visible.length === 0}>
@@ -189,13 +189,13 @@ export function OrgsView() {
 }
 
 const orgLink = (org: string) => (
-  <Link to="/orgs/$org" params={{ org }} className="hover:text-accent">
+  <Link to="/orgs/$org" params={{ org }} className="hover:text-primary">
     {org}
   </Link>
 );
 
 const repoLink = (r: Schemas["Repository"]) => (
-  <Link to="/repositories/$id" params={{ id: String(r.id) }} className="hover:text-accent">
+  <Link to="/repositories/$id" params={{ id: String(r.id) }} className="hover:text-primary">
     {r.name}
   </Link>
 );
@@ -276,7 +276,7 @@ const prColumns: Column<OrgPRActivity>[] = [
     key: "org",
     header: "Org",
     cell: (r) => (
-      <Link to="/findings" search={{ org: r.org, pr_stale: true }} className="font-mono font-medium hover:text-accent">
+      <Link to="/findings" search={{ org: r.org, pr_stale: true }} className="font-mono font-medium hover:text-primary">
         {r.org}
       </Link>
     ),
@@ -326,7 +326,7 @@ export function OrgView() {
         controls={
           <>
             <RangeTabs />
-            <Link to="/repositories" search={{ org: o.org }} className="text-xs text-accent hover:underline">
+            <Link to="/repositories" search={{ org: o.org }} className="text-xs text-primary hover:underline">
               Repositories →
             </Link>
           </>
@@ -378,7 +378,7 @@ export function OrgView() {
 }
 
 const controlLink = (c: Schemas["OrgControl"]) => (
-  <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono font-medium hover:text-accent">
+  <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono font-medium hover:text-primary">
     {c.control_id}
   </Link>
 );

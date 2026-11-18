@@ -63,7 +63,7 @@ export function EvidenceText({ evidence }: { evidence: Schemas["Evidence"] }) {
 
 export function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
       {children} ↗
     </a>
   );

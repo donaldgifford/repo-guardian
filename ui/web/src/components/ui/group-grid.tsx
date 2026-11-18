@@ -182,7 +182,7 @@ export function GroupGrid({
             {rows.map((row) => {
               const expanded = open.includes(row.key);
               return [
-                <tr key={row.key} className="border-b border-border hover:bg-panel-2" data-row={row.key}>
+                <tr key={row.key} className="border-b border-border hover:bg-muted" data-row={row.key}>
                   <td className="px-[10px] py-[9px]">
                     {/* The toggle is the chevron alone: the label may be a
                       link, and a control inside a control is unreachable
@@ -240,7 +240,7 @@ export function GridChildRows({ parent, rows, loading = false, empty = "Nothing 
   return (
     <>
       {rows.map((r) => (
-        <tr key={r.key} className="border-b border-border bg-background hover:bg-panel-2" data-children={parent} data-child={r.key}>
+        <tr key={r.key} className="border-b border-border bg-background hover:bg-muted" data-children={parent} data-child={r.key}>
           <td className="py-[7px] pr-[10px] pl-[34px]">
             <Label row={r} depth={1} />
           </td>

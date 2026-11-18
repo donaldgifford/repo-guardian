@@ -14,7 +14,7 @@ export function DistBar({ segments, height = 10, "aria-label": ariaLabel, classN
   const total = segments.reduce((n, s) => n + s.value, 0);
   return (
     <div className={className}>
-      <div role="img" aria-label={ariaLabel} className={cn("flex gap-0.5 overflow-hidden rounded-[2px]", total === 0 && "bg-panel-2")} style={{ height }}>
+      <div role="img" aria-label={ariaLabel} className={cn("flex gap-0.5 overflow-hidden rounded-[2px]", total === 0 && "bg-muted")} style={{ height }}>
         {segments.map((s) =>
           s.value === 0 ? null : <i key={s.label} title={`${s.label} ${s.value.toLocaleString()}`} className="block h-full" style={{ flex: `${s.value} ${s.value} 0`, background: s.color }} />,
         )}

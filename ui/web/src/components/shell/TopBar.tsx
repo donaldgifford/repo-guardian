@@ -19,14 +19,14 @@ export function TopBar({ me, onMenu, onSearch }: { me: Schemas["Me"]; onMenu: ()
   const logout = useRef<HTMLFormElement>(null);
   const docsUrl = config.data?.docs_url;
   return (
-    <header className="flex h-10 flex-none items-center gap-3 border-b border-border bg-panel px-3.5 text-[13px]">
+    <header className="flex h-10 flex-none items-center gap-3 border-b border-border bg-card px-3.5 text-[13px]">
       <Button variant="ghost" size="sm" aria-label="Open navigation" className="md:hidden" onClick={onMenu}>
         <Icon name="menu" />
       </Button>
       {/* Reserved for a portal's app switcher; empty on purpose. */}
       <div data-slot="app-switcher" />
       <Link to="/" className="flex items-center gap-2 font-semibold text-foreground">
-        <Icon name="shield" className="size-4 text-accent" />
+        <Icon name="shield" className="size-4 text-primary" />
         <span>Repo Guardian</span>
         <small className="font-normal text-muted-foreground">compliance · read-only</small>
       </Link>

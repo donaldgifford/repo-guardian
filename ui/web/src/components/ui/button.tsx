@@ -11,9 +11,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        outline: "border border-border bg-panel text-foreground hover:bg-panel-2",
-        ghost: "border border-transparent text-muted-foreground hover:bg-panel-2 hover:text-foreground",
-        primary: "border border-transparent bg-accent text-background hover:bg-accent/90",
+        outline: "border border-border bg-card text-foreground hover:bg-muted",
+        ghost: "border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+        primary: "border border-transparent bg-primary text-background hover:bg-primary/90",
       },
       size: { default: "h-7 px-2.5", sm: "h-[22px] px-[7px] text-[11px]" },
     },

@@ -92,12 +92,12 @@ function InlinePanel({ onClose, focusBack, title, subtitle, footer, children, "a
       aria-label={ariaLabel}
       data-drawer="inline"
       onKeyDown={onKeyDown}
-      className={cn("sticky top-0 flex max-h-[calc(100vh-2rem)] flex-col self-start overflow-hidden rounded-lg border border-border bg-panel px-[18px] py-4", className)}
+      className={cn("sticky top-0 flex max-h-[calc(100vh-2rem)] flex-col self-start overflow-hidden rounded-lg border border-border bg-card px-[18px] py-4", className)}
     >
       <header className="mb-3.5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[15px] font-semibold">{title}</h2>
-          <button ref={closeRef} type="button" aria-label="Close" onClick={close} className="flex size-6 flex-none items-center justify-center rounded-lg text-muted-foreground hover:bg-panel-2 hover:text-foreground">
+          <button ref={closeRef} type="button" aria-label="Close" onClick={close} className="flex size-6 flex-none items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
             ×
           </button>
         </div>

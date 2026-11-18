@@ -93,7 +93,7 @@ export function FleetView() {
               </>
             }
             right={
-              <Link to="/history" className="text-xs text-accent hover:underline">
+              <Link to="/history" className="text-xs text-primary hover:underline">
                 full history
               </Link>
             }
@@ -116,7 +116,7 @@ export function FleetView() {
           >
             <div role="radiogroup" aria-label="Series" className="mb-2 flex flex-wrap gap-1.5">
               {FLEET_SERIES.map((k) => (
-                <button key={k} type="button" role="radio" aria-checked={series === k} onClick={() => setSeries(k)} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", series === k ? "border-accent bg-accent/12 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
+                <button key={k} type="button" role="radio" aria-checked={series === k} onClick={() => setSeries(k)} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", series === k ? "border-primary bg-primary/12 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
                   <i aria-hidden="true" className="inline-block h-2 w-2 rounded-full" style={{ background: SERIES[k].color }} />
                   {SERIES[k].label}: <b className="font-medium tabular-nums">{k === "percent" ? formatPercent(posture.percent) : posture[k].toLocaleString()}</b>
                 </button>
@@ -137,7 +137,7 @@ export function FleetView() {
             </div>
             <DistBar segments={s.finding_age.map((b, i) => ({ label: b.bucket, value: b.count, color: AGE_COLORS[i] ?? AGE_COLORS[5] }))} aria-label="Finding age distribution" />
             <p className="mt-3 text-xs text-muted-foreground">
-              <Link to="/findings" search={{ sort: "since_asc", ...scoped }} className="text-accent hover:underline">
+              <Link to="/findings" search={{ sort: "since_asc", ...scoped }} className="text-primary hover:underline">
                 oldest findings first →
               </Link>
             </p>
@@ -160,7 +160,7 @@ export function FleetView() {
                     <li key={c.id} className="grid gap-1 text-[12.5px]">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="min-w-0 truncate">
-                          <Link to="/controls/$id" params={{ id: c.id }} search={scoped} className="font-mono font-medium hover:text-accent">
+                          <Link to="/controls/$id" params={{ id: c.id }} search={scoped} className="font-mono font-medium hover:text-primary">
                             {c.id}
                           </Link>
                           <em className="ml-1.5 text-[11px] text-muted-foreground not-italic">{c.type}</em>
@@ -276,7 +276,7 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
       key: "id",
       header: "Control",
       cell: (c) => (
-        <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-accent">
+        <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-primary">
           {c.id}
         </Link>
       ),
@@ -301,7 +301,7 @@ export function OpenPRsPanel({ enabled, buckets, org, className }: { enabled: bo
       <BarBuckets buckets={buckets.map((b) => ({ label: b.bucket, value: b.count }))} label="open PRs" height={160} aria-label="Open pull requests by age" />
       <p className="mt-2 text-xs text-muted-foreground">
         {stale.toLocaleString()} over threshold →{" "}
-        <Link to="/findings" search={{ pr_stale: true, ...(org ? { org } : {}) }} className="text-accent hover:underline">
+        <Link to="/findings" search={{ pr_stale: true, ...(org ? { org } : {}) }} className="text-primary hover:underline">
           findings?pr_stale=true
         </Link>
       </p>
@@ -352,7 +352,7 @@ export const controlColumns: Column<Schemas["ControlSummary"]>[] = [
     key: "id",
     header: "Control",
     cell: (c) => (
-      <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-accent">
+      <Link to="/controls/$id" params={{ id: c.id }} className="font-mono font-medium hover:text-primary">
         {c.id}
       </Link>
     ),
@@ -377,7 +377,7 @@ const orgColumns: Column<Schemas["OrgSummary"]>[] = [
     key: "org",
     header: "Org",
     cell: (o) => (
-      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-accent">
+      <Link to="/orgs/$org" params={{ org: o.org }} className="font-mono font-medium hover:text-primary">
         {o.org}
       </Link>
     ),

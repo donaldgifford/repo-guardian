@@ -55,7 +55,7 @@ export function HistoryView() {
               aria-label="Control"
               value={search.control ?? ""}
               onChange={(e) => setControl(e.target.value || undefined)}
-              className="h-7 rounded-lg border border-border bg-panel px-2 text-xs"
+              className="h-7 rounded-lg border border-border bg-card px-2 text-xs"
             >
               <option value="">every control</option>
               {(controls.data?.items ?? []).map((c) => (

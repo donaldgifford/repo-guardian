@@ -79,13 +79,13 @@ export function RepositoriesView() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onBlur={() => setFilter({ q: q || undefined })}
-              className="h-7 rounded-lg border border-border bg-panel px-2.5 text-xs"
+              className="h-7 rounded-lg border border-border bg-card px-2.5 text-xs"
             />
             <select
               aria-label="Policy state"
               value={search.policy_state ?? ""}
               onChange={(e) => setFilter({ policy_state: e.target.value || undefined })}
-              className="h-7 rounded-lg border border-border bg-panel px-2 text-xs"
+              className="h-7 rounded-lg border border-border bg-card px-2 text-xs"
             >
               <option value="">any policy state</option>
               {policyStates.map((s) => (
@@ -126,7 +126,7 @@ const repositoryColumns: Column<Schemas["Repository"]>[] = [
     key: "name",
     header: "Repository",
     cell: (r) => (
-      <Link to="/repositories/$id" params={{ id: String(r.id) }} className="font-mono font-medium hover:text-accent">
+      <Link to="/repositories/$id" params={{ id: String(r.id) }} className="font-mono font-medium hover:text-primary">
         {r.org}/{r.name}
       </Link>
     ),
@@ -207,7 +207,7 @@ export function EvaluateButton({ id }: { id: number }) {
         Re-evaluate
       </Button>
       {evaluate.data === "accepted" ? <span className="text-xs text-muted-foreground">requested</span> : null}
-      {evaluate.error ? <span className="text-xs text-bad">{evaluate.error.message}</span> : null}
+      {evaluate.error ? <span className="text-xs text-destructive">{evaluate.error.message}</span> : null}
     </span>
   );
 }
@@ -255,7 +255,7 @@ function ControlCard({ control: c }: { control: Schemas["RepositoryControl"] }) 
   return (
     <Card
       title={
-        <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono hover:text-accent">
+        <Link to="/controls/$id" params={{ id: c.control_id }} className="font-mono hover:text-primary">
           {c.control_id}
         </Link>
       }
@@ -308,7 +308,7 @@ function RemediationPanel({ control: c }: { control: Schemas["RepositoryControl"
           </>
         ) : null}
         {r ? (
-          <Link to="/remediations" search={{ open: openSearch(r) }} className="ml-auto text-accent hover:underline">
+          <Link to="/remediations" search={{ open: openSearch(r) }} className="ml-auto text-primary hover:underline">
             details →
           </Link>
         ) : null}

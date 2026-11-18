@@ -56,7 +56,7 @@ export function ExportButton<T>({
   return (
     <span className="inline-flex items-center gap-2">
       {notice ? (
-        <span role="status" className="text-xs text-warn">
+        <span role="status" className="text-xs text-warning">
           {notice}
         </span>
       ) : null}

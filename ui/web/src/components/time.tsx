@@ -55,7 +55,7 @@ export function TimeZoneToggle({ className }: { className?: string }) {
           role="radio"
           aria-checked={zone === z}
           onClick={() => setZone(z)}
-          className={cn("px-2 py-1", zone === z ? "bg-panel-2 text-foreground" : "text-muted-foreground hover:text-foreground")}
+          className={cn("px-2 py-1", zone === z ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
         >
           {z === "utc" ? "UTC" : "Local"}
         </button>

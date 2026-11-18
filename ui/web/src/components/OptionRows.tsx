@@ -2,7 +2,10 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@donaldgifford/design-system/lib/utils";
 
-// The rows inside a picker popover (org scope, filter chips).
+// Local, not in the design system: rows for this app's picker
+// popovers (the org scope and filter chips), with a mono detail column
+// and a "current" row. The package's Popover is the container; these
+// are the app's content inside it.
 
 // PopoverHeading is the small uppercase group label inside a popover.
 export function PopoverHeading({ className, ...props }: ComponentProps<"div">) {

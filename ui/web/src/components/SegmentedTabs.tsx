@@ -5,6 +5,11 @@ import { Tabs as TabsRoot, TabsList, TabsTrigger } from "@donaldgifford/design-s
 
 import { patchSearch } from "../lib/search";
 
+// Local, not in the design system: the segmented control is the
+// package's Tabs used as a panel-less tab list, plus SearchTabs, which
+// binds it to a TanStack Router search param; the package knows no
+// router (DESIGN-0039 D§1).
+
 export interface TabOption<V extends string> {
   value: V;
   label: ReactNode;

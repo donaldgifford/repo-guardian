@@ -4,6 +4,11 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { ProblemError } from "../api/client";
 
+// Local, not in the design system: the bridge from this app's
+// ProblemError (the API client's RFC 9457 error) to the package's
+// ApiError and ErrorState, and the app-level ErrorBoundary. The package
+// renders errors; it does not know this API client.
+
 // apiErrorOf turns a ProblemError into the design system's ApiError, so
 // ErrorState heads it "<status> · <title>", says its detail and shows
 // its request id. Anything else passes through and reads as "Something

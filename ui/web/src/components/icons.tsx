@@ -9,15 +9,16 @@ import {
   IconGitPullRequest,
   IconLayoutGrid,
   IconListCheck,
-  IconMenu2,
   IconSearch,
   IconShieldCheck,
   type IconProps as TablerProps,
 } from "@tabler/icons-react";
 
-// Tabler Icons (MIT, INV-0024) at stroke 2, the mockup's set. The names
-// are ours so a view never imports Tabler directly. Every icon is
-// decorative; the text beside it names it.
+// Local, not in the design system: the app's names for its Tabler icons
+// (MIT, INV-0024), at stroke 2, the mockup's set. The names are the
+// app's vocabulary, so a view never imports Tabler directly; the
+// package takes icons as nodes and keeps no registry of its own. Every
+// icon is decorative; the text beside it names it.
 export const icons = {
   grid: IconLayoutGrid,
   list: IconListCheck,
@@ -29,7 +30,6 @@ export const icons = {
   search: IconSearch,
   clock: IconClock,
   external: IconArrowUpRight,
-  menu: IconMenu2,
   alert: IconAlertTriangle,
   pr: IconGitPullRequest,
 } as const;

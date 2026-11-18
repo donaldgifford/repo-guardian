@@ -1,16 +1,9 @@
 import type { ReactNode } from "react";
 
-export function Section({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">{title}</h2>
-        {actions}
-      </div>
-      {children}
-    </section>
-  );
-}
+// Local, not in the design system: one-line, in-panel loading and empty
+// text. The package's EmptyState is a page-level block (icon, heading,
+// dashed border) and its skeletons stand in for layout, neither of
+// which suits a line inside a panel or a table.
 
 export function Loading() {
   return <p className="text-sm text-muted-foreground">Loading…</p>;

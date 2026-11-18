@@ -3,6 +3,11 @@ import type { ComponentProps, ReactNode } from "react";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@donaldgifford/design-system/components/card";
 import { cn } from "@donaldgifford/design-system/lib/utils";
 
+// Local, not in the design system: Panel is this app's surface
+// composed from the package's Card (header, title, action, body), with
+// a stats strip and flush-table body that are the mockup's, not a
+// general card's. The package keeps Card unopinionated (DESIGN-0039 D§1).
+
 interface PanelProps extends Omit<ComponentProps<"section">, "title"> {
   title?: ReactNode;
   subtitle?: ReactNode;

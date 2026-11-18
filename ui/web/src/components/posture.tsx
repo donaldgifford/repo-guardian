@@ -4,7 +4,7 @@ import type { Schemas } from "../api/client";
 import { describeEvidence } from "../lib/evidence";
 import { humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
-import { DistBar } from "./charts";
+import { DistBar } from "@donaldgifford/design-system/blocks/dist-bar";
 import { Badge } from "./ui/badge";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { Meter } from "@donaldgifford/design-system/blocks/meter";
@@ -34,7 +34,7 @@ export function PostureKpis({ posture, children }: { posture: Posture; children?
 }
 
 export function PostureBar({ posture, label }: { posture: Posture; label: string }) {
-  return <DistBar segments={postureSegments(posture)} aria-label={label} />;
+  return <DistBar segments={postureSegments(posture)} size="sm" label={label} />;
 }
 
 // BucketBadge is an assignment's posture bucket; the enum is open, so a

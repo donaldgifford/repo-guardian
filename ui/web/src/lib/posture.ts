@@ -1,5 +1,5 @@
 import type { Schemas } from "../api/client";
-import type { DistSegment } from "../components/charts";
+import type { Segment as DistSegment } from "@donaldgifford/design-system/blocks/dist-bar";
 import type { SeriesPoint } from "./viewmodel";
 import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 

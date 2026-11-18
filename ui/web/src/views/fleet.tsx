@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { useComplianceHistory, useControls, useOrg, useOrgs, useRemediationActivity, useRemediationEnabled, useSummary } from "../api/queries";
-import { DistBar } from "../components/charts";
+import { DistBar } from "@donaldgifford/design-system/blocks/dist-bar";
 import { BarBuckets, bucketsTable } from "@donaldgifford/design-system/blocks/bar-buckets";
 import { BarList } from "@donaldgifford/design-system/blocks/bar-list";
 import { PairBars, pairTable } from "@donaldgifford/design-system/blocks/pair-bars";
@@ -148,7 +148,7 @@ export function FleetView() {
             <div className="mb-2">
               <Badge tone="info">{under30 === null ? "no findings" : `${under30}% under 30d`}</Badge>
             </div>
-            <DistBar segments={s.finding_age.map((b, i) => ({ label: b.bucket, value: b.count, color: AGE_COLORS[i] ?? AGE_COLORS[5] }))} aria-label="Finding age distribution" />
+            <DistBar segments={s.finding_age.map((b, i) => ({ label: b.bucket, value: b.count, color: AGE_COLORS[i] ?? AGE_COLORS[5] }))} size="sm" label="Finding age distribution" />
             <p className="mt-3 text-xs text-muted-foreground">
               <Link to="/findings" search={{ sort: "since_asc", ...scoped }} className="text-primary hover:underline">
                 oldest findings first →

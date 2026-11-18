@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { addPosture, emptyPosture, floorPercent, historySeries, postureSegments } from "./posture";
+import { addPosture, emptyPosture, historySeries, postureSegments } from "./posture";
+import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 
 const posture = (over: Partial<Schemas["Posture"]>): Schemas["Posture"] => ({ ...emptyPosture(), ...over });
 

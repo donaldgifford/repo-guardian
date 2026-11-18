@@ -18,12 +18,13 @@ import { DeltaText } from "../components/ui/kpi";
 import { StatStrip } from "../components/ui/stat-strip";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, pickSeries, rangeDelta, SERIES, STALE_BUCKET, underDays, worstControls } from "../lib/fleet";
-import { formatPercent, humanize } from "../lib/format";
+import { humanize } from "../lib/format";
 import { postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
 import { cn } from "@donaldgifford/design-system/lib/utils";
 import type { SeriesPoint } from "../lib/viewmodel";
 import { exclusionColumns, exclusionsCsv } from "./orgs";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 const route = getRouteApi("/app/");
 

@@ -1,5 +1,6 @@
 import type { Schemas } from "../api/client";
 import type { DistSegment } from "../components/charts";
+import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type Posture = Schemas["Posture"];
 
@@ -34,12 +35,6 @@ export function emptyPosture(): Posture {
     percent: null,
     coverage: null,
   };
-}
-
-// floorPercent is the floor_percent SQL function: num / den floored to
-// one decimal in integer arithmetic, null on an empty denominator.
-export function floorPercent(num: number, den: number): number | null {
-  return den <= 0 ? null : Math.floor((num * 1000) / den) / 10;
 }
 
 // addPosture sums two postures and recomputes both percentages from the

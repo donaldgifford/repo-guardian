@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 
 import type { Schemas } from "../api/client";
-import { hasNoAccess, heatOpacity, initials, orgCountLabel, visibleOrgs } from "./viewmodel";
+import { hasNoAccess, initials, orgCountLabel, visibleOrgs } from "./viewmodel";
+import { heatOpacity } from "@donaldgifford/design-system/lib/percent";
 
 const me = (allOrgs: boolean, orgs: string[]): Schemas["Me"] => ({ subject: "u1", name: "Ada", all_orgs: allOrgs, orgs });
 

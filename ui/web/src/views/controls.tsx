@@ -17,10 +17,11 @@ import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "../components/ui/kpi";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { rangeDelta } from "../lib/fleet";
-import { ageDays, formatPercent } from "../lib/format";
+import { ageDays } from "../lib/format";
 import { addPosture, emptyPosture, historySeries, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { findingKey } from "./findings/drawer";
 import { controlColumns, controlsCsv } from "./fleet";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // ControlsView lists every control assigned in the caller's orgs.
 export function ControlsView() {

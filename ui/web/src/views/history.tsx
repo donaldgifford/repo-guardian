@@ -8,10 +8,10 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { Card } from "../components/ui/card";
-import { formatPercent } from "../lib/format";
 import { historySeries } from "../lib/posture";
 import { parseScopeSearch, type ScopeSearch } from "../lib/scope";
 import { patchSearch } from "../lib/search";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // HistorySearch keeps days a number, so the URL reads ?days=7 rather
 // than the router's JSON-quoted string.

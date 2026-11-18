@@ -13,12 +13,6 @@ export function compliantPercent(c: Pick<Counts, "compliant" | "non_compliant">)
   return Math.floor((c.compliant * 1000) / measured) / 10;
 }
 
-// formatPercent renders a percentage the API computed; null is
-// "no data", never 0% or 100%.
-export function formatPercent(p: number | null | undefined): string {
-  return p === null || p === undefined ? "no data" : `${p.toFixed(1)}%`;
-}
-
 // trend is the change against the previous snapshot, when both exist.
 export function trend(current: number | null, previous: number | null | undefined): number | null {
   if (current === null || previous === null || previous === undefined) {

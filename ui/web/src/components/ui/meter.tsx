@@ -1,5 +1,5 @@
-import { formatPercent } from "../../lib/format";
 import { cn } from "@donaldgifford/design-system/lib/utils";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type MeterTone = "success" | "warning" | "destructive" | "muted";
 

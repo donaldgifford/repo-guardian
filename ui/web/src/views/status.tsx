@@ -10,8 +10,9 @@ import { Time } from "../components/time";
 import { Card } from "../components/ui/card";
 import { Meter } from "../components/ui/meter";
 import changelog from "../generated/changelog.json";
-import { formatPercent, toneFor } from "../lib/format";
+import { toneFor } from "../lib/format";
 import { cn } from "@donaldgifford/design-system/lib/utils";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type StatusTone = "success" | "warning" | "destructive" | "muted";
 

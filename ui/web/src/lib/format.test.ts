@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import golden from "../../../../api/testdata/compliant_percent.json";
-import { ageDays, compliantPercent, formatPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
+import { ageDays, compliantPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 describe("compliantPercent", () => {
   // The same table drives internal/store's TestCompliantPercent_Golden,

@@ -20,12 +20,13 @@ import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "../com
 import { Kpi } from "../components/ui/kpi";
 import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
-import { formatPercent, humanize } from "../lib/format";
+import { humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";
 import { historySeries, type Posture, postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
 import { orgsCsv } from "./fleet";
 import { countByRepository, joinOpen, matchesFilter, measuredOf, openOrgs, type OrgPRActivity, ORGS_TABS, type OrgsTab, prActivity, staleAfterDays, sumOrgs, toggleOpen } from "./orgs/tree";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 const listRoute = getRouteApi("/app/orgs");
 

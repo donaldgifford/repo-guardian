@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 
 import type { Schemas } from "../api/client";
 import { describeEvidence } from "../lib/evidence";
-import { formatPercent, humanize, toneFor } from "../lib/format";
+import { humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
 import { DistBar } from "./charts";
 import { Badge } from "./ui/badge";
 import { Kpi } from "./ui/kpi";
 import { Meter } from "./ui/meter";
+import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 // The controls views' shared pieces: a posture as a meter, a KPI or a
 // distribution, and evidence as text. A null percent is "no data".

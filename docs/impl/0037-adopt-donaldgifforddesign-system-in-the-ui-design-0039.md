@@ -215,7 +215,7 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 #### Tasks
 
 - [x] 3.1 `lib/utils.ts` (`cn`), `lib/use-media-query.ts`, `lib/csv.ts`, `lib/time.ts`, `charts/scale.ts`: replace every import with the package module and delete the files and their tests. `SIDE_BY_SIDE` becomes `DETAIL_INLINE_QUERY` from `shell/detail-panel`.
-- [ ] 3.2 `floorPercent`, `formatPercent`, `heatOpacity`: import from `lib/percent`; delete the local definitions in `lib/posture.ts`, `lib/format.ts` and `lib/viewmodel.ts`. `compliantPercent` stays. `api/testdata/compliant_percent.json` must still drive the SPA's test.
+- [x] 3.2 `floorPercent`, `formatPercent`, `heatOpacity`: import from `lib/percent`; delete the local definitions in `lib/posture.ts`, `lib/format.ts` and `lib/viewmodel.ts`. `compliantPercent` stays. `api/testdata/compliant_percent.json` must still drive the SPA's test.
 - [ ] 3.3 `components/time.tsx` to `blocks/time`: `TimeZoneProvider storageKey="rg.tz"`. Rewrite the toggle's test for pressed buttons. Confirm a stored `rg.tz` from the old build is honoured.
 - [ ] 3.4 `components/ExportButton.tsx` to `blocks/export-button`: pass `name` for the accessible name and `filename="repo-guardian-<page>"` so file names do not change. The e2e download assertions must pass unedited.
 - [ ] 3.5 `components/LoadMore.tsx` to `blocks/load-more`.

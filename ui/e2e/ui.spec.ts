@@ -560,7 +560,8 @@ test("the sidebar collapses to the rail and stays collapsed after a reload", asy
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
   await expect(sidebar).toHaveAttribute("data-state", "collapsed");
-  await trigger.click();
+  // ⌘B toggles it from the keyboard, and that is kept too.
+  await page.keyboard.press("ControlOrMeta+b");
   await expect(sidebar).toHaveAttribute("data-state", "expanded");
   await page.reload();
   await expect(sidebar).toHaveAttribute("data-state", "expanded");

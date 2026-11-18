@@ -544,3 +544,53 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   await expect(page.getByRole("table", { name: "PR activity" })).toContainText("acme");
   await expectNoGlobex(page);
 });
+
+// The frame (IMPL-0037 Phase 6): the sidebar collapses to a rail whose
+// labels are tooltips and stays collapsed across a reload; the sheet
+// below 768px closes when an entry is chosen; ⌘K opens the palette.
+test("the sidebar collapses to the rail and stays collapsed after a reload", async ({ page }) => {
+  await signIn(page, "/controls");
+  const sidebar = page.locator('[data-slot="sidebar"][data-state]');
+  const trigger = page.locator('[data-slot="sidebar-trigger"]');
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await trigger.click();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  // The rail keeps every entry reachable, by name.
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Findings" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  await trigger.click();
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+});
+
+test("below 768px the trigger opens the sheet and choosing an entry closes it", async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 900 });
+  // The account menu lives in the sheet here, so sign-in waits on the
+  // trigger rather than on it.
+  await page.goto("/");
+  const trigger = page.locator('[data-slot="sidebar-trigger"]');
+  await expect(trigger).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toHaveCount(0);
+  await trigger.click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("link", { name: "Controls" }).click();
+  await expect(page).toHaveURL(/\/controls$/);
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
+});
+
+test("⌘K opens the palette and Enter goes to the chosen control", async ({ page }) => {
+  await signIn(page, "/");
+  await page.keyboard.press("ControlOrMeta+k");
+  const input = page.getByRole("combobox");
+  await expect(input).toBeFocused();
+  await input.fill("renovate");
+  await expect(page.getByRole("option", { name: /renovate/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/controls\/renovate$/);
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+});

@@ -19,7 +19,6 @@ export interface TabOption<V extends string> {
 // system's tabs: a tab list with no panels. Base UI keeps only the
 // selected tab in the Tab order and the list activates on focus, so
 // arrows move selection and focus along the row and Home and End jump.
-// The trigger's 1px focus outline is put back to the global 2px.
 // Controlled; SearchTabs binds it to a search param.
 export function Tabs<V extends string>({
   label,
@@ -38,7 +37,7 @@ export function Tabs<V extends string>({
     <TabsRoot className="contents" value={value} onValueChange={(next) => onChange(next as V)}>
       <TabsList aria-label={label} className={className}>
         {options.map((o) => (
-          <TabsTrigger key={o.value} value={o.value} data-value={o.value} className="focus-visible:outline-2">
+          <TabsTrigger key={o.value} value={o.value} data-value={o.value}>
             {o.label}
           </TabsTrigger>
         ))}

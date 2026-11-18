@@ -34,7 +34,7 @@ SOFTWARE.
 ## The design system and the libraries bundled through it
 
 The UI's components come from `@donaldgifford/design-system`
-0.3.0 (DESIGN-0039), licensed under the Apache License 2.0
+0.3.1 (DESIGN-0039), licensed under the Apache License 2.0
 (Copyright (c) Donald Gifford). The libraries below reach the bundle through it,
 as measured from the production build's source map (IMPL-0037 7.6);
 each is used under the licence named, whose text follows the table.

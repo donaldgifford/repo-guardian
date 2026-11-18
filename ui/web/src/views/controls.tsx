@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useControl, useControls, useResults } from "../api/queries";
 import { BarList, type BarListItem, ChartCard, TrendChart, trendTable } from "../components/charts";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
@@ -38,7 +38,7 @@ export function ControlsView() {
         }
         controls={<OrgScope />}
       />
-      <Card bodyClassName="p-0" title="Controls" right={<ExportButton page="controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
+      <Card bodyClassName="p-0" title="Controls" right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}>
         {controls.data ? <DataTable columns={controlColumns} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
       </Card>
     </>
@@ -132,7 +132,7 @@ export function ControlView() {
               title="By org"
               subtitle="Each org and lineage, with the versions it carries."
               bodyClassName="p-0"
-              right={<ExportButton page="control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
+              right={<ExportButton name="control orgs" filename="repo-guardian-control orgs" filter={{ control: c.id, org }} columns={controlOrgsCsv} rows={orgRows} />}
             >
               <DataTable columns={orgColumns} rows={orgRows} rowKey={(o) => `${o.org}/${o.decision}`} empty="No org carries this control." aria-label="Orgs" />
             </Card>

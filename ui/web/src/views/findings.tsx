@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { exportCap, fetchAllResults, pageItems, type ResultsFilter, useControls, useOrgs, useRemediationEnabled, useResults } from "../api/queries";
 import { RemediationBadge } from "../components/badges";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { FilterChips, type FilterValues } from "../components/filters";
 import { NOT_ENABLED } from "../components/GatedPanel";
 import { LoadMore } from "../components/LoadMore";
@@ -189,7 +189,7 @@ export function FindingsView() {
         controls={
           <>
             <OrgScope />
-            <ExportButton page="findings" filter={{ control: filter.control, org: filter.org, rule: filter.rule }} columns={findingsCsv} rows={items} all={{ fetch: () => fetchAllResults(filter), cap: exportCap }} />
+            <ExportButton name="findings" filename="repo-guardian-findings" filter={{ control: filter.control, org: filter.org, rule: filter.rule }} columns={findingsCsv} rows={items} all={{ fetch: () => fetchAllResults(filter), cap: exportCap }} />
           </>
         }
       />

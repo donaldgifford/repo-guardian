@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { useComplianceHistory, useControls, useOrg, useOrgs, useRemediationActivity, useRemediationEnabled, useSummary } from "../api/queries";
 import { BarBuckets, BarList, bucketsTable, ChartCard, DistBar, PairBars, pairTable, Sparkline, TrendChart, trendTable } from "../components/charts";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { gatedContent, NOT_ENABLED } from "../components/GatedPanel";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
@@ -205,7 +205,7 @@ export function FleetView() {
               </>
             }
             bodyClassName="p-0"
-            right={<ExportButton page="controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}
+            right={<ExportButton name="controls" filename="repo-guardian-controls" filter={{ org }} columns={controlsCsv} rows={controls.data?.items} />}
           >
             {controls.data ? <DataTable columns={byControlColumns(perControl)} rows={controls.data.items} rowKey={(c) => c.id} empty="No control is assigned yet." aria-label="Controls" /> : <Loading />}
           </Card>
@@ -218,7 +218,7 @@ export function FleetView() {
                 </>
               }
               bodyClassName="p-0"
-              right={<ExportButton page="exclusions" filter={{ org }} columns={exclusionsCsv} rows={orgDetail.data?.exclusions} />}
+              right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org }} columns={exclusionsCsv} rows={orgDetail.data?.exclusions} />}
             >
               {!orgDetail.data ? <Loading /> : orgDetail.data.exclusions.length === 0 ? <Empty>Nothing excluded in {org}.</Empty> : <DataTable columns={exclusionColumns} rows={orgDetail.data.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} aria-label="Exclusions" />}
             </Card>
@@ -231,7 +231,7 @@ export function FleetView() {
                 </>
               }
               bodyClassName="p-0"
-              right={<ExportButton page="orgs" columns={orgsCsv} rows={orgs.data?.items} />}
+              right={<ExportButton name="orgs" filename="repo-guardian-orgs" columns={orgsCsv} rows={orgs.data?.items} />}
             >
               {orgs.data ? <DataTable columns={orgColumns} rows={[...orgs.data.items].sort((a, b) => b.tracked - a.tracked)} rowKey={(o) => o.org} empty="No org is visible to you." aria-label="Orgs" /> : <Loading />}
             </Card>

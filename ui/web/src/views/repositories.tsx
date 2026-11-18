@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { pageItems, useEvaluate, useEvaluateUnsupported, useRemediationEnabled, useRepositories, useRepository, useRepositoryControls, useRepositoryEvaluations, useRepositoryEvents, useUIConfig } from "../api/queries";
 import { HoldBadge, RemediationBadge, RuleStatusBadge, StatusBadge } from "../components/badges";
 import { Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { NOT_ENABLED } from "../components/GatedPanel";
 import { LoadMore } from "../components/LoadMore";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
@@ -97,7 +97,7 @@ export function RepositoriesView() {
           </>
         }
       />
-      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton page="repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
+      <Card title="Repositories" bodyClassName="p-0" right={<ExportButton name="repositories" filename="repo-guardian-repositories" filter={{ ...rest, q: settled }} columns={repositoriesCsv} rows={items} />}>
         {items ? (
           <>
             <DataTable columns={repositoryColumns} rows={items} rowKey={(r) => String(r.id)} empty="No repository matches." aria-label="Repositories" />
@@ -347,7 +347,7 @@ const evaluationsCsv: CsvColumns<Schemas["Evaluation"]> = {
 function Evaluations({ id }: { id: number }) {
   const evaluations = useRepositoryEvaluations(id);
   return (
-    <Card title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton page="evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
+    <Card title="Evaluation log" subtitle="The last 20 evaluations, newest first." bodyClassName="p-0" right={<ExportButton name="evaluations" filename="repo-guardian-evaluations" filter={{ repository: id }} columns={evaluationsCsv} rows={evaluations.data?.items} />}>
       {evaluations.data ? <DataTable columns={evaluationColumns} rows={evaluations.data.items} rowKey={(e) => String(e.id)} empty="No evaluation yet." aria-label="Evaluation log" /> : <Loading />}
     </Card>
   );
@@ -395,7 +395,7 @@ const eventsCsv: CsvColumns<Schemas["Event"]> = {
 function Events({ id }: { id: number }) {
   const events = useRepositoryEvents(id);
   return (
-    <Card title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton page="events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
+    <Card title="Events" subtitle="Result changes and repository events, newest first." bodyClassName="p-0" right={<ExportButton name="events" filename="repo-guardian-events" filter={{ repository: id }} columns={eventsCsv} rows={events.data?.items} />}>
       {events.data ? <DataTable columns={eventColumns} rows={events.data.items} rowKey={(e) => `${e.source}/${e.id}`} empty="No events yet." aria-label="Events" /> : <Loading />}
     </Card>
   );

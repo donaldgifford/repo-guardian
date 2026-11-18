@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { exportCap, fetchAllRemediations, openPullRequestsCap, pageItems, useControls, useOrgs, useRemediationEnabled, useRemediationOverview, useRemediations } from "../api/queries";
 import { HoldBadge, RemediationStateBadge } from "../components/badges";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { gatedContent, NOT_ENABLED } from "../components/GatedPanel";
 import { LoadMore } from "../components/LoadMore";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
@@ -132,7 +132,7 @@ export function RemediationsView() {
         controls={
           <>
             <OrgScope />
-            {state === "content" ? <ExportButton page="remediations" filter={{ view: search.view, org: filter.org, control: filter.control, state: filter.state }} columns={remediationsCsv} rows={items} all={{ fetch: () => fetchAllRemediations(filter, exportCap), cap: exportCap }} /> : null}
+            {state === "content" ? <ExportButton name="remediations" filename="repo-guardian-remediations" filter={{ view: search.view, org: filter.org, control: filter.control, state: filter.state }} columns={remediationsCsv} rows={items} all={{ fetch: () => fetchAllRemediations(filter, exportCap), cap: exportCap }} /> : null}
           </>
         }
       />

@@ -5,7 +5,7 @@ import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
 import { ChartCard, TrendChart, trendTable } from "../components/charts";
 import { Empty, Loading } from "../components/common";
-import { ExportButton } from "../components/ExportButton";
+import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { GatedPanel, NOT_ENABLED } from "../components/GatedPanel";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
@@ -124,7 +124,7 @@ export function OrgsView() {
         controls={
           <>
             <OrgScope />
-            <ExportButton page="orgs" filter={{ org: scope }} columns={orgsCsv} rows={orgs.data ? visible : undefined} />
+            <ExportButton name="orgs" filename="repo-guardian-orgs" filter={{ org: scope }} columns={orgsCsv} rows={orgs.data ? visible : undefined} />
           </>
         }
       />
@@ -357,11 +357,11 @@ export function OrgView() {
             subtitle="Baseline, replaced and org-added."
             bodyClassName="p-0"
             className="lg:col-span-2"
-            right={<ExportButton page="org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
+            right={<ExportButton name="org controls" filename="repo-guardian-org controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.controls} />}
           >
             <DataTable columns={controlColumns} rows={o.controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="No control is assigned here." aria-label="Org controls" />
           </Card>
-          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton page="worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
+          <Card title="Worst controls" subtitle="Lowest measured compliance." bodyClassName="p-0" right={<ExportButton name="worst controls" filename="repo-guardian-worst controls" filter={{ org: o.org }} columns={orgControlsCsv} rows={o.worst_controls} />}>
             <DataTable columns={worstColumns} rows={o.worst_controls} rowKey={(c) => `${c.control_id}/${c.decision}`} empty="Nothing measured yet." aria-label="Worst controls" />
           </Card>
         </div>
@@ -369,7 +369,7 @@ export function OrgView() {
           title="Exclusions"
           subtitle="Repositories or controls the policy leaves out, and why."
           bodyClassName="p-0"
-          right={<ExportButton page="exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
+          right={<ExportButton name="exclusions" filename="repo-guardian-exclusions" filter={{ org: o.org }} columns={exclusionsCsv} rows={o.exclusions} />}
         >
           <DataTable columns={exclusionColumns} rows={o.exclusions} rowKey={(e) => `${e.repository}/${e.control_id ?? ""}`} empty="No exclusions." aria-label="Exclusions" />
         </Card>

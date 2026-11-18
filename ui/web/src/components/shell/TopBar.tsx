@@ -6,7 +6,7 @@ import { useUIConfig } from "../../api/queries";
 import { initials } from "../../lib/viewmodel";
 import { Icon } from "../icons";
 import { TimeZoneToggle } from "@donaldgifford/design-system/blocks/time";
-import { Avatar } from "../ui/avatar";
+import { Avatar, AvatarFallback } from "@donaldgifford/design-system/components/avatar";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
@@ -39,7 +39,9 @@ export function TopBar({ me, onMenu, onSearch }: { me: Schemas["Me"]; onMenu: ()
       <TimeZoneToggle />
       <DropdownMenu>
         <DropdownMenuTrigger aria-label="Account menu" className="rounded-lg">
-          <Avatar initials={initials(me.name, me.subject)} />
+          <Avatar size="sm" className="size-5" aria-hidden="true">
+            <AvatarFallback className="text-[10px]">{initials(me.name, me.subject)}</AvatarFallback>
+          </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuLabel>

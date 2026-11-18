@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Avatar } from "./avatar";
 import { Card } from "./card";
 import { DeltaText } from "../DeltaText";
 import { Tabs } from "./tabs";
@@ -54,11 +53,4 @@ test("Tabs marks the selected tab", () => {
   expect(html).toContain('role="tablist" aria-label="Range"');
   expect(html).toMatch(/aria-selected="false"[^>]*>7d</);
   expect(html).toMatch(/aria-selected="true"[^>]*>30d</);
-});
-
-test("Avatar is a 20px square with the initials", () => {
-  const html = renderToStaticMarkup(<Avatar initials="DG" />);
-  expect(html).toContain("size-5");
-  expect(html).toContain("bg-avatar");
-  expect(html).toContain(">DG</span>");
 });

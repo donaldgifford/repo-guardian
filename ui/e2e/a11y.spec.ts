@@ -8,7 +8,7 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toBeVisible();
 }
 
 async function audit(page: Page) {

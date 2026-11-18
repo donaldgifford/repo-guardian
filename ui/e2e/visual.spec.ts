@@ -32,7 +32,7 @@ test("Status", async ({ page }) => {
 
 async function signIn(page: Page, path: string) {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toBeVisible();
 }
 
 test("Findings", async ({ page }) => {

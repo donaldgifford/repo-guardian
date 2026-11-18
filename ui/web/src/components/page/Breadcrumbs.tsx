@@ -1,5 +1,6 @@
-import { Link, useMatches } from "@tanstack/react-router";
-import { createContext, Fragment, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList as List, BreadcrumbPage, BreadcrumbSeparator } from "@donaldgifford/design-system/components/breadcrumb";
+import { useMatches, useNavigate, useRouter } from "@tanstack/react-router";
+import { createContext, Fragment, type MouseEvent, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
 import type { AppPath } from "../shell/nav";
 
@@ -91,36 +92,50 @@ export function Breadcrumbs() {
   return <BreadcrumbList crumbs={crumbsFor(last, itemLabel)} />;
 }
 
+// CrumbLink is a section crumb. A router Link would mark itself
+// aria-current="page" whenever its route is active, so on a detail page
+// the section crumb would claim to be the current page beside the leaf;
+// this builds the same href and navigates the same way with no active
+// state.
+function CrumbLink({ to, children }: { to: AppPath; children: ReactNode }) {
+  const router = useRouter();
+  const navigate = useNavigate();
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    void navigate({ to });
+  };
+  return (
+    <BreadcrumbLink href={router.buildLocation({ to }).href} onClick={onClick}>
+      {children}
+    </BreadcrumbLink>
+  );
+}
+
+// BreadcrumbList is the trail on the package's breadcrumb: earlier
+// crumbs link, the leaf is the current page.
 export function BreadcrumbList({ crumbs }: { crumbs: Crumb[] }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-2 text-xs text-muted-foreground">
-      <ol className="flex flex-wrap items-center">
+    <Breadcrumb aria-label="Breadcrumb" className="min-w-0 text-[13px]">
+      <List>
         {crumbs.map((c, i) => {
           const leaf = i === crumbs.length - 1;
           return (
             <Fragment key={`${c.label}-${i}`}>
-              {i > 0 ? (
-                <li aria-hidden="true" className="mx-1.5 opacity-60">
-                  /
-                </li>
-              ) : null}
-              <li>
+              {i > 0 ? <BreadcrumbSeparator>/</BreadcrumbSeparator> : null}
+              <BreadcrumbItem>
                 {leaf ? (
-                  <b className="font-medium text-foreground" aria-current="page">
-                    {c.label}
-                  </b>
+                  <BreadcrumbPage className="font-medium">{c.label}</BreadcrumbPage>
                 ) : c.to ? (
-                  <Link to={c.to} className="hover:text-foreground">
-                    {c.label}
-                  </Link>
+                  <CrumbLink to={c.to}>{c.label}</CrumbLink>
                 ) : (
                   <span>{c.label}</span>
                 )}
-              </li>
+              </BreadcrumbItem>
             </Fragment>
           );
         })}
-      </ol>
-    </nav>
+      </List>
+    </Breadcrumb>
   );
 }

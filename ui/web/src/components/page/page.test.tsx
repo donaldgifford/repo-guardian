@@ -73,6 +73,10 @@ test("BreadcrumbList marks the leaf current and links the rest", async () => {
   const nav = await findByRole("navigation", { name: "Breadcrumb" });
   expect(nav).toBeTruthy();
   expect(getByRole("link", { name: "Repo Guardian" }).getAttribute("href")).toBe("/");
-  const leaf = nav.querySelector("b[aria-current=page]");
-  expect(leaf?.textContent).toBe("renovate");
+  // Exactly one aria-current, on the leaf: a section link must not mark
+  // itself current while its detail page is open.
+  const current = nav.querySelectorAll("[aria-current=page]");
+  expect(current.length).toBe(1);
+  expect(current[0]?.textContent).toBe("renovate");
+  expect(getByRole("link", { name: "Status" }).hasAttribute("aria-current")).toBe(false);
 });

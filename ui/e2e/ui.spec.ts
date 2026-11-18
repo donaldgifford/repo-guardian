@@ -7,9 +7,15 @@ import { readFileSync } from "node:fs";
 
 // signIn runs the real code flow: the BFF redirects to the mock
 // issuer, which approves at once and sends the browser back.
+// navCount is a sidebar entry's count, beside its link in the entry.
+function navCount(page: Page, label: string) {
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  return nav.getByRole("listitem").filter({ has: page.getByRole("link", { name: label, exact: true }) }).locator('[data-slot="sidebar-menu-badge"]');
+}
+
 async function signIn(page: Page, path = "/") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Account menu/ })).toBeVisible();
 }
 
 test("an app path without a session goes through login and comes back", async ({ page }) => {
@@ -20,7 +26,7 @@ test("an app path without a session goes through login and comes back", async ({
   await expect(page.getByRole("alert")).toHaveCount(0);
   // The API names the caller by preferred_username (OIDC_NAME_CLAIM);
   // the name lives in the avatar menu.
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("button", { name: /^Account menu/ }).click();
   await expect(page.getByRole("menu").getByText("ada", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 });
@@ -78,7 +84,7 @@ test("the status page is public", async ({ browser }) => {
 test("signing out ends the session", async ({ page, context }) => {
   await signIn(page);
   // The menu opens from the keyboard and Escape returns focus to it.
-  const account = page.getByRole("button", { name: "Account menu" });
+  const account = page.getByRole("button", { name: /^Account menu/ });
   await account.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
@@ -187,7 +193,7 @@ test("a repository shows its controls with evidence, the evaluation log and even
 
   // INV-0023 F2: the crumb names the repository, never its id.
   const crumb = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumb.locator('b[aria-current="page"]')).toHaveText("acme/web");
+  await expect(crumb.locator('[aria-current="page"]')).toHaveText("acme/web");
 
   // INV-0023 F1: a failing rule carries the destructive tone, not muted.
   const failing = page.getByRole("table", { name: "renovate rules" }).getByText("fail", { exact: true });
@@ -274,7 +280,7 @@ test("Remediations views and filters round-trip, the drawer deep link works, and
   await expect(page.locator("[data-gated='content']").first()).toBeVisible();
   await expect(page.getByText("Remediation is not enabled on this deployment")).toHaveCount(0);
   const status = (await (await page.request.get("/api/v1/status")).json()) as { operations: { remediation_backlog: number } };
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Remediations/ }).locator("em")).toHaveText(String(status.operations.remediation_backlog));
+  await expect(navCount(page, "Remediations")).toHaveText(String(status.operations.remediation_backlog));
 
   // KPIs: three open PRs (one past 30 days), one recommendation, five
   // holds (one per reason), two failed applies.
@@ -335,7 +341,7 @@ test("Remediations views and filters round-trip, the drawer deep link works, and
   await expect(drawer.getByRole("list", { name: "Proposal" })).toContainText("labels/bug");
   await expect(drawer).toContainText("recommended");
   // A CSS locator: the modal drawer aria-hides the rest of the page.
-  await expect(page.locator('nav[aria-label="Breadcrumb"] b[aria-current="page"]')).toHaveText("acme/mobile · labels");
+  await expect(page.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]')).toHaveText("acme/mobile · labels");
   await expect(drawer.getByRole("link", { name: "Open finding →" })).toHaveAttribute("href", /\/findings\?control=labels&open=\d+(%2F|\/)labels/);
   await expect(drawer.getByRole("link", { name: "Open repository →" })).toHaveAttribute("href", /\/repositories\/\d+/);
   await page.reload();
@@ -374,7 +380,7 @@ test("Tab walks Fleet in reading order with a visible ring, and Escape closes th
       }),
     );
   }
-  const expected = [/^Search/, /^Account menu$/, /^Fleet$/, /^Status page$/, /^Repo Guardian$/, /^Org scope/, /^30d$/];
+  const expected = [/^Repo Guardian/, /^Fleet$/, /^Status page$/, /^Account menu/, /^Toggle Sidebar$/, /^Search/, /^Org scope/, /^30d$/];
   let at = 0;
   for (const want of expected) {
     const i = seen.findIndex((s, j) => j >= at && want.test(s));
@@ -424,8 +430,7 @@ test("Findings lists the non-compliant results, M matches the nav badge, and the
   const count = page.getByText(/^\d+ loaded of \d+$/);
   await expect(count).toBeVisible();
   const m = /of (\d+)$/.exec((await count.textContent()) ?? "")?.[1];
-  const nav = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: /^Findings/ });
-  await expect(nav.locator("em")).toHaveText(m ?? "");
+  await expect(navCount(page, "Findings")).toHaveText(m ?? "");
 
   // The filter chips write the URL.
   await page.getByRole("button", { name: "Add filter" }).click();

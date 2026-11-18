@@ -6,7 +6,7 @@ import { RemediationBadge, RuleStatusBadge, StatusBadge } from "../../components
 import { Loading } from "../../components/common";
 import { GatedPanel } from "../../components/GatedPanel";
 import { BucketBadge, EvidenceText, ExternalLink } from "../../components/posture";
-import { Time } from "../../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Button } from "../../components/ui/button";
 import { type Column, DataTable } from "../../components/ui/data-table";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";

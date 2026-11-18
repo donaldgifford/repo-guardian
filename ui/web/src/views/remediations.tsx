@@ -11,7 +11,7 @@ import { LoadMore } from "../components/LoadMore";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { ExternalLink } from "../components/posture";
-import { Time } from "../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";

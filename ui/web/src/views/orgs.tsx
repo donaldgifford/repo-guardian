@@ -11,7 +11,7 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
-import { Time } from "../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";

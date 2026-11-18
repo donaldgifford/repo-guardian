@@ -7,7 +7,7 @@ import { HoldBadge, RemediationStateBadge } from "../../components/badges";
 import { Loading } from "../../components/common";
 import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
-import { Time } from "../../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";

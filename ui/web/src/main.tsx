@@ -6,10 +6,12 @@ import "./index.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
+import { TimeZoneProvider } from "@donaldgifford/design-system/blocks/time";
 import { createRoot } from "react-dom/client";
 
 import { ProblemError } from "./api/client";
 import { ErrorBoundary } from "./components/problem";
+import { ZONE_STORAGE_KEY } from "./lib/zone";
 import { router } from "./router";
 
 const queryClient = new QueryClient({
@@ -34,7 +36,9 @@ createRoot(root).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <TimeZoneProvider storageKey={ZONE_STORAGE_KEY}>
+          <RouterProvider router={router} />
+        </TimeZoneProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,

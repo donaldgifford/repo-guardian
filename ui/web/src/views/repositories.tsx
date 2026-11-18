@@ -11,7 +11,7 @@ import { LoadMore } from "../components/LoadMore";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
-import { Time } from "../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";

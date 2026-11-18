@@ -6,7 +6,7 @@ import { StateBadge } from "../components/badges";
 import { Badge } from "../components/ui/badge";
 import { Sparkline } from "../components/charts";
 import { Icon } from "../components/icons";
-import { Time } from "../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Card } from "../components/ui/card";
 import { Meter } from "../components/ui/meter";
 import changelog from "../generated/changelog.json";

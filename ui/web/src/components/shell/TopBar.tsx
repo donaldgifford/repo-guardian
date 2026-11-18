@@ -5,7 +5,7 @@ import type { Schemas } from "../../api/client";
 import { useUIConfig } from "../../api/queries";
 import { initials } from "../../lib/viewmodel";
 import { Icon } from "../icons";
-import { TimeZoneToggle } from "../time";
+import { TimeZoneToggle } from "@donaldgifford/design-system/blocks/time";
 import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";

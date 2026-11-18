@@ -2,7 +2,7 @@ import type { Schemas } from "../api/client";
 import { usePolicies } from "../api/queries";
 import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
-import { Time } from "../components/time";
+import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";

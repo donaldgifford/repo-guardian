@@ -107,3 +107,14 @@ test("Escape closes it and a control row navigates to the control", async () => 
   await u.click(await findByRole("option", { name: /codeowners/ }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/controls/codeowners"));
 });
+
+test("the arrows wrap: ArrowUp from the first row selects the last", async () => {
+  const u = user();
+  const { router, findByRole } = mount("/");
+  await u.click(await findByRole("button", { name: "search" }));
+  await findByRole("combobox");
+  // An empty query lists every control and then every org; acme is last.
+  await findByRole("option", { name: /acme/ });
+  await u.keyboard("{ArrowUp}{Enter}");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/orgs/acme"));
+});

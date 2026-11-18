@@ -1,5 +1,6 @@
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@donaldgifford/design-system/components/command";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 
 import type { Schemas } from "../../api/client";
 import { pageItems, useControls, useOrgs, useRepositories } from "../../api/queries";
@@ -7,12 +8,24 @@ import { humanize } from "../../lib/format";
 import { useDebounced, useKeyboardShortcut } from "../../lib/hooks";
 import { patchSearch } from "../../lib/search";
 import { useOrgScope } from "../page/OrgScope";
-import { Command, CommandDialog, type CommandGroup } from "../ui/command";
 
 export interface PaletteData {
   repositories: Schemas["Repository"][];
   controls: Schemas["ControlSummary"][];
   orgs: Schemas["OrgSummary"][];
+}
+
+export interface PaletteItem {
+  id: string;
+  label: ReactNode;
+  // detail is the mono right-hand text: a policy state, a type.
+  detail?: string;
+  onSelect: () => void;
+}
+
+export interface PaletteGroup {
+  heading: string;
+  items: PaletteItem[];
 }
 
 export interface PaletteGo {
@@ -25,7 +38,7 @@ export interface PaletteGo {
 // repositories the API found, and the controls and orgs whose names
 // contain the query, from the already-loaded lists. An empty query
 // lists every control and org, so the palette doubles as a jump list.
-export function paletteGroups(query: string, data: PaletteData, go: PaletteGo): CommandGroup[] {
+export function paletteGroups(query: string, data: PaletteData, go: PaletteGo): PaletteGroup[] {
   const q = query.trim().toLowerCase();
   const matches = (...s: (string | undefined)[]) => q === "" || s.some((x) => x?.toLowerCase().includes(q));
   return [
@@ -99,9 +112,35 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     [query, debounced, repoItems, controls.data, orgs.data, navigate, close],
   );
 
+  // The groups are already filtered (the repositories by the API), so
+  // cmdk's own filter is off; loop wraps the arrows at either end. Each
+  // item's value is its id, so two rows sharing a label stay distinct.
   return (
-    <CommandDialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())} label="Search">
-      <Command query={query} onQueryChange={setQuery} groups={groups} placeholder="Search repositories, controls, orgs…" empty={query.trim() === "" ? "Type to search repositories." : "No matches."} />
+    <CommandDialog
+      open={open}
+      onOpenChange={(o) => (o ? onOpenChange(true) : close())}
+      title="Search"
+      description="Search repositories, controls and orgs"
+      showCloseButton={false}
+      className="top-[12vh] translate-y-0 sm:max-w-[600px]"
+      commandProps={{ shouldFilter: false, loop: true, label: "Search" }}
+    >
+      <CommandInput value={query} onValueChange={setQuery} placeholder="Search repositories, controls, orgs…" />
+      <CommandList className="max-h-[60vh]">
+        <CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">{query.trim() === "" ? "Type to search repositories." : "No matches."}</CommandEmpty>
+        {groups.map((g) =>
+          g.items.length === 0 ? null : (
+            <CommandGroup key={g.heading} heading={g.heading}>
+              {g.items.map((it) => (
+                <CommandItem key={it.id} value={it.id} onSelect={it.onSelect} className="justify-between gap-3 py-1.5 text-[13px]">
+                  <span className="min-w-0 truncate">{it.label}</span>
+                  {it.detail !== undefined ? <small className="font-mono text-[11px] text-muted-foreground">{it.detail}</small> : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ),
+        )}
+      </CommandList>
     </CommandDialog>
   );
 }

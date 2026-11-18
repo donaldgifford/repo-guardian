@@ -6,6 +6,14 @@
 # https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates#overriding-the-default-behavior-with-a-configuration-file
 
 version: 2
+# @donaldgifford/* is on GitHub Packages, which wants a token even for a
+# public package. GH_PACKAGES_READ_TOKEN is a Dependabot secret (not an
+# Actions one): a classic token with read:packages (IMPL-0037).
+registries:
+  github-packages-npm:
+    type: npm-registry
+    url: https://npm.pkg.github.com
+    token: ${{secrets.GH_PACKAGES_READ_TOKEN}}
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
@@ -18,6 +26,8 @@ updates:
   # ecosystem reads (the npm one needs a package-lock.json).
   - package-ecosystem: "bun"
     directory: "/ui"
+    registries:
+      - github-packages-npm
     schedule:
       interval: "daily"
     open-pull-requests-limit: 0

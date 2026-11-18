@@ -7,7 +7,7 @@ import { HoldBadge, RemediationBadge, RuleStatusBadge, StatusBadge } from "../co
 import { Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { NOT_ENABLED } from "../components/GatedPanel";
-import { LoadMore } from "../components/LoadMore";
+import { LoadMore } from "@donaldgifford/design-system/blocks/load-more";
 import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";

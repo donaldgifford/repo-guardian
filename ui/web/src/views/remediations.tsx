@@ -7,7 +7,7 @@ import { HoldBadge, RemediationStateBadge } from "../components/badges";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
 import { gatedContent, NOT_ENABLED } from "../components/GatedPanel";
-import { LoadMore } from "../components/LoadMore";
+import { LoadMore } from "@donaldgifford/design-system/blocks/load-more";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { ExternalLink } from "../components/posture";

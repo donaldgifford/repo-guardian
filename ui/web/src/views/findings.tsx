@@ -193,7 +193,7 @@ export function FindingsView() {
           </>
         }
       />
-      <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
+      <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_var(--sheet-width-wide)]")} data-layout={inline ? "side-by-side" : "stacked"}>
         <div ref={tableRef} className="min-w-0 space-y-3">
           <Panel className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
             <FilterChips values={filterValues} onChange={patch} options={{ controls: (controls.data?.items ?? []).map((c) => c.id), rules: controlRules(items ?? [], search.control), orgs: (orgs.data?.items ?? []).map((o) => o.org) }} remediation={remediation} />

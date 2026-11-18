@@ -10,7 +10,8 @@ import { ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
+import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
+import { DetailKV } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { reassignedEvents, StatusMove, timelineEvents } from "../findings/drawer";
@@ -56,14 +57,17 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
   if (!key) return null;
   const title = r ? `${r.org}/${r.repository}` : `remediation ${open}`;
   return (
-    <DetailDrawer
+    <DetailPanel
       open
       inline={inline}
-      onClose={onClose}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      subject={open}
       {...(returnFocusTo === undefined ? {} : { returnFocusTo })}
-      aria-label={`Remediation: ${title}${r ? ` ${r.control_id}` : ""}`}
+      label={`Remediation: ${title}${r ? ` ${r.control_id}` : ""}`}
       title={title}
-      subtitle={
+      description={
         r ? (
           <span>
             {r.control_id} · {humanize(r.kind)} · opened <Time iso={r.created_at} style="date" />
@@ -74,17 +78,17 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
         r ? (
           <>
             <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }} />}>
-                Open finding →
+              Open finding →
             </Button>
             <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/repositories/$id" params={{ id: String(r.repository_id) }} />}>
-                Open repository →
+              Open repository →
             </Button>
           </>
         ) : undefined
       }
     >
       {r ? <RemediationBody remediation={r} /> : lookup.isFetched || lookup.isError ? <p className="text-sm text-muted-foreground">This remediation is not visible: it is outside your orgs, past the listing cap, or gone.</p> : <Loading />}
-    </DetailDrawer>
+    </DetailPanel>
   );
 }
 

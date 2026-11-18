@@ -9,7 +9,8 @@ import { BucketBadge, EvidenceText, ExternalLink } from "../../components/postur
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { type Column, DataTable } from "../../components/ui/data-table";
-import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
+import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
+import { DetailKV } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
 import { openSearch } from "../remediations/model";
@@ -107,14 +108,17 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
   const href = r && config.data ? `https://${config.data.github_host}/${r.org}/${r.name}` : undefined;
   const missing = (repository.isError || controls.isError || (controls.data && !control)) ?? false;
   return (
-    <DetailDrawer
+    <DetailPanel
       open
       inline={inline}
-      onClose={onClose}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      subject={open}
       {...(returnFocusTo === undefined ? {} : { returnFocusTo })}
-      aria-label={`Finding: ${title} ${key.control}`}
+      label={`Finding: ${title} ${key.control}`}
       title={href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
-      subtitle={
+      description={
         control ? (
           <span>
             {control.control_id} v{control.version} · {humanize(control.decision)}
@@ -145,7 +149,7 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
       ) : (
         <Loading />
       )}
-    </DetailDrawer>
+    </DetailPanel>
   );
 }
 

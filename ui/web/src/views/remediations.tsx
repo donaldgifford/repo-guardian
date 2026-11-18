@@ -148,7 +148,7 @@ export function RemediationsView() {
             <Kpi label="Held" value={k ? k.held.toLocaleString() : "…"} hint={k && k.heldByReason.length > 0 ? k.heldByReason.map((h) => `${humanize(h.hold)} ${h.count}`).join(" · ") : "nothing held"} />
             <Kpi label="Failed applies" value={k ? k.failed.toLocaleString() : "…"} hint="direct apply stopped partway" />
           </div>
-          <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
+          <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_var(--sheet-width-wide)]")} data-layout={inline ? "side-by-side" : "stacked"}>
             <div ref={tableRef} className="min-w-0 space-y-3">
               <Panel className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
                 <SearchTabs param="view" defaultValue="all" options={VIEWS} label="Remediation views" />

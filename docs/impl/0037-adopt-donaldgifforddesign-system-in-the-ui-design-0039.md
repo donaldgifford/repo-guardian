@@ -280,7 +280,7 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 - [x] 4.11 Rewrite `components/ui/behaviour.test.tsx` and `primitives.test.tsx` cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
   Done: each deleted primitive's case went with it (Button, Avatar, Card → `Panel.test.tsx`, Tabs → `SegmentedTabs.test.tsx` with the keyboard and search-param cases). `behaviour.test.tsx` now covers only survivors (the shell's Drawer focus trap, Escape and focus return; Command), and the DeltaText cases moved to `components/DeltaText.test.tsx`.
 - [x] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
-  Done. No selector named local markup. The one changed assertion (3.x's `toHaveClass(/--color-destructive/)` → `toHaveAttribute("data-variant", "destructive")`, 4.3) cannot pass on the pre-change build, whose badge rendered no `data-variant`. Added: focus moves into the findings drawer and Escape returns it to the row (shown to fail with `returnFocusTo` removed), and the account menu opens from the keyboard and Escape returns focus to its trigger.
+  Done. No selector named local markup. The one changed assertion (`toHaveClass(/--color-destructive/)` → `toHaveAttribute("data-variant", "destructive")`, 4.3) cannot pass on the pre-change build, whose badge rendered no `data-variant`. Added: focus moves into the findings drawer and Escape returns it to the row (shown to fail with `returnFocusTo` removed), and the account menu opens from the keyboard and Escape returns focus to its trigger.
 
 <!--docz:tasks:end-->
 
@@ -295,7 +295,7 @@ Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the p
 <!--docz:criteria:end-->
 
 **Phase 4 result (2026-11-18):** met except the visual criterion, as in
-Phase 3. `make lint-ui`, `make test-ui` (355) and `make test-ui-e2e`
+Phase 3. `make lint-ui`, `make test-ui` (353) and `make test-ui-e2e`
 (42, `a11y.spec.ts` unchanged) pass; only `command.tsx`, `dialog.tsx`
 and `drawer.tsx` import `radix-ui`. The e2e run found two regressions,
 both fixed: the four Link buttons announced as buttons (4.2 note), and

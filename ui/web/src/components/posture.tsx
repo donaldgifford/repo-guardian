@@ -5,7 +5,7 @@ import { describeEvidence } from "../lib/evidence";
 import { humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
 import { DistBar } from "@donaldgifford/design-system/blocks/dist-bar";
-import { Badge } from "./ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
@@ -40,11 +40,11 @@ export function PostureBar({ posture, label }: { posture: Posture; label: string
 // BucketBadge is an assignment's posture bucket; the enum is open, so a
 // bucket the table does not know is mute.
 export function BucketBadge({ bucket }: { bucket: string }) {
-  return <Badge tone={toneFor("bucket", bucket)}>{humanize(bucket)}</Badge>;
+  return <Badge variant={toneFor("bucket", bucket)}>{humanize(bucket)}</Badge>;
 }
 
 export function DecisionBadge({ decision }: { decision: string }) {
-  return <Badge tone={toneFor("decision", decision)}>{humanize(decision)}</Badge>;
+  return <Badge variant={toneFor("decision", decision)}>{humanize(decision)}</Badge>;
 }
 
 // EvidenceText is a rule result's evidence as text, never markup.

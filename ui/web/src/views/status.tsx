@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { Schemas } from "../api/client";
 import { useStatus, useUIConfig } from "../api/queries";
 import { StateBadge } from "../components/badges";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Sparkline } from "@donaldgifford/design-system/blocks/sparkline";
 import { Icon } from "../components/icons";
 import { Time } from "@donaldgifford/design-system/blocks/time";
@@ -262,7 +262,7 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
             <li key={e.version} className="space-y-1 px-3.5 py-2.5 text-[13px]" data-version={e.version} data-running={e.version === bundle.running}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono font-medium">{e.version}</span>
-                {e.version === bundle.running ? <Badge tone="success">running</Badge> : null}
+                {e.version === bundle.running ? <Badge variant="success">running</Badge> : null}
                 <time dateTime={e.date} className="text-xs text-muted-foreground">
                   {e.date}
                 </time>
@@ -271,7 +271,7 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
               <p className="text-muted-foreground">{e.summary}</p>
               <div className="flex flex-wrap gap-1">
                 {e.tags.map((t) => (
-                  <Badge key={t} tone={toneFor("tag", t)}>
+                  <Badge key={t} variant={toneFor("tag", t)}>
                     {t}
                   </Badge>
                 ))}

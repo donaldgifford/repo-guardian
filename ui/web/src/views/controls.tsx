@@ -12,7 +12,7 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureMeter } from "../components/posture";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
@@ -92,7 +92,7 @@ export function ControlView() {
     <>
       <PageHeader
         title={c.id}
-        badge={<Badge tone="outline">{c.type}</Badge>}
+        badge={<Badge variant="outline">{c.type}</Badge>}
         subtitle={
           <>
             {c.title ? `${c.title} · ` : ""}

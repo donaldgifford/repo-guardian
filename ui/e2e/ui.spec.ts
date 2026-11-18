@@ -183,7 +183,7 @@ test("a repository shows its controls with evidence, the evaluation log and even
 
   // INV-0023 F1: a failing rule carries the destructive tone, not muted.
   const failing = page.getByRole("table", { name: "renovate rules" }).getByText("fail", { exact: true });
-  await expect(failing).toHaveClass(/--color-destructive/);
+  await expect(failing).toHaveAttribute("data-variant", "destructive");
 
   // No Temporal client on the e2e api: the POST answers 501 and the
   // button goes away.

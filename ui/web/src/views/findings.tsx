@@ -12,7 +12,7 @@ import { LoadMore } from "@donaldgifford/design-system/blocks/load-more";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Tabs } from "../components/ui/tabs";
@@ -121,7 +121,7 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
         <div className="max-w-[380px] space-y-1 whitespace-normal">
           <div className="flex flex-wrap gap-1">
             {r.failing_rules.map((rule) => (
-              <Badge key={rule} tone="destructive">
+              <Badge key={rule} variant="destructive">
                 {rule}
               </Badge>
             ))}

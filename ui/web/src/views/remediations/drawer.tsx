@@ -8,7 +8,7 @@ import { Loading } from "../../components/common";
 import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
@@ -96,8 +96,8 @@ export function remediationRows(r: Schemas["Remediation"]) {
       key: "state",
       value: (
         <span className="inline-flex flex-wrap items-center gap-2">
-          {r.state ? <RemediationStateBadge state={r.state} /> : <Badge tone="muted">held</Badge>}
-          {isStale(r) ? <Badge tone="warning">stale</Badge> : null}
+          {r.state ? <RemediationStateBadge state={r.state} /> : <Badge variant="muted">held</Badge>}
+          {isStale(r) ? <Badge variant="warning">stale</Badge> : null}
         </span>
       ),
     },
@@ -140,7 +140,7 @@ export function StepsJournal({ steps }: { steps: readonly Schemas["RemediationSt
         <li key={st.seq} className="flex flex-wrap items-baseline gap-2">
           <span className="text-muted-foreground">{st.seq}.</span>
           <span>{st.kind}</span>
-          <Badge tone={st.status === "failed" ? "destructive" : "success"}>{st.status}</Badge>
+          <Badge variant={st.status === "failed" ? "destructive" : "success"}>{st.status}</Badge>
           {st.resource_key ? <span className="text-muted-foreground">{st.resource_key}</span> : null}
           {st.pr_number !== undefined ? <span className="text-muted-foreground">#{st.pr_number}</span> : null}
           {st.committed_sha ? <span className="text-muted-foreground">{st.committed_sha.slice(0, 12)}</span> : null}

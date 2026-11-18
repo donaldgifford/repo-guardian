@@ -12,7 +12,7 @@ import { useCrumbLabel } from "../components/page/Breadcrumbs";
 import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
@@ -112,8 +112,8 @@ export function RepositoriesView() {
 }
 
 function policyStateBadge(r: Schemas["Repository"]) {
-  if (!r.active) return <Badge tone="warning">parked</Badge>;
-  return <Badge tone={r.policy_state === "managed" ? "success" : "muted"}>{r.policy_state ?? "unresolved"}</Badge>;
+  if (!r.active) return <Badge variant="warning">parked</Badge>;
+  return <Badge variant={r.policy_state === "managed" ? "success" : "muted"}>{r.policy_state ?? "unresolved"}</Badge>;
 }
 
 const repositoriesCsv: CsvColumns<Schemas["Repository"]> = {
@@ -214,7 +214,7 @@ export function EvaluateButton({ id }: { id: number }) {
 
 function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
   const rows = [
-    { key: "state", value: r.active ? <Badge tone="success">active</Badge> : <Badge tone="warning">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
+    { key: "state", value: r.active ? <Badge variant="success">active</Badge> : <Badge variant="warning">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
     { key: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
     ...(r.policy_reason ? [{ key: "policy reason", value: r.policy_reason }] : []),
     { key: "evaluable", value: r.evaluable ? "yes" : "no" },
@@ -334,7 +334,7 @@ function outcomeTone(outcome: string): "success" | "destructive" | "muted" {
 const evaluationColumns: Column<Schemas["Evaluation"]>[] = [
   { key: "time", header: "Time", cell: (e) => <Time iso={e.started_at} style="relative" />, className: "whitespace-nowrap" },
   { key: "trigger", header: "Trigger", cell: (e) => humanize(e.trigger) },
-  { key: "outcome", header: "Outcome", cell: (e) => <Badge tone={outcomeTone(e.outcome)}>{e.outcome}</Badge> },
+  { key: "outcome", header: "Outcome", cell: (e) => <Badge variant={outcomeTone(e.outcome)}>{e.outcome}</Badge> },
   { key: "duration", header: "Duration", cell: (e) => (e.duration_seconds === undefined ? "" : `${e.duration_seconds.toFixed(1)}s`), numeric: true },
   { key: "error", header: "Error", cell: (e) => (e.error ? <span className="font-mono text-xs break-all">{e.error}</span> : <span className="text-muted-foreground">—</span>), hideBelow: "md" },
 ];

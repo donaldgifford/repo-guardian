@@ -13,7 +13,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureMeter } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Button } from "@donaldgifford/design-system/components/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
@@ -132,11 +132,11 @@ export function OrgsView() {
       <Card bodyClassName="p-0">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5" aria-label="Orgs toolbar" role="toolbar">
           <span className="text-xs text-muted-foreground">Repositories</span>
-          <Badge tone="muted">{compact(total.tracked)}</Badge>
+          <Badge variant="muted">{compact(total.tracked)}</Badge>
           <span className="text-xs text-muted-foreground">Non-compliant</span>
-          <Badge tone="destructive">{compact(total.compliance.non_compliant)}</Badge>
+          <Badge variant="destructive">{compact(total.compliance.non_compliant)}</Badge>
           <span className="text-xs text-muted-foreground">Parked</span>
-          <Badge tone="warning">{compact(total.parked)}</Badge>
+          <Badge variant="warning">{compact(total.parked)}</Badge>
           <span className="flex-1" />
           {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-card px-2.5 text-xs" /> : null}
           <SearchTabs param="tab" defaultValue="compliance" options={ORGS_TABS} label="Orgs tabs" />
@@ -244,7 +244,7 @@ function ComplianceChildren({ org, total, filter, remediation }: { org: string; 
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        badge: r.policy_state && r.policy_state !== "managed" ? <Badge tone="muted">{humanize(r.policy_state)}</Badge> : undefined,
+        badge: r.policy_state && r.policy_state !== "managed" ? <Badge variant="muted">{humanize(r.policy_state)}</Badge> : undefined,
         cells: { ...postureRow(r.compliance), open_prs: remediation ? (prs.data ? byRepo.get(r.id) ?? 0 : "…") : gatedCount(0, remediation), parked: "" },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
@@ -266,7 +266,7 @@ function ParkedChildren({ org, total, filter }: { org: string; total: number; fi
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        cells: { reason: <Badge tone="warning">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
+        cells: { reason: <Badge variant="warning">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
     />
@@ -410,7 +410,7 @@ const worstColumns: Column<Schemas["OrgControl"]>[] = [
 export const exclusionColumns: Column<Schemas["Exclusion"]>[] = [
   { key: "repository", header: "Repository", cell: (e) => <span className="font-mono">{e.repository}</span> },
   { key: "control", header: "Control", cell: (e) => (e.control_id ? <span className="font-mono">{e.control_id}</span> : <span className="text-muted-foreground">every control</span>) },
-  { key: "state", header: "State", cell: (e) => <Badge tone="muted">{humanize(e.state)}</Badge> },
+  { key: "state", header: "State", cell: (e) => <Badge variant="muted">{humanize(e.state)}</Badge> },
   { key: "reason", header: "Reason", cell: (e) => e.reason },
   { key: "by", header: "Excluded by", cell: (e) => <span className="font-mono text-xs">{e.excluded_by ?? "—"}</span>, hideBelow: "md" },
 ];

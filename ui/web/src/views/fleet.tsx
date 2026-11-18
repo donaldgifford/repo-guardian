@@ -17,7 +17,7 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, PostureBar, PostureMeter } from "../components/posture";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DeltaText } from "../components/DeltaText";
@@ -146,7 +146,7 @@ export function FleetView() {
             }
           >
             <div className="mb-2">
-              <Badge tone="info">{under30 === null ? "no findings" : `${under30}% under 30d`}</Badge>
+              <Badge variant="info">{under30 === null ? "no findings" : `${under30}% under 30d`}</Badge>
             </div>
             <DistBar segments={s.finding_age.map((b, i) => ({ label: b.bucket, value: b.count, color: AGE_COLORS[i] ?? AGE_COLORS[5] }))} size="sm" label="Finding age distribution" />
             <p className="mt-3 text-xs text-muted-foreground">
@@ -264,7 +264,7 @@ export function FleetView() {
 // bare numbers beside the percentage.
 function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["compliance"] }) {
   const one = (n: number, tone: "success" | "destructive", glyph: string, label: string) => (
-    <Badge tone={n === 0 ? "muted" : tone} title={`${n.toLocaleString()} ${label}`}>
+    <Badge variant={n === 0 ? "muted" : tone} title={`${n.toLocaleString()} ${label}`}>
       <span aria-hidden="true">{glyph} </span>
       {n.toLocaleString()}
       <span className="sr-only"> {label}</span>

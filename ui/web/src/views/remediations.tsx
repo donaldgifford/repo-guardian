@@ -12,7 +12,7 @@ import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
 import { ExternalLink } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
@@ -45,13 +45,13 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     ),
   },
   { key: "control", header: "Control", cell: (r) => <span className="font-mono">{r.control_id}</span> },
-  { key: "kind", header: "Kind", cell: (r) => <Badge tone="outline">{humanize(r.kind)}</Badge>, hideBelow: "md" },
+  { key: "kind", header: "Kind", cell: (r) => <Badge variant="outline">{humanize(r.kind)}</Badge>, hideBelow: "md" },
   {
     key: "state",
     header: "State",
     cell: (r) => (
       <span className="inline-flex items-center gap-1.5">
-        {r.state ? <RemediationStateBadge state={r.state} /> : <Badge tone="muted">held</Badge>}
+        {r.state ? <RemediationStateBadge state={r.state} /> : <Badge variant="muted">held</Badge>}
         {r.pr_number !== undefined ? r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono text-xs">#{r.pr_number}</span> : null}
       </span>
     ),
@@ -74,7 +74,7 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     header: "Age",
     cell: (r) => (
       <span className="inline-flex items-center gap-1.5 font-mono">
-        {remediationAge(r)}d{isStale(r) ? <Badge tone="warning">stale</Badge> : null}
+        {remediationAge(r)}d{isStale(r) ? <Badge variant="warning">stale</Badge> : null}
       </span>
     ),
     numeric: true,

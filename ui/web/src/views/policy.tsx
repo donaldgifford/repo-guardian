@@ -3,7 +3,7 @@ import { usePolicies } from "../api/queries";
 import { Loading } from "../components/common";
 import { PageHeader } from "../components/page/PageHeader";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Badge } from "../components/ui/badge";
+import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
@@ -43,7 +43,7 @@ export function PolicyView() {
             <Card title="Enterprise baseline">
               <DetailKV
                 rows={[
-                  { key: "mode", value: <Badge tone="outline">{p.enterprise.mode}</Badge> },
+                  { key: "mode", value: <Badge variant="outline">{p.enterprise.mode}</Badge> },
                   { key: "orgs", value: <span className="font-mono text-xs">{p.enterprise.orgs.join(", ") || "—"}</span> },
                   { key: "controls", value: <span className="font-mono text-xs">{p.enterprise.controls.join(", ") || "—"}</span> },
                 ]}
@@ -79,7 +79,7 @@ function changes(list: readonly Schemas["PolicyChange"][]) {
 
 function OrgLayer({ org: o }: { org: Schemas["PolicyOrg"] }) {
   return (
-    <Card title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge tone="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
+    <Card title={<span className="font-mono">{o.org}</span>} right={o.mode ? <Badge variant="outline">{o.mode}</Badge> : undefined} data-org={o.org}>
       <DetailKV
         rows={[
           { key: "added", value: changes(o.added) },

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { Legend } from "./ChartCard";
 
 export interface Segment {

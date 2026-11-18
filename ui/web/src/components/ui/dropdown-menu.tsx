@@ -1,7 +1,7 @@
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // DropdownMenu is radix's menu with the popover's look: arrow keys move,
 // Enter activates, Escape closes and focus returns to the trigger.

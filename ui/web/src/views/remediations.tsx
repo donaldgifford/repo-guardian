@@ -20,8 +20,9 @@ import { SearchTabs } from "../components/ui/tabs";
 import { humanize } from "../lib/format";
 import { HOLDS, holdSentence } from "../lib/holds";
 import { patchSearch } from "../lib/search";
-import { SIDE_BY_SIDE, useMediaQuery } from "../lib/use-media-query";
-import { cn } from "../lib/utils";
+import { DETAIL_INLINE_QUERY } from "@donaldgifford/design-system/shell/detail-panel";
+import { useMediaQuery } from "@donaldgifford/design-system/hooks/use-media-query";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { RemediationDrawer } from "./remediations/drawer";
 import { isStale, KINDS, kpis, openSearch, remediationAge, remediationFilter, remediationKey, remediationsCsv, STATES, VIEWS } from "./remediations/model";
 
@@ -113,7 +114,7 @@ export function RemediationsView() {
   const items = pageItems(rows.data);
   const patch = (p: Record<string, string | undefined>) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => patchSearch(prev, p) });
   const openRow = (r: Schemas["Remediation"] | undefined) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => ({ ...patchSearch(prev, { open: undefined }), ...(r === undefined ? {} : { open: openSearch(r) }) }) });
-  const sideBySide = useMediaQuery(SIDE_BY_SIDE);
+  const sideBySide = useMediaQuery(DETAIL_INLINE_QUERY);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
   const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));

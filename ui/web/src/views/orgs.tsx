@@ -19,7 +19,7 @@ import { type Column, DataTable } from "../components/ui/data-table";
 import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "../components/ui/group-grid";
 import { Kpi } from "../components/ui/kpi";
 import { SearchTabs } from "../components/ui/tabs";
-import type { CsvColumns } from "../lib/csv";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { formatPercent, humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";
 import { historySeries, type Posture, postureCsvHead, postureCsvRow } from "../lib/posture";

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // PageHeader is the block under the breadcrumbs on every authenticated
 // page (DESIGN-0036 §Page anatomy): a 20px title with an optional

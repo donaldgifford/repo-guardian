@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { type CsvColumns, csvTable, type CsvValue, downloadCsv, exportFilename } from "../lib/csv";
+import { type CsvColumns, csvTable, type CsvValue, downloadCsv, exportFilename } from "@donaldgifford/design-system/lib/csv";
 import { Button } from "./ui/button";
 
 export interface ExportFetch<T> {
@@ -34,7 +34,7 @@ export function ExportButton<T>({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const ready = rows !== undefined && rows.length > 0;
-  const save = (items: readonly T[]) => download(exportFilename(page, filter), csvTable(columns, items));
+  const save = (items: readonly T[]) => download(exportFilename(`repo-guardian-${page}`, filter), csvTable(columns, items));
   const onClick = async () => {
     if (!rows) return;
     if (!all) {

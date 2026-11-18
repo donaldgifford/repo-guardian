@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 export interface Column<T> {
   key: string;

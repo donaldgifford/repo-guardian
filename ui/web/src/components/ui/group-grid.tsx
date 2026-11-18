@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext } from "react";
 
 import { floorPercent } from "../../lib/posture";
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { heatOpacity } from "../../lib/viewmodel";
 
 export type GridTone = "success" | "destructive" | "warning" | "muted" | "info";

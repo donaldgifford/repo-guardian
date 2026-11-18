@@ -2,7 +2,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { patchSearch } from "../../lib/search";
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 export interface TabOption<V extends string> {
   value: V;

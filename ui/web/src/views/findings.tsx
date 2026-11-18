@@ -16,11 +16,12 @@ import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Tabs } from "../components/ui/tabs";
-import type { CsvColumns } from "../lib/csv";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
 import { patchSearch } from "../lib/search";
-import { SIDE_BY_SIDE, useMediaQuery } from "../lib/use-media-query";
-import { cn } from "../lib/utils";
+import { DETAIL_INLINE_QUERY } from "@donaldgifford/design-system/shell/detail-panel";
+import { useMediaQuery } from "@donaldgifford/design-system/hooks/use-media-query";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { FindingDrawer, findingKey } from "./findings/drawer";
 
 export type FindingsSort = NonNullable<ResultsFilter["sort"]>;
@@ -169,7 +170,7 @@ export function FindingsView() {
   const columns = findingColumns(remediation);
   const patch = (p: Record<string, string | boolean | undefined>) => void navigate({ to: ".", search: (prev: Record<string, unknown>) => patchSearch(prev, p) });
   const openFinding = (key: string | undefined) => patch({ open: key });
-  const sideBySide = useMediaQuery(SIDE_BY_SIDE);
+  const sideBySide = useMediaQuery(DETAIL_INLINE_QUERY);
   const tableRef = useRef<HTMLDivElement>(null);
   const inline = sideBySide && open !== undefined;
   const rowFor = (key: string | undefined) => (key === undefined ? null : tableRef.current?.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(key)}"]`));

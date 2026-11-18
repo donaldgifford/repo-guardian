@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { BarList, foldBarList } from "./BarList";
 import { ChartCard } from "./ChartCard";
 import { DistBar } from "./DistBar";
-import { fitTicks, niceBounds, tickLabel, xTicksFor } from "./scale";
+import { fitTicks, niceBounds, tickLabel, xTicksFor } from "@donaldgifford/design-system/lib/chart-scale";
 import { Sparkline } from "./Sparkline";
 import { rowShares, StackedBars, stackTable } from "./StackedBars";
 import { trendTable } from "./TrendChart";

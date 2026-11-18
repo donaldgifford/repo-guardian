@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Avatar is a 20px square in the avatar colour with initials; there is
 // no image path (DESIGN-0036 §Shell).

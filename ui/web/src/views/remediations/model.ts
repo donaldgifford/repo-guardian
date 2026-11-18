@@ -1,6 +1,6 @@
 import type { Schemas } from "../../api/client";
 import type { RemediationFilter } from "../../api/queries";
-import type { CsvColumns } from "../../lib/csv";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { ageDays } from "../../lib/format";
 import { BRANCH_HOLDS, HOLDS } from "../../lib/holds";
 

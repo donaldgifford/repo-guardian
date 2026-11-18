@@ -1,12 +1,15 @@
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
-import { formatTime, otherZone, readZone, type TimeStyle, writeZone, type Zone } from "../lib/time";
-import { cn } from "../lib/utils";
+import { formatTime, otherZone, readZone, type TimeStyle, writeZone, type Zone } from "@donaldgifford/design-system/lib/time";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 interface TimeZoneContextValue {
   zone: Zone;
   setZone: (zone: Zone) => void;
 }
+
+// The key the app has always stored the choice under.
+const ZONE_KEY = "rg.tz";
 
 const TimeZoneContext = createContext<TimeZoneContextValue>({ zone: "local", setZone: () => {} });
 
@@ -14,10 +17,10 @@ const TimeZoneContext = createContext<TimeZoneContextValue>({ zone: "local", set
 // persists it under localStorage["rg.tz"]; without a provider every
 // <Time> renders local.
 export function TimeZoneProvider({ children, initial }: { children: ReactNode; initial?: Zone }) {
-  const [zone, setZoneState] = useState<Zone>(() => initial ?? readZone());
+  const [zone, setZoneState] = useState<Zone>(() => initial ?? readZone(ZONE_KEY));
   const setZone = useCallback((next: Zone) => {
     setZoneState(next);
-    writeZone(next);
+    writeZone(next, ZONE_KEY);
   }, []);
   const value = useMemo(() => ({ zone, setZone }), [zone, setZone]);
   return <TimeZoneContext.Provider value={value}>{children}</TimeZoneContext.Provider>;

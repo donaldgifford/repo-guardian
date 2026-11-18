@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Table and its parts: shadcn/ui's table.
 export function Table({ className, ...props }: ComponentProps<"table">) {

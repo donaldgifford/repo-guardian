@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Pill is a legend toggle: a colour dot, a label and the series' current
 // value. It is a radio inside a PillGroup, so exactly one series is

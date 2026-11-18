@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Dialog is radix's modal dialog: focus moves in on open, is trapped,
 // and returns to the opener on close; Escape and the scrim dismiss.

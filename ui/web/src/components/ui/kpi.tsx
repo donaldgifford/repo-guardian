@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 export interface Delta {
   // value is the change against the comparison point, already rounded.

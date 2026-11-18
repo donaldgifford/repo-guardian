@@ -11,7 +11,7 @@ import { Card } from "../components/ui/card";
 import { Meter } from "../components/ui/meter";
 import changelog from "../generated/changelog.json";
 import { formatPercent, toneFor } from "../lib/format";
-import { cn } from "../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 export type StatusTone = "success" | "warning" | "destructive" | "muted";
 

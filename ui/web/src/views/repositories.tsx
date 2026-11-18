@@ -18,7 +18,7 @@ import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
 import { SearchTabs } from "../components/ui/tabs";
-import type { CsvColumns } from "../lib/csv";
+import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { useDebounced } from "../lib/hooks";
 import { humanize } from "../lib/format";
 import { holdSentence } from "../lib/holds";

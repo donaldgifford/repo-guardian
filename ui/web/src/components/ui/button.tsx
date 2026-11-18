@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Button is the mockup's `.btn`: 28px, hairline border on panel, 12px
 // text. Outline is the default because the UI is read-only and has no

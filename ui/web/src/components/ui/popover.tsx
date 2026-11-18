@@ -1,7 +1,7 @@
 import { Popover as PopoverPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Popover is radix's, styled as the mockup's `.pop`: a panel with a
 // hairline border and a soft shadow, 200ms fade that the global

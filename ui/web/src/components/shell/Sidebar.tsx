@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useOrg, useRemediationEnabled, useRemediationOverview, useSummary, useUIConfig } from "../../api/queries";
 import { addPosture } from "../../lib/posture";
 import { kpis } from "../../views/remediations/model";
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { Icon } from "../icons";
 import { useOrgScope } from "../page/OrgScope";
 import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";

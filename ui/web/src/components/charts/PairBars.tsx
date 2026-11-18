@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Legend } from "./ChartCard";
-import { fitTicks, niceBounds, tickLabel } from "./scale";
+import { fitTicks, niceBounds, tickLabel } from "@donaldgifford/design-system/lib/chart-scale";
 import { ChartTip } from "./tooltip";
 
 const AXIS = { fontFamily: "var(--font-mono)", fontSize: 11, fill: "var(--color-muted-foreground)" } as const;

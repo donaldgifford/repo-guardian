@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // Chip is a `key = value` filter (the reel's `.chip`), mono at 11.5px.
 // It is a button: clicking opens that filter's editor. With no value it

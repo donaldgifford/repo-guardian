@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 
 // The badge recipe (DESIGN-0036 §Badges): mono 12px, 5px 7px padding,
 // no radius, an 18% tint of the tone behind text pulled 65% toward

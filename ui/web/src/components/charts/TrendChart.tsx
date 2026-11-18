@@ -3,7 +3,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 
 import type { SeriesPoint } from "../../lib/viewmodel";
 import { Empty } from "../common";
-import { fitTicks, formatValue, niceBounds, tickLabel, xTicksFor } from "./scale";
+import { fitTicks, formatValue, niceBounds, tickLabel, xTicksFor } from "@donaldgifford/design-system/lib/chart-scale";
 import { ChartTip } from "./tooltip";
 
 const AXIS = { fontFamily: "var(--font-mono)", fontSize: 11, fill: "var(--color-muted-foreground)" } as const;

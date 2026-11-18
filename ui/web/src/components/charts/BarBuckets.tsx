@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { niceBounds } from "./scale";
+import { niceBounds } from "@donaldgifford/design-system/lib/chart-scale";
 import { ChartTip } from "./tooltip";
 
 const AXIS = { fontFamily: "var(--font-mono)", fontSize: 11, fill: "var(--color-muted-foreground)" } as const;

@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@donaldgifford/design-system/lib/utils";
 import { Drawer, DrawerContent, DrawerHeader } from "./drawer";
 
 export interface DetailDrawerProps {

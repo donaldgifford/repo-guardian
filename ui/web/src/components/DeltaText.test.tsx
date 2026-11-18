@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { DeltaText } from "../DeltaText";
+import { DeltaText } from "./DeltaText";
 
 describe("DeltaText", () => {
   test("an upward good delta is ok, a downward one is bad", () => {

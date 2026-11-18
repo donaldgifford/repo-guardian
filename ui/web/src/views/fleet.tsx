@@ -15,7 +15,7 @@ import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DeltaText } from "../components/DeltaText";
-import { StatStrip } from "../components/ui/stat-strip";
+import { StatStrip } from "@donaldgifford/design-system/blocks/stat-strip";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, isFleetSeries, pickSeries, rangeDelta, SERIES, STALE_BUCKET, underDays, worstControls } from "../lib/fleet";
 import { humanize } from "../lib/format";
@@ -100,16 +100,16 @@ export function FleetView() {
             }
             strip={
               <StatStrip
-                cells={[
-                  { label: "Tracked", value: tracked.toLocaleString(), subline: "active repositories" },
+                items={[
+                  { label: "Tracked", value: tracked.toLocaleString(), sub: "active repositories" },
                   {
                     label: "Compliant",
                     value: formatPercent(posture.percent),
-                    subline: delta === undefined ? `over ${days}d` : delta === null ? `no delta over ${days}d` : <><DeltaText delta={delta} /> over {days}d</>,
+                    sub: delta === undefined ? `over ${days}d` : delta === null ? `no delta over ${days}d` : <><DeltaText delta={delta} /> over {days}d</>,
                   },
-                  { label: "Non-compliant", value: posture.non_compliant.toLocaleString(), subline: `results · ${s.controls_failing.toLocaleString()} controls with any` },
-                  { label: "Parked", value: parked.toLocaleString(), subline: `${s.parked_by_reason.length} ${s.parked_by_reason.length === 1 ? "reason" : "reasons"}` },
-                  { label: "Snapshots", value: fleetHistory.data ? points.length.toLocaleString() : "…", subline: `daily · ${days}d` },
+                  { label: "Non-compliant", value: posture.non_compliant.toLocaleString(), sub: `results · ${s.controls_failing.toLocaleString()} controls with any` },
+                  { label: "Parked", value: parked.toLocaleString(), sub: `${s.parked_by_reason.length} ${s.parked_by_reason.length === 1 ? "reason" : "reasons"}` },
+                  { label: "Snapshots", value: fleetHistory.data ? points.length.toLocaleString() : "…", sub: `daily · ${days}d` },
                 ]}
               />
             }

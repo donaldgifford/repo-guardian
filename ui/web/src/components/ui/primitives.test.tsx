@@ -5,7 +5,6 @@ import { Avatar } from "./avatar";
 import { Button } from "./button";
 import { Card } from "./card";
 import { DeltaText } from "../DeltaText";
-import { StatStrip } from "./stat-strip";
 import { Tabs } from "./tabs";
 
 describe("Card", () => {
@@ -22,13 +21,6 @@ describe("Card", () => {
   test("without a title is the bare surface", () => {
     expect(renderToStaticMarkup(<Card>raw</Card>)).toBe('<section class="rounded-lg border border-border bg-card">raw</section>');
   });
-});
-
-test("StatStrip renders one cell per stat with optional subline", () => {
-  const html = renderToStaticMarkup(<StatStrip cells={[{ label: "Tracked", value: "412" }, { label: "Compliant", value: "87.0%", subline: "vs previous" }]} />);
-  expect(html.match(/<dt/g)).toHaveLength(2);
-  expect(html).toContain(">Tracked</dt>");
-  expect(html).toContain(">vs previous</dd>");
 });
 
 describe("DeltaText", () => {

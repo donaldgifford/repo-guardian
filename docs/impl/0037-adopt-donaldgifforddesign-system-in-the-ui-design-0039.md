@@ -221,7 +221,7 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - [x] 3.5 `components/LoadMore.tsx` to `blocks/load-more`.
 - [x] 3.6 `ui/meter` to `blocks/meter` (`size`, required `label`); `ui/chip` to `blocks/filter-chip`; `ui/pill` to `blocks/series-pills`, including the fleet's hand-rolled series picker.
 - [x] 3.7 `ui/kpi` to `blocks/kpi`. Move `DeltaText` and `Delta` to `components/DeltaText.tsx`, pass it as `hint`, and update `lib/fleet.ts`'s type import.
-- [ ] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
+- [x] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
 - [ ] 3.9 `charts/ChartCard` and `tooltip` to `blocks/chart-card` (`description`, `action`, `strip`). The fleet card's strip must stay visible in table view.
 - [ ] 3.10 `charts/TrendChart` to `blocks/trend-chart`: `points: {at, value}[]`, `series`, and `trendTable(points, series, { head: "Snapshot", noun: "snapshots" })`.
 - [ ] 3.11 `BarBuckets`, `PairBars`, `BarList`, `StackedBars`, `Sparkline` to their blocks. Check each chart with a null in its series: `Sparkline` now breaks the line.

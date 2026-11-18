@@ -27,10 +27,10 @@ export function Panel({ title, subtitle, right, strip, bodyClassName, className,
   return (
     <Card render={surface("gap-0 py-0")}>
       <CardHeader className="gap-x-3 gap-y-0 px-3.5 pt-2.5">
-        <CardTitle className="min-w-0 text-[13px]/normal" render={(p) => <h3 {...p} />}>
+        <CardTitle className="min-w-0 text-[13px]" render={(p) => <h3 {...p} />}>
           {title}
         </CardTitle>
-        {subtitle !== undefined ? <CardDescription>{subtitle}</CardDescription> : null}
+        {subtitle !== undefined ? <CardDescription className="text-xs">{subtitle}</CardDescription> : null}
         {right !== undefined ? <CardAction className="flex flex-none items-center gap-1.5">{right}</CardAction> : null}
       </CardHeader>
       {strip}

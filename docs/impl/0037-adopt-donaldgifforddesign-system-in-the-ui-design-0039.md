@@ -182,7 +182,7 @@ The app takes its Tailwind entry, tokens, fonts, focus outline and reduced-motio
 - [x] 2.2 `web/src/index.css` becomes the single `@import "@donaldgifford/design-system/globals.css";`. Delete the `@theme`, the `:root` and `body` rules, the `:focus-visible` rule, the reduced-motion block, the `rg-*` keyframes and the `animate-*` utilities.
 - [x] 2.3 The four local animation utilities are used by `components/ui/dialog.tsx` and `drawer.tsx`, which survive until Phases 4 and 6. Point them at `tw-animate-css` classes (`animate-in`, `fade-in-0`, `slide-in-from-right`, `slide-in-from-left`) so overlays still animate in between.
 - [x] 2.4 `--breakpoint-nav` goes with the `@theme`. The local sidebar and top bar use `nav:` until Phase 6: change their two uses to `md:` now, which is the package shell's breakpoint.
-- [ ] 2.5 `web/index.html`: `class="dark"` on `<html>`.
+- [x] 2.5 `web/index.html`: `class="dark"` on `<html>`.
 - [ ] 2.6 `web/src/main.tsx`: remove the five `@fontsource` imports.
 - [ ] 2.7 Rename utilities: `panel` to `card`, `panel-2` to `muted`, `ok`/`warn`/`bad` to `success`/`warning`/`destructive`, and `accent` per 2.1.
 - [ ] 2.8 Rename the inline `var(--color-…)` references the same way, including `toneVar` and chart colour constants. Meaningless series colours read `--chart-1` to `--chart-5`.

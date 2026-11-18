@@ -7,8 +7,13 @@
 # static files, so this stage runs on the build platform only.
 FROM --platform=$BUILDPLATFORM oven/bun:1.3.14 AS build
 WORKDIR /src
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# @donaldgifford/design-system is a devDependency on GitHub Packages, so
+# only this stage needs the registry token. It arrives as a build secret
+# (bake: id=NPM_TOKEN) and lives in this RUN's environment only: never in
+# a layer, an ARG or the .npmrc, which holds just the ${NPM_TOKEN} reference.
+COPY package.json bun.lock .npmrc ./
+RUN --mount=type=secret,id=NPM_TOKEN \
+    NPM_TOKEN="$(cat /run/secrets/NPM_TOKEN)" bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 

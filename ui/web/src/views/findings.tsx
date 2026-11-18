@@ -15,7 +15,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { Tabs } from "../components/ui/tabs";
+import { Tabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
 import { patchSearch } from "../lib/search";

@@ -16,7 +16,7 @@ import { Badge } from "@donaldgifford/design-system/components/badge";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
-import { SearchTabs } from "../components/ui/tabs";
+import { SearchTabs } from "../components/SegmentedTabs";
 import { humanize } from "../lib/format";
 import { HOLDS, holdSentence } from "../lib/holds";
 import { patchSearch } from "../lib/search";

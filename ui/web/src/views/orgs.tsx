@@ -19,7 +19,7 @@ import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "@donaldgifford/design-system/blocks/group-grid";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
-import { SearchTabs } from "../components/ui/tabs";
+import { SearchTabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
 import { useDebounced } from "../lib/hooks";

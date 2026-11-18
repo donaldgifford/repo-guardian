@@ -17,7 +17,7 @@ import { Button } from "@donaldgifford/design-system/components/button";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
-import { SearchTabs } from "../components/ui/tabs";
+import { SearchTabs } from "../components/SegmentedTabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { useDebounced } from "../lib/hooks";
 import { humanize } from "../lib/format";

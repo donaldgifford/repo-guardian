@@ -1,7 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 
 import { DAYS, type Days, DEFAULT_DAYS, parseDays, type RangeSearch } from "../../lib/range";
-import { Tabs } from "../ui/tabs";
+import { Tabs } from "../SegmentedTabs";
 
 const options = DAYS.map((d) => ({ value: String(d), label: `${d}d` }));
 

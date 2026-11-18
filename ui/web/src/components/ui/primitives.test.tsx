@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Avatar } from "./avatar";
-import { Button } from "./button";
 import { Card } from "./card";
 import { DeltaText } from "../DeltaText";
 import { Tabs } from "./tabs";
@@ -62,9 +61,4 @@ test("Avatar is a 20px square with the initials", () => {
   expect(html).toContain("size-5");
   expect(html).toContain("bg-avatar");
   expect(html).toContain(">DG</span>");
-});
-
-test("Button defaults to outline, type button", () => {
-  expect(renderToStaticMarkup(<Button>Go</Button>)).toMatch(/<button type="button" class="[^"]*border-border[^"]*h-7/);
-  expect(renderToStaticMarkup(<Button variant="ghost" size="sm">Go</Button>)).toMatch(/border-transparent[^"]*h-\[22px\]/);
 });

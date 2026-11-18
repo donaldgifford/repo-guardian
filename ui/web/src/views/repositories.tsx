@@ -13,7 +13,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { BucketBadge, DecisionBadge, EvidenceText, ExternalLink } from "../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
+import { Button } from "@donaldgifford/design-system/components/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { DetailKV } from "../components/ui/detail-drawer";
@@ -203,7 +203,7 @@ export function EvaluateButton({ id }: { id: number }) {
   if (unsupported) return null;
   return (
     <span className="inline-flex items-center gap-2">
-      <Button onClick={() => evaluate.mutate()} disabled={evaluate.isPending}>
+      <Button variant="outline" onClick={() => evaluate.mutate()} disabled={evaluate.isPending}>
         Re-evaluate
       </Button>
       {evaluate.data === "accepted" ? <span className="text-xs text-muted-foreground">requested</span> : null}

@@ -9,7 +9,7 @@ import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
+import { Button } from "@donaldgifford/design-system/components/button";
 import { DetailDrawer, DetailKV, DetailSection } from "../../components/ui/detail-drawer";
 import { humanize } from "../../lib/format";
 import { holdSentence } from "../../lib/holds";
@@ -73,16 +73,12 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
       footer={
         r ? (
           <>
-            <Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }}>
-              <Button variant="outline" size="sm" tabIndex={-1}>
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }} />}>
                 Open finding →
-              </Button>
-            </Link>
-            <Link to="/repositories/$id" params={{ id: String(r.repository_id) }}>
-              <Button variant="outline" size="sm" tabIndex={-1}>
+            </Button>
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/repositories/$id" params={{ id: String(r.repository_id) }} />}>
                 Open repository →
-              </Button>
-            </Link>
+            </Button>
           </>
         ) : undefined
       }

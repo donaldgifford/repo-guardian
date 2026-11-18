@@ -7,7 +7,7 @@ import { initials } from "../../lib/viewmodel";
 import { Icon } from "../icons";
 import { TimeZoneToggle } from "@donaldgifford/design-system/blocks/time";
 import { Avatar } from "../ui/avatar";
-import { Button } from "../ui/button";
+import { Button } from "@donaldgifford/design-system/components/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
 // TopBar is the 40px bar over the body (DESIGN-0036 §Shell): a reserved

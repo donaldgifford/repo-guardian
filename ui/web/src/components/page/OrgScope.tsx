@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMe, useOrgs } from "../../api/queries";
 import { patchSearch } from "../../lib/search";
 import { orgCountLabel, visibleOrgs } from "../../lib/viewmodel";
-import { Button } from "../ui/button";
+import { Button } from "@donaldgifford/design-system/components/button";
 import { Popover, PopoverContent, PopoverHeading, PopoverItem, PopoverTrigger } from "../ui/popover";
 
 // useOrgScope is the org in scope from `?org=`, or undefined for every
@@ -35,7 +35,7 @@ export function OrgScope() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button aria-label={`Org scope: ${scope ?? all}`} aria-haspopup="dialog" className="min-w-[150px] justify-between">
+        <Button variant="outline" aria-label={`Org scope: ${scope ?? all}`} aria-haspopup="dialog" className="min-w-[150px] justify-between">
           <span className={scope ? "font-mono" : undefined}>{scope ?? all}</span>
           <span className="text-muted-foreground">▾</span>
         </Button>

@@ -1,6 +1,16 @@
 {
-  "running": "2.0.0",
+  "running": "2.1.0",
   "entries": [
+    {
+      "version": "2.1.0",
+      "date": "2026-11-18",
+      "title": "The UI on the shared design system",
+      "summary": "The UI now draws every component from the shared design system. The sidebar collapses to an icon rail and remembers the choice, opens as a sheet on narrow screens, and carries the account menu at its foot. Tables, drawers, menus, the search palette and error pages share one look and keyboard behaviour. Routes, links, filters and exports are unchanged.",
+      "tags": [
+        "improved",
+        "ui"
+      ]
+    },
     {
       "version": "2.0.0",
       "date": "2026-10-27",

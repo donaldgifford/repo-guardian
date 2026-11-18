@@ -31,7 +31,7 @@ SLSA Level 3 provenance attestations.
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0 \
+  --version 2.1.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -46,7 +46,7 @@ aws ecr get-login-password --region <region> | \
 
 helm install repo-guardian \
   oci://<account>.dkr.ecr.<region>.amazonaws.com/repo-guardian-chart \
-  --version 2.0.0 \
+  --version 2.1.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml
@@ -97,7 +97,7 @@ policy:
 ```bash
 helm install repo-guardian \
   oci://ghcr.io/donaldgifford/charts/repo-guardian \
-  --version 2.0.0 \
+  --version 2.1.0 \
   --namespace repo-guardian \
   --create-namespace \
   -f values.yaml

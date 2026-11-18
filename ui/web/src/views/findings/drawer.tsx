@@ -7,7 +7,7 @@ import { Loading } from "../../components/common";
 import { GatedPanel } from "../../components/GatedPanel";
 import { BucketBadge, EvidenceText, ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
-import { Button } from "@donaldgifford/design-system/components/button";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
 import { type Column, DataTable } from "../../components/ui/data-table";
 import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
 import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
@@ -136,9 +136,9 @@ export function FindingDrawer({ open, inline, onClose, returnFocusTo }: FindingD
       footer={
         <>
           <span className="flex items-center gap-2">{r?.active ? <EvaluateButton id={r.id} /> : null}</span>
-          <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/repositories/$id" params={{ id: String(key.repositoryId) }} />}>
+          <Link to="/repositories/$id" params={{ id: String(key.repositoryId) }} className={buttonVariants({ variant: "outline", size: "sm" })}>
               Open repository →
-          </Button>
+          </Link>
         </>
       }
     >

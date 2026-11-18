@@ -9,7 +9,7 @@ import { useCrumbLabel } from "../../components/page/Breadcrumbs";
 import { ExternalLink } from "../../components/posture";
 import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Button } from "@donaldgifford/design-system/components/button";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
 import { DetailPanel, DetailSection } from "@donaldgifford/design-system/shell/detail-panel";
 import { DetailsGrid } from "@donaldgifford/design-system/blocks/details-grid";
 import { humanize } from "../../lib/format";
@@ -77,12 +77,12 @@ export function RemediationDrawer({ open, loaded, inline, onClose, returnFocusTo
       footer={
         r ? (
           <>
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }} />}>
+            <Link to="/findings" search={{ control: r.control_id, open: `${r.repository_id}/${r.control_id}` }} className={buttonVariants({ variant: "outline", size: "sm" })}>
               Open finding →
-            </Button>
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/repositories/$id" params={{ id: String(r.repository_id) }} />}>
+            </Link>
+            <Link to="/repositories/$id" params={{ id: String(r.repository_id) }} className={buttonVariants({ variant: "outline", size: "sm" })}>
               Open repository →
-            </Button>
+            </Link>
           </>
         ) : undefined
       }

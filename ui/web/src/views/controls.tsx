@@ -13,7 +13,7 @@ import { PageHeader } from "../components/page/PageHeader";
 import { RangeTabs, useRangeDays } from "../components/page/RangeTabs";
 import { CoverageText, DecisionBadge, PostureBar, PostureMeter } from "../components/posture";
 import { Badge } from "@donaldgifford/design-system/components/badge";
-import { Button } from "@donaldgifford/design-system/components/button";
+import { buttonVariants } from "@donaldgifford/design-system/components/button";
 import { Panel } from "../components/Panel";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
@@ -103,9 +103,9 @@ export function ControlView() {
           <>
             <OrgScope />
             <RangeTabs />
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/findings" search={findingsSearch} />}>
+            <Link to="/findings" search={findingsSearch} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Findings for this control
-            </Button>
+            </Link>
           </>
         }
       />

@@ -21,10 +21,10 @@ export interface SeriesSpec {
 }
 
 export const SERIES: Record<FleetSeries, SeriesSpec> = {
-  percent: { label: "compliance %", unit: "%", color: "var(--color-accent)", pick: (p) => p.percent },
-  non_compliant: { label: "findings", unit: "count", color: "var(--color-bad)", pick: (p) => p.non_compliant },
+  percent: { label: "compliance %", unit: "%", color: "var(--color-primary)", pick: (p) => p.percent },
+  non_compliant: { label: "findings", unit: "count", color: "var(--color-destructive)", pick: (p) => p.non_compliant },
   not_applicable: { label: "not applicable", unit: "count", color: "var(--color-muted-foreground)", pick: (p) => p.not_applicable },
-  unknown: { label: "unknown", unit: "count", color: "var(--color-warn)", pick: (p) => p.unknown },
+  unknown: { label: "unknown", unit: "count", color: "var(--color-warning)", pick: (p) => p.unknown },
 };
 
 export function isFleetSeries(v: unknown): v is FleetSeries {

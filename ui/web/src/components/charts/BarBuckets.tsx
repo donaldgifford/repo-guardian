@@ -15,7 +15,7 @@ export interface Bucket {
 // tooltip over the whole column, and a y axis bracketed by niceBounds.
 export function BarBuckets({
   buckets,
-  color = "var(--color-accent)",
+  color = "var(--color-primary)",
   label = "count",
   height = 200,
   "aria-label": ariaLabel,
@@ -35,7 +35,7 @@ export function BarBuckets({
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
           <YAxis domain={[0, bounds.max]} ticks={bounds.ticks} allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} width={34} />
           <Tooltip
-            cursor={{ fill: "var(--color-panel-2)" }}
+            cursor={{ fill: "var(--color-muted)" }}
             isAnimationActive={false}
             content={({ active, payload, label: at }) => {
               if (!active || !payload?.[0]) return null;

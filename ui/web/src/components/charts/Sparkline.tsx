@@ -1,7 +1,7 @@
 // Sparkline is a bare line over the last points of a series: no axes,
 // a 1.5px stroke and an end dot. Fewer than two measured points render
 // a dash. aria-hidden: the number beside it carries the meaning.
-export function Sparkline({ values, width = 84, height = 22, color = "var(--color-accent)" }: { values: readonly (number | null)[]; width?: number; height?: number; color?: string }) {
+export function Sparkline({ values, width = 84, height = 22, color = "var(--color-primary)" }: { values: readonly (number | null)[]; width?: number; height?: number; color?: string }) {
   const measured = values.filter((v): v is number => v !== null);
   if (measured.length < 2) {
     return <span className="text-muted-foreground">—</span>;

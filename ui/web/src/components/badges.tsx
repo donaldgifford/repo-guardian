@@ -40,7 +40,7 @@ export function RemediationBadge({ remediation: r, now }: { remediation: Pick<Sc
       <RemediationStateBadge state={r.state} />
       {r.pr_number !== undefined ? r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono">#{r.pr_number}</span> : null}
       <span className="text-xs text-muted-foreground tabular-nums">{age}d</span>
-      {stale ? <Badge tone="warn">stale</Badge> : null}
+      {stale ? <Badge tone="warning">stale</Badge> : null}
     </span>
   );
 }

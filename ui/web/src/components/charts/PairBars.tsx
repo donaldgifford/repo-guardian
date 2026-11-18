@@ -19,7 +19,7 @@ export interface PairDay {
 export function PairBars({
   days,
   labels,
-  colors = ["var(--color-accent)", "var(--color-ok)"],
+  colors = ["var(--color-primary)", "var(--color-success)"],
   height = 200,
   "aria-label": ariaLabel,
 }: {
@@ -40,7 +40,7 @@ export function PairBars({
             <XAxis dataKey="day" ticks={ticks} tickFormatter={(v: string) => tickLabel(v, "date")} tick={AXIS} axisLine={false} tickLine={false} interval={0} />
             <YAxis domain={[0, bounds.max]} ticks={bounds.ticks} allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} width={34} />
             <Tooltip
-              cursor={{ fill: "var(--color-panel-2)" }}
+              cursor={{ fill: "var(--color-muted)" }}
               isAnimationActive={false}
               content={({ active, payload, label: at }) => {
                 if (!active || !payload?.[0]) return null;

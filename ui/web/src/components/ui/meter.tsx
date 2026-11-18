@@ -1,22 +1,22 @@
 import { formatPercent } from "../../lib/format";
 import { cn } from "../../lib/utils";
 
-export type MeterTone = "ok" | "warn" | "bad" | "mute";
+export type MeterTone = "success" | "warning" | "destructive" | "muted";
 
 // meterTone is the compliance threshold: bad under 70, warn under 90,
 // ok from 90; unmeasured is mute.
 export function meterTone(percent: number | null | undefined): MeterTone {
-  if (percent === null || percent === undefined) return "mute";
-  if (percent < 70) return "bad";
-  if (percent < 90) return "warn";
-  return "ok";
+  if (percent === null || percent === undefined) return "muted";
+  if (percent < 70) return "destructive";
+  if (percent < 90) return "warning";
+  return "success";
 }
 
 const fills: Record<MeterTone, string> = {
-  ok: "var(--color-ok)",
-  warn: "var(--color-warn)",
-  bad: "var(--color-bad)",
-  mute: "var(--color-muted-foreground)",
+  success: "var(--color-success)",
+  warning: "var(--color-warning)",
+  destructive: "var(--color-destructive)",
+  muted: "var(--color-muted-foreground)",
 };
 
 // Meter is a 5px bar on a 20% tint track with the percent printed after

@@ -48,12 +48,12 @@ function gatedCount(n: number, remediation: boolean | undefined): GridCell {
 // meter and its percentage. A cell with a count and a share side by side
 // read as two unlabelled numbers.
 const complianceColumns: GridColumn[] = [
-  { key: "assigned", header: "Assigned", tone: "mute" },
-  { key: "compliant", header: "Compliant", tone: "ok" },
-  { key: "non_compliant", header: "Non-compliant", tone: "bad" },
-  { key: "compliance", header: "Compliance", tone: "mute", align: "left" },
+  { key: "assigned", header: "Assigned", tone: "muted" },
+  { key: "compliant", header: "Compliant", tone: "success" },
+  { key: "non_compliant", header: "Non-compliant", tone: "destructive" },
+  { key: "compliance", header: "Compliance", tone: "muted", align: "left" },
   { key: "open_prs", header: "Open PRs", tone: "info" },
-  { key: "parked", header: "Parked", tone: "warn" },
+  { key: "parked", header: "Parked", tone: "warning" },
 ];
 
 // CountText is a count cell: zero muted, a non-zero non-compliant count
@@ -82,8 +82,8 @@ function postureRow(p: Posture): Record<string, GridCell> {
 }
 
 const parkedColumns: GridColumn[] = [
-  { key: "reason", header: "Reason", tone: "warn", align: "left" },
-  { key: "parked_at", header: "Parked", tone: "mute", align: "left" },
+  { key: "reason", header: "Reason", tone: "warning", align: "left" },
+  { key: "parked_at", header: "Parked", tone: "muted", align: "left" },
 ];
 
 // OrgsView is the orgs tree (DESIGN-0037 OQ4): each org a row that
@@ -130,11 +130,11 @@ export function OrgsView() {
       <Card bodyClassName="p-0">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5" aria-label="Orgs toolbar" role="toolbar">
           <span className="text-xs text-muted-foreground">Repositories</span>
-          <Badge tone="mute">{compact(total.tracked)}</Badge>
+          <Badge tone="muted">{compact(total.tracked)}</Badge>
           <span className="text-xs text-muted-foreground">Non-compliant</span>
-          <Badge tone="bad">{compact(total.compliance.non_compliant)}</Badge>
+          <Badge tone="destructive">{compact(total.compliance.non_compliant)}</Badge>
           <span className="text-xs text-muted-foreground">Parked</span>
-          <Badge tone="warn">{compact(total.parked)}</Badge>
+          <Badge tone="warning">{compact(total.parked)}</Badge>
           <span className="flex-1" />
           {tab !== "pr" ? <input aria-label="Filter repositories" placeholder="Filter repositories…" value={q} onChange={(e) => setQ(e.target.value)} className="h-7 rounded-lg border border-border bg-card px-2.5 text-xs" /> : null}
           <SearchTabs param="tab" defaultValue="compliance" options={ORGS_TABS} label="Orgs tabs" />
@@ -242,7 +242,7 @@ function ComplianceChildren({ org, total, filter, remediation }: { org: string; 
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        badge: r.policy_state && r.policy_state !== "managed" ? <Badge tone="mute">{humanize(r.policy_state)}</Badge> : undefined,
+        badge: r.policy_state && r.policy_state !== "managed" ? <Badge tone="muted">{humanize(r.policy_state)}</Badge> : undefined,
         cells: { ...postureRow(r.compliance), open_prs: remediation ? (prs.data ? byRepo.get(r.id) ?? 0 : "…") : gatedCount(0, remediation), parked: "" },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
@@ -264,7 +264,7 @@ function ParkedChildren({ org, total, filter }: { org: string; total: number; fi
       rows={shown.map((r) => ({
         key: `${org}/${r.name}`,
         label: repoLink(r),
-        cells: { reason: <Badge tone="warn">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
+        cells: { reason: <Badge tone="warning">{humanize(r.park_reason ?? "unknown")}</Badge>, parked_at: <Time iso={r.parked_at} style="relative" /> },
       }))}
       {...(repos.data ? { footer: childFooter(shown.length, loaded.length, total, filter, repos, "repositories") } : {})}
     />
@@ -408,7 +408,7 @@ const worstColumns: Column<Schemas["OrgControl"]>[] = [
 export const exclusionColumns: Column<Schemas["Exclusion"]>[] = [
   { key: "repository", header: "Repository", cell: (e) => <span className="font-mono">{e.repository}</span> },
   { key: "control", header: "Control", cell: (e) => (e.control_id ? <span className="font-mono">{e.control_id}</span> : <span className="text-muted-foreground">every control</span>) },
-  { key: "state", header: "State", cell: (e) => <Badge tone="mute">{humanize(e.state)}</Badge> },
+  { key: "state", header: "State", cell: (e) => <Badge tone="muted">{humanize(e.state)}</Badge> },
   { key: "reason", header: "Reason", cell: (e) => e.reason },
   { key: "by", header: "Excluded by", cell: (e) => <span className="font-mono text-xs">{e.excluded_by ?? "—"}</span>, hideBelow: "md" },
 ];

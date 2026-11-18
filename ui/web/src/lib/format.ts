@@ -68,38 +68,38 @@ export function humanizeDuration(d: string): string {
   return hours % 24 === 0 && hours > 0 ? `${hours / 24}d` : `${hours}h`;
 }
 // Tone is a badge colour by meaning, never by rank (DESIGN-0036 §Badges).
-export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "outline";
+export type Tone = "success" | "warning" | "destructive" | "info" | "muted" | "outline";
 
 // ToneField names a column of the DESIGN-0036 tone table. For `reason`
-// the value is the finding's *status*: a reason is warn under
-// non_compliant and mute otherwise. `status` is a control's status and
+// the value is the finding's *status*: a reason is warning under
+// non_compliant and muted otherwise. `status` is a control's status and
 // `rule` a rule result's (INV-0023 F1: rule statuses once fell through
-// `status` to mute, so a failing rule read grey).
+// `status` to muted, so a failing rule read grey).
 export type ToneField = "status" | "rule" | "bucket" | "decision" | "remediation" | "hold" | "reason" | "state" | "kind" | "tag";
 
 const tones: Record<Exclude<ToneField, "reason" | "kind" | "decision">, Record<string, Tone>> = {
-  status: { compliant: "ok", non_compliant: "bad", not_applicable: "mute", unknown: "warn" },
-  rule: { pass: "ok", fail: "bad", error: "bad", unknown: "warn", not_applicable: "mute" },
+  status: { compliant: "success", non_compliant: "destructive", not_applicable: "muted", unknown: "warning" },
+  rule: { pass: "success", fail: "destructive", error: "destructive", unknown: "warning", not_applicable: "muted" },
   bucket: {
-    compliant: "ok",
-    non_compliant: "bad",
+    compliant: "success",
+    non_compliant: "destructive",
     pending: "info",
-    stale: "warn",
-    unmeasurable_access_denied: "warn",
-    unmeasurable_suspended: "warn",
-    unmeasurable_conflict: "warn",
+    stale: "warning",
+    unmeasurable_access_denied: "warning",
+    unmeasurable_suspended: "warning",
+    unmeasurable_conflict: "warning",
   },
   // remediation is a remediation's state (DESIGN-0032's closed set, read
   // as open): open is work in flight, the four landed states are ok, a
   // recommendation waits for a human, failed is bad, the rest are over.
-  remediation: { open: "info", merged: "ok", closed_compliant: "ok", resolved: "ok", applied: "ok", recommended: "warn", failed: "bad" },
+  remediation: { open: "info", merged: "success", closed_compliant: "success", resolved: "success", applied: "success", recommended: "warning", failed: "destructive" },
   // hold is why a remediation waits (lib/holds.ts has the sentences):
   // a slot frees itself, a branch needs a human, a permission is bad.
-  hold: { pr_cap: "info", foreign_branch: "warn", stale_branch: "warn", conflict: "warn", permission: "bad" },
-  state: { operational: "ok", degraded: "warn" },
+  hold: { pr_cap: "info", foreign_branch: "warning", stale_branch: "warning", conflict: "warning", permission: "destructive" },
+  state: { operational: "success", degraded: "warning" },
   // tag is a changelog entry's tag (DESIGN-0037 §Status page changelog):
   // the four kinds by weight, the areas as plain outlines.
-  tag: { new: "ok", improved: "info", fixed: "warn", breaking: "bad", fleet: "outline", findings: "outline", policy: "outline", ui: "outline", api: "outline", chart: "outline" },
+  tag: { new: "success", improved: "info", fixed: "warning", breaking: "destructive", fleet: "outline", findings: "outline", policy: "outline", ui: "outline", api: "outline", chart: "outline" },
 };
 
 // toneFor is the one tone table. Both API enums are open, so any value
@@ -111,10 +111,10 @@ export function toneFor(field: ToneField, value: string): Tone {
     case "decision":
       return "outline";
     case "reason":
-      return value === "non_compliant" ? "warn" : "mute";
+      return value === "non_compliant" ? "warning" : "muted";
     case "state":
-      return tones.state[value] ?? "bad";
+      return tones.state[value] ?? "destructive";
     default:
-      return tones[field][value] ?? "mute";
+      return tones[field][value] ?? "muted";
   }
 }

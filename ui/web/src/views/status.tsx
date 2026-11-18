@@ -13,7 +13,7 @@ import changelog from "../generated/changelog.json";
 import { formatPercent, toneFor } from "../lib/format";
 import { cn } from "../lib/utils";
 
-export type StatusTone = "ok" | "warn" | "bad" | "mute";
+export type StatusTone = "success" | "warning" | "destructive" | "muted";
 
 // statusHeadline maps the overall state onto the banner's fixed
 // headline and tone (DESIGN-0036 §Status page). These four strings and
@@ -21,28 +21,28 @@ export type StatusTone = "ok" | "warn" | "bad" | "mute";
 export function statusHeadline(state: string): { headline: string; tone: StatusTone } {
   switch (state) {
     case "operational":
-      return { headline: "All systems operational", tone: "ok" };
+      return { headline: "All systems operational", tone: "success" };
     case "degraded":
-      return { headline: "Degraded performance", tone: "warn" };
+      return { headline: "Degraded performance", tone: "warning" };
     case "unknown":
-      return { headline: "Status not yet available", tone: "mute" };
+      return { headline: "Status not yet available", tone: "muted" };
     default:
-      return { headline: "Service disruption", tone: "bad" };
+      return { headline: "Service disruption", tone: "destructive" };
   }
 }
 
 const toneVar: Record<StatusTone, string> = {
-  ok: "var(--color-ok)",
-  warn: "var(--color-warn)",
-  bad: "var(--color-bad)",
-  mute: "var(--color-muted-foreground)",
+  success: "var(--color-success)",
+  warning: "var(--color-warning)",
+  destructive: "var(--color-destructive)",
+  muted: "var(--color-muted-foreground)",
 };
 
 const dotClass: Record<StatusTone, string> = {
-  ok: "bg-success",
-  warn: "bg-warning",
-  bad: "bg-destructive",
-  mute: "bg-muted-foreground",
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+  muted: "bg-muted-foreground",
 };
 
 // StatusView is the public status page: outside the shell, no session,
@@ -67,7 +67,7 @@ export function StatusView() {
 
       <Card aria-label="Overall status" data-state={s.state} className="px-4 py-3.5" style={{ borderColor: toneVar[tone] }}>
         <div className="flex flex-wrap items-center gap-3">
-          <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "mute" && "animate-pulse")} />
+          <span aria-hidden="true" className={cn("size-2.5 flex-none rounded-full", dotClass[tone], tone !== "muted" && "animate-pulse")} />
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-semibold">{headline}</h2>
             <p className="text-xs text-muted-foreground">Public, aggregate-only. No org, repository or rule names appear here.</p>
@@ -95,7 +95,7 @@ export function StatusView() {
           <div className="text-[40px] leading-none font-semibold tabular-nums" data-measured={s.compliance.measured}>
             {s.compliance.measured ? formatPercent(s.compliance.percent) : "no data"}
           </div>
-          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="ok" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
+          <Meter percent={s.compliance.measured ? s.compliance.percent : null} tone="success" showValue={false} thick aria-label="Fleet compliance" className="mt-3" />
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             measured: {String(s.compliance.measured)} · compliant ÷ (compliant + non_compliant)
           </p>
@@ -159,7 +159,7 @@ function ComplianceTrend({ history }: { history: Schemas["CompliancePoint"][] })
           </span>
         ) : null}
       </span>
-      <Sparkline values={values} width={180} height={28} color="var(--color-ok)" />
+      <Sparkline values={values} width={180} height={28} color="var(--color-success)" />
     </div>
   );
 }
@@ -261,7 +261,7 @@ export function Changelog({ bundle = changelog }: { bundle?: { running: string; 
             <li key={e.version} className="space-y-1 px-3.5 py-2.5 text-[13px]" data-version={e.version} data-running={e.version === bundle.running}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono font-medium">{e.version}</span>
-                {e.version === bundle.running ? <Badge tone="ok">running</Badge> : null}
+                {e.version === bundle.running ? <Badge tone="success">running</Badge> : null}
                 <time dateTime={e.date} className="text-xs text-muted-foreground">
                   {e.date}
                 </time>

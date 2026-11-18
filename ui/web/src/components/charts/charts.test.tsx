@@ -108,8 +108,8 @@ describe("BarList", () => {
 
 describe("StackedBars", () => {
   const segs = [
-    { key: "compliant", label: "compliant", color: "var(--color-ok)" },
-    { key: "non_compliant", label: "failing", color: "var(--color-bad)" },
+    { key: "compliant", label: "compliant", color: "var(--color-success)" },
+    { key: "non_compliant", label: "failing", color: "var(--color-destructive)" },
   ];
 
   test("rowShares is percent of the row, not of the largest row", () => {
@@ -179,8 +179,8 @@ test("DistBar draws only non-empty segments and lists all in the legend", () => 
     <DistBar
       aria-label="fleet"
       segments={[
-        { label: "compliant", value: 3, color: "var(--color-ok)" },
-        { label: "failing", value: 0, color: "var(--color-bad)" },
+        { label: "compliant", value: 3, color: "var(--color-success)" },
+        { label: "failing", value: 0, color: "var(--color-destructive)" },
       ]}
     />,
   );

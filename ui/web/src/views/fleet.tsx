@@ -189,7 +189,7 @@ export function FleetView() {
               </>
             }
           >
-            {s.parked_by_reason.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList aria-label="Parked repositories by reason" color="var(--color-warn)" items={s.parked_by_reason.map((p) => ({ label: humanize(p.reason), value: p.count }))} />}
+            {s.parked_by_reason.length === 0 ? <Empty>Nothing parked.</Empty> : <BarList aria-label="Parked repositories by reason" color="var(--color-warning)" items={s.parked_by_reason.map((p) => ({ label: humanize(p.reason), value: p.count }))} />}
           </Card>
           <Card title="Assignments" subtitle="Every assignment lands in exactly one bucket.">
             <PostureBar posture={posture} label="Fleet assignments by bucket" />
@@ -250,8 +250,8 @@ export function FleetView() {
 // screen reader; a zero reads muted. Two count columns read as a run of
 // bare numbers beside the percentage.
 function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["compliance"] }) {
-  const one = (n: number, tone: "ok" | "bad", glyph: string, label: string) => (
-    <Badge tone={n === 0 ? "mute" : tone} title={`${n.toLocaleString()} ${label}`}>
+  const one = (n: number, tone: "success" | "destructive", glyph: string, label: string) => (
+    <Badge tone={n === 0 ? "muted" : tone} title={`${n.toLocaleString()} ${label}`}>
       <span aria-hidden="true">{glyph} </span>
       {n.toLocaleString()}
       <span className="sr-only"> {label}</span>
@@ -259,8 +259,8 @@ function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["comp
   );
   return (
     <span className="inline-flex gap-1.5 whitespace-nowrap">
-      {one(p.compliant, "ok", "✓", "compliant")}
-      {one(p.non_compliant, "bad", "✗", "non-compliant")}
+      {one(p.compliant, "success", "✓", "compliant")}
+      {one(p.non_compliant, "destructive", "✗", "non-compliant")}
     </span>
   );
 }

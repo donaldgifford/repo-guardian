@@ -8,10 +8,10 @@ export type Posture = Schemas["Posture"];
 // legend adds up to the assignments.
 export function postureSegments(p: Posture): DistSegment[] {
   return [
-    { label: "compliant", value: p.compliant, color: "var(--color-ok)" },
-    { label: "non-compliant", value: p.non_compliant, color: "var(--color-bad)" },
+    { label: "compliant", value: p.compliant, color: "var(--color-success)" },
+    { label: "non-compliant", value: p.non_compliant, color: "var(--color-destructive)" },
     { label: "pending", value: p.pending, color: "var(--color-info)" },
-    { label: "stale", value: p.stale, color: "var(--color-warn)" },
+    { label: "stale", value: p.stale, color: "var(--color-warning)" },
     { label: "unmeasurable", value: p.unmeasurable_access_denied + p.unmeasurable_suspended + p.unmeasurable_conflict, color: "var(--color-muted-foreground)" },
     { label: "n/a", value: p.not_applicable + p.unknown + p.excluded, color: "var(--color-border)" },
   ];

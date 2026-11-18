@@ -68,9 +68,9 @@ describe("DataTable", () => {
 });
 
 const gridColumns: GridColumn[] = [
-  { key: "tracked", header: "Tracked", tone: "mute" },
-  { key: "compliant", header: "Compliant", tone: "ok" },
-  { key: "failing", header: "Non-compliant", tone: "bad" },
+  { key: "tracked", header: "Tracked", tone: "muted" },
+  { key: "compliant", header: "Compliant", tone: "success" },
+  { key: "failing", header: "Non-compliant", tone: "destructive" },
   { key: "prs", header: "Open PRs", tone: "info" },
 ];
 // Each cell carries its own denominator: acme measures 10 of 12 tracked
@@ -102,10 +102,10 @@ describe("GroupGrid", () => {
   });
 
   test("heatStyle is absent for zero and clamps between 8% and 50%", () => {
-    expect(heatStyle(0, 10, "ok")).toBeUndefined();
-    expect(heatStyle(1, 100, "ok")?.background).toBe("color-mix(in srgb, var(--color-ok) 8%, transparent)");
-    expect(heatStyle(10, 10, "bad")?.background).toBe("color-mix(in srgb, var(--color-bad) 50%, transparent)");
-    expect(heatStyle(50, 10, "bad")?.background).toBe("color-mix(in srgb, var(--color-bad) 50%, transparent)");
+    expect(heatStyle(0, 10, "success")).toBeUndefined();
+    expect(heatStyle(1, 100, "success")?.background).toBe("color-mix(in srgb, var(--color-success) 8%, transparent)");
+    expect(heatStyle(10, 10, "destructive")?.background).toBe("color-mix(in srgb, var(--color-destructive) 50%, transparent)");
+    expect(heatStyle(50, 10, "destructive")?.background).toBe("color-mix(in srgb, var(--color-destructive) 50%, transparent)");
   });
 
   function Harness() {

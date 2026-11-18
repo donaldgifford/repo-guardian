@@ -61,8 +61,8 @@ describe("Kpi and DeltaText", () => {
 test("Pill is a radio in its group with aria-checked", () => {
   const html = renderToStaticMarkup(
     <PillGroup label="Series">
-      <Pill color="var(--color-ok)" label="compliant" value="87%" checked onSelect={() => {}} />
-      <Pill color="var(--color-bad)" label="failing" checked={false} onSelect={() => {}} />
+      <Pill color="var(--color-success)" label="compliant" value="87%" checked onSelect={() => {}} />
+      <Pill color="var(--color-destructive)" label="failing" checked={false} onSelect={() => {}} />
     </PillGroup>,
   );
   expect(html).toContain('role="radiogroup" aria-label="Series"');
@@ -97,13 +97,13 @@ test("Chip renders key = value, or the dashed add chip", () => {
 
 describe("Meter", () => {
   test.each([
-    [null, "mute"],
-    [0, "bad"],
-    [69.9, "bad"],
-    [70, "warn"],
-    [89.9, "warn"],
-    [90, "ok"],
-    [100, "ok"],
+    [null, "muted"],
+    [0, "destructive"],
+    [69.9, "destructive"],
+    [70, "warning"],
+    [89.9, "warning"],
+    [90, "success"],
+    [100, "success"],
   ] as const)("%p → %s", (percent, tone) => {
     expect(meterTone(percent)).toBe(tone);
     expect(renderToStaticMarkup(<Meter percent={percent} />)).toContain(`data-tone="${tone}"`);

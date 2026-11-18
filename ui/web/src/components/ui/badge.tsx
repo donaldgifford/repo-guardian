@@ -13,15 +13,15 @@ const tinted = "[background:color-mix(in_srgb,var(--tone)_18%,transparent)] [col
 const badgeVariants = cva("inline-flex items-center px-[7px] py-[5px] font-mono text-xs leading-none whitespace-nowrap", {
   variants: {
     tone: {
-      ok: `[--tone:var(--color-ok)] ${tinted}`,
-      warn: `[--tone:var(--color-warn)] ${tinted}`,
-      bad: `[--tone:var(--color-bad)] ${tinted}`,
+      success: `[--tone:var(--color-success)] ${tinted}`,
+      warning: `[--tone:var(--color-warning)] ${tinted}`,
+      destructive: `[--tone:var(--color-destructive)] ${tinted}`,
       info: `[--tone:var(--color-info)] ${tinted}`,
-      mute: `[--tone:var(--color-muted-foreground)] ${tinted}`,
+      muted: `[--tone:var(--color-muted-foreground)] ${tinted}`,
       outline: "border border-border text-muted-foreground",
     },
   },
-  defaultVariants: { tone: "mute" },
+  defaultVariants: { tone: "muted" },
 });
 
 export type BadgeProps = ComponentProps<"span"> & VariantProps<typeof badgeVariants>;

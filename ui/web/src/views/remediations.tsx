@@ -50,7 +50,7 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     header: "State",
     cell: (r) => (
       <span className="inline-flex items-center gap-1.5">
-        {r.state ? <RemediationStateBadge state={r.state} /> : <Badge tone="mute">held</Badge>}
+        {r.state ? <RemediationStateBadge state={r.state} /> : <Badge tone="muted">held</Badge>}
         {r.pr_number !== undefined ? r.pr_url ? <ExternalLink href={r.pr_url}>#{r.pr_number}</ExternalLink> : <span className="font-mono text-xs">#{r.pr_number}</span> : null}
       </span>
     ),
@@ -73,7 +73,7 @@ export const remediationColumns: Column<Schemas["Remediation"]>[] = [
     header: "Age",
     cell: (r) => (
       <span className="inline-flex items-center gap-1.5 font-mono">
-        {remediationAge(r)}d{isStale(r) ? <Badge tone="warn">stale</Badge> : null}
+        {remediationAge(r)}d{isStale(r) ? <Badge tone="warning">stale</Badge> : null}
       </span>
     ),
     numeric: true,

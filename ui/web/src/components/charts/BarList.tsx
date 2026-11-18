@@ -28,7 +28,7 @@ export function foldBarList<T extends BarListItem>(items: readonly T[], max = BA
 // share of the total, and a single-colour bar scaled to the largest.
 export function BarList({
   items,
-  color = "var(--color-accent)",
+  color = "var(--color-primary)",
   share = true,
   max = BAR_LIST_MAX,
   "aria-label": ariaLabel,

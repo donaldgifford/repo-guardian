@@ -33,7 +33,7 @@ interface EndDotProps {
 // with the current value beside it, a nice-bounded y axis, x ticks
 // fitted to the range, and a crosshair tooltip over the full column.
 // Unmeasured points are gaps, never zero.
-export function TrendChart({ series, unit = "%", color = "var(--color-accent)", rangeDays = 30, height = 230, label = "compliance %", "aria-label": ariaLabel }: TrendChartProps) {
+export function TrendChart({ series, unit = "%", color = "var(--color-primary)", rangeDays = 30, height = 230, label = "compliance %", "aria-label": ariaLabel }: TrendChartProps) {
   const bounds = useMemo(() => niceBounds(series.map((p) => p.percent), { percent: unit === "%" }), [series, unit]);
   const { want, style } = xTicksFor(rangeDays);
   const ticks = useMemo(() => fitTicks(series.length, want).map((i) => series[i]?.at ?? ""), [series, want]);
@@ -51,7 +51,7 @@ export function TrendChart({ series, unit = "%", color = "var(--color-accent)", 
     }
     return (
       <g key="end">
-        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="var(--color-panel)" strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="var(--color-card)" strokeWidth={2} />
         <text x={cx - 10} y={cy - 10} textAnchor="end" fontFamily="var(--font-mono)" fontSize={11} fontWeight={600} fill="var(--color-foreground)">
           {formatValue(value, unit)}
         </text>
@@ -84,7 +84,7 @@ export function TrendChart({ series, unit = "%", color = "var(--color-accent)", 
             fill={color}
             fillOpacity={0.1}
             dot={endDot}
-            activeDot={{ r: 4.5, stroke: "var(--color-panel)", strokeWidth: 2 }}
+            activeDot={{ r: 4.5, stroke: "var(--color-card)", strokeWidth: 2 }}
             connectNulls={false}
             isAnimationActive={false}
           />

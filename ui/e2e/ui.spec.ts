@@ -181,9 +181,9 @@ test("a repository shows its controls with evidence, the evaluation log and even
   const crumb = page.getByRole("navigation", { name: "Breadcrumb" });
   await expect(crumb.locator('b[aria-current="page"]')).toHaveText("acme/web");
 
-  // INV-0023 F1: a failing rule carries the bad tone, not mute.
+  // INV-0023 F1: a failing rule carries the destructive tone, not muted.
   const failing = page.getByRole("table", { name: "renovate rules" }).getByText("fail", { exact: true });
-  await expect(failing).toHaveClass(/--color-bad/);
+  await expect(failing).toHaveClass(/--color-destructive/);
 
   // No Temporal client on the e2e api: the POST answers 501 and the
   // button goes away.

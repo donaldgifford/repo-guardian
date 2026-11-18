@@ -112,8 +112,8 @@ export function RepositoriesView() {
 }
 
 function policyStateBadge(r: Schemas["Repository"]) {
-  if (!r.active) return <Badge tone="warn">parked</Badge>;
-  return <Badge tone={r.policy_state === "managed" ? "ok" : "mute"}>{r.policy_state ?? "unresolved"}</Badge>;
+  if (!r.active) return <Badge tone="warning">parked</Badge>;
+  return <Badge tone={r.policy_state === "managed" ? "success" : "muted"}>{r.policy_state ?? "unresolved"}</Badge>;
 }
 
 const repositoriesCsv: CsvColumns<Schemas["Repository"]> = {
@@ -214,7 +214,7 @@ export function EvaluateButton({ id }: { id: number }) {
 
 function Facts({ repository: r }: { repository: Schemas["Repository"] }) {
   const rows = [
-    { key: "state", value: r.active ? <Badge tone="ok">active</Badge> : <Badge tone="warn">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
+    { key: "state", value: r.active ? <Badge tone="success">active</Badge> : <Badge tone="warning">parked · {humanize(r.park_reason ?? "unknown")}</Badge> },
     { key: "policy state", value: <span className="font-mono">{r.policy_state ?? "unresolved"}</span> },
     ...(r.policy_reason ? [{ key: "policy reason", value: r.policy_reason }] : []),
     { key: "evaluable", value: r.evaluable ? "yes" : "no" },
@@ -325,10 +325,10 @@ const ruleColumns: Column<Schemas["RuleResult"]>[] = [
   { key: "remediate", header: "Remediable rule", cell: (r) => (r.remediate ? "yes" : "no"), hideBelow: "md" },
 ];
 
-function outcomeTone(outcome: string): "ok" | "bad" | "mute" {
-  if (outcome === "error") return "bad";
-  if (outcome === "success") return "ok";
-  return "mute";
+function outcomeTone(outcome: string): "success" | "destructive" | "muted" {
+  if (outcome === "error") return "destructive";
+  if (outcome === "success") return "success";
+  return "muted";
 }
 
 const evaluationColumns: Column<Schemas["Evaluation"]>[] = [

@@ -120,7 +120,7 @@ export function findingColumns(remediation: boolean | undefined): Column<Schemas
         <div className="max-w-[380px] space-y-1 whitespace-normal">
           <div className="flex flex-wrap gap-1">
             {r.failing_rules.map((rule) => (
-              <Badge key={rule} tone="bad">
+              <Badge key={rule} tone="destructive">
                 {rule}
               </Badge>
             ))}

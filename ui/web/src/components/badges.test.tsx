@@ -13,10 +13,10 @@ function toneOf(html: string): string {
 
 describe("StatusBadge", () => {
   test.each([
-    ["compliant", "ok", "compliant"],
-    ["non_compliant", "bad", "non compliant"],
+    ["compliant", "success", "compliant"],
+    ["non_compliant", "destructive", "non compliant"],
     ["not_applicable", "muted-foreground", "n/a"],
-    ["unknown", "warn", "unknown"],
+    ["unknown", "warning", "unknown"],
     ["quarantined", "muted-foreground", "quarantined"],
   ])("%s → %s, labelled %p", (status, tone, label) => {
     const html = renderToStaticMarkup(<StatusBadge status={status} />);
@@ -29,10 +29,10 @@ describe("RuleStatusBadge", () => {
   // INV-0023 F1: a failing rule must read bad, not the mute that the
   // control status row gave it.
   test.each([
-    ["pass", "ok", "pass"],
-    ["fail", "bad", "fail"],
-    ["error", "bad", "error"],
-    ["unknown", "warn", "unknown"],
+    ["pass", "success", "pass"],
+    ["fail", "destructive", "fail"],
+    ["error", "destructive", "error"],
+    ["unknown", "warning", "unknown"],
     ["not_applicable", "muted-foreground", "n/a"],
   ])("%s → %s, labelled %p", (status, tone, label) => {
     const html = renderToStaticMarkup(<RuleStatusBadge status={status} />);
@@ -47,12 +47,12 @@ describe("RemediationBadge", () => {
   // waits for a human, failed is bad, anything else is over and mute.
   test.each([
     ["open", "info", "pr open"],
-    ["merged", "ok", "merged"],
-    ["closed_compliant", "ok", "closed compliant"],
-    ["resolved", "ok", "resolved"],
-    ["applied", "ok", "applied"],
-    ["recommended", "warn", "recommended"],
-    ["failed", "bad", "failed"],
+    ["merged", "success", "merged"],
+    ["closed_compliant", "success", "closed compliant"],
+    ["resolved", "success", "resolved"],
+    ["applied", "success", "applied"],
+    ["recommended", "warning", "recommended"],
+    ["failed", "destructive", "failed"],
     ["reserved", "muted-foreground", "reserved"],
     ["closed_by_user", "muted-foreground", "closed by user"],
     ["superseded", "muted-foreground", "superseded"],
@@ -90,7 +90,7 @@ describe("RemediationBadge", () => {
 
 describe("ReasonBadge", () => {
   test.each([
-    ["non_compliant", "warn"],
+    ["non_compliant", "warning"],
     ["compliant", "muted-foreground"],
     ["unknown", "muted-foreground"],
     ["quarantined", "muted-foreground"],
@@ -111,11 +111,11 @@ describe("KindBadge", () => {
 
 describe("StateBadge", () => {
   test.each([
-    ["operational", "ok"],
-    ["degraded", "warn"],
-    ["down", "bad"],
-    ["unknown", "bad"],
-    ["on_fire", "bad"],
+    ["operational", "success"],
+    ["degraded", "warning"],
+    ["down", "destructive"],
+    ["unknown", "destructive"],
+    ["on_fire", "destructive"],
   ])("%s → %s", (state, tone) => {
     expect(toneOf(renderToStaticMarkup(<StateBadge state={state} />))).toBe(tone);
   });

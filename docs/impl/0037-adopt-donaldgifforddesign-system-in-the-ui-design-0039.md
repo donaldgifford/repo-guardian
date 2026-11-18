@@ -185,8 +185,8 @@ The app takes its Tailwind entry, tokens, fonts, focus outline and reduced-motio
 - [x] 2.5 `web/index.html`: `class="dark"` on `<html>`.
 - [x] 2.6 `web/src/main.tsx`: remove the five `@fontsource` imports.
 - [x] 2.7 Rename utilities: `panel` to `card`, `panel-2` to `muted`, `ok`/`warn`/`bad` to `success`/`warning`/`destructive`, and `accent` per 2.1.
-- [ ] 2.8 Rename the inline `var(--color-…)` references the same way, including `toneVar` and chart colour constants. Meaningless series colours read `--chart-1` to `--chart-5`.
-- [ ] 2.9 `lib/format.ts`: `Tone` becomes `success | warning | destructive | info | muted | outline`; update `toneFor` and every tone literal and test.
+- [x] 2.8 Rename the inline `var(--color-…)` references the same way, including `toneVar` and chart colour constants. Meaningless series colours read `--chart-1` to `--chart-5`.
+- [x] 2.9 `lib/format.ts`: `Tone` becomes `success | warning | destructive | info | muted | outline`; update `toneFor` and every tone literal and test.
 - [ ] 2.10 Add `ui/scripts/check-tokens.ts` and a `check:tokens` script that fail on `-panel`, `-panel-2`, `-ok`, `-warn`, `-bad` utilities and `--color-panel`, `--color-ok`, `--color-warn`, `--color-bad` under `web/src`. Add a test that proves it fires, as `scripts/eslint-ban.test.ts` does for the markup ban. Wire it into `lint-ui` in the `Makefile`.
 - [ ] 2.11 Run `make test-ui-e2e-visual`. If the four baselines differ beyond the threshold, regenerate them once with `make test-ui-e2e-update-snapshots` and review the images: the only visible changes should be colour.
 

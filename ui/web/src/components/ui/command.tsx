@@ -110,10 +110,10 @@ export function CommandDialog({ open, onOpenChange, label, children }: { open: b
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <DialogPrimitive.Content
           aria-label={label}
-          className="fixed top-[12vh] left-1/2 z-50 w-[min(92vw,600px)] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-panel text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none data-[state=open]:animate-in data-[state=closed]:animate-out"
+          className="fixed top-[12vh] left-1/2 z-50 w-[min(92vw,600px)] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-panel text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">{label}</DialogPrimitive.Title>
           {children}

@@ -27,7 +27,7 @@ export function DrawerContent({
         data-side={side}
         className={cn(
           "fixed inset-y-0 z-50 flex w-[470px] max-w-[92vw] flex-col overflow-y-auto bg-panel px-[18px] py-4 text-foreground shadow-[-12px_0_32px_rgba(0,0,0,0.45)] outline-none",
-          side === "right" ? "right-0 border-l border-border animate-drawer-right" : "left-0 border-r border-border animate-drawer-left",
+          side === "right" ? "right-0 border-l border-border animate-in slide-in-from-right" : "left-0 border-r border-border animate-in slide-in-from-left",
           className,
         )}
         {...props}

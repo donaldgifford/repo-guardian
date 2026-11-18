@@ -64,6 +64,14 @@ export function withDOM(unmount?: () => void): void {
     document.body.innerHTML = "";
   });
   afterAll(async () => {
+    // Let React finish what the last unmount queued before the document
+    // goes: its scheduler runs passive effects on a later macrotask
+    // (setImmediate under Bun) and reads `window.event` there, so work
+    // still queued when the registrator removes the window throws
+    // "window is not defined" between files. Timing-dependent: it
+    // passed locally and failed in CI after shell.test.tsx.
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     if (GlobalRegistrator.isRegistered) {
       await GlobalRegistrator.unregister();
     }

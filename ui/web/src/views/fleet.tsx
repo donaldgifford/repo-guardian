@@ -27,7 +27,7 @@ import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, 
 import { humanize } from "../lib/format";
 import { postureCsvHead, postureCsvRow } from "../lib/posture";
 import { patchSearch } from "../lib/search";
-import type { SeriesPoint } from "../lib/viewmodel";
+import type { TrendPoint } from "@donaldgifford/design-system/blocks/trend-chart";
 import { exclusionColumns, exclusionsCsv } from "./orgs";
 import { SeriesPills } from "@donaldgifford/design-system/blocks/series-pills";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
@@ -283,7 +283,7 @@ function ResultBadges({ posture: p }: { posture: Schemas["ControlSummary"]["comp
 // No Type (the Controls page has it, and it mostly repeats the id) and
 // no N/A (the Assignments panel has it): the card is half the page and
 // must never scroll sideways.
-export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>): DataTableColumn<Schemas["ControlSummary"]>[] {
+export function byControlColumns(perControl: ReadonlyMap<string, TrendPoint[]>): DataTableColumn<Schemas["ControlSummary"]>[] {
   return [
     {
       id: "id",

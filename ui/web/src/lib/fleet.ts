@@ -3,7 +3,7 @@ import type { Delta } from "../components/DeltaText";
 import { trend } from "./format";
 import { historySeries, type Posture } from "./posture";
 import type { ScopeSearch } from "./scope";
-import type { SeriesPoint } from "./viewmodel";
+import type { TrendPoint } from "@donaldgifford/design-system/blocks/trend-chart";
 
 // The fleet compliance card's series pills (DESIGN-0037 §Fleet panels
 // 1): what the area chart draws from aggregate=fleet history.
@@ -48,7 +48,7 @@ export function parseFleetSearch(s: Record<string, unknown>): FleetSearch {
 // rangeDelta is the move over the range: the last measured snapshot
 // against the first, in points; null with fewer than two measured
 // points, which renders no delta.
-export function rangeDelta(series: readonly SeriesPoint[]): Delta | null {
+export function rangeDelta(series: readonly TrendPoint[]): Delta | null {
   const measured = series.filter((p) => p.value !== null);
   const first = measured[0];
   const last = measured[measured.length - 1];
@@ -59,7 +59,7 @@ export function rangeDelta(series: readonly SeriesPoint[]): Delta | null {
 
 // pickSeries draws one of the pills from the fleet history: each day's
 // rows summed into a posture, then the pill's field.
-export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: FleetSeries): SeriesPoint[] {
+export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: FleetSeries): TrendPoint[] {
   if (series === "percent") return historySeries(points);
   const spec = SERIES[series];
   const byAt = new Map<string, number>();
@@ -69,7 +69,7 @@ export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: F
 
 // byControl splits one aggregate=control history into a series per
 // control, so the fleet asks for the history once, not once per row.
-export function byControl(points: readonly Schemas["HistoryPoint"][]): Map<string, SeriesPoint[]> {
+export function byControl(points: readonly Schemas["HistoryPoint"][]): Map<string, TrendPoint[]> {
   const groups = new Map<string, Schemas["HistoryPoint"][]>();
   for (const p of points) {
     const id = p.control_id ?? "";

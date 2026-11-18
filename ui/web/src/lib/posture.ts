@@ -1,6 +1,6 @@
 import type { Schemas } from "../api/client";
 import type { Segment as DistSegment } from "@donaldgifford/design-system/blocks/dist-bar";
-import type { SeriesPoint } from "./viewmodel";
+import type { TrendPoint } from "@donaldgifford/design-system/blocks/trend-chart";
 import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type Posture = Schemas["Posture"];
@@ -63,7 +63,7 @@ export function addPosture(a: Posture, b: Posture): Posture {
 
 // historySeries sums history points per snapshot into one fleet line,
 // oldest first.
-export function historySeries(points: readonly Schemas["HistoryPoint"][]): SeriesPoint[] {
+export function historySeries(points: readonly Schemas["HistoryPoint"][]): TrendPoint[] {
   const byAt = new Map<string, Posture>();
   for (const p of points) {
     byAt.set(p.snapshot_at, addPosture(byAt.get(p.snapshot_at) ?? emptyPosture(), p.compliance));

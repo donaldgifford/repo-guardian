@@ -1,22 +1,5 @@
 import type { Schemas } from "../api/client";
 
-// SeriesPoint is one dated reading of a chart series: the design
-// system's TrendPoint.
-export type { TrendPoint as SeriesPoint } from "@donaldgifford/design-system/blocks/trend-chart";
-
-// initials is the avatar text: first letters of the first two words of
-// the name, else the first two characters of the subject.
-export function initials(name: string, subject: string): string {
-  const fromName = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0] ?? "")
-    .join("");
-  return (fromName || subject.slice(0, 2)).toUpperCase();
-}
-
 // hasNoAccess is true when the caller may see nothing: the "ask for
 // access" page instead of a wall of 403s.
 export function hasNoAccess(me: Schemas["Me"]): boolean {

@@ -8,7 +8,7 @@ import { Icon } from "../icons";
 import { TimeZoneToggle } from "@donaldgifford/design-system/blocks/time";
 import { Avatar, AvatarFallback } from "@donaldgifford/design-system/components/avatar";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@donaldgifford/design-system/components/dropdown-menu";
 
 // TopBar is the 40px bar over the body (DESIGN-0036 §Shell): a reserved
 // slot, the brand, then the Search button that opens the ⌘K palette,
@@ -43,21 +43,23 @@ export function TopBar({ me, onMenu, onSearch }: { me: Schemas["Me"]; onMenu: ()
             <AvatarFallback className="text-[10px]">{initials(me.name, me.subject)}</AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuLabel>
-            <div className="text-foreground">{me.name || me.subject}</div>
-            <div className="font-mono text-[11px]">{me.subject}</div>
-          </DropdownMenuLabel>
+        <DropdownMenuContent align="end" sideOffset={6} className="min-w-[200px] p-1.5 text-[13px]">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="pt-1.5 pb-1 text-xs font-normal tracking-normal normal-case">
+              <div className="text-foreground">{me.name || me.subject}</div>
+              <div className="font-mono text-[11px]">{me.subject}</div>
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           {docsUrl ? (
-            <DropdownMenuItem asChild>
-              <a href={docsUrl} target="_blank" rel="noopener noreferrer">
-                Documentation
-                <Icon name="external" className="size-3" />
-              </a>
+            <DropdownMenuItem className="justify-between rounded-lg text-[13px]" render={<a href={docsUrl} target="_blank" rel="noopener noreferrer" />}>
+              Documentation
+              <Icon name="external" className="size-3" />
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => logout.current?.requestSubmit()}>Sign out</DropdownMenuItem>
+          <DropdownMenuItem className="rounded-lg text-[13px]" onClick={() => logout.current?.requestSubmit()}>
+            Sign out
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <form ref={logout} method="post" action="/auth/logout" className="hidden" aria-hidden="true" />

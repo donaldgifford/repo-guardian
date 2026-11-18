@@ -470,6 +470,39 @@ jobs:
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max
 
+  docker-build-ui:
+    name: Docker Build UI
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.docker == 'true' || needs.changes.outputs.workflows ==
+      'true'
+    # packages: read lets GITHUB_TOKEN fetch @donaldgifford/* from GitHub
+    # Packages for the image's bun install (IMPL-0037).
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Both platforms, cache only: the same target ghcr.yml releases from,
+      # so a broken UI image fails the pull request, not the release.
+      - name: Build UI image (multi-arch, no push)
+        uses: docker/bake-action@v7
+        # Mounted by the bake target as the NPM_TOKEN build secret: in the
+        # build stage's bun install only, never a layer or an argument.
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          targets: ui-ci
+          source: .
+          files: docker-bake.hcl
+
   helm-unittest:
     name: Helm Unit Tests
     runs-on: ubuntu-latest
@@ -549,7 +582,7 @@ jobs:
   ci-ok:
     name: CI OK
     runs-on: ubuntu-latest
-    needs: [changes, labeler, lint, lint-alerts, monitoring-drift, sql-drift, api-drift, ui, ui-e2e, test-go, replay, test-integration, security, build, docker-build, helm-unittest, helm-test, docs]
+    needs: [changes, labeler, lint, lint-alerts, monitoring-drift, sql-drift, api-drift, ui, ui-e2e, test-go, replay, test-integration, security, build, docker-build, docker-build-ui, helm-unittest, helm-test, docs]
     if: always()
     steps:
       - name: Every job passed or was skipped

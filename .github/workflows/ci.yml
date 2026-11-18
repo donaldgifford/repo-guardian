@@ -233,6 +233,11 @@ jobs:
   ui:
     name: UI
     runs-on: ubuntu-latest
+    # packages: read lets GITHUB_TOKEN fetch @donaldgifford/* from GitHub
+    # Packages (IMPL-0037).
+    permissions:
+      contents: read
+      packages: read
     needs: changes
     if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.workflows == 'true'
     steps:
@@ -244,6 +249,8 @@ jobs:
 
       - name: Install dependencies
         run: make ui-install
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Typecheck and check the generated API types are current
         run: make lint-ui
@@ -260,6 +267,11 @@ jobs:
   ui-e2e:
     name: UI e2e
     runs-on: ubuntu-latest
+    # packages: read lets GITHUB_TOKEN fetch @donaldgifford/* from GitHub
+    # Packages (IMPL-0037).
+    permissions:
+      contents: read
+      packages: read
     needs: changes
     if: >-
       needs.changes.outputs.ui == 'true' || needs.changes.outputs.go == 'true' ||
@@ -273,6 +285,8 @@ jobs:
 
       - name: Install dependencies
         run: make ui-install
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Chromium
         run: cd ui && bunx playwright install --with-deps chromium

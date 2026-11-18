@@ -145,7 +145,7 @@ The package is installable everywhere this repository installs, and nothing impo
 - [x] 1.4 Add `@donaldgifford/design-system` at exactly `0.3.0` to `devDependencies` and commit `bun.lock`. Confirm the installed package has `src/` (a `dist/` with no `src/` is the stale-cache case from design-system#11).
 - [x] 1.5 `ui/Dockerfile`, build stage only: `COPY package.json bun.lock .npmrc ./` and `RUN --mount=type=secret,id=NPM_TOKEN NPM_TOKEN="$(cat /run/secrets/NPM_TOKEN)" bun install --frozen-lockfile`. Leave the deps stage and the `# syntax` line alone.
 - [x] 1.6 `docker-bake.hcl`: `secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]` on `_ui`. `make docker-build-ui` builds; `docker history --no-trunc` on the result shows no token; the runtime image has no `node_modules/@donaldgifford`.
-- [ ] 1.7 `ci.yml`: the `ui` and `ui-e2e` jobs get `permissions: { contents: read, packages: read }` and `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the install step's `env`. No other job changes.
+- [x] 1.7 `ci.yml`: the `ui` and `ui-e2e` jobs get `permissions: { contents: read, packages: read }` and `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the install step's `env`. No other job changes.
 - [ ] 1.8 Push and confirm both jobs install with `GITHUB_TOKEN`. If the registry refuses it, switch the two jobs to the repository secret from OQ2 and record which was needed in this plan.
 - [ ] 1.9 `ghcr.yml`: `NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in the `env` of the `ui-image` bake step. Diff `ghcr.yml` against `ecr.yml` and confirm `ecr.yml` needs nothing. Run `actionlint`.
 - [ ] 1.10 Dispatch `ghcr.yml` on the branch with `dry_run: true` and a tag input, and confirm the `ui-image` job builds both platforms. *deferred - human required* if the dispatch needs the maintainer.

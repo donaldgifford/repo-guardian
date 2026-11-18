@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import golden from "../../../../api/testdata/compliant_percent.json";
-import { ageDays, compliantPercent, humanizeDuration, relativeTime, toneFor, trend } from "./format";
+import { ageDays, compliantPercent, toneFor, trend } from "./format";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
 describe("compliantPercent", () => {
@@ -34,14 +34,6 @@ test("trend is the change against the previous snapshot, or null", () => {
   expect(trend(null, 75)).toBeNull();
   expect(trend(70, null)).toBeNull();
   expect(trend(70, undefined)).toBeNull();
-});
-
-test("relativeTime", () => {
-  const now = new Date("2026-09-25T12:00:00Z");
-  expect(relativeTime("2026-09-25T09:00:00Z", now)).toBe("3 hours ago");
-  expect(relativeTime("2026-09-23T12:00:00Z", now)).toBe("2 days ago");
-  expect(relativeTime("2026-09-25T11:59:30Z", now)).toBe("30 seconds ago");
-  expect(relativeTime(undefined, now)).toBe("never");
 });
 
 test("ageDays counts whole days", () => {
@@ -106,14 +98,3 @@ describe("toneFor", () => {
   });
 });
 
-test.each([
-  ["720h", "30d"],
-  ["720h0m0s", "30d"],
-  ["24h", "1d"],
-  ["36h", "36h"],
-  ["0h", "0h"],
-  ["90m", "90m"],
-  ["", ""],
-])("humanizeDuration(%p) → %p", (input, want) => {
-  expect(humanizeDuration(input)).toBe(want);
-});

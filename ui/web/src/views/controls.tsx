@@ -3,7 +3,8 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useControl, useControls, useResults } from "../api/queries";
-import { BarList, type BarListItem, TrendChart, trendTable } from "../components/charts";
+import { BarList, type BarListItem } from "../components/charts";
+import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
 import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
@@ -126,9 +127,9 @@ export function ControlView() {
                   <code>aggregate=control</code> over the orgs in scope.
                 </>
               }
-              table={trendTable(series, "compliance %")}
+              table={trendTable(series, "compliance %", { head: "Snapshot", noun: "snapshots" })}
             >
-              {history.data ? <TrendChart series={series} rangeDays={days} height={180} aria-label={`${c.id} compliance over time`} /> : <Loading />}
+              {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${c.id} compliance over time`} /> : <Loading />}
             </ChartCard>
             <Card
               title="By org"

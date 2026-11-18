@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Schemas } from "../api/client";
 import { pageItems, useComplianceHistory, useOpenPullRequests, useOrg, useOrgs, useRemediationEnabled, useRepositories } from "../api/queries";
-import { TrendChart, trendTable } from "../components/charts";
+import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
 import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
@@ -348,9 +348,9 @@ export function OrgView() {
               <code>aggregate=org</code>, every control in {o.org}.
             </>
           }
-          table={trendTable(series, "compliance %")}
+          table={trendTable(series, "compliance %", { head: "Snapshot", noun: "snapshots" })}
         >
-          {history.data ? <TrendChart series={series} rangeDays={days} height={180} aria-label={`${o.org} compliance over time`} /> : <Loading />}
+          {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} height={180} label={`${o.org} compliance over time`} /> : <Loading />}
         </ChartCard>
         <div className="grid gap-4 lg:grid-cols-3">
           <Card

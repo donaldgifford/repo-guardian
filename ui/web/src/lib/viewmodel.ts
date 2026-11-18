@@ -1,9 +1,8 @@
 import type { Schemas } from "../api/client";
 
-export interface SeriesPoint {
-  at: string;
-  percent: number | null;
-}
+// SeriesPoint is one dated reading of a chart series: the design
+// system's TrendPoint.
+export type { TrendPoint as SeriesPoint } from "@donaldgifford/design-system/blocks/trend-chart";
 
 // initials is the avatar text: first letters of the first two words of
 // the name, else the first two characters of the subject.

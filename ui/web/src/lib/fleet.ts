@@ -49,11 +49,11 @@ export function parseFleetSearch(s: Record<string, unknown>): FleetSearch {
 // against the first, in points; null with fewer than two measured
 // points, which renders no delta.
 export function rangeDelta(series: readonly SeriesPoint[]): Delta | null {
-  const measured = series.filter((p) => p.percent !== null);
+  const measured = series.filter((p) => p.value !== null);
   const first = measured[0];
   const last = measured[measured.length - 1];
   if (!first || !last || first === last) return null;
-  const value = trend(last.percent, first.percent);
+  const value = trend(last.value, first.value);
   return value === null ? null : { value, goodUp: true, unit: " pts" };
 }
 
@@ -64,7 +64,7 @@ export function pickSeries(points: readonly Schemas["HistoryPoint"][], series: F
   const spec = SERIES[series];
   const byAt = new Map<string, number>();
   for (const p of points) byAt.set(p.snapshot_at, (byAt.get(p.snapshot_at) ?? 0) + (spec.pick(p.compliance) ?? 0));
-  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, v]) => ({ at, percent: v }));
+  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, v]) => ({ at, value: v }));
 }
 
 // byControl splits one aggregate=control history into a series per

@@ -41,7 +41,7 @@ test("historySeries sums each snapshot over orgs and controls, oldest first", ()
   });
   const series = historySeries([point("2026-10-02T00:00:00Z", 1, 0), point("2026-10-01T00:00:00Z", 1, 1), point("2026-10-02T00:00:00Z", 0, 1)]);
   expect(series).toEqual([
-    { at: "2026-10-01T00:00:00Z", percent: 50 },
-    { at: "2026-10-02T00:00:00Z", percent: 50 },
+    { at: "2026-10-01T00:00:00Z", value: 50 },
+    { at: "2026-10-02T00:00:00Z", value: 50 },
   ]);
 });

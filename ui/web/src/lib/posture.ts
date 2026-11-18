@@ -1,5 +1,6 @@
 import type { Schemas } from "../api/client";
 import type { DistSegment } from "../components/charts";
+import type { SeriesPoint } from "./viewmodel";
 import { floorPercent } from "@donaldgifford/design-system/lib/percent";
 
 export type Posture = Schemas["Posture"];
@@ -62,12 +63,12 @@ export function addPosture(a: Posture, b: Posture): Posture {
 
 // historySeries sums history points per snapshot into one fleet line,
 // oldest first.
-export function historySeries(points: readonly Schemas["HistoryPoint"][]): { at: string; percent: number | null }[] {
+export function historySeries(points: readonly Schemas["HistoryPoint"][]): SeriesPoint[] {
   const byAt = new Map<string, Posture>();
   for (const p of points) {
     byAt.set(p.snapshot_at, addPosture(byAt.get(p.snapshot_at) ?? emptyPosture(), p.compliance));
   }
-  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, posture]) => ({ at, percent: posture.percent }));
+  return [...byAt.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, posture]) => ({ at, value: posture.percent }));
 }
 
 // postureCsvHead and postureCsvRow are a posture's CSV cells, shared by

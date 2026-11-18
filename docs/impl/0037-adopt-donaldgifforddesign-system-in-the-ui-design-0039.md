@@ -223,7 +223,7 @@ Helpers and leaf components with no overlay behaviour move to the package: the `
 - [x] 3.7 `ui/kpi` to `blocks/kpi`. Move `DeltaText` and `Delta` to `components/DeltaText.tsx`, pass it as `hint`, and update `lib/fleet.ts`'s type import.
 - [x] 3.8 `ui/stat-strip` to `blocks/stat-strip` (`cells` to `items`, `subline` to `sub`).
 - [x] 3.9 `charts/ChartCard` and `tooltip` to `blocks/chart-card` (`description`, `action`, `strip`). The fleet card's strip must stay visible in table view.
-- [ ] 3.10 `charts/TrendChart` to `blocks/trend-chart`: `points: {at, value}[]`, `series`, and `trendTable(points, series, { head: "Snapshot", noun: "snapshots" })`.
+- [x] 3.10 `charts/TrendChart` to `blocks/trend-chart`: `points: {at, value}[]`, `series`, and `trendTable(points, series, { head: "Snapshot", noun: "snapshots" })`.
 - [ ] 3.11 `BarBuckets`, `PairBars`, `BarList`, `StackedBars`, `Sparkline` to their blocks. Check each chart with a null in its series: `Sparkline` now breaks the line.
 - [ ] 3.12 `charts/DistBar` to `blocks/dist-bar` with `size="sm"` and `label`; rebuild `PostureBar` on it. The accessible name becomes `<label>: <summary>`; confirm the e2e `getByRole("img", { name: … })` still matches.
 - [ ] 3.13 `ui/group-grid` to `blocks/group-grid` (`heading`, `label`, string headers). The footer row is `data-row="footer"`: update `e2e/ui.spec.ts` and the orgs tests.

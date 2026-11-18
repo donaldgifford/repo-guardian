@@ -8,10 +8,10 @@ const posture = (p: Partial<Posture>): Posture => ({ ...emptyPosture(), ...p });
 
 test("rangeDelta needs two measured points: none for 0 or 1, last minus first past that", () => {
   expect(rangeDelta([])).toBeNull();
-  expect(rangeDelta([{ at: "2026-10-01", percent: 50 }])).toBeNull();
-  expect(rangeDelta([{ at: "2026-10-01", percent: null }, { at: "2026-10-02", percent: 50 }])).toBeNull();
-  expect(rangeDelta([{ at: "2026-10-01", percent: 50 }, { at: "2026-10-02", percent: null }, { at: "2026-10-03", percent: 61.24 }])).toEqual({ value: 11.2, goodUp: true, unit: " pts" });
-  expect(rangeDelta([{ at: "2026-10-01", percent: 50 }, { at: "2026-10-02", percent: 40 }])).toEqual({ value: -10, goodUp: true, unit: " pts" });
+  expect(rangeDelta([{ at: "2026-10-01", value: 50 }])).toBeNull();
+  expect(rangeDelta([{ at: "2026-10-01", value: null }, { at: "2026-10-02", value: 50 }])).toBeNull();
+  expect(rangeDelta([{ at: "2026-10-01", value: 50 }, { at: "2026-10-02", value: null }, { at: "2026-10-03", value: 61.24 }])).toEqual({ value: 11.2, goodUp: true, unit: " pts" });
+  expect(rangeDelta([{ at: "2026-10-01", value: 50 }, { at: "2026-10-02", value: 40 }])).toEqual({ value: -10, goodUp: true, unit: " pts" });
 });
 
 test("parseFleetSearch keeps the scope and a non-default series", () => {
@@ -30,19 +30,19 @@ test("pickSeries sums each day's rows and byControl splits one history per contr
     point("2026-10-02", "a", { compliant: 2, non_compliant: 0, assigned: 2 }),
   ];
   expect(pickSeries(points, "percent")).toEqual([
-    { at: "2026-10-01", percent: 80 },
-    { at: "2026-10-02", percent: 100 },
+    { at: "2026-10-01", value: 80 },
+    { at: "2026-10-02", value: 100 },
   ]);
   expect(pickSeries(points, "non_compliant")).toEqual([
-    { at: "2026-10-01", percent: 1 },
-    { at: "2026-10-02", percent: 0 },
+    { at: "2026-10-01", value: 1 },
+    { at: "2026-10-02", value: 0 },
   ]);
-  expect(pickSeries(points, "unknown").map((p) => p.percent)).toEqual([2, 0]);
-  expect(pickSeries(points, "not_applicable").map((p) => p.percent)).toEqual([1, 0]);
+  expect(pickSeries(points, "unknown").map((p) => p.value)).toEqual([2, 0]);
+  expect(pickSeries(points, "not_applicable").map((p) => p.value)).toEqual([1, 0]);
   const split = byControl(points);
   expect([...split.keys()]).toEqual(["a", "b"]);
-  expect(split.get("a")?.map((p) => p.percent)).toEqual([50, 100]);
-  expect(split.get("b")?.map((p) => p.percent)).toEqual([100]);
+  expect(split.get("a")?.map((p) => p.value)).toEqual([50, 100]);
+  expect(split.get("b")?.map((p) => p.value)).toEqual([100]);
 });
 
 test("worstControls ranks the measured only, lowest first, five at most", () => {

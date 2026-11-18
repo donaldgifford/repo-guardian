@@ -2,7 +2,7 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { useComplianceHistory, useControls } from "../api/queries";
-import { TrendChart } from "../components/charts";
+import { TrendChart } from "@donaldgifford/design-system/blocks/trend-chart";
 import { Loading } from "../components/common";
 import { OrgScope, useOrgScope } from "../components/page/OrgScope";
 import { PageHeader } from "../components/page/PageHeader";
@@ -68,8 +68,8 @@ export function HistoryView() {
           </>
         }
       />
-      <Card title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.percent)}` : "No snapshot in range."}>
-        {history.data ? <TrendChart series={series} rangeDays={days} aria-label="Compliance over time" /> : <Loading />}
+      <Card title={search.control ?? "Every control"} subtitle={last ? `latest ${formatPercent(last.value)}` : "No snapshot in range."}>
+        {history.data ? <TrendChart points={series} series="compliance %" rangeDays={days} label="Compliance over time" /> : <Loading />}
       </Card>
     </>
   );

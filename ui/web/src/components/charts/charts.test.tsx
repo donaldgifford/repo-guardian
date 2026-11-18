@@ -7,7 +7,6 @@ import { DistBar } from "./DistBar";
 import { fitTicks, niceBounds, tickLabel, xTicksFor } from "@donaldgifford/design-system/lib/chart-scale";
 import { Sparkline } from "./Sparkline";
 import { rowShares, StackedBars, stackTable } from "./StackedBars";
-import { trendTable } from "./TrendChart";
 
 describe("niceBounds", () => {
   test("a narrow percent band does not start at zero", () => {
@@ -154,16 +153,6 @@ test("ChartCard starts on the plot and names the table toggle", () => {
   expect(html).toContain(">legend<");
   expect(html).not.toContain("<table");
   expect(html).toMatch(/aria-pressed="false"[^>]*>table</);
-});
-
-test("trendTable is newest first and capped at 30", () => {
-  const series = Array.from({ length: 40 }, (_, i) => ({ at: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`, percent: i === 5 ? null : 50 + i }));
-  const t = trendTable(series, "compliance %");
-  expect(t.rows).toHaveLength(30);
-  expect(t.rows[0]).toEqual(["2026-01-40", "89.0%"]);
-  expect(t.rows[29]).toEqual(["2026-01-11", "60.0%"]);
-  expect(t.note).toBe("latest 30 of 40 snapshots");
-  expect(trendTable(series.slice(0, 6), "x").rows[0]).toEqual(["2026-01-06", "—"]);
 });
 
 test("Sparkline needs two measured points and skips gaps", () => {

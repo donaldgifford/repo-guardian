@@ -5,5 +5,4 @@ export { DistBar, type DistSegment } from "./DistBar";
 export { fitTicks, formatValue, niceBounds, tickLabel, xTicksFor } from "@donaldgifford/design-system/lib/chart-scale";
 export { Sparkline } from "./Sparkline";
 export { rowShares, type Segment, type StackRow, StackedBars, stackTable } from "./StackedBars";
-export { TrendChart, type TrendChartProps, trendTable } from "./TrendChart";
 export { type PairDay, PairBars, pairTable } from "./PairBars";

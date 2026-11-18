@@ -3,7 +3,8 @@ import { useMemo } from "react";
 
 import type { Schemas } from "../api/client";
 import { useComplianceHistory, useControls, useOrg, useOrgs, useRemediationActivity, useRemediationEnabled, useSummary } from "../api/queries";
-import { BarBuckets, BarList, bucketsTable, DistBar, PairBars, pairTable, Sparkline, TrendChart, trendTable } from "../components/charts";
+import { BarBuckets, BarList, bucketsTable, DistBar, PairBars, pairTable, Sparkline } from "../components/charts";
+import { TrendChart, trendTable } from "@donaldgifford/design-system/blocks/trend-chart";
 import { ChartCard } from "@donaldgifford/design-system/blocks/chart-card";
 import { Empty, Loading } from "../components/common";
 import { ExportButton } from "@donaldgifford/design-system/blocks/export-button";
@@ -114,7 +115,7 @@ export function FleetView() {
                 ]}
               />
             }
-            table={trendTable(points, spec.label, spec.unit)}
+            table={trendTable(points, spec.label, { unit: spec.unit, head: "Snapshot", noun: "snapshots" })}
           >
             <SeriesPills
               label="Series"
@@ -130,7 +131,7 @@ export function FleetView() {
                 value: k === "percent" ? formatPercent(posture.percent) : posture[k].toLocaleString(),
               }))}
             />
-            {fleetHistory.data ? <TrendChart series={points} unit={spec.unit} color={spec.color} label={spec.label} rangeDays={days} height={200} aria-label={`${spec.label} over the last ${days} days`} /> : <Loading />}
+            {fleetHistory.data ? <TrendChart points={points} unit={spec.unit} color={spec.color} series={spec.label} rangeDays={days} height={200} label={`${spec.label} over the last ${days} days`} /> : <Loading />}
           </ChartCard>
           <Card
             title="Finding age"
@@ -292,7 +293,7 @@ export function byControlColumns(perControl: ReadonlyMap<string, SeriesPoint[]>)
     { key: "results", header: "Results", cell: (c) => <ResultBadges posture={c.compliance} /> },
     // The percentage is the row's answer, in the heaviest weight.
     { key: "percent", header: "%", cell: (c) => <span className="text-[14px] font-semibold">{formatPercent(c.compliance.percent)}</span>, numeric: true },
-    { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.percent)} /> },
+    { key: "trend", header: "Trend", cell: (c) => <Sparkline values={(perControl.get(c.id) ?? []).map((p) => p.value)} /> },
   ];
 }
 

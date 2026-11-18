@@ -14,7 +14,8 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { Kpi } from "../components/ui/kpi";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
+import { DeltaText } from "../components/DeltaText";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { rangeDelta } from "../lib/fleet";
 import { ageDays } from "../lib/format";
@@ -110,10 +111,10 @@ export function ControlView() {
       />
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Compliance" value={formatPercent(posture.percent)} {...(history.data ? { delta: rangeDelta(series), subline: `over ${days}d` } : {})} />
-          <Kpi label="Compliant" value={posture.compliant.toLocaleString()} subline="assignments" />
-          <Kpi label="Non-compliant" value={posture.non_compliant.toLocaleString()} {...(first ? { subline: `oldest: ${ageDays(first.last_changed_at)} days` } : findings.data ? { subline: "no findings in scope" } : {})} />
-          <Kpi label="Coverage" value={formatPercent(posture.coverage)} subline={`${posture.not_applicable.toLocaleString()} n/a · ${posture.unknown.toLocaleString()} unknown`} />
+          <Kpi label="Compliance" value={formatPercent(posture.percent)} {...(history.data ? { hint: <><DeltaText delta={rangeDelta(series)} /> over {days}d</> } : {})} />
+          <Kpi label="Compliant" value={posture.compliant.toLocaleString()} hint="assignments" />
+          <Kpi label="Non-compliant" value={posture.non_compliant.toLocaleString()} {...(first ? { hint: `oldest: ${ageDays(first.last_changed_at)} days` } : findings.data ? { hint: "no findings in scope" } : {})} />
+          <Kpi label="Coverage" value={formatPercent(posture.coverage)} hint={`${posture.not_applicable.toLocaleString()} n/a · ${posture.unknown.toLocaleString()} unknown`} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">

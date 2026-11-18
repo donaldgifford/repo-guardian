@@ -6,7 +6,7 @@ import { humanize, toneFor } from "../lib/format";
 import { postureSegments, type Posture } from "../lib/posture";
 import { DistBar } from "./charts";
 import { Badge } from "./ui/badge";
-import { Kpi } from "./ui/kpi";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { Meter } from "@donaldgifford/design-system/blocks/meter";
 import { formatPercent } from "@donaldgifford/design-system/lib/percent";
 
@@ -26,8 +26,8 @@ export function CoverageText({ posture }: { posture: Posture }) {
 export function PostureKpis({ posture, children }: { posture: Posture; children?: ReactNode }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Kpi label="Compliance" value={formatPercent(posture.percent)} subline="compliant ÷ (compliant + non-compliant)" />
-      <Kpi label="Coverage" value={formatPercent(posture.coverage)} subline={`measured of ${posture.assigned.toLocaleString()} assigned`} />
+      <Kpi label="Compliance" value={formatPercent(posture.percent)} hint="compliant ÷ (compliant + non-compliant)" />
+      <Kpi label="Coverage" value={formatPercent(posture.coverage)} hint={`measured of ${posture.assigned.toLocaleString()} assigned`} />
       {children}
     </div>
   );

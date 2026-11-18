@@ -1,5 +1,5 @@
 import type { Schemas } from "../api/client";
-import type { Delta } from "../components/ui/kpi";
+import type { Delta } from "../components/DeltaText";
 import { trend } from "./format";
 import { historySeries, type Posture } from "./posture";
 import type { ScopeSearch } from "./scope";

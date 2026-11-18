@@ -17,7 +17,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
 import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "../components/ui/group-grid";
-import { Kpi } from "../components/ui/kpi";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { humanize } from "../lib/format";
@@ -335,8 +335,8 @@ export function OrgView() {
       />
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Baseline compliance" value={formatPercent(o.baseline.percent)} subline={`coverage ${formatPercent(o.baseline.coverage)}`} />
-          <Kpi label="Org-added compliance" value={formatPercent(o.org_added.percent)} subline={`coverage ${formatPercent(o.org_added.coverage)}`} />
+          <Kpi label="Baseline compliance" value={formatPercent(o.baseline.percent)} hint={`coverage ${formatPercent(o.baseline.coverage)}`} />
+          <Kpi label="Org-added compliance" value={formatPercent(o.org_added.percent)} hint={`coverage ${formatPercent(o.org_added.coverage)}`} />
           <Kpi label="Baseline assignments" value={o.baseline.assigned.toLocaleString()} />
           <Kpi label="Org-added assignments" value={o.org_added.assigned.toLocaleString()} />
         </div>

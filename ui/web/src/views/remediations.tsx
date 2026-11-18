@@ -15,7 +15,7 @@ import { Time } from "@donaldgifford/design-system/blocks/time";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { Kpi } from "../components/ui/kpi";
+import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { SearchTabs } from "../components/ui/tabs";
 import { humanize } from "../lib/format";
 import { HOLDS, holdSentence } from "../lib/holds";
@@ -143,10 +143,10 @@ export function RemediationsView() {
       ) : (
         <div className="space-y-4" data-gated="content">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi label="Open PRs" value={k ? k.open.toLocaleString() : "…"} subline={k ? `${k.stale.toLocaleString()} stale (30d+)` : undefined} />
-            <Kpi label="Recommendations" value={k ? k.recommended.toLocaleString() : "…"} subline="outstanding, waiting for a human" />
-            <Kpi label="Held" value={k ? k.held.toLocaleString() : "…"} subline={k && k.heldByReason.length > 0 ? k.heldByReason.map((h) => `${humanize(h.hold)} ${h.count}`).join(" · ") : "nothing held"} />
-            <Kpi label="Failed applies" value={k ? k.failed.toLocaleString() : "…"} subline="direct apply stopped partway" />
+            <Kpi label="Open PRs" value={k ? k.open.toLocaleString() : "…"} hint={k ? `${k.stale.toLocaleString()} stale (30d+)` : undefined} />
+            <Kpi label="Recommendations" value={k ? k.recommended.toLocaleString() : "…"} hint="outstanding, waiting for a human" />
+            <Kpi label="Held" value={k ? k.held.toLocaleString() : "…"} hint={k && k.heldByReason.length > 0 ? k.heldByReason.map((h) => `${humanize(h.hold)} ${h.count}`).join(" · ") : "nothing held"} />
+            <Kpi label="Failed applies" value={k ? k.failed.toLocaleString() : "…"} hint="direct apply stopped partway" />
           </div>
           <div className={cn("grid gap-4", inline && "grid-cols-[minmax(0,1fr)_470px]")} data-layout={inline ? "side-by-side" : "stacked"}>
             <div ref={tableRef} className="min-w-0 space-y-3">

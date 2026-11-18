@@ -14,7 +14,7 @@ import { CoverageText, PostureBar, PostureMeter } from "../components/posture";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { DeltaText } from "../components/ui/kpi";
+import { DeltaText } from "../components/DeltaText";
 import { StatStrip } from "../components/ui/stat-strip";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
 import { AGE_COLORS, byControl, DEFAULT_SERIES, FLEET_SERIES, type FleetSeries, isFleetSeries, pickSeries, rangeDelta, SERIES, STALE_BUCKET, underDays, worstControls } from "../lib/fleet";

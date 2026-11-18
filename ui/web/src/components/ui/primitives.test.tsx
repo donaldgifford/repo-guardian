@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Avatar } from "./avatar";
 import { Button } from "./button";
 import { Card } from "./card";
-import { DeltaText, Kpi } from "./kpi";
+import { DeltaText } from "../DeltaText";
 import { StatStrip } from "./stat-strip";
 import { Tabs } from "./tabs";
 
@@ -31,7 +31,7 @@ test("StatStrip renders one cell per stat with optional subline", () => {
   expect(html).toContain(">vs previous</dd>");
 });
 
-describe("Kpi and DeltaText", () => {
+describe("DeltaText", () => {
   test("an upward good delta is ok, a downward one is bad", () => {
     const up = renderToStaticMarkup(<DeltaText delta={{ value: 1.2, goodUp: true, unit: " pts" }} />);
     expect(up).toContain("text-success");
@@ -45,13 +45,6 @@ describe("Kpi and DeltaText", () => {
     expect(renderToStaticMarkup(<DeltaText delta={{ value: -5, goodUp: false }} />)).toContain("text-success");
     expect(renderToStaticMarkup(<DeltaText delta={{ value: 0, goodUp: true, unit: "%" }} />)).toBe("<span>• 0%</span>");
     expect(renderToStaticMarkup(<DeltaText delta={null} />)).toBe("<span>no previous snapshot</span>");
-  });
-
-  test("Kpi joins delta and subline", () => {
-    const html = renderToStaticMarkup(<Kpi label="Failing" value="37" delta={{ value: -2, goodUp: false }} subline="vs 7d" />);
-    expect(html).toContain(">Failing<");
-    expect(html).toContain(">37<");
-    expect(html).toMatch(/▼ 2<\/span> vs 7d/);
   });
 });
 

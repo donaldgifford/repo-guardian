@@ -70,6 +70,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0034 | v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A) | In Progress | 2026-10-25 | Donald Gifford | [0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a.md](0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a.md) |
 | IMPL-0035 | Public docs site on Astro Starlight (DESIGN-0038 Part C) | Draft | 2026-10-25 | Donald Gifford | [0035-public-docs-site-on-astro-starlight-design-0038-part-c.md](0035-public-docs-site-on-astro-starlight-design-0038-part-c.md) |
 | IMPL-0036 | Supply-chain hardening (DESIGN-0038 Part D tiers 2-3) | Draft | 2026-10-25 | Donald Gifford | [0036-supply-chain-hardening-design-0038-part-d-tiers-2-3.md](0036-supply-chain-hardening-design-0038-part-d-tiers-2-3.md) |
-| IMPL-0037 | Adopt @donaldgifford/design-system in the UI (DESIGN-0039) | Draft | 2026-11-17 | Donald Gifford | [0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039.md](0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039.md) |
+| IMPL-0037 | Adopt @donaldgifford/design-system in the UI (DESIGN-0039) | Completed | 2026-11-17 | Donald Gifford | [0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039.md](0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039.md) |
 <!-- markdownlint-restore -->
 <!-- END DOCZ AUTO-GENERATED -->

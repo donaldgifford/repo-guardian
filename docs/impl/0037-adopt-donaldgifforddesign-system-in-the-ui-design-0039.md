@@ -1,7 +1,7 @@
 ---
 id: IMPL-0037
 title: "Adopt @donaldgifford/design-system in the UI (DESIGN-0039)"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-11-17
 ---
@@ -415,7 +415,11 @@ What the migration made unnecessary is deleted, and the rules that keep it from 
 - [x] 7.5 Give each local survivor (`Panel`, `SegmentedTabs`, `OptionRows`, `DeltaText`, `common`, `problem`, `icons`) a header comment stating why it is not in the package. Use the `todo-comments` format for any note left behind. *Note: each opens with a "Local, not in the design system:" block after its imports, the shape `DeltaText` already had. Two dead pieces went: `common.tsx`'s `Section` (nothing imported it) and the `menu` icon (only the old top bar used it). No note was left behind, so no todo-comment.*
 - [x] 7.6 `THIRD_PARTY_NOTICES.md`: add the package (Apache-2.0) and the libraries now bundled through it; note that the fonts arrive through the package. *Note: the list is measured, not guessed: a sourcemapped build's `sources` give the packages in the bundle, and walking `package.json` dependencies keeps those reached from the design system but not from the UI's own dependencies (Recharts added by hand, since its sources map outside `node_modules`). 57 packages plus the design system: MIT, ISC (d3), 0BSD (`tslib`) and Apache-2.0 (the package, `class-variance-authority`); one table with copyright lines and each licence text once. `sonner` is a package dependency but not in the bundle, so not listed.*
 - [x] 7.7 Measure the bundle (`bun run build`) and record JS and CSS sizes here beside `main`'s 989 kB and 31 kB. *Result (both built here, same Vite): JS 1,271.55 kB (385.34 kB gzip) against `main`'s 988.58 kB (295.25 kB gzip), +283 kB / +90 kB gzip; CSS 103.34 kB (17.57 kB gzip) against 30.97 kB (6.86 kB gzip), +72 kB / +10.7 kB gzip. Well under the spike's 1,761 kB. By unminified source, the growth is Base UI with its utils (~606 kB, replacing ~140 kB of radix popover, menu, popper and collection), TanStack Table (~171 kB, replacing the hand-rolled table), zod (361 kB) and cmdk with radix's Dialog under it (a second overlay stack beside Base UI); Recharts is one copy at the package's 3.8.0. zod is reached only through the package's `lib/errors`, whose module-level `problemSchema` cannot be tree-shaken, so any `ErrorState` brings it; that is an upstream lead (a lazily built schema, or `ApiError` in a zod-free module), not something to work around here. The CSS is the package's component styles and `tw-animate-css`.*
-- [ ] 7.8 Confirm issue #252's "done when" list item by item and record the result here.
+- [x] 7.8 Confirm issue #252's "done when" list item by item and record the result here. *Result (2026-11-18):*
+  - *No local copies, `radix-ui` gone:* met. `components/ui/` is deleted, and `radix-ui` is out of `package.json` and banned by ESLint under `web/`. Each survivor states why it is local (7.5). The search for this item also turned up the local `relativeTime`, a dead copy of the package's `lib/time`; it was deleted, with the unused `humanizeDuration`.
+  - *No old token names:* met. `check:tokens` passes in `make lint-ui`, and its test fails on a planted `bg-panel`.
+  - *`lint-ui`, `test-ui`, e2e, `check:dist` and the Docker build pass in CI:* met for the UI jobs on #255 (UI, UI e2e). The UI job first failed on a harness race (React work queued after `withDOM` removed the document), fixed in `web/testing/dom.ts`. CI's Docker job builds only the Go image, so the UI image is proven by `make docker-build-ui` here and, in CI, by the release run (8.9). #255's Security Scan fails on two new govulncheck findings in Go and `klauspost/compress`, unrelated to this plan and fixed separately in #256.
+  - *Looks the same apart from accepted differences:* met. The baselines were regenerated in Phases 2 and 6 and reviewed against the mockup, which DESIGN-0039 updated for the new frame.
 
 <!--docz:tasks:end-->
 
@@ -446,11 +450,11 @@ The change is released as v2.1.0 and the documents say what the code now does.
 - [x] 8.4 `ui/README.md`: the design-language section points at the package and its Storybook; the make-target table and the token section are current.
 - [x] 8.5 `docs/usage/ui.md` §The shell: the collapsible sidebar, the account menu, 768px, the `rg.sidebar` key. Re-render `docs/usage/img/ui/status.png` in the pinned Playwright image.
 - [x] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.
-- [ ] 8.7 Open the pull request with the `minor` label. State in the description that the label cuts `v2.1.0`, and include the `accent` table from 2.1 and the bundle sizes from 7.7.
+- [x] 8.7 Open the pull request with the `minor` label. State in the description that the label cuts `v2.1.0`, and include the `accent` table from 2.1 and the bundle sizes from 7.7. *Note: #255, opened as a draft in Phase 1 for CI, now carries `minor`, the release statement, both tables, the hand-verified items and the upstream notes.*
 - [ ] 8.8 Merge. *deferred - human required*
 - [ ] 8.9 Confirm the push-triggered `release.yml` run created jobs, tagged `v2.1.0`, and that `ghcr.yml`'s `ui-image` and `ui-image-slsa` jobs succeeded with the build secret. *deferred - human required*
 - [ ] 8.10 Dispatch `changelog-update.yml` with `-f tag=v2.1.0` and merge its pull request. *deferred - human required*
-- [ ] 8.11 Set DESIGN-0039 to Implemented and this plan to Completed with `docz status set`, and close issue #252.
+- [x] 8.11 Set DESIGN-0039 to Implemented and this plan to Completed with `docz status set`, and close issue #252. *Note: the statuses are set in this pull request so they land with the merge; #255's `Closes #252` closes the issue when it merges.*
 
 <!--docz:tasks:end-->
 
@@ -501,15 +505,15 @@ The change is released as v2.1.0 and the documents say what the code now does.
 <!--docz:testing:start-->
 ## Testing Plan
 
-- [ ] `make lint-ui` (typecheck of app and package source, ESLint, API drift, changelog, `check:tokens`, `check:dist`) passes at the end of every phase.
-- [ ] `make test-ui` passes at the end of every phase; tests of deleted components are deleted with them, tests of local behaviour are rewritten against roles.
-- [ ] `make test-ui-e2e` passes at the end of every phase on both Playwright projects, with the two-org visibility assertions intact.
-- [ ] `a11y.spec.ts` passes at every phase with no rule disabled and no new exclusion, and covers the collapsed rail and the open sheet from Phase 6.
-- [ ] `make test-ui-e2e-visual`: baselines regenerated at most in Phases 2 and 6, in the pinned image, each reviewed against the mockup.
-- [ ] Keyboard paths checked explicitly in Phases 4 to 6: overlay focus in and out, Escape, row activation with Enter and Space, `⌘K`, `⌘B`.
-- [ ] The two new guards (`check:tokens`, the Radix import ban) each have a test that fails on a planted violation.
-- [ ] `make docker-build-ui` in Phases 1 and 7; the `ghcr.yml` dry-run dispatch in Phase 1; the real release run in Phase 8.
-- [ ] Things with no automated check, verified by hand and noted in the pull request: the stored `rg.tz` survives the upgrade, CSV file names are unchanged, Sign out works.
+- [x] `make lint-ui` (typecheck of app and package source, ESLint, API drift, changelog, `check:tokens`, `check:dist`) passes at the end of every phase.
+- [x] `make test-ui` passes at the end of every phase; tests of deleted components are deleted with them, tests of local behaviour are rewritten against roles.
+- [x] `make test-ui-e2e` passes at the end of every phase on both Playwright projects, with the two-org visibility assertions intact.
+- [x] `a11y.spec.ts` passes at every phase with no rule disabled and no new exclusion, and covers the collapsed rail and the open sheet from Phase 6.
+- [x] `make test-ui-e2e-visual`: baselines regenerated at most in Phases 2 and 6, in the pinned image, each reviewed against the mockup. *Note: one exception, forced by the release: the Status baseline shows the newest changelog entry and was regenerated for 2.1.0 alone in Phase 8 (8.2).*
+- [x] Keyboard paths checked explicitly in Phases 4 to 6: overlay focus in and out, Escape, row activation with Enter and Space, `⌘K`, `⌘B`.
+- [x] The two new guards (`check:tokens`, the Radix import ban) each have a test that fails on a planted violation.
+- [ ] `make docker-build-ui` in Phases 1 and 7; the `ghcr.yml` dry-run dispatch in Phase 1; the real release run in Phase 8. *Note: both local builds pass (Phase 7's with no token in the image history or the saved image); the dry-run dispatch (1.10) and the release run (8.9) are deferred - human required.*
+- [x] Things with no automated check, verified by hand and noted in the pull request: the stored `rg.tz` survives the upgrade, CSV file names are unchanged, Sign out works.
 
 <!--docz:testing:end-->
 

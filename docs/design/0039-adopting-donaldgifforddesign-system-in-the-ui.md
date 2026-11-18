@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0039
 title: "Adopting @donaldgifford/design-system in the UI"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-11-16
 ---

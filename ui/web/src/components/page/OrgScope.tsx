@@ -5,7 +5,8 @@ import { useMe, useOrgs } from "../../api/queries";
 import { patchSearch } from "../../lib/search";
 import { orgCountLabel, visibleOrgs } from "../../lib/viewmodel";
 import { Button } from "@donaldgifford/design-system/components/button";
-import { Popover, PopoverContent, PopoverHeading, PopoverItem, PopoverTrigger } from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@donaldgifford/design-system/components/popover";
+import { PopoverHeading, PopoverItem } from "../OptionRows";
 
 // useOrgScope is the org in scope from `?org=`, or undefined for every
 // visible org.
@@ -34,13 +35,15 @@ export function OrgScope() {
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" aria-label={`Org scope: ${scope ?? all}`} aria-haspopup="dialog" className="min-w-[150px] justify-between">
-          <span className={scope ? "font-mono" : undefined}>{scope ?? all}</span>
-          <span className="text-muted-foreground">▾</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent aria-label="Org scope">
+      <PopoverTrigger
+        render={
+          <Button variant="outline" aria-label={`Org scope: ${scope ?? all}`} aria-haspopup="dialog" className="min-w-[150px] justify-between">
+            <span className={scope ? "font-mono" : undefined}>{scope ?? all}</span>
+            <span className="text-muted-foreground">▾</span>
+          </Button>
+        }
+      />
+      <PopoverContent aria-label="Org scope" className="w-auto min-w-[200px] gap-0 p-1.5 text-[13px]" align="start" sideOffset={6}>
         <PopoverHeading>Scope</PopoverHeading>
         <PopoverItem current={!scope} onClick={() => choose(undefined)}>
           {all}

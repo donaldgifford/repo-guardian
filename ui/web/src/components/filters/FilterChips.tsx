@@ -2,7 +2,8 @@ import { useState } from "react";
 
 import { NOT_ENABLED } from "../GatedPanel";
 import { FilterChip as Chip } from "@donaldgifford/design-system/blocks/filter-chip";
-import { Popover, PopoverContent, PopoverHeading, PopoverItem, PopoverSeparator, PopoverTrigger } from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@donaldgifford/design-system/components/popover";
+import { PopoverHeading, PopoverItem, PopoverSeparator } from "../OptionRows";
 import { chipsFromSearch, FILTER_KEYS, FILTER_OPTIONS, type FilterKey, type FilterValues, patchFor } from "./model";
 
 export interface FilterOptions {
@@ -112,10 +113,8 @@ function FilterChip({ filter, value, options, onChange }: { filter: FilterKey; v
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Chip name={filter} value={value} aria-haspopup="dialog" aria-label={`${filter} filter: ${value}`} />
-      </PopoverTrigger>
-      <PopoverContent aria-label={`${filter} filter`}>
+      <PopoverTrigger render={<Chip name={filter} value={value} aria-haspopup="dialog" aria-label={`${filter} filter: ${value}`} />} />
+      <PopoverContent aria-label={`${filter} filter`} className="w-auto min-w-[200px] gap-0 p-1.5 text-[13px]" align="start" sideOffset={6}>
         <OptionList filter={filter} value={value} options={options} onPick={pick} />
       </PopoverContent>
     </Popover>
@@ -148,12 +147,14 @@ function AddChip({
   };
   return (
     <Popover open={open} onOpenChange={change}>
-      <PopoverTrigger asChild>
-        <Chip aria-haspopup="dialog" aria-label="Add filter">
-          + filter
-        </Chip>
-      </PopoverTrigger>
-      <PopoverContent aria-label="Add filter">
+      <PopoverTrigger
+        render={
+          <Chip aria-haspopup="dialog" aria-label="Add filter">
+            + filter
+          </Chip>
+        }
+      />
+      <PopoverContent aria-label="Add filter" className="w-auto min-w-[200px] gap-0 p-1.5 text-[13px]" align="start" sideOffset={6}>
         {editing === undefined ? (
           <>
             <PopoverHeading>Filter by</PopoverHeading>

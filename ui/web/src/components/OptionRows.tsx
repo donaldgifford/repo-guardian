@@ -1,32 +1,8 @@
-import { Popover as PopoverPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
 import { cn } from "@donaldgifford/design-system/lib/utils";
 
-// Popover is radix's, styled as the mockup's `.pop`: a panel with a
-// hairline border and a soft shadow, 200ms fade that the global
-// reduced-motion rule switches off. Radix supplies focus, Escape and
-// outside-click dismissal.
-export const Popover = PopoverPrimitive.Root;
-export const PopoverTrigger = PopoverPrimitive.Trigger;
-export const PopoverAnchor = PopoverPrimitive.Anchor;
-
-export function PopoverContent({ className, align = "start", sideOffset = 6, ...props }: ComponentProps<typeof PopoverPrimitive.Content>) {
-  return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 min-w-[200px] rounded-lg border border-border bg-card p-1.5 text-[13px] text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.45)] outline-none",
-          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
-          className,
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
-  );
-}
+// The rows inside a picker popover (org scope, filter chips).
 
 // PopoverHeading is the small uppercase group label inside a popover.
 export function PopoverHeading({ className, ...props }: ComponentProps<"div">) {
@@ -34,7 +10,7 @@ export function PopoverHeading({ className, ...props }: ComponentProps<"div">) {
 }
 
 // PopoverItem is one selectable row: label left, optional mono detail
-// right, current row lifted onto panel-2.
+// right, current row lifted onto the muted surface.
 export function PopoverItem({ className, current = false, detail, children, ...props }: ComponentProps<"button"> & { current?: boolean; detail?: string }) {
   return (
     <button

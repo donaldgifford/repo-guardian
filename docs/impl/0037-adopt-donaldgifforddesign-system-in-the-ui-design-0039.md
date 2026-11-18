@@ -152,7 +152,7 @@ The package is installable everywhere this repository installs, and nothing impo
 - [ ] 1.11 `renovate.json5`: add `github>donaldgifford/renovate-config:node` to `extends`, a `hostRules` entry for `npm.pkg.github.com` reading the Renovate secret, and a `packageRules` entry that keeps `@donaldgifford/design-system` in its own pull request, out of the non-major group and never automerged. **Partly done:** `:node` and the package rule are in. The `hostRules` entry waits on the maintainer: whether boop-bot (which runs Renovate here) already reads GitHub Packages, or needs `GH_PACKAGES_READ_TOKEN` exposed where it runs.
 - [x] 1.12 `.github/dependabot.yml`: a `registries` entry for `npm.pkg.github.com` and a reference to it from the `bun` update for `/ui`.
 - [ ] 1.13 Create the `read:packages` token and store it as the Renovate secret and the Dependabot secret named in OQ2. *deferred - human required* **Partly done (2026-11-18):** `GH_PACKAGES_READ_TOKEN` is set in the Actions and Dependabot stores; the Renovate side waits on 1.11.
-- [ ] 1.14 `ui/README.md`: a "Registry token" section (the scope, why a public package needs one, the `gh` fallback, the Docker secret).
+- [x] 1.14 `ui/README.md`: a "Registry token" section (the scope, why a public package needs one, the `gh` fallback, the Docker secret).
 
 <!--docz:tasks:end-->
 

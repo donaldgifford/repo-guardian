@@ -16,7 +16,7 @@ ui/
 
 | Make target | Does |
 | --- | --- |
-| `make ui-install` | `bun install --frozen-lockfile` |
+| `make ui-install` | `bun install --frozen-lockfile`, with the registry token (see below) |
 | `make generate-ui-api` | regenerate `web/src/api/schema.gen.ts` from `api/openapi.yaml` |
 | `make lint-ui` | typecheck, lint, and fail if the generated types or changelog are stale (`check:api`, `check:changelog`), the newest changelog entry is not the chart `appVersion`, or the build inlines a data: URL or a Google Fonts URL (`check:dist`) |
 | `make test-ui` | `bun test` |
@@ -44,6 +44,27 @@ spec (`e2e/visual.spec.ts`: status, Findings, Orgs, Remediations) only
 runs through `make test-ui-e2e-visual`, which renders in the pinned
 `mcr.microsoft.com/playwright` image; `make test-ui-e2e-update-snapshots`
 regenerates `e2e/__screenshots__/`.
+
+## Registry token
+
+`@donaldgifford/design-system` is published to GitHub Packages
+(`npm.pkg.github.com`), which asks for a token even to read a public
+package. `ui/.npmrc` maps the `@donaldgifford` scope there and holds only
+the reference `${NPM_TOKEN}`; the value is never stored in the
+repository or an image.
+
+| Where | Where the token comes from |
+| --- | --- |
+| Your machine | `NPM_TOKEN` if set, else `gh auth token` (the Make targets do this). The token needs `read:packages`: `gh auth refresh -s read:packages` adds it. |
+| CI (`ci.yml`) | `secrets.GITHUB_TOKEN`, with `packages: read` on the `ui` and `ui-e2e` jobs |
+| Image build | a build secret: `docker-bake.hcl` mounts `NPM_TOKEN` from the caller's environment into the build stage's `bun install` only. The package is a devDependency, so the production stage installs without it. `ghcr.yml` passes `secrets.GITHUB_TOKEN`. |
+| Dependabot | the `github-packages-npm` registry in `.github/dependabot.yml`, reading the Dependabot secret `GH_PACKAGES_READ_TOKEN` |
+
+Calling `bun install` directly, outside Make, needs
+`NPM_TOKEN=$(gh auth token) bun install`. A cached install that produced
+a `dist/` directory and no `src/` under
+`node_modules/@donaldgifford/design-system` is stale: delete the cache
+entry and install again.
 
 ## Design
 

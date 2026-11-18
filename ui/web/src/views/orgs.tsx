@@ -17,7 +17,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { type Column, DataTable } from "../components/ui/data-table";
-import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "../components/ui/group-grid";
+import { type GridCell, GridChildRows, type GridColumn, GroupGrid } from "@donaldgifford/design-system/blocks/group-grid";
 import { Kpi } from "@donaldgifford/design-system/blocks/kpi";
 import { SearchTabs } from "../components/ui/tabs";
 import type { CsvColumns } from "@donaldgifford/design-system/lib/csv";
@@ -152,20 +152,20 @@ export function OrgsView() {
           <PRActivity orgs={visible} />
         ) : tab === "parked" ? (
           <GroupGrid
-            label="Org / repository"
+            heading="Org / repository"
             columns={parkedColumns}
             rows={visible.map((o) => ({ key: o.org, label: orgLink(o.org), sub: `${compact(o.parked)} parked`, cells: {} }))}
             heat={[]}
             open={open}
             onToggle={(k) => patch({ open: joinOpen(toggleOpen(open, k)) })}
             footer={{ label: `${visible.length} orgs`, cells: { reason: `${compact(total.parked)} parked` } }}
-            aria-label="Parked repositories by org"
+            label="Parked repositories by org"
           >
             {(row) => <ParkedChildren key={`${row.key}/children`} org={row.key} total={visible.find((o) => o.org === row.key)?.parked ?? 0} filter={filter} />}
           </GroupGrid>
         ) : (
           <GroupGrid
-            label="Org / repository"
+            heading="Org / repository"
             columns={complianceColumns}
             rows={visible.map((o) => ({
               key: o.org,
@@ -180,7 +180,7 @@ export function OrgsView() {
               label: `${visible.length} orgs`,
               cells: { ...postureRow(total.compliance), open_prs: gatedCount(total.open_prs, remediation), parked: total.parked },
             }}
-            aria-label="Orgs"
+            label="Orgs"
           >
             {(row) => <ComplianceChildren key={`${row.key}/children`} org={row.key} total={visible.find((o) => o.org === row.key)?.tracked ?? 0} filter={filter} remediation={remediation} />}
           </GroupGrid>

@@ -479,7 +479,7 @@ test("the orgs tree expands an org into aligned repository rows, sums the footer
   // compliance (meter and percentage), open PRs, parked.
   await expect(acme.locator("td").nth(4)).toContainText(/\d+(\.\d)?%/);
   // The footer sums the visible org rows: ada sees acme alone.
-  const footer = grid.locator("tr[data-row=__footer]");
+  const footer = grid.locator("tr[data-row=footer]");
   await expect(footer).toContainText("1 orgs");
   const orgs = (await (await page.request.get("/api/v1/orgs")).json()) as { items: { org: string; tracked: number; parked: number; compliance: { assigned: number; compliant: number; non_compliant: number } }[] };
   const acmeApi = orgs.items.find((o) => o.org === "acme")!;

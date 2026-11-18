@@ -1,0 +1,7019 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repo-guardian">
+      
+      
+        <meta name="author" content="Donald Gifford">
+      
+      
+      
+        <link rel="prev" href="../0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/">
+      
+      
+        <link rel="next" href="../../investigation/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Adopt @donaldgifford/design-system in the UI (DESIGN-0039) - repo-guardian</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#impl-0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-guardian" class="md-header__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-guardian
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Adopt @donaldgifford/design-system in the UI (DESIGN-0039)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-guardian" class="md-nav__button md-logo" aria-label="repo-guardian" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repo-guardian
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started with repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/policy-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy reference (policy directory)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/controls-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control-type reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The business UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The read-only API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/identity-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ADDING_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a control type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0001-custom-properties-from-backstage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0001: Custom Properties from Backstage
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0002-github-api-rate-limit-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0002: GitHub API Rate Limit Handling
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0003-tailscale-integration-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0003: Tailscale Integration Research
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0004-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0004: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0005-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0005: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0006-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0006: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0007-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0007: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0008-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0008: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0009-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0009: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0010-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0010: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0011-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0011: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0012-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0012: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0013-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0013: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0015-per-installation-valkey-queue-partitioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0015: Per-installation Valkey queue partitioning
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0016-separate-postgres-read-and-write-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0016: Separate Postgres read and write endpoints
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0017-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0017: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0018-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0018: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Approved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0019-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0019: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0020-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0020: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0021-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0021: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0022-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0022: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0023-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0023: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0025-v2-findings-model-and-v1-data-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0025: v2 findings model and v1 data migration
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Superseded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0026-v2-temporal-control-plane-and-role-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0026: v2 Temporal control plane and role split
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0027-v2-read-only-api-business-ui-and-status-page/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0027: v2 read-only API, business UI, and status page
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0028-temporal-client-auth-oidc-over-mtls-with-openbao-issued/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0028: Temporal client auth: OIDC over mTLS with OpenBao-issued certificates, and KEDA scaling from server metrics
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0029-controls-and-policies-opinionated-compliance-with-separate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0029: Controls and policies: opinionated compliance with separate evaluation and remediation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0030-policy-model-enterprise-and-org-policies-and-control-assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0030: Policy model: enterprise and org policies and control assignment
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0031-control-framework-controls-control-rules-and-file-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0031: Control framework: controls, control rules and file controls
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0032-evaluation-and-remediation-workflows-change-driven-remediation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0032: Evaluation and remediation workflows: change-driven remediation with per-control PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0033-fwsync-as-inspiration-shared-hcl-concepts-and-whether-to-reuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0033: fwsync as inspiration: shared HCL concepts and whether to reuse it
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0034-codeowners-ownership-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0034: CODEOWNERS ownership control
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0035-rgctl-a-standalone-cli-to-inspect-v1-policy-and-find-or-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0035: rgctl: a standalone CLI to inspect v1 policy and find or close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0036-frontend-design-cleanup-and-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0036: Frontend design cleanup and refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0037-controls-ui-org-tree-findings-fleet-panels-and-status-changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0037: Controls UI: org tree, findings, fleet panels and status changelog
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0038-v200-ga-cutover-and-identity-provider-portability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0038: v2.0.0 GA cutover and identity-provider portability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Review"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/0039-adopting-donaldgifforddesign-system-in-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DESIGN-0039: Adopting @donaldgifford/design-system in the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementation Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementation Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-repo-guardian-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0001: Repo Guardian Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-custom-properties-implementation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0002: Custom Properties Implementation Plan
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-github-webhook-ip-allowlist-middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0003: GitHub Webhook IP Allowlist Middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-helm-chart-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0004: Helm Chart for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-hcl-policy-configuration-and-rule-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0005: HCL Policy Configuration and Rule Engine
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0006-reconciler-interface-and-push-event-handler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0006: Reconciler Interface and Push Event Handler
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0007-additional-rule-types-and-ignore-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0007: Additional Rule Types and Ignore Lists
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0008-distributed-renovate-via-per-repo-github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0008: Distributed Renovate via Per-Repo GitHub Actions
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0009-per-org-rule-scoping-and-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0009: Per-org rule scoping and observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0010-publish-helm-chart-via-oci-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0010: Publish Helm chart via OCI registry
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0011-persistent-reconcile-state-and-multi-replica-coordination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0011: Persistent reconcile state and multi-replica coordination
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0012-customizable-pr-templates-and-extensible-template-configmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0012: Customizable PR templates and extensible template ConfigMap
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0013-reconcile-open-prs-when-file-rules-become-satisfied/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0013: Reconcile open PRs when file rules become satisfied
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0014-remove-legacy-engine-path-and-deprecated-overlays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0014: Remove legacy engine path and deprecated overlays
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Implemented"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0015-stale-sweep-cutover-and-repository-discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0015: Stale-sweep cutover and repository discovery
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0016-deprecate-memory-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0016: Deprecate memory backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0017-configurable-annotation-sourced-custom-properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0017: Configurable annotation-sourced custom properties
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0018-fix-silently-ignored-operator-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0018: Fix silently ignored operator config
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0019-absent-check-mode-and-conditional-file-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0019: Absent check mode and conditional file rules
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0020-pre-impl-0019-high-severity-fixes-inv-0011-group-a-high/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0020: Pre-IMPL-0019 high-severity fixes (INV-0011 Group A High)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0021-post-impl-0019-hardening-and-structural-cleanup-inv-0011-group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0021: Post-IMPL-0019 hardening and structural cleanup (INV-0011 Group A Medium + Group B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0022-delayed-requeue-job-contract-and-rate-limit-consolidation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0022: Delayed-requeue job contract and rate-limit consolidation
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0023-compliance-posture-state-dashboard-suite-and-otel-first/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0023: Compliance posture state, dashboard suite, and OTEL-first observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0024-operator-owned-ingress-remove-the-tailscale-sidecar-and-ip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0024: Operator-owned ingress: remove the Tailscale sidecar and IP-allowlist middleware
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0025-v2-findings-model-temporal-control-plane-read-only-api-and-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0025: v2: findings model, Temporal control plane, read-only API and UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0026-temporal-client-auth-credential-reload-keda-prometheus-trigger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0026: Temporal client auth: credential reload and OpenBao-issued certificates
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0027-rgctl-standalone-cli-in-toolsrgctl-to-inspect-v1-policy-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0027: rgctl: standalone CLI in tools/rgctl to inspect v1 policy and find or close repo-guardian PRs
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0028-controls-foundations-v1-runtime-removal-client-split-two-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0028: Controls foundations: v1 runtime removal, client split, two Apps, two queues and the fresh schema
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0029-controls-evaluation-policy-model-control-framework-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0029: Controls evaluation: policy model, control framework and evaluation workflow
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0030-controls-remediation-per-control-prs-remediation-workflow-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0030: Controls remediation: per-control PRs, remediation workflow and the v2.0.0 fresh install
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0031-frontend-design-refresh-for-the-v2-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0031: Frontend design refresh for the v2 UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0032: Controls UI: findings, org tree, fleet panels, changelog and rc.11 fixes
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0033-identity-provider-portability-for-the-api-and-ui-design-0038/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0033: Identity-provider portability for the API and UI (DESIGN-0038 Part B)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0034-v200-ga-cutover-with-security-tier-1-design-0038-part-a/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0034: v2.0.0 GA cutover with security tier 1 (DESIGN-0038 Part A)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--In Progress"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0035-public-docs-site-on-astro-starlight-design-0038-part-c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0035: Public docs site on Astro Starlight (DESIGN-0038 Part C)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0036-supply-chain-hardening-design-0038-part-d-tiers-2-3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0036: Supply-chain hardening (DESIGN-0038 Part D tiers 2-3)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0037: Adopt @donaldgifford/design-system in the UI (DESIGN-0039)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMPL-0037: Adopt @donaldgifford/design-system in the UI (DESIGN-0039)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Completed"></span>
+  
+
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-install-and-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Install and auth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Install and auth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-stylesheet-and-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Stylesheet and tokens
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Stylesheet and tokens">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-leaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Leaves
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Leaves">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-primitives-and-overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Primitives and overlays
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Primitives and overlays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Shell
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Shell">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Removal
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Removal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-release-and-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Release and documents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Release and documents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Investigations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0001-tailscale-funnel-for-webhook-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0001: Tailscale Funnel for Webhook Testing
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0002-multi-org-and-forgejo-support-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0002: Multi-org and Forgejo support for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0003-pre-existing-branch-422-on-subsequent-reconciles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0003: Pre-existing branch 422 on subsequent reconciles
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0004-forge-interface-and-package-refactor-for-forgejo-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0004: Forge interface and package refactor for Forgejo backend
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0005-stale-prs-when-file-rules-become-satisfied-on-main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0005: Stale PRs when file rules become satisfied on main
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0006-per-org-github-app-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0006: Per-org GitHub App credentials
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Deferred"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0007-gitlab-forge-backend-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0007: GitLab provider backend support
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0008-annotation-sourced-custom-properties-should-be-configurable-not/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0008: Annotation-sourced custom properties should be configurable, not hardcoded
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0009-read-only-status-api-and-web-ui-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0009: Read-only status API and web UI options
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0010-silently-ignored-operator-config-autoclosepr-hcl-attribute-and/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0010: Silently ignored operator config: auto_close_pr HCL attribute and cross-mode existingSecret
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Resolved"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0011-tech-debt-cleanup-inventory-post-impl-0019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0011: Tech debt cleanup inventory post IMPL-0019
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0012-inert-budgettracker-and-untrustworthy-alert-pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0012: Inert BudgetTracker and untrustworthy alert pack
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0013-state-vs-event-metrics-dashboard-suite-and-system-observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0013: State-vs-event metrics, dashboard suite, and system observability
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0014-orphan-cleanup-deletes-files-the-default-branch-legitimately/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0014: Orphan cleanup deletes files the default branch legitimately owns
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0016-retire-the-baked-tailscale-sidecar-for-operator-managed-ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0016: Retire the baked Tailscale sidecar for operator-managed ingress
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0018-repo-guardian-v2-role-split-business-state-and-a-platform-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0018: repo-guardian v2: role split, business state, and a platform UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0019-temporal-as-the-repo-guardian-control-plane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0019: Temporal as the repo-guardian control plane
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0020-keda-worker-autoscaling-cannot-authenticate-to-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0020: KEDA worker autoscaling cannot authenticate to Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Open"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0021-controls-model-assumptions-a1-to-a23-against-the-v2-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0021: Controls model assumptions A1 to A23 against the v2 code
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0022-controls-designs-against-the-v2-code-github-and-temporal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0022: Controls designs against the v2 code, GitHub and Temporal
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0023-rc11-follow-ups-rule-status-badges-repository-page-and-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0023: rc.11 follow-ups: rule-status badges, repository page and release verification
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0024-icon-set-for-the-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0024: Icon set for the UI
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigation/0025-migrating-the-ui-to-the-shared-donaldgifforddesign-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INV-0025: Migrating the UI to the shared @donaldgifford/design-system package
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Concluded"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0001-repo-compliance-app-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0001: Repo Compliance App (repo-guardian)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Draft"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rfc/0002-hcl-driven-policy-engine-for-repo-guardian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFC-0002: HCL-driven Policy Engine for repo-guardian
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--Accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian 2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian and v2 at a glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Turning on repo-guardian v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/v2-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrating from v1 to v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rgctl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rgctl: find and close repo-guardian pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/verifying-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ecr-publish-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ECR publish setup (maintainer-side)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/rds-terraform-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Postgres on RDS — Terraform variable reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/monitoring-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generating dashboards and alerts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/cnpg-homelab-cutover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homelab CNPG cutover runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postgres schema operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running repo-guardian on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling repo-guardian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ingress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook ingress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/ent-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repo-guardian GitHub Apps — Enterprise Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical (1.x)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical (1.x)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../historical/adding-rules-1x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a rule (1.x)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/absent-rules-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Absent rules and conditional gates migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/chart-0.5.0-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.5.0 migration runbook (IMPL-0011)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/pr-convergence-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chart 0.6.0 / appVersion 1.7.0 — PR convergence migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/compliance-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/custom-properties-security-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-properties security fix (IMPL-0020)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/annotation-properties-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property annotation migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/property-name-charset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom-property name charset correction (appVersion 1.10.1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/delayed-requeue-runbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delayed requeue — operator runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/template-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Template migration guide (chart 0.3.x → 0.4.0)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation Phases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Phases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-install-and-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Install and auth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Install and auth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-stylesheet-and-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Stylesheet and tokens
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Stylesheet and tokens">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-leaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Leaves
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Leaves">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-primitives-and-overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Primitives and overlays
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Primitives and overlays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-5-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5: Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-6-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6: Shell
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6: Shell">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-7-removal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7: Removal
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7: Removal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-8-release-and-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8: Release and documents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8: Release and documents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tasks_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#success-criteria_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<!-- markdownlint-disable-file MD024 MD025 MD041 -->
+
+<h1 id="impl-0037-adopt-donaldgifforddesign-system-in-the-ui-design-0039">IMPL-0037: Adopt @donaldgifford/design-system in the UI (DESIGN-0039)</h1>
+<!--toc:start-->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD013 -->
+<ul>
+<li><a href="#objective">Objective</a></li>
+<li><a href="#scope">Scope</a></li>
+<li><a href="#in-scope">In Scope</a></li>
+<li><a href="#out-of-scope">Out of Scope</a></li>
+<li><a href="#implementation-phases">Implementation Phases</a></li>
+<li><a href="#phase-1-install-and-auth">Phase 1: Install and auth</a><ul>
+<li><a href="#tasks">Tasks</a></li>
+<li><a href="#success-criteria">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-2-stylesheet-and-tokens">Phase 2: Stylesheet and tokens</a><ul>
+<li><a href="#tasks-1">Tasks</a></li>
+<li><a href="#success-criteria-1">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-3-leaves">Phase 3: Leaves</a><ul>
+<li><a href="#tasks-2">Tasks</a></li>
+<li><a href="#success-criteria-2">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-4-primitives-and-overlays">Phase 4: Primitives and overlays</a><ul>
+<li><a href="#tasks-3">Tasks</a></li>
+<li><a href="#success-criteria-3">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-5-tables">Phase 5: Tables</a><ul>
+<li><a href="#tasks-4">Tasks</a></li>
+<li><a href="#success-criteria-4">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-6-shell">Phase 6: Shell</a><ul>
+<li><a href="#tasks-5">Tasks</a></li>
+<li><a href="#success-criteria-5">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-7-removal">Phase 7: Removal</a><ul>
+<li><a href="#tasks-6">Tasks</a></li>
+<li><a href="#success-criteria-6">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#phase-8-release-and-documents">Phase 8: Release and documents</a><ul>
+<li><a href="#tasks-7">Tasks</a></li>
+<li><a href="#success-criteria-7">Success Criteria</a></li>
+</ul>
+</li>
+<li><a href="#file-changes">File Changes</a></li>
+<li><a href="#testing-plan">Testing Plan</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+<li><a href="#open-questions">Open Questions</a></li>
+<li><a href="#oq1-how-do-the-documents-reach-main-before-the-work-starts">OQ1: How do the documents reach main before the work starts?</a></li>
+<li><a href="#oq2-what-are-the-secrets-called-and-what-if-cis-github_token-is-refused">OQ2: What are the secrets called, and what if CI's GITHUB_TOKEN is refused?</a></li>
+<li><a href="#oq3-what-happens-when-a-package-problem-appears-mid-plan">OQ3: What happens when a package problem appears mid-plan?</a></li>
+<li><a href="#oq4-how-is-sorting-turned-off-on-the-embedded-tables">OQ4: How is sorting turned off on the embedded tables?</a></li>
+<li><a href="#oq5-what-does-the-chart-version-become">OQ5: What does the chart version become?</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+<!-- markdownlint-restore -->
+<!--toc:end-->
+
+<!--docz:objective:start-->
+<h2 id="objective">Objective</h2>
+<p>Move <code>ui/web</code> onto <code>@donaldgifford/design-system</code> 0.3.0: its
+stylesheet and tokens, its primitives, blocks and shell. Delete the
+local copies (<code>components/ui</code>, <code>components/charts</code>, the local shell
+chrome, the <code>@theme</code> in <code>index.css</code>) and the dependencies that only
+they needed, <code>radix-ui</code> first among them. Ship it as v2.1.0.</p>
+<p><strong>Implements:</strong> <a href="../../design/0039-adopting-donaldgifforddesign-system-in-the-ui/">DESIGN-0039</a>,
+which rests on <a href="../../investigation/0025-migrating-the-ui-to-the-shared-donaldgifforddesign-system/">INV-0025</a>.
+Closes issue <a href="https://github.com/donaldgifford/repo-guardian/issues/252">#252</a>.</p>
+<p>The design's section numbers are cited as "D§n". Its nine open
+questions are decided and are not reopened here.</p>
+<!--docz:objective:end-->
+
+<!--docz:scope:start-->
+<h2 id="scope">Scope</h2>
+<!--docz:in-scope:start-->
+<h3 id="in-scope">In Scope</h3>
+<ul>
+<li><code>ui/</code>: <code>package.json</code>, <code>bun.lock</code>, <code>.npmrc</code>, <code>Dockerfile</code>, <code>web/</code>,
+  <code>e2e/</code>, <code>scripts/</code>, <code>eslint.config.js</code>, <code>README.md</code>,
+  <code>THIRD_PARTY_NOTICES.md</code>, <code>CHANGELOG.yaml</code>.</li>
+<li>Build and release wiring for the registry token: <code>Makefile</code>,
+  <code>docker-bake.hcl</code>, <code>.github/workflows/ci.yml</code>,
+  <code>.github/workflows/ghcr.yml</code>, <code>renovate.json5</code>,
+  <code>.github/dependabot.yml</code>.</li>
+<li>The release bump: <code>charts/repo-guardian/Chart.yaml</code> and the chart
+  tests that pin <code>appVersion</code>.</li>
+<li>Documents: <code>CLAUDE.md</code>, <code>docs/usage/ui.md</code> and its screenshot, a
+  superseded note on DESIGN-0036, the docz statuses.</li>
+</ul>
+<!--docz:in-scope:end-->
+
+<!--docz:out-of-scope:start-->
+<h3 id="out-of-scope">Out of Scope</h3>
+<ul>
+<li><code>ui/server</code>, the Go code, the API contract, chart templates and
+  values.</li>
+<li>New pages, panels, columns or filters; a light theme; a change of
+  icon set.</li>
+<li>Changes to the package. A gap found here is an issue on
+  <code>donaldgifford/design-system</code> (see OQ3).</li>
+<li>The shared Renovate preset (renovate-config#18). This plan does not
+  wait for it.</li>
+<li><code>ecr.yml</code>: it builds no UI image.</li>
+</ul>
+<!--docz:out-of-scope:end-->
+<!--docz:scope:end-->
+
+<h2 id="implementation-phases">Implementation Phases</h2>
+<p>Each phase builds on the previous one. A phase is complete when all its tasks
+are checked off and its success criteria are met. The phases are the
+design's seven stages plus the release; they land as commits on one
+branch and one pull request. <code>make lint-ui</code>, <code>make test-ui</code> and
+<code>make test-ui-e2e</code> pass at the end of every phase, so a regression
+belongs to one phase.</p>
+<p>Rules that hold throughout:</p>
+<ul>
+<li>A task marked <em>deferred - human required</em> is the maintainer's; work
+  continues past it.</li>
+<li>A visual baseline is regenerated in Phase 2 (colour, if needed) and
+  Phase 6 (the frame) and nowhere else.</li>
+<li>A changed e2e selector is run against the pre-change build first, to
+  show it can fail.</li>
+<li>Something wrong in the package is handled per OQ3, never by
+  restyling or patching its internals here.</li>
+</ul>
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-1-install-and-auth">Phase 1: Install and auth</h3>
+<p>The package is installable everywhere this repository installs, and nothing imports it yet. The app is byte-for-byte the same afterwards. This phase goes first because every later phase depends on CI and the image build being able to fetch the package (D§2).</p>
+<!--docz:tasks:start-->
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[x] 1.1 Create the branch <code>feat/ui-design-system</code> from <code>main</code> once the documents PR is merged (OQ1).</li>
+<li>[x] 1.2 Add <code>ui/.npmrc</code> with the <code>@donaldgifford</code> scope registry and <code>_authToken=${NPM_TOKEN}</code>. Confirm <code>ui/.dockerignore</code> does not exclude it.</li>
+<li>[x] 1.3 <code>Makefile</code>: <code>ui-install</code> and <code>docker-build-ui</code> export <code>NPM_TOKEN</code> from the environment when set and from <code>gh auth token</code> otherwise. The fallback must not print the token and must fail with a message naming <code>ui/README.md</code> when neither is available.</li>
+<li>[x] 1.4 Add <code>@donaldgifford/design-system</code> at exactly <code>0.3.0</code> to <code>devDependencies</code> and commit <code>bun.lock</code>. Confirm the installed package has <code>src/</code> (a <code>dist/</code> with no <code>src/</code> is the stale-cache case from design-system#11).</li>
+<li>[x] 1.5 <code>ui/Dockerfile</code>, build stage only: <code>COPY package.json bun.lock .npmrc ./</code> and <code>RUN --mount=type=secret,id=NPM_TOKEN NPM_TOKEN="$(cat /run/secrets/NPM_TOKEN)" bun install --frozen-lockfile</code>. Leave the deps stage and the <code># syntax</code> line alone.</li>
+<li>[x] 1.6 <code>docker-bake.hcl</code>: <code>secret = ["id=NPM_TOKEN,env=NPM_TOKEN"]</code> on <code>_ui</code>. <code>make docker-build-ui</code> builds; <code>docker history --no-trunc</code> on the result shows no token; the runtime image has no <code>node_modules/@donaldgifford</code>.</li>
+<li>[x] 1.7 <code>ci.yml</code>: the <code>ui</code> and <code>ui-e2e</code> jobs get <code>permissions: { contents: read, packages: read }</code> and <code>NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code> in the install step's <code>env</code>. No other job changes.</li>
+<li>[x] 1.8 Push and confirm both jobs install with <code>GITHUB_TOKEN</code>. If the registry refuses it, switch the two jobs to the repository secret from OQ2 and record which was needed in this plan. <strong>Result:</strong> <code>GITHUB_TOKEN</code> with <code>packages: read</code> was enough; both jobs installed and passed on #255. No Actions secret is needed for CI.</li>
+<li>[x] 1.9 <code>ghcr.yml</code>: <code>NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code> in the <code>env</code> of the <code>ui-image</code> bake step. Diff <code>ghcr.yml</code> against <code>ecr.yml</code> and confirm <code>ecr.yml</code> needs nothing. Run <code>actionlint</code>.</li>
+<li>[ ] 1.10 Dispatch <code>ghcr.yml</code> on the branch with <code>dry_run: true</code> and a tag input, and confirm the <code>ui-image</code> job builds both platforms. <em>deferred - human required</em> if the dispatch needs the maintainer. <strong>Deferred - human required:</strong> as written this cannot exercise the change. <code>ui-image</code> checks out <code>inputs.tag</code>, not the dispatched branch, and its bake step is skipped when <code>dry_run</code> is true. The first real proof is the release run (task 8.9); a pre-merge check would need an rc tag on this branch (rule 6) and a non-dry dispatch, which is the maintainer's call.</li>
+<li>[ ] 1.11 <code>renovate.json5</code>: add <code>github&gt;donaldgifford/renovate-config:node</code> to <code>extends</code>, a <code>hostRules</code> entry for <code>npm.pkg.github.com</code> reading the Renovate secret, and a <code>packageRules</code> entry that keeps <code>@donaldgifford/design-system</code> in its own pull request, out of the non-major group and never automerged. <strong>Partly done:</strong> <code>:node</code> and the package rule are in. The <code>hostRules</code> entry waits on the maintainer: whether boop-bot (which runs Renovate here) already reads GitHub Packages, or needs <code>GH_PACKAGES_READ_TOKEN</code> exposed where it runs.</li>
+<li>[x] 1.12 <code>.github/dependabot.yml</code>: a <code>registries</code> entry for <code>npm.pkg.github.com</code> and a reference to it from the <code>bun</code> update for <code>/ui</code>.</li>
+<li>[ ] 1.13 Create the <code>read:packages</code> token and store it as the Renovate secret and the Dependabot secret named in OQ2. <em>deferred - human required</em> <strong>Partly done (2026-11-18):</strong> <code>GH_PACKAGES_READ_TOKEN</code> is set in the Actions and Dependabot stores; the Renovate side waits on 1.11.</li>
+<li>[x] 1.14 <code>ui/README.md</code>: a "Registry token" section (the scope, why a public package needs one, the <code>gh</code> fallback, the Docker secret).</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria">Success Criteria</h4>
+<ul>
+<li><code>make ui-install</code> works on a laptop with only <code>gh</code> signed in, and in CI with <code>GITHUB_TOKEN</code>.</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code> and <code>make test-ui-e2e</code> pass with no source change under <code>ui/web</code>.</li>
+<li><code>make docker-build-ui</code> produces an image with no token in any layer and no package source in the runtime stage.</li>
+<li>The <code>ghcr.yml</code> dry run built the UI image (or 1.10 is marked deferred with the reason).</li>
+<li><code>git diff main -- ui/web</code> is empty.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-2-stylesheet-and-tokens">Phase 2: Stylesheet and tokens</h3>
+<p>The app takes its Tailwind entry, tokens, fonts, focus outline and reduced-motion rule from the package, and every class and <code>var()</code> uses the package's token names. Local components are still in place, so the pages keep their structure; the colours shift by the amounts the design accepts, the destructive red visibly (D§3).</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[x] 2.1 Classify the 40 <code>accent</code> uses (33 utilities, 7 <code>var()</code>), file by file, with the D§3 rule: brand blue becomes <code>primary</code>, a focus ring becomes <code>ring</code>, a selected tint becomes <code>primary</code> at the same opacity, a hover surface stays <code>accent</code>. Record the table in the pull request description before editing.</li>
+<li>[x] 2.2 <code>web/src/index.css</code> becomes the single <code>@import "@donaldgifford/design-system/globals.css";</code>. Delete the <code>@theme</code>, the <code>:root</code> and <code>body</code> rules, the <code>:focus-visible</code> rule, the reduced-motion block, the <code>rg-*</code> keyframes and the <code>animate-*</code> utilities.</li>
+<li>[x] 2.3 The four local animation utilities are used by <code>components/ui/dialog.tsx</code> and <code>drawer.tsx</code>, which survive until Phases 4 and 6. Point them at <code>tw-animate-css</code> classes (<code>animate-in</code>, <code>fade-in-0</code>, <code>slide-in-from-right</code>, <code>slide-in-from-left</code>) so overlays still animate in between.</li>
+<li>[x] 2.4 <code>--breakpoint-nav</code> goes with the <code>@theme</code>. The local sidebar and top bar use <code>nav:</code> until Phase 6: change their two uses to <code>md:</code> now, which is the package shell's breakpoint.</li>
+<li>[x] 2.5 <code>web/index.html</code>: <code>class="dark"</code> on <code>&lt;html&gt;</code>.</li>
+<li>[x] 2.6 <code>web/src/main.tsx</code>: remove the five <code>@fontsource</code> imports.</li>
+<li>[x] 2.7 Rename utilities: <code>panel</code> to <code>card</code>, <code>panel-2</code> to <code>muted</code>, <code>ok</code>/<code>warn</code>/<code>bad</code> to <code>success</code>/<code>warning</code>/<code>destructive</code>, and <code>accent</code> per 2.1.</li>
+<li>[x] 2.8 Rename the inline <code>var(--color-…)</code> references the same way, including <code>toneVar</code> and chart colour constants. Meaningless series colours read <code>--chart-1</code> to <code>--chart-5</code>.</li>
+<li>[x] 2.9 <code>lib/format.ts</code>: <code>Tone</code> becomes <code>success | warning | destructive | info | muted | outline</code>; update <code>toneFor</code> and every tone literal and test.</li>
+<li>[x] 2.10 Add <code>ui/scripts/check-tokens.ts</code> and a <code>check:tokens</code> script that fail on <code>-panel</code>, <code>-panel-2</code>, <code>-ok</code>, <code>-warn</code>, <code>-bad</code> utilities and <code>--color-panel</code>, <code>--color-ok</code>, <code>--color-warn</code>, <code>--color-bad</code> under <code>web/src</code>. Add a test that proves it fires, as <code>scripts/eslint-ban.test.ts</code> does for the markup ban. Wire it into <code>lint-ui</code> in the <code>Makefile</code>.</li>
+<li>[x] 2.11 Run <code>make test-ui-e2e-visual</code>. If the four baselines differ beyond the threshold, regenerate them once with <code>make test-ui-e2e-update-snapshots</code> and review the images: the only visible changes should be colour.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_1">Success Criteria</h4>
+<ul>
+<li><code>index.css</code> is one line and <code>main.tsx</code> imports no font.</li>
+<li><code>bun run check:tokens</code> passes, and its own test shows it failing on a planted old name.</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code>, <code>make test-ui-e2e</code> pass; <code>a11y.spec.ts</code> passes with no rule disabled.</li>
+<li><code>check:dist</code> reports CSP-clean with the package's fonts.</li>
+<li>No page changed structure: any visual baseline diff is colour only.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-3-leaves">Phase 3: Leaves</h3>
+<p>Helpers and leaf components with no overlay behaviour move to the package: the <code>lib</code> and <code>hooks</code> modules, the charts, and the figure blocks. Each swap changes call sites only (D§5, "Blocks and charts").</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[x] 3.1 <code>lib/utils.ts</code> (<code>cn</code>), <code>lib/use-media-query.ts</code>, <code>lib/csv.ts</code>, <code>lib/time.ts</code>, <code>charts/scale.ts</code>: replace every import with the package module and delete the files and their tests. <code>SIDE_BY_SIDE</code> becomes <code>DETAIL_INLINE_QUERY</code> from <code>shell/detail-panel</code>.</li>
+<li>[x] 3.2 <code>floorPercent</code>, <code>formatPercent</code>, <code>heatOpacity</code>: import from <code>lib/percent</code>; delete the local definitions in <code>lib/posture.ts</code>, <code>lib/format.ts</code> and <code>lib/viewmodel.ts</code>. <code>compliantPercent</code> stays. <code>api/testdata/compliant_percent.json</code> must still drive the SPA's test.</li>
+<li>[x] 3.3 <code>components/time.tsx</code> to <code>blocks/time</code>: <code>TimeZoneProvider storageKey="rg.tz"</code>. Rewrite the toggle's test for pressed buttons. Confirm a stored <code>rg.tz</code> from the old build is honoured.</li>
+<li>[x] 3.4 <code>components/ExportButton.tsx</code> to <code>blocks/export-button</code>: pass <code>name</code> for the accessible name and <code>filename="repo-guardian-&lt;page&gt;"</code> so file names do not change. The e2e download assertions must pass unedited.</li>
+<li>[x] 3.5 <code>components/LoadMore.tsx</code> to <code>blocks/load-more</code>.</li>
+<li>[x] 3.6 <code>ui/meter</code> to <code>blocks/meter</code> (<code>size</code>, required <code>label</code>); <code>ui/chip</code> to <code>blocks/filter-chip</code>; <code>ui/pill</code> to <code>blocks/series-pills</code>, including the fleet's hand-rolled series picker.</li>
+<li>[x] 3.7 <code>ui/kpi</code> to <code>blocks/kpi</code>. Move <code>DeltaText</code> and <code>Delta</code> to <code>components/DeltaText.tsx</code>, pass it as <code>hint</code>, and update <code>lib/fleet.ts</code>'s type import.</li>
+<li>[x] 3.8 <code>ui/stat-strip</code> to <code>blocks/stat-strip</code> (<code>cells</code> to <code>items</code>, <code>subline</code> to <code>sub</code>).</li>
+<li>[x] 3.9 <code>charts/ChartCard</code> and <code>tooltip</code> to <code>blocks/chart-card</code> (<code>description</code>, <code>action</code>, <code>strip</code>). The fleet card's strip must stay visible in table view.</li>
+<li>[x] 3.10 <code>charts/TrendChart</code> to <code>blocks/trend-chart</code>: <code>points: {at, value}[]</code>, <code>series</code>, and <code>trendTable(points, series, { head: "Snapshot", noun: "snapshots" })</code>.</li>
+<li>[x] 3.11 <code>BarBuckets</code>, <code>PairBars</code>, <code>BarList</code>, <code>StackedBars</code>, <code>Sparkline</code> to their blocks. Check each chart with a null in its series: <code>Sparkline</code> now breaks the line.</li>
+<li>[x] 3.12 <code>charts/DistBar</code> to <code>blocks/dist-bar</code> with <code>size="sm"</code> and <code>label</code>; rebuild <code>PostureBar</code> on it. The accessible name becomes <code>&lt;label&gt;: &lt;summary&gt;</code>; confirm the e2e <code>getByRole("img", { name: … })</code> still matches.</li>
+<li>[x] 3.13 <code>ui/group-grid</code> to <code>blocks/group-grid</code> (<code>heading</code>, <code>label</code>, string headers). The footer row is <code>data-row="footer"</code>: update <code>e2e/ui.spec.ts</code> and the orgs tests.</li>
+<li>[x] 3.14 Delete <code>components/charts/</code> (including its barrel and <code>charts.test.tsx</code>) and the leaf files replaced above. Remove <code>recharts</code> from <code>package.json</code> and confirm one copy remains in the lockfile.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_2">Success Criteria</h4>
+<ul>
+<li>No file imports from <code>components/charts</code>, and the directory is gone.</li>
+<li><code>recharts</code> is not a direct dependency.</li>
+<li>CSV file names, the stored time zone and every chart's table view are unchanged, shown by the existing e2e passing.</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code>, <code>make test-ui-e2e</code> pass. <code>make test-ui-e2e-visual</code> passes against the Phase 2 baselines; a diff here is a regression to fix, not to re-baseline.</li>
+</ul>
+<p><strong>Phase 3 result (2026-11-18):</strong> met except the visual criterion. Status,
+Findings and Remediations match the Phase 2 baselines; Orgs differs by 2%
+of pixels, all from the package <code>GroupGrid</code> (41px rows against 38, a
+chevron icon for the disclosure triangle) and the package <code>ExportButton</code>
+(a download icon). Those are the package's design, not a local
+regression, and cannot be undone without restyling package internals,
+which this plan rules out; the Orgs baseline moves with the others in
+task 6.15. Four e2e selectors that walked a fixed number of parents now
+find the card or KPI by component.</p>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-4-primitives-and-overlays">Phase 4: Primitives and overlays</h3>
+<p>Buttons, badges, cards, tabs, popovers, menus and the detail panel move to the package, which replaces Radix with Base UI under every overlay. The test harness changes first, because Base UI decides at module load whether a document exists (D§5, D§7, D§8).</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[x] 4.1 <code>web/testing/preload.ts</code> (the bunfig preload from #254): load <code>@base-ui/react</code> and <code>cmdk</code> under the temporary document, beside <code>radix-ui</code>, and drop <code>radix-ui</code> from it in Phase 7. Rendering test files keep <code>withDOM(cleanup)</code>. Run the unit suite in CI's file order and in 20 shuffled orders to show no overlay test depends on which file loads first.</li>
+<li>[x] 4.2 <code>ui/button</code> to <code>components/button</code>. Give the three calls with no <code>variant</code> (<code>LoadMore</code>'s former call site if any remains, <code>OrgScope</code>, <code>views/repositories.tsx</code>) <code>variant="outline"</code>. Replace the four <code>&lt;Link&gt;&lt;Button tabIndex={-1}&gt;</code> nestings with <code>render={&lt;Link …/&gt;}</code>.
+  Changed in 4.12: <code>render</code> with <code>nativeButton={false}</code> gives the <code>&lt;a&gt;</code> <code>role="button"</code>, which the e2e link assertions caught. The four are plain <code>Link</code>s styled with <code>buttonVariants({ variant: "outline", size: "sm" })</code>.</li>
+<li>[x] 4.3 <code>ui/badge</code> to <code>components/badge</code> with <code>variant</code>; rebuild every badge in <code>components/badges.tsx</code> on it. <code>HoldBadge</code> keeps its sentence as the title.</li>
+<li>[x] 4.4 <code>ui/avatar</code> to <code>components/avatar</code> at its current call site (it moves again in Phase 6).</li>
+<li>[x] 4.5 Add <code>components/Panel.tsx</code>: the <code>title</code>/<code>subtitle</code>/<code>right</code>/<code>bodyClassName</code> API on <code>Card render</code> as a <code>section</code> and <code>CardTitle render</code> as an <code>h3</code> (function form, to satisfy the heading lint rule). Move the roughly 40 <code>Card</code> call sites to it. The three bare-surface uses get explicit class resets; the status page's two labelled cards keep a region role.
+  Done with one change: the bare-surface reset (<code>block flex-row gap-0 py-0</code>) lives in <code>Panel</code> itself, not at the call sites, because the package card's <code>flex-col</code> survived a caller's <code>flex flex-wrap</code> (five bare uses, not three). <code>Panel</code> also zeroes the card's gap and padding and pads header and body itself, so <code>bodyClassName="p-0"</code> stays flush. <code>PanelBody</code> replaces <code>CardBody</code> for the two bare panels with a padded body.</li>
+<li>[x] 4.6 Add <code>components/SegmentedTabs.tsx</code>: <code>Tabs({label, options, value, onChange})</code> and <code>SearchTabs</code> on the package's tabs. Verify with a test that it works with no panel and that unselected tabs are out of the tab order; if Base UI does not allow it, keep the roving-tabindex implementation local and note it here. Rebuild <code>RangeTabs</code> on it.
+  Done: Base UI allows both. <code>SegmentedTabs.test.tsx</code> renders a list with no panel and checks only the selected tab is in the Tab order (<code>tabindex</code> -1/0/-1, one Tab stop between two buttons); the arrow/Home/End case passes unedited on Base UI, so <code>nextTab</code> is gone.</li>
+<li>[x] 4.7 <code>ui/popover</code> to <code>components/popover</code>; move <code>PopoverHeading</code>, <code>PopoverItem</code> and <code>PopoverSeparator</code> to <code>components/OptionRows.tsx</code>. Call sites pass <code>align="start"</code>, <code>sideOffset={6}</code> and their width classes; <code>asChild</code> becomes <code>render</code>. <code>filters/FilterChips.tsx</code> and <code>page/OrgScope.tsx</code> are the consumers.</li>
+<li>[x] 4.8 <code>ui/dropdown-menu</code> to <code>components/dropdown-menu</code> in <code>TopBar</code>: <code>onSelect</code> becomes <code>onClick</code> on Sign out, the label goes inside a <code>DropdownMenuGroup</code>, the Documentation item uses <code>render={&lt;a …/&gt;}</code>.</li>
+<li>[x] 4.9 <code>ui/detail-drawer</code> to <code>shell/detail-panel</code> in both drawers: <code>onOpenChange</code>, <code>description</code>, <code>label</code> (the existing "Finding: …" and "Remediation: …" strings), <code>subject={open}</code>, and the page grid's second column as <code>var(--sheet-width-wide)</code>.</li>
+<li>[x] 4.10 <code>DetailKV</code> to <code>DetailsGrid layout="list"</code> in <code>views/policy.tsx</code>, <code>views/repositories.tsx</code> and both drawers. Check a long value (a pull request URL, an evidence line) wraps.
+  Checked in Chromium at 700px with a throwaway spec: no <code>details-grid</code> overflows on Policy, a repository, or either drawer, and a 300-character unbroken pull request URL and a long evidence line injected into a <code>dd</code> wrap (100px and 80px tall) with <code>scrollWidth</code> equal to <code>clientWidth</code>.</li>
+<li>[x] 4.11 Rewrite <code>components/ui/behaviour.test.tsx</code> and <code>primitives.test.tsx</code> cases that cover local behaviour (focus return, Escape, the options tabs) as tests of the local survivors; delete the cases that tested the deleted primitives.
+  Done: each deleted primitive's case went with it (Button, Avatar, Card → <code>Panel.test.tsx</code>, Tabs → <code>SegmentedTabs.test.tsx</code> with the keyboard and search-param cases). <code>behaviour.test.tsx</code> now covers only survivors (the shell's Drawer focus trap, Escape and focus return; Command), and the DeltaText cases moved to <code>components/DeltaText.test.tsx</code>.</li>
+<li>[x] 4.12 e2e: the drawer's dialog-name assertions pass unedited. Any selector that named local markup moves to a role, and each changed selector is first shown to fail against the pre-change build.
+  Done. No selector named local markup. The one changed assertion (<code>toHaveClass(/--color-destructive/)</code> → <code>toHaveAttribute("data-variant", "destructive")</code>, 4.3) cannot pass on the pre-change build, whose badge rendered no <code>data-variant</code>. Added: focus moves into the findings drawer and Escape returns it to the row (shown to fail with <code>returnFocusTo</code> removed), and the account menu opens from the keyboard and Escape returns focus to its trigger.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_3">Success Criteria</h4>
+<ul>
+<li>No file under <code>web/src</code> imports <code>radix-ui</code> except <code>components/ui/command.tsx</code>, <code>dialog.tsx</code> and <code>drawer.tsx</code>, which the shell still uses until Phase 6.</li>
+<li>Keyboard checks pass in e2e: focus enters each overlay on open, returns to the row or trigger on close, Escape closes.</li>
+<li>Sign out works from the menu (an e2e assertion, since a wrong handler fails silently).</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code>, <code>make test-ui-e2e</code> pass; <code>a11y.spec.ts</code> passes unchanged. Visual diffs are limited to overlay width and motion.</li>
+</ul>
+<!--docz:criteria:end-->
+
+<p><strong>Phase 4 result (2026-11-18):</strong> met except the visual criterion, as in
+Phase 3. <code>make lint-ui</code>, <code>make test-ui</code> (353) and <code>make test-ui-e2e</code>
+(42, <code>a11y.spec.ts</code> unchanged) pass; only <code>command.tsx</code>, <code>dialog.tsx</code>
+and <code>drawer.tsx</code> import <code>radix-ui</code>. The e2e run found two regressions,
+both fixed: the four Link buttons announced as buttons (4.2 note), and
+the package tab trigger's 1px focus outline under the global 2px rule
+(<code>SegmentedTabs</code> puts it back; worth raising upstream). Findings matches
+its baseline; Status and Remediations differ by 1% of pixels from the
+package outline badge (<code>px-1.5 py-1</code> against 7px/5px), which shortens
+the changelog tag rows and narrows the auto-width Kind column; Orgs is
+unchanged from Phase 3. These move with the 6.15 re-baseline.</p>
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-5-tables">Phase 5: Tables</h3>
+<p>Every table renders through the package's <code>DataTable</code>: the 14 embedded tables as plain tables, then the three cursor-paged lists in <code>manual</code> mode with <code>LoadMore</code> beneath. The routes' search parsing does not change (D§6).</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[x] 5.1 Add a unit test that a <code>DataTable</code> with <code>sortable={false}</code> renders plain-text headers (no button, no <code>aria-sort</code>) for a representative embedded table, and run it against the first converted table.
+  Done in <code>components/DataTable.test.tsx</code> against fleet's <code>controlColumns</code>. The view columns are display columns (no accessor), which TanStack never sorts, so <code>sortable={false}</code> changes nothing for them today; the test is two-sided on an accessor column (a sort button by default, none with <code>sortable={false}</code>) so it cannot pass vacuously.</li>
+<li>[x] 5.2 Convert the embedded tables' column definitions to <code>dataTableColumns&lt;T&gt;()</code>: <code>views/policy.tsx</code>, <code>controls.tsx</code> (two), <code>orgs.tsx</code> (four), <code>fleet.tsx</code> (three), <code>repositories.tsx</code> (three embedded), <code>findings/drawer.tsx</code>. <code>width</code> and <code>className</code> become <code>meta.className</code>; <code>numeric</code> and <code>hideBelow</code> move to <code>meta</code>.
+  Done as plain display-column objects (<code>{ id, header, cell: ({ row: { original } }) =&gt; …, meta }</code>) typed <code>DataTableColumn&lt;T&gt;[]</code>, not <code>dataTableColumns&lt;T&gt;().display(…)</code>: contextual typing gives the cell its row type either way, and the plain form keeps each column's comments and layout. <code>width</code> became <code>w-[…]</code> in <code>meta.className</code>. The repositories list has no row action, so it is <code>manual bare</code> without <code>selectedId</code>/<code>onRowClick</code>.</li>
+<li>[x] 5.3 Render them as <code>&lt;DataTable sortable={false} bare label=… columns data getRowId empty /&gt;</code>. Each keeps its accessible name and its empty text.</li>
+<li>[x] 5.4 Convert the three lists (<code>findings.tsx</code>, <code>remediations.tsx</code>, the repositories list) to <code>&lt;DataTable manual bare label=… selectedId onRowClick compact /&gt;</code> followed by the package's <code>LoadMore</code>. No <code>search</code> or <code>onSearchChange</code> is passed.</li>
+<li>[x] 5.5 Change the focus-return lookup in <code>findings.tsx</code> and <code>remediations.tsx</code> from <code>tr[data-key=…]</code> to <code>tr[data-row-id=…]</code>.</li>
+<li>[x] 5.6 Verify row activation on the lists: a click on the repository or pull-request link inside a row follows the link and does not open the drawer; Enter and Space on the row open it; a key pressed inside the row does not.
+  Verified in Chromium at 1600px with a throwaway spec on Findings and Remediations (and in <code>DataTable.test.tsx</code>): Enter and Space on a row open the drawer; Space on the repository link inside the row does not; a click on the repository or pull request link follows it with no <code>?open=</code>.</li>
+<li>[x] 5.7 Verify the side-by-side layout still drops <code>hideBelow: "compact"</code> columns at 1600px with the drawer open.
+  Verified in the same spec: Since (Findings) and Updated (Remediations) are dropped while the inline panel is open and come back on Escape.</li>
+<li>[x] 5.8 Delete <code>components/ui/data-table.tsx</code>, <code>table.tsx</code> and the table cases in <code>tables.test.tsx</code>; keep or move the cases that cover view columns.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_4">Success Criteria</h4>
+<ul>
+<li><code>components/ui/data-table</code> and <code>components/ui/table</code> have no importer and are deleted.</li>
+<li>No list shows a pager, a row count or a sort control, and no embedded table sorts (OQ4 as decided).</li>
+<li>The findings and remediations e2e flows (open, switch rows, close, <code>?open=</code> deep link, load more) pass unedited.</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code>, <code>make test-ui-e2e</code> pass. Visual diffs are table row and head heights only.</li>
+</ul>
+<!--docz:criteria:end-->
+
+<p><strong>Phase 5 result (2026-11-18):</strong> met. <code>make lint-ui</code>, <code>make test-ui</code> (356)
+and <code>make test-ui-e2e</code> (42, the findings and remediations flows
+unedited) pass. Findings and Remediations differ from their baselines by
+3% of pixels, all row and head height (the package <code>h-table-row</code> against
+9px cell padding, accumulating down the table); Status and Orgs are as
+after Phase 4.</p>
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-6-shell">Phase 6: Shell</h3>
+<p>The frame becomes the package's: a full-height collapsible sidebar with the app identity on top and the account menu at the foot, and a top bar with the trigger, breadcrumbs, search and time zone. This is the phase where the app looks different, and where the visual baselines are regenerated (D§4, D§9). The mockup already shows the target.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[x] 6.1 <code>Shell.tsx</code>: <code>SidebarProvider</code> (controlled) and <code>SidebarInset</code> around the main column. Keep the <code>/me</code> gate and <code>AccessView</code> outside the frame, the 1400px content width and the page padding.</li>
+<li>[x] 6.2 Persist the collapsed state in <code>localStorage</code> under <code>rg.sidebar</code>, read once at start with a safe default when storage is unavailable; unit-test read, write and the default.</li>
+<li>[x] 6.3 <code>AppSidebar.tsx</code> on <code>ShellSidebar</code>: the header is a link to <code>/</code> built from <code>SidebarMenuButton</code> and <code>AppMark</code> with "Repo Guardian" and "compliance · read-only", without <code>ShellSidebarIdentity</code>.</li>
+<li>[x] 6.4 Navigation from <code>shell/nav.ts</code>, unchanged: <code>ShellSidebarGroup</code> per group, <code>SidebarMenuButton render={&lt;Link/&gt;}</code> with <code>isActive</code>, <code>aria-current="page"</code> and <code>tooltip</code>; counts in <code>SidebarMenuBadge</code> from the same hooks; the Documentation entry as an external anchor. Icons are passed as nodes from the local <code>Icon</code>.</li>
+<li>[x] 6.5 The footer: the account menu on <code>DropdownMenu</code> with <code>AvatarMark</code> and <code>initialsOf</code>, name and subject, Documentation, and Sign out submitting the hidden POST form with <code>onClick</code>.</li>
+<li>[x] 6.6 <code>AppTopBar.tsx</code> on <code>TopBarLayout</code>: <code>SidebarTrigger</code>, a separator and the breadcrumbs in <code>start</code>; the Search button with <code>Kbd</code> and <code>TimeZoneToggle</code> in <code>end</code>. Remove the <code>data-slot="app-switcher"</code> element.</li>
+<li>[x] 6.7 <code>Breadcrumbs.tsx</code> on <code>components/breadcrumb</code>, labelled "Breadcrumb", links through <code>BreadcrumbLink render={&lt;Link/&gt;}</code>, the leaf with <code>aria-current="page"</code>. <code>crumbsFor</code> and the label provider are untouched. <em>Note: section crumbs are a local <code>CrumbLink</code> (an anchor whose <code>href</code> comes from <code>router.buildLocation</code>, navigating on a plain primary click) inside <code>BreadcrumbItem</code>, not <code>BreadcrumbLink render={&lt;Link/&gt;}</code>: TanStack's <code>Link</code> sets <code>aria-current="page"</code> on any fuzzy match after <code>activeProps</code>, so on <code>/status/...</code> the "Status" crumb marked itself current beside the leaf. <code>page.test.tsx</code> asserts exactly one <code>aria-current</code> in the nav. The sidebar's Fleet link takes <code>activeOptions={{ exact: true }}</code> for the same reason.</em></li>
+<li>[x] 6.8 <code>CommandPalette.tsx</code> on <code>CommandDialog</code> with <code>commandProps={{ shouldFilter: false, loop: true }}</code>. <code>palette.test.tsx</code> keeps its matching cases (a control matches on its title) and the wrap-around case.</li>
+<li>[x] 6.9 <code>page/PageHeader</code> to <code>blocks/page-header</code> (<code>meta</code>, <code>description</code>, <code>actions</code>); adjust padding through <code>className</code> so the page's spacing is the mockup's. <em>Note: <code>page/PageHeader</code> stays as a one-line wrapper that passes the package's props through and sets the page spacing once (<code>p-0</code>, <code>mb-3.5</code>, actions on the baseline, a 13px description with mono <code>&lt;code&gt;</code>), rather than the same <code>className</code> at eleven call sites. The badge now sits beside the <code>h1</code>, so a heading's accessible name is its title alone.</em></li>
+<li>[x] 6.10 <code>components/problem.tsx</code>: <code>ProblemView</code> builds the package's <code>ApiError</code> from a <code>ProblemError</code> and renders <code>ErrorState</code>; <code>ErrorBoundary</code> stays and renders it. The request id shows for a body carrying <code>request_id</code>.</li>
+<li>[x] 6.11 Delete <code>shell/Sidebar.tsx</code>, <code>shell/TopBar.tsx</code>, <code>MobileSidebar</code>, and <code>components/ui/command.tsx</code>, <code>dialog.tsx</code>, <code>drawer.tsx</code>, <code>avatar.tsx</code>.</li>
+<li>[x] 6.12 Rewrite <code>shell.test.tsx</code>, <code>nav.test.ts</code> consumers and <code>page.test.tsx</code> against roles. In e2e, replace <code>b[aria-current=page]</code> with <code>[aria-current="page"]</code> inside the Breadcrumb nav, and the "Open navigation" flow with the trigger; show each changed selector failing first. <em>Note: the e2e selectors changed with the frame (6.1–6.7) and each was run against the new frame first and failed: the account trigger is now named by its visible identity after a hidden "Account menu:" (axe's <code>label-content-name-mismatch</code> refused an <code>aria-label</code> hiding the name), nav counts are read from the entry's <code>sidebar-menu-badge</code>, the leaf is <code>[aria-current="page"]</code> inside the Breadcrumb nav, and the Tab order now runs header link, nav, account menu, trigger, search. <code>shell.test.tsx</code> covers the sidebar (one <code>aria-current</code>, Docs group, header link, account menu and the POST sign-out) and the Shell's collapse and its persistence, which fails with the <code>localStorage</code> write removed. <code>ui/behaviour.test.tsx</code> went with the local drawer and command it tested; the palette suite and the e2e drawer-focus test cover that behaviour now.</em></li>
+<li>[x] 6.13 Add e2e for what is new: the sidebar collapses to the rail and stays collapsed after a reload; below 768px the trigger opens the sheet and choosing an entry closes it; <code>⌘K</code> still opens the palette. <em>Note: three tests in <code>ui.spec.ts</code>; the collapse test fails with the <code>localStorage</code> write removed and the sheet test with the close-on-choose removed. On the sheet, sign-in waits on the trigger, since the account menu is inside the closed sheet.</em></li>
+<li>[x] 6.14 Run <code>a11y.spec.ts</code> on the new frame, including the collapsed rail and the open sheet. Fix findings in local code; a finding inside a package component is an upstream issue (OQ3). <em>Note: three new audits — the collapsed rail (and again with a rail tooltip open, reached by Tab: Base UI opens tooltips on keyboard focus, not on a scripted <code>.focus()</code>), the open sheet at 600px, and the account menu then the palette. No rule disabled, no exclusion, no finding in local or package code. The palette first failed <code>color-contrast</code> on its muted text (2.99:1), but only because axe read the colours mid fade-in; once the overlay's animations finish it passes, so the audits wait on them (<code>settled</code>, scoped to the overlay because the page's infinite animations never finish).</em></li>
+<li>[x] 6.15 Regenerate the four visual baselines with <code>make test-ui-e2e-update-snapshots</code> and review each image against the mockup. <em>Note: regenerated once in the pinned image and reviewed: Findings, Orgs and Remediations show the new frame (identity, groups with the 13 and 6 counts, account menu at the foot, trigger, breadcrumbs, search, time zone) and the Phase 4–5 badge and row-height changes; Status is the public page, outside the frame, and moves only by the outline badges. This absorbs the 1–3% differences deferred from Phases 3–5.</em></li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_5">Success Criteria</h4>
+<ul>
+<li>The frame matches the mockup's: identity, groups, counts, account menu, trigger, breadcrumbs, search, time zone.</li>
+<li>No file under <code>web/src</code> imports <code>radix-ui</code>.</li>
+<li>Every route, URL parameter and deep link works as before; both Playwright projects pass, including the two-org visibility assertions.</li>
+<li><code>a11y.spec.ts</code> passes with no rule disabled and no new exclusion.</li>
+<li>The four baselines are regenerated once, in the pinned image, and reviewed.</li>
+</ul>
+<!--docz:criteria:end-->
+<p><strong>Phase 6 result (2026-11-18):</strong> met. <code>make lint-ui</code>, <code>make test-ui</code> (361)
+and <code>make test-ui-e2e</code> (48 across both projects, the two-org visibility
+assertions unedited) pass; no file under <code>web/src</code> imports <code>radix-ui</code>
+(the test harness's radix preload goes with the dependency in 7.2).
+<code>components/ui/</code> is empty and gone. The four baselines were regenerated
+once in the pinned image and pass. Upstream note for the package: the
+<code>TabsTrigger</code> focus outline is 1px against the global 2px ring (worked
+around locally in <code>SegmentedTabs</code>).</p>
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-7-removal">Phase 7: Removal</h3>
+<p>What the migration made unnecessary is deleted, and the rules that keep it from coming back are added (D§1, D§2).</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[x] 7.1 Delete <code>components/ui/</code> (whatever remains, with its test files) and confirm <code>components/charts/</code> is gone. <em>Note: nothing left to do: the last of <code>components/ui/</code> (command, dialog, drawer and their behaviour test) went in 6.11 and <code>components/charts/</code> in Phase 5.</em></li>
+<li>[x] 7.2 Remove from <code>ui/package.json</code> whatever nothing imports: <code>radix-ui</code>, <code>clsx</code>, <code>tailwind-merge</code>, <code>class-variance-authority</code>, <code>@fontsource/ibm-plex-sans</code>, <code>@fontsource/jetbrains-mono</code>. Check each with a search before removing it, and run <code>bun install</code> to settle the lockfile. <em>Note: each searched for outside <code>node_modules</code>, <code>dist</code> and the lockfile: only the test harness (<code>web/testing/dom.ts</code>, <code>preload.ts</code>) imported <code>radix-ui</code>, for its load-under-a-document preload; it now preloads the package's <code>components/dialog</code> and <code>components/command</code> (Base UI and cmdk), through the package because neither is our dependency. The other five are the package's own dependencies; the fonts still ship in <code>dist/</code> (Plex Sans 400/500/600, JetBrains Mono 400/500). Removed with <code>bun remove</code>.</em></li>
+<li>[x] 7.3 <code>eslint.config.js</code>: <code>no-restricted-imports</code> for <code>radix-ui</code> and <code>@radix-ui/*</code> under <code>web/</code>, with a case in <code>scripts/eslint-ban.test.ts</code> proving it fires.</li>
+<li>[x] 7.4 Check the layering rules of D§1 by search: no local barrel re-exporting package modules, no CSS targeting a package <code>data-slot</code>. <em>Note: searched <code>web/</code> for <code>export … from "@donaldgifford…"</code> and for <code>data-slot</code> in CSS and class strings. One re-export, <code>lib/viewmodel.ts</code>'s <code>TrendPoint as SeriesPoint</code>, is gone: its three users import <code>TrendPoint</code> from the package. No CSS or class targets a package slot (the only <code>data-slot</code> selectors are in tests). The local <code>initials</code>, unused since the account menu took the package's <code>initialsOf</code>, went with its test; the package gives a one-word name two letters ("ada" → "AD", was "A").</em></li>
+<li>[x] 7.5 Give each local survivor (<code>Panel</code>, <code>SegmentedTabs</code>, <code>OptionRows</code>, <code>DeltaText</code>, <code>common</code>, <code>problem</code>, <code>icons</code>) a header comment stating why it is not in the package. Use the <code>todo-comments</code> format for any note left behind. <em>Note: each opens with a "Local, not in the design system:" block after its imports, the shape <code>DeltaText</code> already had. Two dead pieces went: <code>common.tsx</code>'s <code>Section</code> (nothing imported it) and the <code>menu</code> icon (only the old top bar used it). No note was left behind, so no todo-comment.</em></li>
+<li>[x] 7.6 <code>THIRD_PARTY_NOTICES.md</code>: add the package (Apache-2.0) and the libraries now bundled through it; note that the fonts arrive through the package. <em>Note: the list is measured, not guessed: a sourcemapped build's <code>sources</code> give the packages in the bundle, and walking <code>package.json</code> dependencies keeps those reached from the design system but not from the UI's own dependencies (Recharts added by hand, since its sources map outside <code>node_modules</code>). 57 packages plus the design system: MIT, ISC (d3), 0BSD (<code>tslib</code>) and Apache-2.0 (the package, <code>class-variance-authority</code>); one table with copyright lines and each licence text once. <code>sonner</code> is a package dependency but not in the bundle, so not listed.</em></li>
+<li>[x] 7.7 Measure the bundle (<code>bun run build</code>) and record JS and CSS sizes here beside <code>main</code>'s 989 kB and 31 kB. <em>Result (both built here, same Vite): JS 1,271.55 kB (385.34 kB gzip) against <code>main</code>'s 988.58 kB (295.25 kB gzip), +283 kB / +90 kB gzip; CSS 103.34 kB (17.57 kB gzip) against 30.97 kB (6.86 kB gzip), +72 kB / +10.7 kB gzip. Well under the spike's 1,761 kB. By unminified source, the growth is Base UI with its utils (~606 kB, replacing ~140 kB of radix popover, menu, popper and collection), TanStack Table (~171 kB, replacing the hand-rolled table), zod (361 kB) and cmdk with radix's Dialog under it (a second overlay stack beside Base UI); Recharts is one copy at the package's 3.8.0. zod is reached only through the package's <code>lib/errors</code>, whose module-level <code>problemSchema</code> cannot be tree-shaken, so any <code>ErrorState</code> brings it; that is an upstream lead (a lazily built schema, or <code>ApiError</code> in a zod-free module), not something to work around here. The CSS is the package's component styles and <code>tw-animate-css</code>. <strong>0.3.1 (2026-11-18):</strong> the package fixed both upstream notes (design-system#11): the tab trigger takes the global 2px ring, so <code>SegmentedTabs</code> drops its override (the e2e Tab walk still measures <code>solid 2px</code> on a range tab), and <code>lib/errors</code> no longer imports zod. zod stays in the bundle all the same (1,272.11 kB JS, 385.09 kB gzip): <code>blocks/data-table</code> imports <code>parseSort</code>/<code>formatSort</code> from <code>lib/list-search</code>, which builds <code>listSearchSchema</code> at load, the same shape on a second module. <strong>0.3.2 (2026-11-18):</strong> the package moved the zod-free list helpers to <code>lib/list-params</code>, which <code>blocks/data-table</code> now imports, and guards upstream that only <code>lib/problem</code> and <code>lib/list-search</code> import zod. zod is out of the bundle: 1,186.85 kB JS (361.34 kB gzip), −85 kB (−24 kB gzip); CSS unchanged at 103 kB. ESLint now bans <code>zod</code>, <code>lib/problem</code> and <code>lib/list-search</code> under <code>web/</code> so it stays out, and <code>THIRD_PARTY_NOTICES.md</code> drops the zod row (re-measured from the source map; nothing else moved).</em></li>
+<li>[x] 7.8 Confirm issue #252's "done when" list item by item and record the result here. <em>Result (2026-11-18):</em></li>
+<li><em>No local copies, <code>radix-ui</code> gone:</em> met. <code>components/ui/</code> is deleted, and <code>radix-ui</code> is out of <code>package.json</code> and banned by ESLint under <code>web/</code>. Each survivor states why it is local (7.5). The search for this item also turned up the local <code>relativeTime</code>, a dead copy of the package's <code>lib/time</code>; it was deleted, with the unused <code>humanizeDuration</code>.</li>
+<li><em>No old token names:</em> met. <code>check:tokens</code> passes in <code>make lint-ui</code>, and its test fails on a planted <code>bg-panel</code>.</li>
+<li><em><code>lint-ui</code>, <code>test-ui</code>, e2e, <code>check:dist</code> and the Docker build pass in CI:</em> met for the UI jobs on #255 (UI, UI e2e). The UI job first failed on a harness race (React work queued after <code>withDOM</code> removed the document), fixed in <code>web/testing/dom.ts</code>. CI's Docker job built only the Go image, so <code>ci.yml</code> gains a <code>docker-build-ui</code> job (the <code>ui-ci</code> bake target, both platforms, cache only, <code>GITHUB_TOKEN</code> with <code>packages: read</code> as the <code>NPM_TOKEN</code> build secret, gated on the <code>ui</code>, <code>docker</code> and <code>workflows</code> filters and required by <code>CI OK</code>): a broken UI image now fails the pull request, not the release. #255's Security Scan fails on two new govulncheck findings in Go and <code>klauspost/compress</code>, unrelated to this plan and fixed separately in #256.</li>
+<li><em>Looks the same apart from accepted differences:</em> met. The baselines were regenerated in Phases 2 and 6 and reviewed against the mockup, which DESIGN-0039 updated for the new frame.</li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_6">Success Criteria</h4>
+<ul>
+<li><code>ui/web/src/components/ui</code> and <code>components/charts</code> do not exist.</li>
+<li><code>ui/package.json</code> matches D§2's table.</li>
+<li>The Radix import ban and the old-token check both fail on a planted violation and pass on the tree.</li>
+<li><code>make lint-ui</code>, <code>make test-ui</code>, <code>make test-ui-e2e</code>, <code>make test-ui-e2e-visual</code> and <code>make docker-build-ui</code> pass.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:phase:start-->
+<h3 id="phase-8-release-and-documents">Phase 8: Release and documents</h3>
+<p>The change is released as v2.1.0 and the documents say what the code now does.</p>
+<!--docz:tasks:start-->
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[x] 8.1 <code>charts/repo-guardian/Chart.yaml</code>: <code>appVersion</code> to <code>2.1.0</code> and <code>version</code> to <code>2.1.0</code> (OQ5). Bump the <code>appVersion</code> pins in <code>charts/repo-guardian/tests/</code> in the same commit and run <code>make helm-docs</code>. <em>Note: no test pins the chart's own version (each sets <code>appVersion</code> in its suite, and the snapshots carry none); <code>make helm-unittest</code> passes 257/257. The latest GA tag reachable from <code>main</code> is <code>v2.0.0</code>, so <code>minor</code> cuts <code>v2.1.0</code>.</em></li>
+<li>[x] 8.2 <code>ui/CHANGELOG.yaml</code>: a 2.1.0 entry at the top (tags <code>improved</code>, <code>ui</code>), then <code>cd ui &amp;&amp; bun run gen:changelog</code>; commit the YAML, the generated JSON and <code>Chart.yaml</code> together. <code>check:changelog</code> passes. <em>Note: the Status visual baseline shows the newest changelog entry, so it was regenerated for 2.1.0 alone (the other three are unchanged) — a third regeneration beyond Phases 2 and 6 that the release bump forces.</em></li>
+<li>[x] 8.3 <code>CLAUDE.md</code> §The UI: the package and its pin, the registry token on every install path, the local survivors, the Base UI preload in <code>web/testing/dom.ts</code>, the old-token check, and the corrected breakpoint. Remove what describes the deleted components.</li>
+<li>[x] 8.4 <code>ui/README.md</code>: the design-language section points at the package and its Storybook; the make-target table and the token section are current.</li>
+<li>[x] 8.5 <code>docs/usage/ui.md</code> §The shell: the collapsible sidebar, the account menu, 768px, the <code>rg.sidebar</code> key. Re-render <code>docs/usage/img/ui/status.png</code> in the pinned Playwright image.</li>
+<li>[x] 8.6 Add a note at the top of DESIGN-0036 that its token and shell sections are superseded by DESIGN-0039.</li>
+<li>[x] 8.7 Open the pull request with the <code>minor</code> label. State in the description that the label cuts <code>v2.1.0</code>, and include the <code>accent</code> table from 2.1 and the bundle sizes from 7.7. <em>Note: #255, opened as a draft in Phase 1 for CI, now carries <code>minor</code>, the release statement, both tables, the hand-verified items and the upstream notes.</em></li>
+<li>[ ] 8.8 Merge. <em>deferred - human required</em></li>
+<li>[ ] 8.9 Confirm the push-triggered <code>release.yml</code> run created jobs, tagged <code>v2.1.0</code>, and that <code>ghcr.yml</code>'s <code>ui-image</code> and <code>ui-image-slsa</code> jobs succeeded with the build secret. <em>deferred - human required</em></li>
+<li>[ ] 8.10 Dispatch <code>changelog-update.yml</code> with <code>-f tag=v2.1.0</code> and merge its pull request. <em>deferred - human required</em></li>
+<li>[x] 8.11 Set DESIGN-0039 to Implemented and this plan to Completed with <code>docz status set</code>, and close issue #252. <em>Note: the statuses are set in this pull request so they land with the merge; #255's <code>Closes #252</code> closes the issue when it merges.</em></li>
+</ul>
+<!--docz:tasks:end-->
+
+<!--docz:criteria:start-->
+<h4 id="success-criteria_7">Success Criteria</h4>
+<ul>
+<li><code>v2.1.0</code> exists, with signed images and chart, and the UI image carries provenance.</li>
+<li>The status page's Changelog card shows 2.1.0.</li>
+<li><code>CLAUDE.md</code>, <code>ui/README.md</code> and <code>docs/usage/ui.md</code> describe the package-based UI and nothing they say about the deleted components remains.</li>
+<li>DESIGN-0039 is Implemented, this plan is Completed, issue #252 is closed.</li>
+</ul>
+<!--docz:criteria:end-->
+<!--docz:phase:end-->
+
+<hr />
+<!--docz:file-changes:start-->
+<h2 id="file-changes">File Changes</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ui/.npmrc</code></td>
+<td>Create</td>
+<td>scope registry and the <code>${NPM_TOKEN}</code> reference</td>
+</tr>
+<tr>
+<td><code>ui/package.json</code>, <code>ui/bun.lock</code></td>
+<td>Modify</td>
+<td>add the package (dev, exact); remove seven dependencies</td>
+</tr>
+<tr>
+<td><code>ui/Dockerfile</code></td>
+<td>Modify</td>
+<td>secret mount and <code>.npmrc</code> in the build stage</td>
+</tr>
+<tr>
+<td><code>docker-bake.hcl</code></td>
+<td>Modify</td>
+<td><code>NPM_TOKEN</code> secret on <code>_ui</code></td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>Modify</td>
+<td>token for <code>ui-install</code> and <code>docker-build-ui</code>; <code>check:tokens</code> in <code>lint-ui</code></td>
+</tr>
+<tr>
+<td><code>.github/workflows/ci.yml</code></td>
+<td>Modify</td>
+<td><code>packages: read</code> and <code>NPM_TOKEN</code> on <code>ui</code>, <code>ui-e2e</code></td>
+</tr>
+<tr>
+<td><code>.github/workflows/ghcr.yml</code></td>
+<td>Modify</td>
+<td><code>NPM_TOKEN</code> on the <code>ui-image</code> bake step</td>
+</tr>
+<tr>
+<td><code>renovate.json5</code>, <code>.github/dependabot.yml</code></td>
+<td>Modify</td>
+<td>registry access; the package's own update rule</td>
+</tr>
+<tr>
+<td><code>ui/web/index.html</code>, <code>web/src/index.css</code>, <code>web/src/main.tsx</code></td>
+<td>Modify</td>
+<td><code>class="dark"</code>, one import, no font imports</td>
+</tr>
+<tr>
+<td><code>ui/scripts/check-tokens.ts</code> (+ test)</td>
+<td>Create</td>
+<td>fails on a removed token name</td>
+</tr>
+<tr>
+<td><code>ui/eslint.config.js</code>, <code>ui/scripts/eslint-ban.test.ts</code></td>
+<td>Modify</td>
+<td>Radix import ban and its proof</td>
+</tr>
+<tr>
+<td><code>ui/web/testing/preload.ts</code></td>
+<td>Modify</td>
+<td>preload Base UI and cmdk</td>
+</tr>
+<tr>
+<td><code>ui/web/src/components/ui/</code>, <code>components/charts/</code></td>
+<td>Delete</td>
+<td>replaced by the package</td>
+</tr>
+<tr>
+<td><code>components/time.tsx</code>, <code>ExportButton.tsx</code>, <code>LoadMore.tsx</code>, <code>lib/{csv,time,utils,use-media-query}.ts</code></td>
+<td>Delete</td>
+<td>replaced by the package</td>
+</tr>
+<tr>
+<td><code>components/Panel.tsx</code>, <code>SegmentedTabs.tsx</code>, <code>OptionRows.tsx</code>, <code>DeltaText.tsx</code></td>
+<td>Create</td>
+<td>the local survivors, on package parts</td>
+</tr>
+<tr>
+<td><code>components/shell/{AppSidebar,AppTopBar}.tsx</code></td>
+<td>Create</td>
+<td>the frame on the package shell</td>
+</tr>
+<tr>
+<td><code>components/shell/{Sidebar,TopBar}.tsx</code></td>
+<td>Delete</td>
+<td>replaced</td>
+</tr>
+<tr>
+<td><code>components/shell/{Shell,CommandPalette}.tsx</code>, <code>page/Breadcrumbs.tsx</code>, <code>components/problem.tsx</code>, <code>badges.tsx</code>, <code>posture.tsx</code>, <code>filters/*</code>, <code>page/{OrgScope,RangeTabs}.tsx</code></td>
+<td>Modify</td>
+<td>rebuilt on package parts</td>
+</tr>
+<tr>
+<td><code>ui/web/src/views/**</code>, <code>lib/{format,posture,viewmodel,fleet}.ts</code></td>
+<td>Modify</td>
+<td>call sites, tone names, column definitions</td>
+</tr>
+<tr>
+<td><code>ui/e2e/*.spec.ts</code>, <code>e2e/__screenshots__/*.png</code></td>
+<td>Modify</td>
+<td>selectors to roles; new shell cases; baselines</td>
+</tr>
+<tr>
+<td><code>ui/THIRD_PARTY_NOTICES.md</code>, <code>ui/README.md</code>, <code>ui/CHANGELOG.yaml</code>, <code>web/src/generated/changelog.json</code></td>
+<td>Modify</td>
+<td>notices, setup, release entry</td>
+</tr>
+<tr>
+<td><code>charts/repo-guardian/Chart.yaml</code>, <code>charts/repo-guardian/tests/*</code></td>
+<td>Modify</td>
+<td>the release bump and its pins</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code>, <code>docs/usage/ui.md</code>, <code>docs/usage/img/ui/status.png</code>, DESIGN-0036</td>
+<td>Modify</td>
+<td>documents</td>
+</tr>
+</tbody>
+</table>
+<!--docz:file-changes:end-->
+
+<!--docz:testing:start-->
+<h2 id="testing-plan">Testing Plan</h2>
+<ul>
+<li>[x] <code>make lint-ui</code> (typecheck of app and package source, ESLint, API drift, changelog, <code>check:tokens</code>, <code>check:dist</code>) passes at the end of every phase.</li>
+<li>[x] <code>make test-ui</code> passes at the end of every phase; tests of deleted components are deleted with them, tests of local behaviour are rewritten against roles.</li>
+<li>[x] <code>make test-ui-e2e</code> passes at the end of every phase on both Playwright projects, with the two-org visibility assertions intact.</li>
+<li>[x] <code>a11y.spec.ts</code> passes at every phase with no rule disabled and no new exclusion, and covers the collapsed rail and the open sheet from Phase 6.</li>
+<li>[x] <code>make test-ui-e2e-visual</code>: baselines regenerated at most in Phases 2 and 6, in the pinned image, each reviewed against the mockup. <em>Note: one exception, forced by the release: the Status baseline shows the newest changelog entry and was regenerated for 2.1.0 alone in Phase 8 (8.2).</em></li>
+<li>[x] Keyboard paths checked explicitly in Phases 4 to 6: overlay focus in and out, Escape, row activation with Enter and Space, <code>⌘K</code>, <code>⌘B</code>.</li>
+<li>[x] The two new guards (<code>check:tokens</code>, the Radix import ban) each have a test that fails on a planted violation.</li>
+<li>[ ] <code>make docker-build-ui</code> in Phases 1 and 7; the <code>ghcr.yml</code> dry-run dispatch in Phase 1; the real release run in Phase 8. <em>Note: both local builds pass (Phase 7's with no token in the image history or the saved image), and every pull request touching <code>ui/</code> now builds the UI image for both platforms in <code>ci.yml</code>'s <code>docker-build-ui</code>; the dry-run dispatch (1.10) and the release run (8.9) are deferred - human required.</em></li>
+<li>[x] Things with no automated check, verified by hand and noted in the pull request: the stored <code>rg.tz</code> survives the upgrade, CSV file names are unchanged, Sign out works.</li>
+</ul>
+<!--docz:testing:end-->
+
+<!--docz:dependencies:start-->
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li><code>@donaldgifford/design-system</code> 0.3.0 on GitHub Packages (0.2.1 plus
+  the <code>sortable</code> prop). A later 0.3.x may be taken if it fixes
+  something found here; a 0.4.0 is not taken mid-plan.</li>
+<li>The documents (INV-0025, DESIGN-0039 with its mockup, this plan)
+  merged to <code>main</code> first (OQ1).</li>
+<li>A <code>read:packages</code> token for Renovate and Dependabot, created by the
+  maintainer (task 1.13). Not needed for CI if <code>GITHUB_TOKEN</code> is
+  accepted (task 1.8).</li>
+<li>Docker and Go locally for the e2e and visual suites.</li>
+<li>
+<h1 id="254-the-unit-suite-no-longer-depends-on-test-file-order-merged">254 (the unit suite no longer depends on test file order) merged.</h1>
+</li>
+<li>Not a dependency: renovate-config#18.</li>
+</ul>
+<h2 id="open-questions">Open Questions</h2>
+<p>Answer with a letter, or write under <code>other</code>. Option (a) is the
+recommendation in each.</p>
+<h3 id="oq1-how-do-the-documents-reach-main-before-the-work-starts">OQ1: How do the documents reach <code>main</code> before the work starts?</h3>
+<p>INV-0025 is on <code>docs/inv-design-system-migration</code> (pushed);
+DESIGN-0039, the mockup and this plan are on
+<code>docs/design-design-system-migration</code>, stacked on it (not yet
+committed).</p>
+<ul>
+<li><strong>(a)</strong> ✅ recommended: one documents pull request from the stacked
+  branch, containing all four, labelled <code>dont-release</code>, merged before
+  the implementation branch is cut. One review, and the design is
+  accepted with its mockup as the standing rule asks.</li>
+<li><strong>(b)</strong> Two pull requests, the investigation first and then design,
+  mockup and plan. Keeps the investigation's history separate for one
+  more merge.</li>
+<li><strong>(c)</strong> No documents pull request: carry them in the implementation
+  pull request. One merge in total, but the work would start from an
+  unaccepted design and the release PR would carry 1,000 lines of
+  documents.</li>
+<li><strong>other:</strong></li>
+</ul>
+<p><strong>Decision:</strong> (a), 2026-11-17. One <code>dont-release</code> documents pull request from the stacked branch, merged before <code>feat/ui-design-system</code> is cut.</p>
+<h3 id="oq2-what-are-the-secrets-called-and-what-if-cis-github_token-is-refused">OQ2: What are the secrets called, and what if CI's <code>GITHUB_TOKEN</code> is refused?</h3>
+<p>Renovate and Dependabot each need a maintainer-created token with
+<code>read:packages</code> (a classic token; fine-grained tokens do not cover
+packages). CI should work with <code>GITHUB_TOKEN</code>, which task 1.8 proves.</p>
+<ul>
+<li><strong>(a)</strong> ✅ recommended: one classic token stored under the name
+  <code>GH_PACKAGES_READ_TOKEN</code> in three places: Renovate's secrets,
+  Dependabot's secrets, and, only if 1.8 fails, Actions secrets for
+  the <code>ui</code> and <code>ui-e2e</code> jobs. One name to remember and rotate.</li>
+<li><strong>(b)</strong> Separate tokens per consumer with distinct names. Narrower
+  blast radius on a leak, three things to rotate.</li>
+<li><strong>(c)</strong> Skip the bots' secrets for now; do only the CI fallback if
+  needed. Nothing to create today, and the pin is bumped by hand until
+  renovate-config#18 lands.</li>
+<li><strong>other:</strong></li>
+</ul>
+<p><strong>Decision:</strong> (a), 2026-11-17. One classic <code>read:packages</code> token named <code>GH_PACKAGES_READ_TOKEN</code>, for Renovate and Dependabot, and for Actions only if task 1.8 shows <code>GITHUB_TOKEN</code> is refused.</p>
+<h3 id="oq3-what-happens-when-a-package-problem-appears-mid-plan">OQ3: What happens when a package problem appears mid-plan?</h3>
+<ul>
+<li><strong>(a)</strong> ✅ recommended: file it on <code>donaldgifford/design-system</code>,
+  keep the affected local file for now, continue with the other
+  phases, and take the fixed 0.3.x before Phase 7. The pull request
+  does not merge with a local workaround in place.</li>
+<li><strong>(b)</strong> Allow a temporary local shim marked with a <code>HACK</code> comment
+  naming the upstream issue, and merge with it. Never blocks on
+  upstream; leaves exactly the kind of patch the design rules out.</li>
+<li><strong>(c)</strong> Stop the plan until the fix is published. Simplest to reason
+  about, idle time on every finding.</li>
+<li><strong>other:</strong></li>
+</ul>
+<p><strong>Decision:</strong> (a), 2026-11-17. File upstream, keep the local file, continue, take the fixed 0.3.x before Phase 7. No merge with a workaround in place.</p>
+<h3 id="oq4-how-is-sorting-turned-off-on-the-embedded-tables">OQ4: How is sorting turned off on the embedded tables?</h3>
+<p>DESIGN-0039 decided embedded tables do not sort. The package sorts a
+plain table by default and offers no table-level switch.</p>
+<ul>
+<li><strong>(a)</strong> ✅ recommended: a small local helper beside the views that
+  wraps <code>dataTableColumns&lt;T&gt;()</code> and sets <code>enableSorting: false</code> on
+  every column it builds. One place, no upstream wait, easy to remove
+  if a table should sort later.</li>
+<li><strong>(b)</strong> Ask upstream for a table-level <code>sortable</code> prop and wait for
+  it. The cleanest call site; upstream chose inference over a prop
+  once already (design-system#11), and it blocks Phase 5.</li>
+<li><strong>(c)</strong> Write every embedded column as a display column. No helper,
+  and it loses accessor typing on about 60 columns.</li>
+<li><strong>other:</strong></li>
+</ul>
+<p><strong>Decision:</strong> (a), 2026-11-17, then superseded the same day by (b): upstream published 0.3.0 with <code>sortable</code> on <code>DataTable</code> (design-system#11). The plan pins 0.3.0, the embedded tables pass <code>sortable={false}</code>, and no local helper is written.</p>
+<h3 id="oq5-what-does-the-chart-version-become">OQ5: What does the chart <code>version</code> become?</h3>
+<p><code>appVersion</code> goes to 2.1.0. The chart's <code>version</code> is independent, and
+the chart must be republished to carry the new <code>appVersion</code>. Chart
+templates and values do not change.</p>
+<ul>
+<li><strong>(a)</strong> ✅ recommended: <code>2.1.0</code>. The chart has tracked the app's
+  version since 2.0.0, and one number is easier for an operator.</li>
+<li><strong>(b)</strong> <code>2.0.1</code>. Says truthfully that the chart itself did not
+  change, and lets chart and app versions drift apart from here.</li>
+<li><strong>other:</strong></li>
+</ul>
+<p><strong>Decision:</strong> (a), 2026-11-17. Chart <code>version</code> 2.1.0.</p>
+<!--docz:dependencies:end-->
+
+<!--docz:references:start-->
+<h2 id="references">References</h2>
+<ul>
+<li><a href="../../design/0039-adopting-donaldgifforddesign-system-in-the-ui/">DESIGN-0039</a>
+  and <a href="https://github.com/donaldgifford/repo-guardian/blob/main/ui/design/repo-guardian-mockup.html">the mockup</a></li>
+<li><a href="../../investigation/0025-migrating-the-ui-to-the-shared-donaldgifforddesign-system/">INV-0025</a></li>
+<li>Issue <a href="https://github.com/donaldgifford/repo-guardian/issues/252">#252</a></li>
+<li><a href="https://github.com/donaldgifford/design-system/issues/11">design-system#11</a>
+  and the package's
+  <a href="https://github.com/donaldgifford/design-system#readme">README</a> and
+  <a href="https://donaldgifford.github.io/design-system/">Storybook</a></li>
+<li><a href="https://github.com/donaldgifford/renovate-config/issues/18">renovate-config#18</a></li>
+<li><a href="../0031-frontend-design-refresh-for-the-v2-ui/">IMPL-0031</a> and
+  <a href="../0032-controls-ui-findings-org-tree-fleet-panels-changelog-and-rc11/">IMPL-0032</a>,
+  which built what this plan replaces</li>
+</ul>
+<!--docz:references:end-->
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

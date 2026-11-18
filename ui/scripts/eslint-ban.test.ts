@@ -19,3 +19,22 @@ export function Probe({ html }: { html: string }) {
   const banned = (result?.messages ?? []).filter((m) => m.ruleId === "no-restricted-syntax");
   expect(banned).toHaveLength(5);
 });
+
+// The radix ban (IMPL-0037 7.3): the package's Base UI components are the
+// only overlay stack, in the app and in its test harness alike.
+test("ESLint bans radix-ui and @radix-ui/* under web/", async () => {
+  const eslint = new ESLint({ cwd: new URL("..", import.meta.url).pathname });
+  const probe = `
+import { Dialog } from "radix-ui";
+import * as Popover from "@radix-ui/react-popover";
+export const used = [Dialog, Popover];
+`;
+  for (const filePath of ["web/src/probe.tsx", "web/testing/probe.ts"]) {
+    const [result] = await eslint.lintText(probe, { filePath });
+    const banned = (result?.messages ?? []).filter((m) => m.ruleId === "no-restricted-imports");
+    expect(banned, filePath).toHaveLength(2);
+  }
+  // The server is not the SPA: the rule does not reach it.
+  const [server] = await eslint.lintText(probe, { filePath: "server/probe.ts" });
+  expect((server?.messages ?? []).filter((m) => m.ruleId === "no-restricted-imports")).toHaveLength(0);
+});

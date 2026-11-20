@@ -11,7 +11,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/exaring/otelpgx v0.11.1
 	github.com/getkin/kin-openapi v0.149.0
-	github.com/go-jose/go-jose/v4 v4.1.5
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/google/go-github/v68 v68.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/hashicorp/hcl/v2 v2.24.0
